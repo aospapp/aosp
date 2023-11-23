@@ -21,6 +21,7 @@
 #include "Swizzle.hpp"
 #include "Traits.hpp"
 
+#include <array>
 #include <cassert>
 #include <cmath>
 #include <cstddef>
@@ -61,12 +62,6 @@ int DebugPrintf(const char *format, ...);
 #	define __has_feature(x) 0
 #endif
 
-// Whether Reactor routine instrumentation is enabled for MSan builds.
-// TODO(b/155148722): Remove when unconditionally instrumenting for all build systems.
-#if !defined REACTOR_ENABLE_MEMORY_SANITIZER_INSTRUMENTATION
-#	define REACTOR_ENABLE_MEMORY_SANITIZER_INSTRUMENTATION 0
-#endif
-
 namespace rr {
 
 struct Caps
@@ -105,6 +100,12 @@ class Float;
 class Float2;
 class Float4;
 
+namespace SIMD {
+class Int;
+class UInt;
+class Float;
+}  // namespace SIMD
+
 template<>
 struct Scalar<Float4>
 {
@@ -119,6 +120,24 @@ struct Scalar<Int4>
 
 template<>
 struct Scalar<UInt4>
+{
+	using Type = UInt;
+};
+
+template<>
+struct Scalar<SIMD::Float>
+{
+	using Type = Float;
+};
+
+template<>
+struct Scalar<SIMD::Int>
+{
+	using Type = Int;
+};
+
+template<>
+struct Scalar<SIMD::UInt>
 {
 	using Type = UInt;
 };
@@ -320,6 +339,24 @@ struct BroadcastLiteral<Float4>
 	using Type = float;
 };
 
+template<>
+struct BroadcastLiteral<SIMD::Int>
+{
+	using Type = int;
+};
+
+template<>
+struct BroadcastLiteral<SIMD::UInt>
+{
+	using Type = unsigned int;
+};
+
+template<>
+struct BroadcastLiteral<SIMD::Float>
+{
+	using Type = float;
+};
+
 template<class T>
 class RValue
 {
@@ -341,6 +378,8 @@ public:
 	RValue<T> &operator=(const RValue<T> &) = delete;
 
 	Value *value() const { return val; }
+
+	static int element_count() { return T::element_count(); }
 
 private:
 	Value *const val;
@@ -631,6 +670,7 @@ public:
 	//	RValue<Byte4> operator=(const Reference<Byte4> &rhs);
 
 	static Type *type();
+	static int element_count() { return 4; }
 };
 
 RValue<Byte4> Insert(RValue<Byte4> val, RValue<Byte> element, int i);
@@ -677,6 +717,7 @@ public:
 	//	RValue<SByte4> operator=(const Reference<SByte4> &rhs);
 
 	static Type *type();
+	static int element_count() { return 4; }
 };
 
 //	RValue<SByte4> operator+(RValue<SByte4> lhs, RValue<SByte4> rhs);
@@ -721,6 +762,7 @@ public:
 	RValue<Byte8> operator=(const Reference<Byte8> &rhs);
 
 	static Type *type();
+	static int element_count() { return 8; }
 };
 
 RValue<Byte8> operator+(RValue<Byte8> lhs, RValue<Byte8> rhs);
@@ -776,6 +818,7 @@ public:
 	RValue<SByte8> operator=(const Reference<SByte8> &rhs);
 
 	static Type *type();
+	static int element_count() { return 8; }
 };
 
 RValue<SByte8> operator+(RValue<SByte8> lhs, RValue<SByte8> rhs);
@@ -827,6 +870,7 @@ public:
 	RValue<Byte16> operator=(const Reference<Byte16> &rhs);
 
 	static Type *type();
+	static int element_count() { return 16; }
 };
 
 //	RValue<Byte16> operator+(RValue<Byte16> lhs, RValue<Byte16> rhs);
@@ -872,6 +916,7 @@ public:
 	//	RValue<SByte16> operator=(const Reference<SByte16> &rhs);
 
 	static Type *type();
+	static int element_count() { return 16; }
 };
 
 //	RValue<SByte16> operator+(RValue<SByte16> lhs, RValue<SByte16> rhs);
@@ -908,6 +953,7 @@ public:
 	explicit Short2(RValue<Short4> cast);
 
 	static Type *type();
+	static int element_count() { return 2; }
 };
 
 class UShort2 : public LValue<UShort2>
@@ -916,6 +962,7 @@ public:
 	explicit UShort2(RValue<UShort4> cast);
 
 	static Type *type();
+	static int element_count() { return 2; }
 };
 
 class Short4 : public LValue<Short4>
@@ -945,6 +992,7 @@ public:
 	RValue<Short4> operator=(const Reference<UShort4> &rhs);
 
 	static Type *type();
+	static int element_count() { return 4; }
 };
 
 RValue<Short4> operator+(RValue<Short4> lhs, RValue<Short4> rhs);
@@ -1023,6 +1071,7 @@ public:
 	RValue<UShort4> operator=(const Reference<Short4> &rhs);
 
 	static Type *type();
+	static int element_count() { return 4; }
 };
 
 RValue<UShort4> operator+(RValue<UShort4> lhs, RValue<UShort4> rhs);
@@ -1077,6 +1126,7 @@ public:
 	RValue<Short8> operator=(const Reference<Short8> &rhs);
 
 	static Type *type();
+	static int element_count() { return 8; }
 };
 
 RValue<Short8> operator+(RValue<Short8> lhs, RValue<Short8> rhs);
@@ -1117,7 +1167,6 @@ RValue<Short8> operator>>(RValue<Short8> lhs, unsigned char rhs);
 
 RValue<Short8> MulHigh(RValue<Short8> x, RValue<Short8> y);
 RValue<Int4> MulAdd(RValue<Short8> x, RValue<Short8> y);
-RValue<Int4> Abs(RValue<Int4> x);
 
 class UShort8 : public LValue<UShort8>
 {
@@ -1135,6 +1184,7 @@ public:
 	RValue<UShort8> operator=(const Reference<UShort8> &rhs);
 
 	static Type *type();
+	static int element_count() { return 8; }
 };
 
 RValue<UShort8> operator+(RValue<UShort8> lhs, RValue<UShort8> rhs);
@@ -1422,6 +1472,7 @@ public:
 	RValue<Int2> operator=(const Reference<Int2> &rhs);
 
 	static Type *type();
+	static int element_count() { return 2; }
 };
 
 RValue<Int2> operator+(RValue<Int2> lhs, RValue<Int2> rhs);
@@ -1478,6 +1529,7 @@ public:
 	RValue<UInt2> operator=(const Reference<UInt2> &rhs);
 
 	static Type *type();
+	static int element_count() { return 2; }
 };
 
 RValue<UInt2> operator+(RValue<UInt2> lhs, RValue<UInt2> rhs);
@@ -1543,12 +1595,16 @@ public:
 	Int4(const Int &rhs);
 	Int4(const Reference<Int> &rhs);
 
+	template<int T>
+	Int4(const SwizzleMask1<Int4, T> &rhs);
+
 	RValue<Int4> operator=(int broadcast);
 	RValue<Int4> operator=(RValue<Int4> rhs);
 	RValue<Int4> operator=(const Int4 &rhs);
 	RValue<Int4> operator=(const Reference<Int4> &rhs);
 
 	static Type *type();
+	static int element_count() { return 4; }
 
 private:
 	void constant(int x, int y, int z, int w);
@@ -1604,6 +1660,7 @@ inline RValue<Int4> CmpGE(RValue<Int4> x, RValue<Int4> y)
 {
 	return CmpNLT(x, y);
 }
+RValue<Int4> Abs(RValue<Int4> x);
 RValue<Int4> Max(RValue<Int4> x, RValue<Int4> y);
 RValue<Int4> Min(RValue<Int4> x, RValue<Int4> y);
 // Convert to nearest integer. If a converted value is outside of the integer
@@ -1649,6 +1706,7 @@ public:
 	RValue<UInt4> operator=(const Reference<UInt4> &rhs);
 
 	static Type *type();
+	static int element_count() { return 4; }
 
 private:
 	void constant(int x, int y, int z, int w);
@@ -1771,12 +1829,6 @@ RValue<Bool> operator==(RValue<Float> lhs, RValue<Float> rhs);
 RValue<Float> Abs(RValue<Float> x);
 RValue<Float> Max(RValue<Float> x, RValue<Float> y);
 RValue<Float> Min(RValue<Float> x, RValue<Float> y);
-// Deprecated: use Rcp
-// TODO(b/147516027): Remove when GLES frontend is removed
-RValue<Float> Rcp_pp(RValue<Float> val, bool exactAtPow2 = false);
-// Deprecated: use RcpSqrt
-// TODO(b/147516027): Remove when GLES frontend is removed
-RValue<Float> RcpSqrt_pp(RValue<Float> val);
 RValue<Float> Rcp(RValue<Float> x, bool relaxedPrecision, bool exactAtPow2 = false);
 RValue<Float> RcpSqrt(RValue<Float> x, bool relaxedPrecision);
 RValue<Float> Sqrt(RValue<Float> x);
@@ -1847,6 +1899,7 @@ public:
 	//	RValue<Float2> operator=(const SwizzleMask1<T> &rhs);
 
 	static Type *type();
+	static int element_count() { return 2; }
 };
 
 //	RValue<Float2> operator+(RValue<Float2> lhs, RValue<Float2> rhs);
@@ -1920,6 +1973,7 @@ public:
 	static Float4 infinity();
 
 	static Type *type();
+	static int element_count() { return 4; }
 
 private:
 	void constant(float x, float y, float z, float w);
@@ -1947,12 +2001,6 @@ RValue<Float4> Abs(RValue<Float4> x);
 RValue<Float4> Max(RValue<Float4> x, RValue<Float4> y);
 RValue<Float4> Min(RValue<Float4> x, RValue<Float4> y);
 
-// Deprecated: use Rcp
-// TODO(b/147516027): Remove when GLES frontend is removed
-RValue<Float4> Rcp_pp(RValue<Float4> val, bool exactAtPow2 = false);
-// Deprecated: use RcpSqrt
-// TODO(b/147516027): Remove when GLES frontend is removed
-RValue<Float4> RcpSqrt_pp(RValue<Float4> val);
 RValue<Float4> Rcp(RValue<Float4> x, bool relaxedPrecision, bool exactAtPow2 = false);
 RValue<Float4> RcpSqrt(RValue<Float4> x, bool relaxedPrecision);
 RValue<Float4> Sqrt(RValue<Float4> x);
@@ -2027,6 +2075,84 @@ RValue<Float4> Exp(RValue<Float4> x);
 RValue<Float4> Log(RValue<Float4> x);
 RValue<Float4> Exp2(RValue<Float4> x);
 RValue<Float4> Log2(RValue<Float4> x);
+
+// Call a unary C function on each element of a vector type.
+template<typename Func, typename T>
+inline RValue<T> ScalarizeCall(Func func, const RValue<T> &x)
+{
+	T result;
+	for(int i = 0; i < T::element_count(); i++)
+	{
+		result = Insert(result, Call(func, Extract(x, i)), i);
+	}
+
+	return result;
+}
+
+// Call a binary C function on each element of a vector type.
+template<typename Func, typename T>
+inline RValue<T> ScalarizeCall(Func func, const RValue<T> &x, const RValue<T> &y)
+{
+	T result;
+	for(int i = 0; i < T::element_count(); i++)
+	{
+		result = Insert(result, Call(func, Extract(x, i), Extract(y, i)), i);
+	}
+
+	return result;
+}
+
+// Call a ternary C function on each element of a vector type.
+template<typename Func, typename T>
+inline RValue<T> ScalarizeCall(Func func, const RValue<T> &x, const RValue<T> &y, const RValue<T> &z)
+{
+	T result;
+	for(int i = 0; i < T::element_count(); i++)
+	{
+		result = Insert(result, Call(func, Extract(x, i), Extract(y, i), Extract(z, i)), i);
+	}
+
+	return result;
+}
+
+// Invoke a unary lambda expression on each element of a vector type.
+template<typename Func, typename T>
+inline RValue<T> Scalarize(Func func, const RValue<T> &x)
+{
+	T result;
+	for(int i = 0; i < T::element_count(); i++)
+	{
+		result = Insert(result, func(Extract(x, i)), i);
+	}
+
+	return result;
+}
+
+// Invoke a binary lambda expression on each element of a vector type.
+template<typename Func, typename T>
+inline RValue<T> Scalarize(Func func, const RValue<T> &x, const RValue<T> &y)
+{
+	T result;
+	for(int i = 0; i < T::element_count(); i++)
+	{
+		result = Insert(result, func(Extract(x, i), Extract(y, i)), i);
+	}
+
+	return result;
+}
+
+// Invoke a ternary lambda expression on each element of a vector type.
+template<typename Func, typename T>
+inline RValue<T> Scalarize(Func func, const RValue<T> &x, const RValue<T> &y, const RValue<T> &z)
+{
+	T result;
+	for(int i = 0; i < T::element_count(); i++)
+	{
+		result = Insert(result, func(Extract(x, i), Extract(y, i), Extract(z, i)), i);
+	}
+
+	return result;
+}
 
 // Bit Manipulation functions.
 // TODO: Currently unimplemented for Subzero.
@@ -2134,11 +2260,6 @@ RValue<T> Load(Pointer<T> pointer, unsigned int alignment, bool atomic, std::mem
 [[deprecated]] void MaskedStore(RValue<Pointer<Float4>> base, RValue<Float4> val, RValue<Int4> mask, unsigned int alignment);
 [[deprecated]] void MaskedStore(RValue<Pointer<Int4>> base, RValue<Int4> val, RValue<Int4> mask, unsigned int alignment);
 
-RValue<Float4> Gather(RValue<Pointer<Float>> base, RValue<Int4> offsets, RValue<Int4> mask, unsigned int alignment, bool zeroMaskedLanes = false);
-RValue<Int4> Gather(RValue<Pointer<Int>> base, RValue<Int4> offsets, RValue<Int4> mask, unsigned int alignment, bool zeroMaskedLanes = false);
-void Scatter(RValue<Pointer<Float>> base, RValue<Float4> val, RValue<Int4> offsets, RValue<Int4> mask, unsigned int alignment);
-void Scatter(RValue<Pointer<Int>> base, RValue<Int4> val, RValue<Int4> offsets, RValue<Int4> mask, unsigned int alignment);
-
 template<typename T>
 void Store(RValue<T> value, RValue<Pointer<T>> pointer, unsigned int alignment, bool atomic, std::memory_order memoryOrder)
 {
@@ -2156,6 +2277,24 @@ void Store(T value, Pointer<T> pointer, unsigned int alignment, bool atomic, std
 {
 	Store(RValue<T>(value), RValue<Pointer<T>>(pointer), alignment, atomic, memoryOrder);
 }
+
+enum class OutOfBoundsBehavior
+{
+	Nullify,             // Loads become zero, stores are elided.
+	RobustBufferAccess,  // As defined by the Vulkan spec (in short: access anywhere within bounds, or zeroing).
+	UndefinedValue,      // Only for load operations. Not secure. No program termination.
+	UndefinedBehavior,   // Program may terminate.
+};
+
+RValue<Bool> AnyTrue(const RValue<Int4> &bools);
+RValue<Bool> AnyFalse(const RValue<Int4> &bools);
+RValue<Bool> AllTrue(const RValue<Int4> &bools);
+RValue<Bool> AllFalse(const RValue<Int4> &bools);
+
+RValue<Bool> Divergent(const RValue<Int4> &ints);
+RValue<Bool> Divergent(const RValue<Float4> &floats);
+RValue<Bool> Uniform(const RValue<Int4> &ints);
+RValue<Bool> Uniform(const RValue<Float4> &floats);
 
 // Fence adds a memory barrier that enforces ordering constraints on memory
 // operations. memoryOrder can only be one of:
@@ -2227,7 +2366,6 @@ public:
 	}
 
 	std::shared_ptr<Routine> operator()(const char *name, ...);
-	std::shared_ptr<Routine> operator()(const Config::Edit &cfg, const char *name, ...);
 
 protected:
 	std::unique_ptr<Nucleus> core;
@@ -2265,12 +2403,6 @@ public:
 	RoutineType operator()(const char *name, VarArgs... varArgs)
 	{
 		return RoutineType(BaseType::operator()(name, std::forward<VarArgs>(varArgs)...));
-	}
-
-	template<typename... VarArgs>
-	RoutineType operator()(const Config::Edit &cfg, const char *name, VarArgs... varArgs)
-	{
-		return RoutineType(BaseType::operator()(cfg, name, std::forward<VarArgs>(varArgs)...));
 	}
 };
 
@@ -2395,44 +2527,38 @@ inline RValue<Float>::RValue(float f)
 	RR_DEBUG_INFO_EMIT_VAR(val);
 }
 
-inline Value *broadcastInt4(int i)
+inline Value *broadcast(int i, Type *type)
 {
-	int64_t constantVector[4] = { i, i, i, i };
-	return Nucleus::createConstantVector(constantVector, Int4::type());
+	std::vector<int64_t> constantVector = { i };
+	return Nucleus::createConstantVector(constantVector, type);
 }
 
 template<>
 inline RValue<Int4>::RValue(int i)
-    : val(broadcastInt4(i))
+    : val(broadcast(i, Int4::type()))
 {
 	RR_DEBUG_INFO_EMIT_VAR(val);
-}
-
-inline Value *broadcastUInt4(unsigned int i)
-{
-	int64_t constantVector[4] = { i, i, i, i };
-	return Nucleus::createConstantVector(constantVector, UInt4::type());
 }
 
 template<>
 inline RValue<UInt4>::RValue(unsigned int i)
-    : val(broadcastInt4(i))
+    : val(broadcast(int(i), UInt4::type()))
 {
 	RR_DEBUG_INFO_EMIT_VAR(val);
 }
 
-inline Value *broadcastFloat4(float f)
+inline Value *broadcast(float f, Type *type)
 {
 	// See Float(float) constructor for the rationale behind this assert.
 	assert(std::isfinite(f));
 
-	double constantVector[4] = { f, f, f, f };
-	return Nucleus::createConstantVector(constantVector, Float4::type());
+	std::vector<double> constantVector = { f };
+	return Nucleus::createConstantVector(constantVector, type);
 }
 
 template<>
 inline RValue<Float4>::RValue(float f)
-    : val(broadcastFloat4(f))
+    : val(broadcast(f, Float4::type()))
 {
 	RR_DEBUG_INFO_EMIT_VAR(val);
 }
@@ -2563,6 +2689,13 @@ RValue<Float> Float::operator=(const SwizzleMask1<Float4, T> &rhs)
 }
 
 template<int T>
+Int4::Int4(const SwizzleMask1<Int4, T> &rhs)
+    : XYZW(this)
+{
+	*this = rhs.operator RValue<Int4>();
+}
+
+template<int T>
 Float4::Float4(const SwizzleMask1<Float4, T> &rhs)
     : XYZW(this)
 {
@@ -2621,10 +2754,10 @@ RValue<Float4> Float4::operator=(const Swizzle4<Float4, T> &rhs)
 }
 
 // Returns a reactor pointer to the fixed-address ptr.
-RValue<Pointer<Byte>> ConstantPointer(void const *ptr);
+RValue<Pointer<Byte>> ConstantPointer(const void *ptr);
 
 // Returns a reactor pointer to an immutable copy of the data of size bytes.
-RValue<Pointer<Byte>> ConstantData(void const *data, size_t size);
+RValue<Pointer<Byte>> ConstantData(const void *data, size_t size);
 
 template<class T>
 Pointer<T>::Pointer(Argument<Pointer<T>> argument)
@@ -2867,23 +3000,7 @@ std::shared_ptr<Routine> Function<Return(Arguments...)>::operator()(const char *
 	vsnprintf(fullName, 1024, name, vararg);
 	va_end(vararg);
 
-	auto routine = core->acquireRoutine(fullName, nullptr);
-	core.reset(nullptr);
-
-	return routine;
-}
-
-template<typename Return, typename... Arguments>
-std::shared_ptr<Routine> Function<Return(Arguments...)>::operator()(const Config::Edit &cfg, const char *name, ...)
-{
-	char fullName[1024 + 1];
-
-	va_list vararg;
-	va_start(vararg, name);
-	vsnprintf(fullName, 1024, name, vararg);
-	va_end(vararg);
-
-	auto routine = core->acquireRoutine(fullName, &cfg);
+	auto routine = core->acquireRoutine(fullName);
 	core.reset(nullptr);
 
 	return routine;

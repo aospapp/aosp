@@ -42,6 +42,8 @@ uint32_t VideoCodecToV4L2PixFmt(VideoCodec codec) {
         return V4L2_PIX_FMT_VP8;
     case VideoCodec::VP9:
         return V4L2_PIX_FMT_VP9;
+    case VideoCodec::HEVC:
+        return V4L2_PIX_FMT_HEVC;
     }
 }
 

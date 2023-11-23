@@ -58,6 +58,8 @@ class ResourcesTest : public testing::Test {
     test_resources.locale.emplace_back(new LanguageTagT);
     test_resources.locale.back()->language = "fr";
     test_resources.locale.back()->region = "CA";
+    test_resources.locale.emplace_back(new LanguageTagT);
+    test_resources.locale.back()->language = "in";
     if (add_default_language) {
       test_resources.locale.emplace_back(new LanguageTagT);  // default
     }
@@ -72,7 +74,7 @@ class ResourcesTest : public testing::Test {
     test_resources.resource_entry.back()->resource.back()->locale.push_back(0);
     if (add_default_language) {
       test_resources.resource_entry.back()->resource.back()->locale.push_back(
-          9);
+          10);
     }
 
     // en-GB
@@ -115,6 +117,12 @@ class ResourcesTest : public testing::Test {
     test_resources.resource_entry.back()->resource.back()->content = "龍";
     test_resources.resource_entry.back()->resource.back()->locale.push_back(7);
 
+    // in
+    test_resources.resource_entry.back()->resource.emplace_back(new ResourceT);
+    test_resources.resource_entry.back()->resource.back()->content =
+        "Apa kabar";
+    test_resources.resource_entry.back()->resource.back()->locale.push_back(9);
+
     flatbuffers::FlatBufferBuilder builder;
     builder.Finish(ResourcePool::Pack(builder, &test_resources));
 
@@ -147,6 +155,9 @@ TEST_F(ResourcesTest, CorrectlyHandlesExactMatch) {
   EXPECT_TRUE(resources.GetResourceContent({Locale::FromBCP47("fr-CA")},
                                            /*resource_name=*/"A", &content));
   EXPECT_EQ("localiser", content);
+  EXPECT_TRUE(resources.GetResourceContent({Locale::FromBCP47("id")},
+                                           /*resource_name=*/"A", &content));
+  EXPECT_EQ("Apa kabar", content);
 }
 
 TEST_F(ResourcesTest, CorrectlyHandlesTie) {

@@ -1,2 +1,5 @@
-/target
+apkdmverity/target/
+zipfuse/target/
+policy
+zipfuse/target/
 Cargo.lock

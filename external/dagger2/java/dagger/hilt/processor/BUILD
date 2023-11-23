@@ -35,7 +35,8 @@ java_library(
         "//java/dagger/hilt/processor/internal/earlyentrypoint:processor_lib",
         "//java/dagger/hilt/processor/internal/generatesrootinput:processor_lib",
         "//java/dagger/hilt/processor/internal/originatingelement:processor_lib",
-        "//java/dagger/hilt/processor/internal/root:processor_lib",
+        "//java/dagger/hilt/processor/internal/root:component_tree_deps_processor_lib",
+        "//java/dagger/hilt/processor/internal/root:root_processor_lib",
         "//java/dagger/hilt/processor/internal/uninstallmodules:processor_lib",
         "//java/dagger/internal/codegen:processor",
     ],
@@ -87,9 +88,11 @@ gen_maven_artifact(
         "//java/dagger/hilt/processor/internal/generatesrootinput:generates_root_inputs",
         "//java/dagger/hilt/processor/internal/generatesrootinput:processor_lib",
         "//java/dagger/hilt/processor/internal/originatingelement:processor_lib",
-        "//java/dagger/hilt/processor/internal/root:processor_lib",
+        "//java/dagger/hilt/processor/internal/root:component_tree_deps_processor_lib",
+        "//java/dagger/hilt/processor/internal/root:root_processor_lib",
         "//java/dagger/hilt/processor/internal/root:root_metadata",
         "//java/dagger/hilt/processor/internal/root:root_type",
+        "//java/dagger/hilt/processor/internal/root/ir:ir",
         "//java/dagger/hilt/processor/internal/uninstallmodules:processor_lib",
         "//java/dagger/hilt/processor/internal/uninstallmodules:aggregated_uninstall_modules_metadata",
     ],
@@ -106,6 +109,7 @@ gen_maven_artifact(
         "javax.inject:javax.inject",
         "net.ltgt.gradle.incap:incap",
         "org.jetbrains.kotlin:kotlin-stdlib",
+        "org.jetbrains.kotlin:kotlin-stdlib-jdk8",
         "org.jetbrains.kotlinx:kotlinx-metadata-jvm",
     ],
     javadoc_android_api_level = 30,
@@ -116,8 +120,10 @@ gen_maven_artifact(
     javadoc_srcs = [
         "//java/dagger/hilt:hilt_processing_filegroup",
     ],
-    shaded_deps = ["@maven//:com_google_auto_auto_common"],
-    shaded_rules = ["rule com.google.auto.common.** dagger.hilt.android.shaded.auto.common.@1"],
+    # The shaded deps are added using jarjar, but they won't be shaded until later
+    # due to: https://github.com/google/dagger/issues/2765. For the shaded rules see
+    # util/deploy-hilt.sh
+    shaded_deps = ["//third_party/java/auto:common"],
 )
 
 filegroup(

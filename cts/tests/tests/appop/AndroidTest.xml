@@ -19,7 +19,10 @@
     <option name="config-descriptor:metadata" key="parameter" value="multi_abi" />
     <option name="config-descriptor:metadata" key="parameter" value="no_foldable_states" />
     <option name="config-descriptor:metadata" key="parameter" value="secondary_user" />
-    <object type="module_controller" class="com.android.tradefed.testtype.suite.module.Sdk30ModuleController" />
+    <option name="config-descriptor:metadata" key="parameter" value="run_on_sdk_sandbox" />
+
+    <!-- TODO(b/245579250): update to Sdk34 once sdk finalized -->
+    <object type="module_controller" class="com.android.tradefed.testtype.suite.module.Sdk33ModuleController" />
 
     <target_preparer class="com.android.tradefed.targetprep.suite.SuiteApkInstaller">
         <option name="cleanup-apks" value="true" />
@@ -61,4 +64,5 @@
         <option name="package" value="android.app.appops.cts" />
         <option name="runtime-hint" value="1m" />
     </test>
+
 </configuration>

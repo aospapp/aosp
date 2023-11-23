@@ -23,7 +23,11 @@
 #include <shared/nano_endian.h>
 #include <shared/nano_string.h>
 
-#include <chre.h>
+#include <chre/util/nanoapp/log.h>
+
+#include "chre_api/chre.h"
+
+#define LOG_TAG "[SendMessage]"
 
 namespace nanoapp_testing {
 
@@ -162,15 +166,15 @@ void sendStringToHost(MessageType messageType, const char *message,
   internalSendMessage(messageType, fullMessage, fullMessageLen, ChunkAlloc);
 }
 
-// Before we abort the nanoapp, we also put this message in the chreLog().
+// Before we abort the nanoapp, we also put this message in the LOGI().
 // We have no assurance our message will make it to the Host (not required
 // for CHRE implementations), but this will at least make sure our message
 // hits the log.
 static void logFatalMessage(const char *message, const uint32_t *value) {
   if (value != nullptr) {
-    chreLog(CHRE_LOG_ERROR, "TEST ABORT: %s0x%08" PRIX32, message, *value);
+    LOGE("TEST ABORT: %s0x%08" PRIX32, message, *value);
   } else {
-    chreLog(CHRE_LOG_ERROR, "TEST ABORT: %s", message);
+    LOGE("TEST ABORT: %s", message);
   }
 }
 

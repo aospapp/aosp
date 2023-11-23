@@ -30,7 +30,7 @@ class AsuiteMetricsTest(unittest.TestCase):
         # pylint: disable=unused-variable
         # pylint: disable=import-outside-toplevel
         # pylint: disable=unused-import
-        from asuite import asuite_metrics
+        from atest import asuite_metrics
 
         # TODO (b/132602907): Add the real usage for checking if metrics pass or fail.
 

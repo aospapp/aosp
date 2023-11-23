@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008, 2013, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2008, 2021, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -49,11 +49,16 @@ public abstract class UnixFileSystemProvider
     extends AbstractFileSystemProvider
 {
     private static final String USER_DIR = "user.dir";
+    private static final byte[] EMPTY_PATH = new byte[0];
     private final UnixFileSystem theFileSystem;
 
     public UnixFileSystemProvider() {
         String userDir = System.getProperty(USER_DIR);
         theFileSystem = newFileSystem(userDir);
+    }
+
+    UnixFileSystem theFileSystem() {
+        return theFileSystem;
     }
 
     /**
@@ -69,15 +74,16 @@ public abstract class UnixFileSystemProvider
     private void checkUri(URI uri) {
         if (!uri.getScheme().equalsIgnoreCase(getScheme()))
             throw new IllegalArgumentException("URI does not match this provider");
-        if (uri.getAuthority() != null)
+        if (uri.getRawAuthority() != null)
             throw new IllegalArgumentException("Authority component present");
-        if (uri.getPath() == null)
+        String path = uri.getPath();
+        if (path == null)
             throw new IllegalArgumentException("Path component is undefined");
-        if (!uri.getPath().equals("/"))
+        if (!path.equals("/"))
             throw new IllegalArgumentException("Path component should be '/'");
-        if (uri.getQuery() != null)
+        if (uri.getRawQuery() != null)
             throw new IllegalArgumentException("Query component present");
-        if (uri.getFragment() != null)
+        if (uri.getRawFragment() != null)
             throw new IllegalArgumentException("Fragment component present");
     }
 
@@ -348,7 +354,14 @@ public abstract class UnixFileSystemProvider
         UnixPath name = file.getFileName();
         if (name == null)
             return false;
-        return (name.asByteArray()[0] == '.');
+
+        byte[] path;
+        if (name.isEmpty()) { // corner case for empty paths
+            path = name.getFileSystem().defaultDirectory();
+        } else {
+            path = name.asByteArray();
+        }
+        return path[0] == '.';
     }
 
     /**
@@ -505,6 +518,29 @@ public abstract class UnixFileSystemProvider
         }
     }
 
+    @Override
+    public final boolean isDirectory(Path obj) {
+        UnixPath file = UnixPath.toUnixPath(obj);
+        file.checkRead();
+        int mode = UnixNativeDispatcher.stat(file);
+        return ((mode & UnixConstants.S_IFMT) == UnixConstants.S_IFDIR);
+    }
+
+    @Override
+    public final boolean isRegularFile(Path obj) {
+        UnixPath file = UnixPath.toUnixPath(obj);
+        file.checkRead();
+        int mode = UnixNativeDispatcher.stat(file);
+        return ((mode & UnixConstants.S_IFMT) == UnixConstants.S_IFREG);
+    }
+
+    @Override
+    public final boolean exists(Path obj) {
+        UnixPath file = UnixPath.toUnixPath(obj);
+        file.checkRead();
+        return UnixNativeDispatcher.exists(file);
+    }
+
     /**
      * Returns a {@code FileTypeDetector} for this platform.
      */
@@ -536,5 +572,14 @@ public abstract class UnixFileSystemProvider
                 return null;
             }
         };
+    }
+
+    @Override
+    public byte[] getSunPathForSocketFile(Path obj) {
+        UnixPath file = UnixPath.toUnixPath(obj);
+        if (file.isEmpty()) {
+            return EMPTY_PATH;
+        }
+        return file.getByteArrayForSysCalls();
     }
 }

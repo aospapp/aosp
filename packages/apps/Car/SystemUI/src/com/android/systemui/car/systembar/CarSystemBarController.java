@@ -28,29 +28,34 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Toast;
 
+import androidx.annotation.IdRes;
 import androidx.annotation.Nullable;
 
+import com.android.car.ui.FocusParkingView;
+import com.android.car.ui.utils.ViewUtils;
 import com.android.internal.annotations.VisibleForTesting;
 import com.android.systemui.R;
 import com.android.systemui.broadcast.BroadcastDispatcher;
 import com.android.systemui.car.CarServiceProvider;
 import com.android.systemui.car.hvac.HvacPanelOverlayViewController;
 import com.android.systemui.car.privacy.CameraPrivacyElementsProviderImpl;
-import com.android.systemui.car.privacy.CameraQcPanel;
 import com.android.systemui.car.privacy.MicPrivacyElementsProviderImpl;
-import com.android.systemui.car.privacy.MicQcPanel;
+import com.android.systemui.car.qc.SystemUIQCViewController;
 import com.android.systemui.car.statusbar.UserNameViewController;
 import com.android.systemui.car.statusicon.StatusIconPanelController;
+import com.android.systemui.car.users.CarSystemUIUserUtil;
 import com.android.systemui.dagger.SysUISingleton;
+import com.android.systemui.settings.UserTracker;
 import com.android.systemui.statusbar.policy.ConfigurationController;
+
+import dagger.Lazy;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 
 import javax.inject.Inject;
-
-import dagger.Lazy;
+import javax.inject.Provider;
 
 /** A single class which controls the navigation bar views. */
 @SysUISingleton
@@ -60,23 +65,35 @@ public class CarSystemBarController {
     private static final String TAG = CarSystemBarController.class.getSimpleName();
 
     private final Context mContext;
+    private final UserTracker mUserTracker;
     private final CarSystemBarViewFactory mCarSystemBarViewFactory;
     private final CarServiceProvider mCarServiceProvider;
     private final BroadcastDispatcher mBroadcastDispatcher;
     private final ConfigurationController mConfigurationController;
     private final ButtonSelectionStateController mButtonSelectionStateController;
     private final ButtonRoleHolderController mButtonRoleHolderController;
+    private final Provider<SystemUIQCViewController> mQCViewControllerProvider;
     private final Lazy<UserNameViewController> mUserNameViewControllerLazy;
     private final Lazy<MicPrivacyChipViewController> mMicPrivacyChipViewControllerLazy;
     private final Lazy<CameraPrivacyChipViewController> mCameraPrivacyChipViewControllerLazy;
     private final Lazy<MicPrivacyElementsProviderImpl> mMicPrivacyElementsProviderLazy;
     private final Lazy<CameraPrivacyElementsProviderImpl> mCameraPrivacyElementsProviderLazy;
 
-    private final boolean mShowTop;
-    private final boolean mShowBottom;
-    private final boolean mShowLeft;
-    private final boolean mShowRight;
+    private final SystemBarConfigs mSystemBarConfigs;
+    private boolean mShowTop;
+    private boolean mShowBottom;
+    private boolean mShowLeft;
+    private boolean mShowRight;
     private final int mPrivacyChipXOffset;
+
+    @IdRes
+    private int mTopFocusedViewId;
+    @IdRes
+    private int mBottomFocusedViewId;
+    @IdRes
+    private int mLeftFocusedViewId;
+    @IdRes
+    private int mRightFocusedViewId;
 
     private final Set<View.OnTouchListener> mTopBarTouchListeners = new ArraySet<>();
     private final Set<View.OnTouchListener> mBottomBarTouchListeners = new ArraySet<>();
@@ -103,6 +120,7 @@ public class CarSystemBarController {
 
     @Inject
     public CarSystemBarController(Context context,
+            UserTracker userTracker,
             CarSystemBarViewFactory carSystemBarViewFactory,
             CarServiceProvider carServiceProvider,
             BroadcastDispatcher broadcastDispatcher,
@@ -113,9 +131,11 @@ public class CarSystemBarController {
             Lazy<CameraPrivacyChipViewController> cameraPrivacyChipViewControllerLazy,
             ButtonRoleHolderController buttonRoleHolderController,
             SystemBarConfigs systemBarConfigs,
+            Provider<SystemUIQCViewController> qcViewControllerProvider,
             Lazy<MicPrivacyElementsProviderImpl> micPrivacyElementsProvider,
             Lazy<CameraPrivacyElementsProviderImpl> cameraPrivacyElementsProvider) {
         mContext = context;
+        mUserTracker = userTracker;
         mCarSystemBarViewFactory = carSystemBarViewFactory;
         mCarServiceProvider = carServiceProvider;
         mBroadcastDispatcher = broadcastDispatcher;
@@ -125,17 +145,32 @@ public class CarSystemBarController {
         mMicPrivacyChipViewControllerLazy = micPrivacyChipViewControllerLazy;
         mCameraPrivacyChipViewControllerLazy = cameraPrivacyChipViewControllerLazy;
         mButtonRoleHolderController = buttonRoleHolderController;
+        mQCViewControllerProvider = qcViewControllerProvider;
         mMicPrivacyElementsProviderLazy = micPrivacyElementsProvider;
         mCameraPrivacyElementsProviderLazy = cameraPrivacyElementsProvider;
+        mSystemBarConfigs = systemBarConfigs;
 
         // Read configuration.
-        mShowTop = systemBarConfigs.getEnabledStatusBySide(SystemBarConfigs.TOP);
-        mShowBottom = systemBarConfigs.getEnabledStatusBySide(SystemBarConfigs.BOTTOM);
-        mShowLeft = systemBarConfigs.getEnabledStatusBySide(SystemBarConfigs.LEFT);
-        mShowRight = systemBarConfigs.getEnabledStatusBySide(SystemBarConfigs.RIGHT);
-
+        readConfigs();
         mPrivacyChipXOffset = -context.getResources()
                 .getDimensionPixelOffset(R.dimen.privacy_chip_horizontal_padding);
+    }
+
+    /**
+     * Invalidate SystemBarConfigs and fetch again from Resources.
+     * TODO(): b/260206944, Can remove this after we have a fix for overlaid resources not applied.
+     */
+    void resetSystemBarConfigs() {
+        mSystemBarConfigs.resetSystemBarConfigs();
+        mCarSystemBarViewFactory.resetCache();
+        readConfigs();
+    }
+
+    private void readConfigs() {
+        mShowTop = mSystemBarConfigs.getEnabledStatusBySide(SystemBarConfigs.TOP);
+        mShowBottom = mSystemBarConfigs.getEnabledStatusBySide(SystemBarConfigs.BOTTOM);
+        mShowLeft = mSystemBarConfigs.getEnabledStatusBySide(SystemBarConfigs.LEFT);
+        mShowRight = mSystemBarConfigs.getEnabledStatusBySide(SystemBarConfigs.RIGHT);
     }
 
     /**
@@ -165,6 +200,16 @@ public class CarSystemBarController {
         mUserNameViewControllerLazy.get().removeAll();
         mMicPrivacyChipViewControllerLazy.get().removeAll();
         mCameraPrivacyChipViewControllerLazy.get().removeAll();
+
+        if (mMicPanelController != null) {
+            mMicPanelController.destroyPanel();
+        }
+        if (mCameraPanelController != null) {
+            mCameraPanelController.destroyPanel();
+        }
+        if (mProfilePanelController != null) {
+            mProfilePanelController.destroyPanel();
+        }
         mMicPanelController = null;
         mCameraPanelController = null;
         mProfilePanelController = null;
@@ -290,6 +335,7 @@ public class CarSystemBarController {
                 ((mStatusBarState2 & StatusBarManager.DISABLE2_SYSTEM_ICONS) > 0) || locked;
 
         setDisabledSystemBarButton(R.id.home, homeDisabled, "home");
+        setDisabledSystemBarButton(R.id.passenger_home, homeDisabled, "passenger_home");
         setDisabledSystemBarButton(R.id.phone_nav, locked, "phone_nav");
         setDisabledSystemBarButton(R.id.grid_nav, homeDisabled, "grid_nav");
         setDisabledSystemBarButton(R.id.notifications, notificationDisabled, "notifications");
@@ -352,9 +398,10 @@ public class CarSystemBarController {
         if (isSetUp) {
             // We do not want the privacy chips or the profile picker to be clickable in
             // unprovisioned mode.
-            setupSensorQcPanel(mMicPanelController, R.id.mic_privacy_chip, R.layout.qc_mic_panel);
-            setupSensorQcPanel(mCameraPanelController, R.id.camera_privacy_chip,
-                    R.layout.qc_camera_panel);
+            mMicPanelController = setupSensorQcPanel(mMicPanelController, R.id.mic_privacy_chip,
+                    R.layout.qc_mic_panel);
+            mCameraPanelController = setupSensorQcPanel(mCameraPanelController,
+                    R.id.camera_privacy_chip, R.layout.qc_camera_panel);
             setupProfilePanel();
         }
 
@@ -404,10 +451,12 @@ public class CarSystemBarController {
             NotificationsShadeController notifShadeController,
             HvacPanelController hvacPanelController,
             HvacPanelOverlayViewController hvacPanelOverlayViewController) {
+        view.updateHomeButtonVisibility(CarSystemUIUserUtil.isSecondaryMUMDSystemUI());
         view.setStatusBarWindowTouchListeners(statusBarTouchListeners);
         view.setNotificationsPanelController(notifShadeController);
         view.setHvacPanelController(hvacPanelController);
         view.registerHvacPanelOverlayViewController(hvacPanelOverlayViewController);
+        view.updateControlCenterButtonVisibility(CarSystemUIUserUtil.isMUMDSystemUI());
         mButtonSelectionStateController.addAllButtonsWithSelectionState(view);
         mButtonRoleHolderController.addAllButtonsWithRoleName(view);
         mUserNameViewControllerLazy.get().addUserNameView(view);
@@ -415,28 +464,19 @@ public class CarSystemBarController {
         mCameraPrivacyChipViewControllerLazy.get().addPrivacyChipView(view);
     }
 
-    private void setupSensorQcPanel(@Nullable StatusIconPanelController panelController,
-            int chipId, @LayoutRes int panelLayoutRes) {
+    private StatusIconPanelController setupSensorQcPanel(
+            @Nullable StatusIconPanelController panelController, int chipId,
+            @LayoutRes int panelLayoutRes) {
         if (panelController == null) {
-            panelController = new StatusIconPanelController(mContext, mCarServiceProvider,
-                    mBroadcastDispatcher, mConfigurationController);
-        }
-
-        panelController.setOnQcViewsFoundListener(qcViews -> qcViews.forEach(qcView -> {
-            if (qcView.getLocalQCProvider() instanceof MicQcPanel) {
-                MicQcPanel micQcPanel = (MicQcPanel) qcView.getLocalQCProvider();
-                micQcPanel.setControllers(mMicPrivacyChipViewControllerLazy.get(),
-                        mMicPrivacyElementsProviderLazy.get());
-            } else if (qcView.getLocalQCProvider() instanceof CameraQcPanel) {
-                CameraQcPanel cameraQcPanel = (CameraQcPanel) qcView.getLocalQCProvider();
-                cameraQcPanel.setControllers(mCameraPrivacyChipViewControllerLazy.get(),
-                        mCameraPrivacyElementsProviderLazy.get());
-            }
-        }));
-
-        panelController.attachPanel(mTopView.requireViewById(chipId), panelLayoutRes,
+            panelController = new StatusIconPanelController(mContext, mUserTracker,
+                    mCarServiceProvider, mBroadcastDispatcher, mConfigurationController,
+                    mQCViewControllerProvider);
+            panelController.attachPanel(mTopView.requireViewById(chipId), panelLayoutRes,
                 R.dimen.car_sensor_qc_panel_width, mPrivacyChipXOffset,
                 panelController.getDefaultYOffset(), Gravity.TOP | Gravity.END);
+        }
+
+        return panelController;
     }
 
     private void setupProfilePanel() {
@@ -444,9 +484,9 @@ public class CarSystemBarController {
         if (mProfilePanelController == null && profilePickerView != null) {
             boolean profilePanelDisabledWhileDriving = mContext.getResources().getBoolean(
                     R.bool.config_profile_panel_disabled_while_driving);
-            mProfilePanelController = new StatusIconPanelController(mContext, mCarServiceProvider,
-                    mBroadcastDispatcher, mConfigurationController,
-                    profilePanelDisabledWhileDriving);
+            mProfilePanelController = new StatusIconPanelController(mContext, mUserTracker,
+                    mCarServiceProvider, mBroadcastDispatcher, mConfigurationController,
+                    mQCViewControllerProvider, profilePanelDisabledWhileDriving);
             mProfilePanelController.attachPanel(profilePickerView, R.layout.qc_profile_switcher,
                     R.dimen.car_profile_quick_controls_panel_width, Gravity.TOP | Gravity.END);
         }
@@ -653,5 +693,57 @@ public class CarSystemBarController {
             barViews.add(mRightView);
         }
         return barViews;
+    }
+
+    /** Gets the selected Quick Controls class name. */
+    protected String getSelectedQuickControlsClassName() {
+        return mCarSystemBarViewFactory.getSelectedQuickControlsClassName();
+    }
+
+    /** Calls onClick for the given Quick Controls class name. */
+    protected void callQuickControlsOnClickFromClassName(String clsName) {
+        mCarSystemBarViewFactory.callQuickControlsOnClickFromClassName(clsName);
+    }
+
+    /** Resets the cached Views. */
+    protected void resetCache() {
+        mCarSystemBarViewFactory.resetCache();
+    }
+
+    /** Stores the ID of the View that is currently focused and hides the focus. */
+    protected void cacheAndHideFocus() {
+        mTopFocusedViewId = cacheAndHideFocus(mTopView);
+        if (mTopFocusedViewId != View.NO_ID) return;
+        mBottomFocusedViewId = cacheAndHideFocus(mBottomView);
+        if (mBottomFocusedViewId != View.NO_ID) return;
+        mLeftFocusedViewId = cacheAndHideFocus(mLeftView);
+        if (mLeftFocusedViewId != View.NO_ID) return;
+        mRightFocusedViewId = cacheAndHideFocus(mRightView);
+    }
+
+    @VisibleForTesting
+    int cacheAndHideFocus(@Nullable View rootView) {
+        if (rootView == null) return View.NO_ID;
+        View focusedView = rootView.findFocus();
+        if (focusedView == null || focusedView instanceof FocusParkingView) return View.NO_ID;
+        int focusedViewId = focusedView.getId();
+        ViewUtils.hideFocus(rootView);
+        return focusedViewId;
+    }
+
+    /** Requests focus on the View that matches the cached ID. */
+    protected void restoreFocus() {
+        if (restoreFocus(mTopView, mTopFocusedViewId)) return;
+        if (restoreFocus(mBottomView, mBottomFocusedViewId)) return;
+        if (restoreFocus(mLeftView, mLeftFocusedViewId)) return;
+        restoreFocus(mRightView, mRightFocusedViewId);
+    }
+
+    private boolean restoreFocus(@Nullable View rootView, @IdRes int viewToFocusId) {
+        if (rootView == null || viewToFocusId == View.NO_ID) return false;
+        View focusedView = rootView.findViewById(viewToFocusId);
+        if (focusedView == null) return false;
+        focusedView.requestFocus();
+        return true;
     }
 }

@@ -50,6 +50,7 @@ static struct option long_options[] = {
 	{"quiet", no_argument, 0, 12},
 	{"blobdev", required_argument, NULL, 13},
 	{"ignore-mtime", no_argument, NULL, 14},
+	{"preserve-mtime", no_argument, NULL, 15},
 #ifdef WITH_ANDROID
 	{"mount-point", required_argument, NULL, 512},
 	{"product-out", required_argument, NULL, 513},
@@ -99,6 +100,7 @@ static void usage(void)
 	      " --help                display this help and exit\n"
 	      " --ignore-mtime        use build time instead of strict per-file modification time\n"
 	      " --max-extent-bytes=#  set maximum decompressed extent size # in bytes\n"
+	      " --preserve-mtime      keep per-file modification time strictly\n"
 	      " --quiet               quiet execution (do not write anything to standard output.)\n"
 #ifndef NDEBUG
 	      " --random-pclusterblks randomize pclusterblks for big pcluster (debugging only)\n"
@@ -158,6 +160,7 @@ static int parse_extended_opts(const char *opts)
 			if (vallen)
 				return -EINVAL;
 			cfg.c_force_inodeversion = FORCE_INODE_COMPACT;
+			cfg.c_ignore_mtime = true;
 		}
 
 		if (MATCH_EXTENTED_OPT("force-inode-extended", token, keylen)) {
@@ -189,6 +192,12 @@ static int parse_extended_opts(const char *opts)
 				return -EINVAL;
 			cfg.c_force_chunkformat = FORCE_INODE_CHUNK_INDEXES;
 		}
+
+		if (MATCH_EXTENTED_OPT("ztailpacking", token, keylen)) {
+			if (vallen)
+				return -EINVAL;
+			cfg.c_ztailpacking = true;
+		}
 	}
 	return 0;
 }
@@ -200,7 +209,7 @@ static int mkfs_parse_options_cfg(int argc, char *argv[])
 	bool quiet = false;
 
 	while ((opt = getopt_long(argc, argv, "C:E:T:U:d:x:z:",
-				 long_options, NULL)) != -1) {
+				  long_options, NULL)) != -1) {
 		switch (opt) {
 		case 'z':
 			if (!optarg) {
@@ -371,6 +380,9 @@ static int mkfs_parse_options_cfg(int argc, char *argv[])
 		case 14:
 			cfg.c_ignore_mtime = true;
 			break;
+		case 15:
+			cfg.c_ignore_mtime = false;
+			break;
 		case 1:
 			usage();
 			exit(0);
@@ -417,8 +429,10 @@ static int mkfs_parse_options_cfg(int argc, char *argv[])
 		erofs_err("unexpected argument: %s\n", argv[optind]);
 		return -EINVAL;
 	}
-	if (quiet)
+	if (quiet) {
 		cfg.c_dbg_lvl = EROFS_ERR;
+		cfg.c_showprogress = false;
+	}
 	return 0;
 }
 
@@ -514,6 +528,7 @@ static int erofs_mkfs_superblock_csum_set(void)
 
 static void erofs_mkfs_default_options(void)
 {
+	cfg.c_showprogress = true;
 	cfg.c_legacy_compress = false;
 	sbi.feature_incompat = EROFS_FEATURE_INCOMPAT_LZ4_0PADDING;
 	sbi.feature_compat = EROFS_FEATURE_COMPAT_SB_CHKSUM |
@@ -557,7 +572,7 @@ int parse_source_date_epoch(void)
 void erofs_show_progs(int argc, char *argv[])
 {
 	if (cfg.c_dbg_lvl >= EROFS_WARN)
-		fprintf(stderr, "%s %s\n", basename(argv[0]), cfg.c_version);
+		printf("%s %s\n", basename(argv[0]), cfg.c_version);
 }
 
 int main(int argc, char **argv)
@@ -633,6 +648,8 @@ int main(int argc, char **argv)
 	erofs_show_config();
 	if (erofs_sb_has_chunked_file())
 		erofs_warn("EXPERIMENTAL chunked file feature in use. Use at your own risk!");
+	if (cfg.c_ztailpacking)
+		erofs_warn("EXPERIMENTAL compressed inline data feature in use. Use at your own risk!");
 	erofs_set_fs_root(cfg.c_src_path);
 #ifndef NDEBUG
 	if (cfg.c_random_pclusterblks)
@@ -730,6 +747,8 @@ exit:
 		erofs_err("\tCould not format the device : %s\n",
 			  erofs_strerror(err));
 		return 1;
+	} else {
+		erofs_update_progressinfo("Build completed.\n");
 	}
 	return 0;
 }

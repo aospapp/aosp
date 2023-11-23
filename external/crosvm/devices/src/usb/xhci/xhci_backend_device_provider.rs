@@ -1,12 +1,15 @@
-// Copyright 2019 The Chromium OS Authors. All rights reserved.
+// Copyright 2019 The ChromiumOS Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+use std::sync::Arc;
+
+use base::RawDescriptor;
+
 use super::super::host_backend::error::Result;
 use super::usb_hub::UsbHub;
-use crate::utils::{EventLoop, FailHandle};
-use base::RawDescriptor;
-use std::sync::Arc;
+use crate::utils::EventLoop;
+use crate::utils::FailHandle;
 
 /// Xhci backend provider will run on an EventLoop and connect new devices to usb ports.
 pub trait XhciBackendDeviceProvider: Send {

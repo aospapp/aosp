@@ -317,4 +317,8 @@
     <!-- The package names which can request thermal mitigation. -->
     <string-array name="thermal_mitigation_allowlisted_packages" translatable="false">
     </string-array>
+
+    <!-- Flag specifying whether the AOSP domain selection is enabled or
+         the device should fallback to the modem based domain selection architecture. -->
+    <bool name="config_enable_aosp_domain_selection">false</bool>
 </resources>

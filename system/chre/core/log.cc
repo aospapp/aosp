@@ -14,24 +14,24 @@
  * limitations under the License.
  */
 
-#include <cstdio>
-
-#include "chre/core/event_loop_manager.h"
-#include "chre/platform/system_time.h"
-
-#ifdef CHRE_USE_TOKENIZED_LOGGING
-#include "pw_tokenizer/tokenize_to_global_handler_with_payload.h"
+#ifdef CHRE_TOKENIZED_LOGGING_ENABLED
+#include "chre/platform/log.h"
+#include "pw_tokenizer/encode_args.h"
+#include "pw_tokenizer/tokenize.h"
 
 // The callback function that must be defined to handle an encoded
 // tokenizer message.
-void pw_tokenizer_HandleEncodedMessageWithPayload(pw_tokenizer_Payload logLevel,
-                                                  const uint8_t encodedMsg[],
-                                                  size_t encodedMsgSize) {
-#if defined(CHRE_USE_BUFFERED_LOGGING)
-  chrePlatformEncodedLogToBuffer(static_cast<chreLogLevel>(logLevel),
-                                 encodedMsg, encodedMsgSize);
-#else
-#error "Tokenized logging is currently only supported with buffered logging."
-#endif  // CHRE_USE_BUFFERED_LOGGING
+
+void EncodeTokenizedMessage(uint32_t level, pw_tokenizer_Token token,
+                            pw_tokenizer_ArgTypes types, ...) {
+  va_list args;
+  va_start(args, types);
+  pw::tokenizer::EncodedMessage encodedMessage(token, types, args);
+  va_end(args);
+
+  chrePlatformEncodedLogToBuffer(static_cast<chreLogLevel>(level),
+                                 encodedMessage.data_as_uint8(),
+                                 encodedMessage.size());
 }
-#endif
+
+#endif  // CHRE_TOKENIZED_LOGGING_ENABLED

@@ -16,6 +16,7 @@
 
 # pylint: disable=g-importing-member
 from dataclasses import dataclass
+import io
 from pathlib import Path
 from pathlib import PurePath
 import sys
@@ -66,17 +67,33 @@ class ExpectedUpstreamEntry:
   src_path: str  # source path in the commit pointed by the git_ref
   comment_lines: str = ''  # The comment lines above the entry line
 
+  def __eq__(self, other):
+    if not isinstance(other, ExpectedUpstreamEntry):
+      return False
+
+    return (self.dst_path == other.dst_path and
+            self.git_ref == other.git_ref and
+            self.src_path == other.src_path and
+            self.comment_lines == other.comment_lines)
+
 
 class ExpectedUpstreamFile:
   """A file object representing the EXPECTED_UPSTREAM file."""
 
-  def __init__(self, file_path: str = LIBCORE_DIR / 'EXPECTED_UPSTREAM'):
-    self.path = Path(file_path)
+  def __init__(self, file_or_bytes=LIBCORE_DIR / 'EXPECTED_UPSTREAM'):
+    if isinstance(file_or_bytes, Path):
+      path = Path(file_or_bytes)
+      # pylint: disable=unnecessary-lambda
+      self.openable = lambda mode: path.open(mode)
+    elif isinstance(file_or_bytes, bytes):
+      self.openable = lambda mode: io.StringIO(file_or_bytes.decode('utf-8'))
+    else:
+      raise NotImplementedError('Only support bytes or Path type')
 
   def read_all_entries(self) -> List[ExpectedUpstreamEntry]:
     """Read all entries from the file."""
     result: List[ExpectedUpstreamEntry] = []
-    with self.path.open() as file:
+    with self.openable('r') as file:
       comment_lines = ''  # Store the comment lines in the next entry
       for line in file:
         stripped = line.strip()
@@ -93,7 +110,7 @@ class ExpectedUpstreamFile:
 
   def write_all_entries(self, entries: List[ExpectedUpstreamEntry]) -> None:
     """Write all entries into the file."""
-    with self.path.open('w') as file:
+    with self.openable('w') as file:
       for e in entries:
         file.write(e.comment_lines)
         file.write(','.join([e.dst_path, e.git_ref, e.src_path]))
@@ -116,6 +133,30 @@ class ExpectedUpstreamFile:
     entries[0].comment_lines = header + entries[0].comment_lines
     self.write_all_entries(entries)
 
+  def get_new_or_modified_entries(
+      self, other: ExpectedUpstreamEntry) -> List[ExpectedUpstreamEntry]:
+    r"""Return a list of modified and added entries from the other file.
+
+    Args:
+      other: the other file
+
+    Returns:
+      A list of modified and added entries
+    """
+    result: List[ExpectedUpstreamEntry] = []
+    this_entries = self.read_all_entries()
+    that_entries = other.read_all_entries()
+    this_map = {}
+    for e in this_entries:
+      this_map[e.dst_path] = e
+
+    for e in that_entries:
+      value = this_map.get(e.dst_path)
+      if value is None or value != e:
+        result.append(e)
+
+    return result
+
   @staticmethod
   def parse_line(line: str, comment_lines: str) -> ExpectedUpstreamEntry:
     items = line.split(',')
@@ -132,6 +173,30 @@ class OjluniFinder:
 
   def __init__(self, existing_paths: List[str]):
     self.existing_paths = existing_paths
+
+  @staticmethod
+  def translate_ojluni_path_to_class_name(path: str) -> str:
+    r"""Translate an Ojluni file path to full class name.
+
+    Args:
+      path: ojluni path
+
+    Returns:
+      class name or None if class name isn't found.
+    """
+
+    if not path.endswith('.java'):
+      return None
+
+    if path.startswith(OJLUNI_JAVA_BASE_PATH):
+      base_path = OJLUNI_JAVA_BASE_PATH
+    elif path.startswith(OJLUNI_TEST_PATH):
+      base_path = OJLUNI_TEST_PATH
+    else:
+      return None
+
+    base_len = len(base_path)
+    return path[base_len:-5].replace('/', '.')
 
   @staticmethod
   def translate_from_class_name_to_ojluni_path(class_or_path: str) -> str:

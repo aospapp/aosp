@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012, 2017, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2012, 2020, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -91,6 +91,8 @@ import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
+import sun.util.locale.provider.CalendarDataUtility;
+
 /**
  * Localized definitions of the day-of-week, week-of-month and week-of-year fields.
  * <p>
@@ -120,7 +122,7 @@ import java.util.concurrent.ConcurrentMap;
  * </ul>
  * Together these two values allow a year or month to be divided into weeks.
  *
- * <h3>Week of Month</h3>
+ * <h2>Week of Month</h2>
  * One field is used: week-of-month.
  * The calculation ensures that weeks never overlap a month boundary.
  * The month is divided into periods where each period starts on the defined first day-of-week.
@@ -145,14 +147,14 @@ import java.util.concurrent.ConcurrentMap;
  * </tbody>
  * </table>
  *
- * <h3>Week of Year</h3>
+ * <h2>Week of Year</h2>
  * One field is used: week-of-year.
  * The calculation ensures that weeks never overlap a year boundary.
  * The year is divided into periods where each period starts on the defined first day-of-week.
  * The earliest period is referred to as week 0 if it has less than the minimal number of days
  * and week 1 if it has at least the minimal number of days.
  *
- * <h3>Week Based Year</h3>
+ * <h2>Week Based Year</h2>
  * Two fields are used for week-based-year, one for the
  * {@link #weekOfWeekBasedYear() week-of-week-based-year} and one for
  * {@link #weekBasedYear() week-based-year}.  In a week-based-year, each week
@@ -210,7 +212,7 @@ public final class WeekFields implements Serializable {
      * Note also that the first few days of a calendar year may be in the
      * week-based-year corresponding to the previous calendar year.
      */
-    public static final WeekFields ISO = new WeekFields(DayOfWeek.MONDAY, 4);
+    public static final WeekFields ISO = WeekFields.of(DayOfWeek.MONDAY, 4);
 
     /**
      * The common definition of a week that starts on Sunday and the first week
@@ -242,6 +244,7 @@ public final class WeekFields implements Serializable {
     /**
      * Serialization version.
      */
+    @java.io.Serial
     private static final long serialVersionUID = -1177360819670808121L;
 
     /**
@@ -283,7 +286,7 @@ public final class WeekFields implements Serializable {
 
     //-----------------------------------------------------------------------
     // Android-changed: Remove "rg" support in the javadoc. See http://b/228322300.
-    // Android-changed: Support the "fw" extension since Android 13. See http://b/228322300.
+    // Android-changed: Support the "fw" extension since Android 13.
     /**
      * Obtains an instance of {@code WeekFields} appropriate for a locale.
      * <p>
@@ -303,44 +306,13 @@ public final class WeekFields implements Serializable {
         // int calDow = CalendarDataUtility.retrieveFirstDayOfWeek(locale);
         Calendar calendar = Calendar.getInstance(locale);
         Calendar.WeekData weekData = calendar.getWeekData();
-        int calDow = retrieveFirstDayOfWeek(locale, weekData);
+        int calDow = CalendarDataUtility.retrieveFirstDayOfWeek(locale, weekData.firstDayOfWeek);
         DayOfWeek dow = DayOfWeek.SUNDAY.plus(calDow - 1);
         // Android-changed: Obtain minimal days from ICU4J.
         // int minDays = CalendarDataUtility.retrieveMinimalDaysInFirstWeek(locale);
         int minDays = weekData.minimalDaysInFirstWeek;
         return WeekFields.of(dow, minDays);
     }
-
-    // BEGIN Android-added: Extra method needed to support "fw" the Unicode extension.
-    // A modified version of the upstream CalendarDataUtility.retrieveFirstDayOfWeek() but with
-    // ICU provider.
-    private static int retrieveFirstDayOfWeek(Locale locale, Calendar.WeekData icuWeekData) {
-        // Look for the Unicode Extension in the locale parameter
-        if (locale.hasExtensions()) {
-            String fw = locale.getUnicodeLocaleType("fw");
-            if (fw != null) {
-                switch (fw.toLowerCase(Locale.ROOT)) {
-                    case "mon":
-                        return Calendar.MONDAY;
-                    case "tue":
-                        return Calendar.TUESDAY;
-                    case "wed":
-                        return Calendar.WEDNESDAY;
-                    case "thu":
-                        return Calendar.THURSDAY;
-                    case "fri":
-                        return Calendar.FRIDAY;
-                    case "sat":
-                        return Calendar.SATURDAY;
-                    case "sun":
-                        return Calendar.SUNDAY;
-                }
-            }
-        }
-
-        return icuWeekData.firstDayOfWeek;
-    }
-    // END Android-added: Extra method needed to support "fw" the Unicode extension.
 
     /**
      * Obtains an instance of {@code WeekFields} from the first day-of-week and minimal days.
@@ -396,10 +368,12 @@ public final class WeekFields implements Serializable {
      * Check that the values are valid.
      *
      * @param s the stream to read
+     * @throws IOException if an I/O error occurs
      * @throws InvalidObjectException if the serialized object has an invalid
      *     value for firstDayOfWeek or minimalDays.
      * @throws ClassNotFoundException if a class cannot be resolved
      */
+    @java.io.Serial
     private void readObject(ObjectInputStream s)
          throws IOException, ClassNotFoundException, InvalidObjectException
     {
@@ -420,6 +394,7 @@ public final class WeekFields implements Serializable {
      * @throws InvalidObjectException if the serialized object has invalid
      *     values for firstDayOfWeek or minimalDays.
      */
+    @java.io.Serial
     private Object readResolve() throws InvalidObjectException {
         try {
             return WeekFields.of(firstDayOfWeek, minimalDays);

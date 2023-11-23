@@ -19,6 +19,7 @@ package android.permission.cts;
 import static org.junit.Assert.fail;
 import static org.junit.Assume.assumeTrue;
 
+import android.app.ActivityManager;
 import android.content.pm.PackageManager;
 import android.nfc.NfcAdapter;
 import android.nfc.NfcAdapter.ControllerAlwaysOnListener;
@@ -37,6 +38,7 @@ import java.util.concurrent.Executor;
 public final class NfcPermissionTest {
 
     private NfcAdapter mNfcAdapter;
+    private static final String PKG_NAME = "com.android.packagename";
 
     private boolean supportsHardware() {
         final PackageManager pm = InstrumentationRegistry.getContext().getPackageManager();
@@ -147,6 +149,58 @@ public final class NfcPermissionTest {
             mNfcAdapter.unregisterControllerAlwaysOnListener(new AlwaysOnStateListener());
             fail("mNfcAdapter.unregisterControllerAlwaysOnListener did not throw"
                     + "SecurityException as expected");
+        } catch (SecurityException se) {
+            // Expected Exception
+        }
+    }
+
+    /**
+     * Verifies that isTagIntentAppPreferenceSupported() requires Permission.
+     * <p>
+     * Requires Permission: {@link android.Manifest.permission.WRITE_SECURE_SETTINGS}.
+     */
+    @Test
+    @AppModeFull
+    public void testIsTagIntentAppPreferenceSupported() {
+        try {
+            mNfcAdapter.isTagIntentAppPreferenceSupported();
+            fail("mNfcAdapter.isTagIntentAppPreferenceSupported() did not throw SecurityException"
+                    + " as expected");
+        } catch (SecurityException se) {
+            // Expected Exception
+        }
+    }
+
+    /**
+     * Verifies that getTagIntentAppPreferenceForUser() requires Permission.
+     * <p>
+     * Requires Permission: {@link android.Manifest.permission.WRITE_SECURE_SETTINGS}.
+     */
+    @Test
+    @AppModeFull
+    public void testGetTagIntentAppPreferenceForUser() {
+        try {
+            mNfcAdapter.getTagIntentAppPreferenceForUser(ActivityManager.getCurrentUser());
+            fail("mNfcAdapter.getTagIntentAppPreferenceForUser() did not throw SecurityException"
+                    + " as expected");
+        } catch (SecurityException se) {
+            // Expected Exception
+        }
+    }
+
+    /**
+     * Verifies that setTagIntentAppPreferenceForUser() requires Permission.
+     * <p>
+     * Requires Permission: {@link android.Manifest.permission.WRITE_SECURE_SETTINGS}.
+     */
+    @Test
+    @AppModeFull
+    public void testSetTagIntentAppPreferenceForUser() {
+        try {
+            mNfcAdapter.setTagIntentAppPreferenceForUser(ActivityManager.getCurrentUser(),
+                    PKG_NAME, true);
+            fail("mNfcAdapter.setTagIntentAppPreferenceForUser() did not throw SecurityException"
+                    + " as expected");
         } catch (SecurityException se) {
             // Expected Exception
         }

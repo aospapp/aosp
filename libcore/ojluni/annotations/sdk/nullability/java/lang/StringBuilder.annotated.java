@@ -138,5 +138,7 @@ public char charAt(int index) { throw new RuntimeException("Stub!"); }
 public int codePointCount(int beginIndex, int endIndex) { throw new RuntimeException("Stub!"); }
 
 public int offsetByCodePoints(int index, int codePointOffset) { throw new RuntimeException("Stub!"); }
+
+public int compareTo(@libcore.util.NonNull StringBuilder another) { throw new RuntimeException("Stub!"); }
 }
 

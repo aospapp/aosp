@@ -339,9 +339,8 @@ public final class BluetoothLeBroadcastAssistant implements BluetoothProfile, Au
         close();
     }
 
-    /**
-     * @hide
-     */
+    /** @hide */
+    @Override
     public void close() {
         mProfileConnector.disconnect();
     }
@@ -361,7 +360,8 @@ public final class BluetoothLeBroadcastAssistant implements BluetoothProfile, Au
             android.Manifest.permission.BLUETOOTH_PRIVILEGED,
     })
     @Override
-    public @BluetoothProfile.BtProfileState int getConnectionState(@NonNull BluetoothDevice sink) {
+    @BluetoothProfile.BtProfileState
+    public int getConnectionState(@NonNull BluetoothDevice sink) {
         log("getConnectionState(" + sink + ")");
         Objects.requireNonNull(sink, "sink cannot be null");
         final IBluetoothLeBroadcastAssistant service = getService();
@@ -390,8 +390,8 @@ public final class BluetoothLeBroadcastAssistant implements BluetoothProfile, Au
             android.Manifest.permission.BLUETOOTH_PRIVILEGED,
     })
     @Override
-    public @NonNull List<BluetoothDevice> getDevicesMatchingConnectionStates(
-            @NonNull int[] states) {
+    @NonNull
+    public List<BluetoothDevice> getDevicesMatchingConnectionStates(@NonNull int[] states) {
         log("getDevicesMatchingConnectionStates()");
         Objects.requireNonNull(states, "states cannot be null");
         final IBluetoothLeBroadcastAssistant service = getService();
@@ -944,8 +944,8 @@ public final class BluetoothLeBroadcastAssistant implements BluetoothProfile, Au
             android.Manifest.permission.BLUETOOTH_CONNECT,
             android.Manifest.permission.BLUETOOTH_PRIVILEGED,
     })
-    public @NonNull List<BluetoothLeBroadcastReceiveState> getAllSources(
-            @NonNull BluetoothDevice sink) {
+    @NonNull
+    public List<BluetoothLeBroadcastReceiveState> getAllSources(@NonNull BluetoothDevice sink) {
         log("getAllSources()");
         Objects.requireNonNull(sink, "sink cannot be null");
         final IBluetoothLeBroadcastAssistant service = getService();

@@ -17,7 +17,7 @@ syntax = "proto2";
 package com.android.permissioncontroller;
 option java_outer_classname = "PermissionControllerProto";
 
-import "packages/modules/Permission/PermissionController/src/com/android/permissioncontroller/permission/service/AutoRevokePermissions.proto";
+import "permission/service/AutoRevokePermissions.proto";
 
 message PermissionControllerDumpProto {
   optional permission.service.AutoRevokePermissionsDumpProto autoRevoke = 1;

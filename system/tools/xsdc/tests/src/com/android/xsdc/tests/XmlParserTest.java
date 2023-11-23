@@ -248,6 +248,31 @@ public class XmlParserTest {
     }
 
     @Test
+    public void testSimpleTypeRoot() throws Exception {
+        BigInteger percent;
+        try (InputStream str = this.getClass().getClassLoader().getResourceAsStream(
+                "simple_type_root.xml")) {
+            percent = simple.type.XmlParser.readPercent(str);
+        }
+
+        assertThat(percent, is(BigInteger.valueOf(100)));
+
+        String actualStr, expectedStr;
+        try (InputStream str = this.getClass().getClassLoader().getResourceAsStream(
+            "simple_type_root.xml")) {
+            expectedStr = new String(str.readAllBytes());
+        }
+        try (ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
+            try(simple.type.XmlWriter writer = new simple.type.XmlWriter(new PrintWriter(baos))) {
+                simple.type.XmlWriter.writePercent(writer, percent);
+            }
+            actualStr = new String(baos.toByteArray());
+        }
+
+        assertThat(new String(actualStr), is(expectedStr));
+    }
+
+    @Test
     public void testReference() throws Exception {
         reference.Class _class;
         try (InputStream str = this.getClass().getClassLoader().getResourceAsStream(

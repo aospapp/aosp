@@ -11,7 +11,6 @@
 #define _GNU_SOURCE
 #include <stdlib.h>
 #include <features.h>
-#include <fcntl.h>
 #include <unistd.h>
 #include <stdio.h>
 #include "lapi/fcntl.h"
@@ -44,7 +43,7 @@ static void test_pipe2(void)
 	pid = SAFE_FORK();
 	if (!pid) {
 		SAFE_FCNTL(fds[1], F_SETFL, flags & ~O_NONBLOCK);
-		SAFE_WRITE(1, fds[1], "x", 1);
+		SAFE_WRITE(SAFE_WRITE_ALL, fds[1], "x", 1);
 	}
 
 	if (TST_PROCESS_STATE_WAIT(pid, 'S', 1000) < 0)
@@ -85,7 +84,7 @@ static void setup(void)
 
 	write_buffer = SAFE_MALLOC(pipe_size);
 	memset(write_buffer, 'x', pipe_size);
-	SAFE_WRITE(1, fds[1], write_buffer, pipe_size);
+	SAFE_WRITE(SAFE_WRITE_ALL, fds[1], write_buffer, pipe_size);
 	free(write_buffer);
 }
 
@@ -98,7 +97,6 @@ static void cleanup(void)
 }
 
 static struct tst_test test = {
-	.min_kver = "2.6.35",
 	.test_all = test_pipe2,
 	.setup = setup,
 	.cleanup = cleanup,

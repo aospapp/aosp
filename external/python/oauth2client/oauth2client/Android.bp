@@ -28,14 +28,6 @@ python_library {
         "contrib/*.py",
         "contrib/django_util/*.py",
     ],
-    version: {
-        py2: {
-            enabled: true,
-        },
-        py3: {
-            enabled: true,
-        },
-    },
     libs: [
         "py-httplib2",
         "py-pyasn1",

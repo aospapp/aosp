@@ -26,8 +26,8 @@ import com.android.queryable.Queryable;
 public interface UriQuery<E extends Queryable> extends Query<Uri> {
 
     /** Queries a {@link Uri}. */
-    static UriQuery<UriQuery<?>> uri() {
-        return new UriQueryHelper<>();
+    static UriQueryHelper.UriQueryBase uri() {
+        return new UriQueryHelper.UriQueryBase();
     }
 
     /** Gets the {@link String} value of the {@link Uri}. */

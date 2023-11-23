@@ -52,10 +52,9 @@ bool CowDryRun(
   for (const auto& op : merge_operations) {
     if (op.type() == CowMergeOperation::COW_COPY) {
       visited.AddExtent(op.dst_extent());
-      for (size_t i = 0; i < op.dst_extent().num_blocks(); i++) {
-        cow_writer->AddCopy(op.dst_extent().start_block() + i,
-                            op.src_extent().start_block() + i);
-      }
+      cow_writer->AddCopy(op.dst_extent().start_block(),
+                          op.src_extent().start_block(),
+                          op.dst_extent().num_blocks());
     } else if (op.type() == CowMergeOperation::COW_XOR && xor_enabled) {
       CHECK_NE(source_fd, nullptr) << "Source fd is required to enable XOR ops";
       CHECK(source_fd->IsOpen());
@@ -106,14 +105,15 @@ bool CowDryRun(
     cow_writer->AddLabel(0);
   }
   for (const auto& op : operations) {
+    cow_writer->AddLabel(0);
     if (op.type() == InstallOperation::ZERO) {
       for (const auto& ext : op.dst_extents()) {
         visited.AddExtent(ext);
         cow_writer->AddZeroBlocks(ext.start_block(), ext.num_blocks());
       }
-      cow_writer->AddLabel(0);
     }
   }
+  cow_writer->AddLabel(0);
   const size_t last_block = partition_size / block_size;
   const auto unvisited_extents =
       FilterExtentRanges({ExtentForRange(0, last_block)}, visited);

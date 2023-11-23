@@ -19,6 +19,7 @@ package android.server.wm;
 import static android.app.AppOpsManager.MODE_ALLOWED;
 import static android.app.AppOpsManager.MODE_ERRORED;
 import static android.app.AppOpsManager.OPSTR_SYSTEM_ALERT_WINDOW;
+import static android.server.wm.ShellCommandHelper.executeShellCommand;
 import static android.server.wm.alertwindowapp.Components.ALERT_WINDOW_TEST_ACTIVITY;
 import static android.server.wm.alertwindowappsdk25.Components.SDK25_ALERT_WINDOW_TEST_ACTIVITY;
 

@@ -17,19 +17,25 @@
 #define STATSD_DEBUG false  // STOPSHIP if true
 #include "Log.h"
 
-#include "android-base/stringprintf.h"
-#include "guardrail/StatsdStats.h"
 #include "storage/StorageManager.h"
-#include "stats_log_util.h"
 
 #include <android-base/file.h>
+#include <android-modules-utils/sdk_level.h>
 #include <private/android_filesystem_config.h>
+#include <sys/stat.h>
+
 #include <fstream>
+
+#include "android-base/stringprintf.h"
+#include "guardrail/StatsdStats.h"
+#include "stats_log_util.h"
+#include "utils/DbUtils.h"
 
 namespace android {
 namespace os {
 namespace statsd {
 
+using android::modules::sdklevel::IsAtLeastU;
 using android::util::FIELD_COUNT_REPEATED;
 using android::util::FIELD_TYPE_MESSAGE;
 using std::map;
@@ -40,11 +46,6 @@ using std::map;
  */
 #define STATS_DATA_DIR "/data/misc/stats-data"
 #define STATS_SERVICE_DIR "/data/misc/stats-service"
-#define TRAIN_INFO_DIR "/data/misc/train-info"
-#define TRAIN_INFO_PATH "/data/misc/train-info/train-info.bin"
-
-// Magic word at the start of the train info file, change this if changing the file format
-const uint32_t TRAIN_INFO_FILE_MAGIC = 0xfb7447bf;
 
 // for ConfigMetricsReportList
 const int FIELD_ID_REPORTS = 2;
@@ -84,7 +85,7 @@ static string findTrainInfoFileNameLocked(const string& trainName) {
     dirent* de;
     while ((de = readdir(dir.get()))) {
         char* fileName = de->d_name;
-        if (fileName[0] == '.') continue;
+        if (fileName[0] == '.' || de->d_type == DT_DIR) continue;
 
         size_t fileNameLength = strlen(fileName);
         if (fileNameLength >= trainName.length()) {
@@ -121,6 +122,16 @@ static void parseFileName(char* name, FileName* output) {
     output->mConfigId = result[2];
     // check if the file is a local history.
     output->mIsHistory = (substr != nullptr && strcmp("history", substr) == 0);
+}
+
+// Returns array of int64_t which contains a sqlite db's uid and configId
+static ConfigKey parseDbName(char* name) {
+    char* uid = strtok(name, "_");
+    char* configId = strtok(nullptr, ".");
+    if (uid == nullptr || configId == nullptr) {
+        return ConfigKey(-1, -1);
+    }
+    return ConfigKey(StrToInt64(uid), StrToInt64(configId));
 }
 
 void StorageManager::writeFile(const char* file, const void* buffer, int numBytes) {
@@ -310,6 +321,32 @@ bool StorageManager::readTrainInfoLocked(const std::string& trainName, InstallTr
         return false;
     }
 
+    // On devices that are upgrading from 32 to 64 bit, reading size_t bytes will result in reading
+    // the wrong amount of data. We try to detect that issue here and read the file correctly.
+    // In the normal case on 64-bit devices, the trainNameSize's upper 4 bytes should be 0, but if
+    // a 32-bit device wrote the file, these would be the first 4 bytes of the train name.
+    bool is32To64BitUpgrade = false;
+    if ((sizeof(size_t) == sizeof(int64_t)) && (trainNameSize & 0xFFFFFFFF00000000) != 0) {
+        is32To64BitUpgrade = true;
+        // Reset the file offset to the magic + version code, and reread from the train name size.
+        off_t seekResult = lseek(fd, sizeof(magic) + sizeof(trainInfo.trainVersionCode), SEEK_SET);
+
+        if (seekResult != sizeof(magic) + sizeof(trainInfo.trainVersionCode)) {
+            VLOG("Failed to reset file offset when reading 32 to 64 bit train info");
+            close(fd);
+            return false;
+        }
+
+        int32_t trainNameSize32Bit;
+        result = read(fd, &trainNameSize32Bit, sizeof(int32_t));
+        if (result != sizeof(int32_t)) {
+            VLOG("Failed to read train name size 32 bit from train info file");
+            close(fd);
+            return false;
+        }
+        trainNameSize = trainNameSize32Bit;
+    }
+
     // Read trainName
     trainInfo.trainName.resize(trainNameSize);
     result = read(fd, trainInfo.trainName.data(), trainNameSize);
@@ -330,11 +367,22 @@ bool StorageManager::readTrainInfoLocked(const std::string& trainName, InstallTr
 
     // Read experiment ids count.
     size_t experimentIdsCount;
-    result = read(fd, &experimentIdsCount, sizeof(size_t));
-    if (result != sizeof(size_t)) {
-        VLOG("Failed to read train experiment id count from train info file");
-        close(fd);
-        return false;
+    int32_t experimentIdsCount32Bit;
+    if (is32To64BitUpgrade) {
+        result = read(fd, &experimentIdsCount32Bit, sizeof(int32_t));
+        if (result != sizeof(int32_t)) {
+            VLOG("Failed to read train experiment id count 32 bit from train info file");
+            close(fd);
+            return false;
+        }
+        experimentIdsCount = experimentIdsCount32Bit;
+    } else {
+        result = read(fd, &experimentIdsCount, sizeof(size_t));
+        if (result != sizeof(size_t)) {
+            VLOG("Failed to read train experiment id count from train info file");
+            close(fd);
+            return false;
+        }
     }
 
     // Read experimentIds
@@ -398,7 +446,7 @@ vector<InstallTrainInfo> StorageManager::readAllTrainInfo() {
     dirent* de;
     while ((de = readdir(dir.get()))) {
         char* name = de->d_name;
-        if (name[0] == '.') {
+        if (name[0] == '.' || de->d_type == DT_DIR) {
             continue;
         }
 
@@ -430,7 +478,7 @@ void StorageManager::deleteAllFiles(const char* path) {
     dirent* de;
     while ((de = readdir(dir.get()))) {
         char* name = de->d_name;
-        if (name[0] == '.') continue;
+        if (name[0] == '.' || de->d_type == DT_DIR) continue;
         deleteFile(StringPrintf("%s/%s", path, name).c_str());
     }
 }
@@ -445,7 +493,7 @@ void StorageManager::deleteSuffixedFiles(const char* path, const char* suffix) {
     dirent* de;
     while ((de = readdir(dir.get()))) {
         char* name = de->d_name;
-        if (name[0] == '.') {
+        if (name[0] == '.' || de->d_type == DT_DIR) {
             continue;
         }
         size_t nameLen = strlen(name);
@@ -467,7 +515,7 @@ void StorageManager::sendBroadcast(const char* path,
     dirent* de;
     while ((de = readdir(dir.get()))) {
         char* name = de->d_name;
-        if (name[0] == '.') continue;
+        if (name[0] == '.' || de->d_type == DT_DIR) continue;
         VLOG("file %s", name);
 
         FileName output;
@@ -489,7 +537,7 @@ bool StorageManager::hasConfigMetricsReport(const ConfigKey& key) {
     dirent* de;
     while ((de = readdir(dir.get()))) {
         char* name = de->d_name;
-        if (name[0] == '.') continue;
+        if (name[0] == '.' || de->d_type == DT_DIR) continue;
 
         size_t nameLen = strlen(name);
         size_t suffixLen = suffix.length();
@@ -517,7 +565,7 @@ void StorageManager::appendConfigMetricsReport(const ConfigKey& key, ProtoOutput
     while ((de = readdir(dir.get()))) {
         char* name = de->d_name;
         string fileName(name);
-        if (name[0] == '.') continue;
+        if (name[0] == '.' || de->d_type == DT_DIR) continue;
         FileName output;
         parseFileName(name, &output);
 
@@ -578,7 +626,7 @@ void StorageManager::readConfigFromDisk(map<ConfigKey, StatsdConfig>& configsMap
     dirent* de;
     while ((de = readdir(dir.get()))) {
         char* name = de->d_name;
-        if (name[0] == '.') continue;
+        if (name[0] == '.' || de->d_type == DT_DIR) continue;
 
         FileName output;
         parseFileName(name, &output);
@@ -618,7 +666,7 @@ bool StorageManager::readConfigFromDisk(const ConfigKey& key, string* content) {
     dirent* de;
     while ((de = readdir(dir.get()))) {
         char* name = de->d_name;
-        if (name[0] == '.') {
+        if (name[0] == '.' || de->d_type == DT_DIR) {
             continue;
         }
         size_t nameLen = strlen(name);
@@ -686,7 +734,7 @@ void StorageManager::trimToFit(const char* path, bool parseTimestampOnly) {
     auto nowSec = getWallClockSec();
     while ((de = readdir(dir.get()))) {
         char* name = de->d_name;
-        if (name[0] == '.') continue;
+        if (name[0] == '.' || de->d_type == DT_DIR) continue;
 
         FileName output;
         string file_name;
@@ -750,7 +798,7 @@ void StorageManager::printDirStats(int outFd, const char* path) {
     int totalFileSize = 0;
     while ((de = readdir(dir.get()))) {
         char* name = de->d_name;
-        if (name[0] == '.') {
+        if (name[0] == '.' || de->d_type == DT_DIR) {
             continue;
         }
         FileName output;
@@ -773,6 +821,49 @@ void StorageManager::printDirStats(int outFd, const char* path) {
     }
     dprintf(outFd, "\tTotal number of files: %d, Total size of files: %d bytes.\n", fileCount,
             totalFileSize);
+}
+
+void StorageManager::enforceDbGuardrails(const char* path, const int64_t currWallClockSec,
+                                         const int64_t maxBytes) {
+    if (!IsAtLeastU()) {
+        return;
+    }
+    unique_ptr<DIR, decltype(&closedir)> dir(opendir(path), closedir);
+    if (dir == NULL) {
+        VLOG("Path %s does not exist", path);
+        return;
+    }
+
+    dirent* de;
+    int64_t deleteThresholdSec = currWallClockSec - StatsdStats::kMaxAgeSecond;
+    while ((de = readdir(dir.get()))) {
+        char* name = de->d_name;
+        if (name[0] == '.' || de->d_type == DT_DIR) continue;
+        string fullPathName = StringPrintf("%s/%s", path, name);
+        struct stat fileInfo;
+        const ConfigKey key = parseDbName(name);
+        if (stat(fullPathName.c_str(), &fileInfo) != 0) {
+            // Remove file if stat fails.
+            remove(fullPathName.c_str());
+            continue;
+        }
+        StatsdStats::getInstance().noteRestrictedConfigDbSize(key, currWallClockSec,
+                                                              fileInfo.st_size);
+        if (fileInfo.st_mtime <= deleteThresholdSec || fileInfo.st_size >= maxBytes) {
+            remove(fullPathName.c_str());
+        }
+        if (hasFile(dbutils::getDbName(key).c_str())) {
+            dbutils::verifyIntegrityAndDeleteIfNecessary(key);
+        } else {
+            // Remove file if the file name fails to parse.
+            remove(fullPathName.c_str());
+        }
+    }
+}
+
+bool StorageManager::hasFile(const char* file) {
+    struct stat fileInfo;
+    return stat(file, &fileInfo) == 0;
 }
 
 }  // namespace statsd

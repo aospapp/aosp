@@ -1,5 +1,5 @@
 /*
- * Copyright 2017 The Chromium OS Authors. All rights reserved.
+ * Copyright 2017 The ChromiumOS Authors
  * Use of this source code is governed by a BSD-style license that can be
  * found in the LICENSE file.
  */
@@ -173,11 +173,6 @@ struct crosvm_net_config {
 static_assert(sizeof(struct crosvm_net_config) == 20,
               "extra padding in struct crosvm_net_config");
 #endif
-
-/*
- * Gets fd for the gpu server.
- */
-int crosvm_get_render_server_fd(void);
 
 /*
  * Gets the network configuration.

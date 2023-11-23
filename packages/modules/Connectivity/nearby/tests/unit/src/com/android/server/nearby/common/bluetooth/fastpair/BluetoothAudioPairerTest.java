@@ -84,6 +84,23 @@ public class BluetoothAudioPairerTest extends TestCase {
     }
 
     @SdkSuppress(minSdkVersion = 32, codeName = "T")
+    public void getDevice() {
+        Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
+        try {
+            assertThat(new BluetoothAudioPairer(
+                    context,
+                    BLUETOOTH_DEVICE,
+                    Preferences.builder().build(),
+                    new EventLoggerWrapper(new TestEventLogger()),
+                    null /* KeyBasePairingInfo */,
+                    null /*PasskeyConfirmationHandler */,
+                    new TimingLogger(EVENT_NAME, Preferences.builder().build())).getDevice())
+                    .isEqualTo(BLUETOOTH_DEVICE);
+        } catch (PairingException e) {
+        }
+    }
+
+    @SdkSuppress(minSdkVersion = 32, codeName = "T")
     public void testBluetoothAudioPairerUnpairNoCrash() {
         Context context = InstrumentationRegistry.getInstrumentation().getTargetContext();
         try {

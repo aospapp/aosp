@@ -7,9 +7,9 @@
 # which is not logged.
 
 if [[ "$OSTYPE" == "darwin"* ]]; then
-  OPTS="$(getopt f:rbsm:x -- "$*")"
+  OPTS="$(getopt f:rbsm:xn: -- "$*")"
 else
-  OPTS="$(getopt -o f:rbsm:x -l filter-driver:,include-nnapi-reference,nnapi-reference-only,skip-build,use-nnapi-sl,filter-model,extract-nnapi-sl -- "$@")"
+  OPTS="$(getopt -o f:rbsm:xn: -l filter-driver:,include-nnapi-reference,nnapi-reference-only,skip-build,use-nnapi-sl,filter-model,extract-nnapi-sl,nnapi-sl-vendor -- "$@")"
 fi
 
 if [ $? -ne 0 ]; then
@@ -20,6 +20,7 @@ if [ $? -ne 0 ]; then
     echo " -b : skip build and installation of tests"
     echo " -s : use NNAPI Support Library drivers (embedded in the benchmark APK unless -x is specified)"
     echo " -x : extract NNAPI Support Library drivers from the APK"
+    echo " -n <nnapi-sl-vendor> : Optional, specify which SL driver vendor is used (qc/mtk/arm), default: qc"
     echo " -m <regex> : to filter the models used in the tests"
   else
     echo " -f <regex> | --filter-driver <regex> : to run crash tests only on the drivers (ignoring nnapi-reference) matching the specified regular expression"
@@ -28,6 +29,7 @@ if [ $? -ne 0 ]; then
     echo " -b | --skip-build : skip build and installation of tests"
     echo " -s | --use-nnapi-sl : use NNAPI Support Library drivers (embedded in the benchmark APK unless -x is specified)"
     echo " -x | --extract-nnapi-sl : extract NNAPI Support Library drivers from the APK"
+    echo " -n <nnapi-sl-vendor> : Optional, specify which SL driver vendor is used (qc/mtk/arm), default: qc"
     echo " -m <regex> : to filter the models used in the tests"
   fi
   exit
@@ -74,6 +76,10 @@ while [ $# -gt 0 ] ; do
       echo "Creating configuration file with list of libraries"
       mkdir sl_prebuilt/assets
       ls sl_prebuilt/ 2>/dev/null | grep '.so'  >sl_prebuilt/assets/sl_prebuilt_filelist.txt
+      ;;
+    -n|--nnapi-sl-vendor)
+      NNAPI_SL_VENDOR=$2
+      shift 2
       ;;
     --)
       shift
@@ -172,6 +178,10 @@ if [ "$BUILD_AND_INSTALL" = true ]; then
       echo "================================================================"
       mv $SL_PREBUILT/Android.bp.template $SL_PREBUILT/Android.bp
     fi
+    if [[ -z "$NNAPI_SL_VENDOR" ]]; then
+      NNAPI_SL_VENDOR="qc"
+    fi
+    NNAPI_SL_FILTER_OPT+=" -e nnApiSupportLibraryVendor $NNAPI_SL_VENDOR"
   fi
 
   # Build and install benchmark app
@@ -272,7 +282,7 @@ if [[ "$MODE" == "scoring" ]]; then
   LOGDIR=$(mktemp -d)/mlts-logs
   HOST_CSV=$LOGDIR/benchmark.csv
   RESULT_HTML=$LOGDIR/result.html
-  DEVICE_CSV=/sdcard/mlts_benchmark.csv
+  DEVICE_CSV=/storage/emulated/0/mlts_benchmark.csv
 
   mkdir -p $LOGDIR
   echo Creating logs in $LOGDIR

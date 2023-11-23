@@ -21,7 +21,6 @@ package {
 java_library {
     name: "automotive-standard-app-helper",
     libs: [
-        "ub-uiautomator",
         "androidx.test.runner",
         "app-helpers-core",
     ],

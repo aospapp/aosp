@@ -716,9 +716,6 @@ class MacroAssembler : public Assembler, public MacroAssemblerInterface {
   static int MoveImmediateHelper(MacroAssembler* masm,
                                  const Register& rd,
                                  uint64_t imm);
-  static bool OneInstrMoveImmediateHelper(MacroAssembler* masm,
-                                          const Register& dst,
-                                          uint64_t imm);
 
 
   // Logical macros.
@@ -2819,7 +2816,11 @@ class MacroAssembler : public Assembler, public MacroAssemblerInterface {
   V(uzp1, Uzp1)                  \
   V(uzp2, Uzp2)                  \
   V(zip1, Zip1)                  \
-  V(zip2, Zip2)
+  V(zip2, Zip2)                  \
+  V(smmla, Smmla)                \
+  V(ummla, Ummla)                \
+  V(usmmla, Usmmla)              \
+  V(usdot, Usdot)
 
 #define DEFINE_MACRO_ASM_FUNC(ASM, MASM)                                     \
   void MASM(const VRegister& vd, const VRegister& vn, const VRegister& vm) { \
@@ -2971,7 +2972,10 @@ class MacroAssembler : public Assembler, public MacroAssemblerInterface {
   V(umlal, Umlal)                    \
   V(umlal2, Umlal2)                  \
   V(umlsl, Umlsl)                    \
-  V(umlsl2, Umlsl2)
+  V(umlsl2, Umlsl2)                  \
+  V(sudot, Sudot)                    \
+  V(usdot, Usdot)
+
 
 #define DEFINE_MACRO_ASM_FUNC(ASM, MASM)    \
   void MASM(const VRegister& vd,            \
@@ -3056,13 +3060,19 @@ class MacroAssembler : public Assembler, public MacroAssemblerInterface {
   V(mul, Mul)                               \
   V(orr, Orr)                               \
   V(sabd, Sabd)                             \
+  V(shadd, Shadd)                           \
   V(smax, Smax)                             \
-  V(smulh, Smulh)                           \
   V(smin, Smin)                             \
+  V(smulh, Smulh)                           \
+  V(sqadd, Sqadd)                           \
+  V(srhadd, Srhadd)                         \
   V(uabd, Uabd)                             \
+  V(uhadd, Uhadd)                           \
   V(umax, Umax)                             \
   V(umin, Umin)                             \
-  V(umulh, Umulh)
+  V(umulh, Umulh)                           \
+  V(uqadd, Uqadd)                           \
+  V(urhadd, Urhadd)
 
 #define DEFINE_MACRO_ASM_FUNC(ASM, MASM)          \
   void MASM(const ZRegister& zd,                  \
@@ -4103,7 +4113,11 @@ class MacroAssembler : public Assembler, public MacroAssemblerInterface {
   void Ext(const ZRegister& zd,
            const ZRegister& zn,
            const ZRegister& zm,
-           unsigned offset);
+           unsigned offset) {
+    VIXL_ASSERT(allow_macro_instructions_);
+    SingleEmissionCheckScope guard(this);
+    ext(zd, zn, zm, offset);
+  }
   void Fabd(const ZRegister& zd,
             const PRegisterM& pg,
             const ZRegister& zn,
@@ -4245,15 +4259,12 @@ class MacroAssembler : public Assembler, public MacroAssemblerInterface {
     SingleEmissionCheckScope guard(this);
     fcmgt(pd, pg, zn, zm);
   }
-  void Fcmla(const ZRegister& zda,
+  void Fcmla(const ZRegister& zd,
              const PRegisterM& pg,
+             const ZRegister& za,
              const ZRegister& zn,
              const ZRegister& zm,
-             int rot) {
-    VIXL_ASSERT(allow_macro_instructions_);
-    MovprfxHelperScope guard(this, zda, pg, zda);
-    fcmla(zda, pg, zn, zm, rot);
-  }
+             int rot);
   void Fcmla(const ZRegister& zda,
              const ZRegister& zn,
              const ZRegister& zm,
@@ -4860,6 +4871,18 @@ class MacroAssembler : public Assembler, public MacroAssemblerInterface {
               const PRegisterZ& pg,
               const SVEMemOperand& addr);
   void Ld1rqw(const ZRegister& zt,
+              const PRegisterZ& pg,
+              const SVEMemOperand& addr);
+  void Ld1rob(const ZRegister& zt,
+              const PRegisterZ& pg,
+              const SVEMemOperand& addr);
+  void Ld1rod(const ZRegister& zt,
+              const PRegisterZ& pg,
+              const SVEMemOperand& addr);
+  void Ld1roh(const ZRegister& zt,
+              const PRegisterZ& pg,
+              const SVEMemOperand& addr);
+  void Ld1row(const ZRegister& zt,
               const PRegisterZ& pg,
               const SVEMemOperand& addr);
   void Ld1rsb(const ZRegister& zt,
@@ -6366,6 +6389,1103 @@ class MacroAssembler : public Assembler, public MacroAssemblerInterface {
     zip2(zd, zn, zm);
   }
 
+  // SVE2
+  void Adclb(const ZRegister& zd,
+             const ZRegister& za,
+             const ZRegister& zn,
+             const ZRegister& zm);
+  void Adclt(const ZRegister& zd,
+             const ZRegister& za,
+             const ZRegister& zn,
+             const ZRegister& zm);
+  void Addhnb(const ZRegister& zd, const ZRegister& zn, const ZRegister& zm) {
+    VIXL_ASSERT(allow_macro_instructions_);
+    SingleEmissionCheckScope guard(this);
+    addhnb(zd, zn, zm);
+  }
+  void Addhnt(const ZRegister& zd, const ZRegister& zn, const ZRegister& zm) {
+    VIXL_ASSERT(allow_macro_instructions_);
+    SingleEmissionCheckScope guard(this);
+    addhnt(zd, zn, zm);
+  }
+  void Addp(const ZRegister& zd,
+            const PRegisterM& pg,
+            const ZRegister& zn,
+            const ZRegister& zm);
+  void Bcax(const ZRegister& zd,
+            const ZRegister& zn,
+            const ZRegister& zm,
+            const ZRegister& zk);
+  void Bdep(const ZRegister& zd, const ZRegister& zn, const ZRegister& zm) {
+    VIXL_ASSERT(allow_macro_instructions_);
+    SingleEmissionCheckScope guard(this);
+    bdep(zd, zn, zm);
+  }
+  void Bext(const ZRegister& zd, const ZRegister& zn, const ZRegister& zm) {
+    VIXL_ASSERT(allow_macro_instructions_);
+    SingleEmissionCheckScope guard(this);
+    bext(zd, zn, zm);
+  }
+  void Bgrp(const ZRegister& zd, const ZRegister& zn, const ZRegister& zm) {
+    VIXL_ASSERT(allow_macro_instructions_);
+    SingleEmissionCheckScope guard(this);
+    bgrp(zd, zn, zm);
+  }
+  void Bsl(const ZRegister& zd,
+           const ZRegister& zn,
+           const ZRegister& zm,
+           const ZRegister& zk);
+  void Bsl1n(const ZRegister& zd,
+             const ZRegister& zn,
+             const ZRegister& zm,
+             const ZRegister& zk);
+  void Bsl2n(const ZRegister& zd,
+             const ZRegister& zn,
+             const ZRegister& zm,
+             const ZRegister& zk);
+  void Cadd(const ZRegister& zd,
+            const ZRegister& zn,
+            const ZRegister& zm,
+            int rot);
+  void Cdot(const ZRegister& zd,
+            const ZRegister& za,
+            const ZRegister& zn,
+            const ZRegister& zm,
+            int index,
+            int rot);
+  void Cdot(const ZRegister& zd,
+            const ZRegister& za,
+            const ZRegister& zn,
+            const ZRegister& zm,
+            int rot);
+  void Cmla(const ZRegister& zd,
+            const ZRegister& za,
+            const ZRegister& zn,
+            const ZRegister& zm,
+            int index,
+            int rot);
+  void Cmla(const ZRegister& zd,
+            const ZRegister& za,
+            const ZRegister& zn,
+            const ZRegister& zm,
+            int rot);
+  void Eor3(const ZRegister& zd,
+            const ZRegister& zn,
+            const ZRegister& zm,
+            const ZRegister& zk);
+  void Eorbt(const ZRegister& zd, const ZRegister& zn, const ZRegister& zm) {
+    VIXL_ASSERT(allow_macro_instructions_);
+    SingleEmissionCheckScope guard(this);
+    eorbt(zd, zn, zm);
+  }
+  void Eortb(const ZRegister& zd, const ZRegister& zn, const ZRegister& zm) {
+    VIXL_ASSERT(allow_macro_instructions_);
+    SingleEmissionCheckScope guard(this);
+    eortb(zd, zn, zm);
+  }
+  void Faddp(const ZRegister& zd,
+             const PRegisterM& pg,
+             const ZRegister& zn,
+             const ZRegister& zm);
+  void Fcvtlt(const ZRegister& zd, const PRegisterM& pg, const ZRegister& zn) {
+    VIXL_ASSERT(allow_macro_instructions_);
+    SingleEmissionCheckScope guard(this);
+    fcvtlt(zd, pg, zn);
+  }
+  void Fcvtnt(const ZRegister& zd, const PRegisterM& pg, const ZRegister& zn) {
+    VIXL_ASSERT(allow_macro_instructions_);
+    SingleEmissionCheckScope guard(this);
+    fcvtnt(zd, pg, zn);
+  }
+  void Fcvtx(const ZRegister& zd, const PRegister& pg, const ZRegister& zn) {
+    VIXL_ASSERT(allow_macro_instructions_);
+    VIXL_ASSERT(zn.IsLaneSizeD());
+    MovprfxHelperScope guard(this, zd.VnD(), pg, zd.VnD());
+    fcvtx(zd, pg.Merging(), zn);
+  }
+  void Fcvtxnt(const ZRegister& zd, const PRegisterM& pg, const ZRegister& zn) {
+    VIXL_ASSERT(allow_macro_instructions_);
+    SingleEmissionCheckScope guard(this);
+    fcvtxnt(zd, pg, zn);
+  }
+  void Flogb(const ZRegister& zd, const PRegister& pg, const ZRegister& zn) {
+    VIXL_ASSERT(allow_macro_instructions_);
+    MovprfxHelperScope guard(this, zd, pg, zd);
+    flogb(zd, pg.Merging(), zn);
+  }
+  void Fmaxnmp(const ZRegister& zd,
+               const PRegisterM& pg,
+               const ZRegister& zn,
+               const ZRegister& zm);
+  void Fmaxp(const ZRegister& zd,
+             const PRegisterM& pg,
+             const ZRegister& zn,
+             const ZRegister& zm);
+  void Fminnmp(const ZRegister& zd,
+               const PRegisterM& pg,
+               const ZRegister& zn,
+               const ZRegister& zm);
+  void Fminp(const ZRegister& zd,
+             const PRegisterM& pg,
+             const ZRegister& zn,
+             const ZRegister& zm);
+  void Fmlalb(const ZRegister& zd,
+              const ZRegister& za,
+              const ZRegister& zn,
+              const ZRegister& zm);
+  void Fmlalt(const ZRegister& zd,
+              const ZRegister& za,
+              const ZRegister& zn,
+              const ZRegister& zm);
+  void Fmlslb(const ZRegister& zd,
+              const ZRegister& za,
+              const ZRegister& zn,
+              const ZRegister& zm);
+  void Fmlslt(const ZRegister& zd,
+              const ZRegister& za,
+              const ZRegister& zn,
+              const ZRegister& zm);
+  void Fmlalb(const ZRegister& zd,
+              const ZRegister& za,
+              const ZRegister& zn,
+              const ZRegister& zm,
+              int index);
+  void Fmlalt(const ZRegister& zd,
+              const ZRegister& za,
+              const ZRegister& zn,
+              const ZRegister& zm,
+              int index);
+  void Fmlslb(const ZRegister& zd,
+              const ZRegister& za,
+              const ZRegister& zn,
+              const ZRegister& zm,
+              int index);
+  void Fmlslt(const ZRegister& zd,
+              const ZRegister& za,
+              const ZRegister& zn,
+              const ZRegister& zm,
+              int index);
+  void Histcnt(const ZRegister& zd,
+               const PRegisterZ& pg,
+               const ZRegister& zn,
+               const ZRegister& zm) {
+    VIXL_ASSERT(allow_macro_instructions_);
+    SingleEmissionCheckScope guard(this);
+    histcnt(zd, pg, zn, zm);
+  }
+  void Histseg(const ZRegister& zd, const ZRegister& zn, const ZRegister& zm) {
+    VIXL_ASSERT(allow_macro_instructions_);
+    SingleEmissionCheckScope guard(this);
+    histseg(zd, zn, zm);
+  }
+  void Ldnt1sb(const ZRegister& zt,
+               const PRegisterZ& pg,
+               const SVEMemOperand& addr) {
+    VIXL_ASSERT(allow_macro_instructions_);
+    SingleEmissionCheckScope guard(this);
+    ldnt1sb(zt, pg, addr);
+  }
+  void Ldnt1sh(const ZRegister& zt,
+               const PRegisterZ& pg,
+               const SVEMemOperand& addr) {
+    VIXL_ASSERT(allow_macro_instructions_);
+    SingleEmissionCheckScope guard(this);
+    ldnt1sh(zt, pg, addr);
+  }
+  void Ldnt1sw(const ZRegister& zt,
+               const PRegisterZ& pg,
+               const SVEMemOperand& addr) {
+    VIXL_ASSERT(allow_macro_instructions_);
+    SingleEmissionCheckScope guard(this);
+    ldnt1sw(zt, pg, addr);
+  }
+  void Match(const PRegisterWithLaneSize& pd,
+             const PRegisterZ& pg,
+             const ZRegister& zn,
+             const ZRegister& zm) {
+    VIXL_ASSERT(allow_macro_instructions_);
+    SingleEmissionCheckScope guard(this);
+    match(pd, pg, zn, zm);
+  }
+  void Mla(const ZRegister& zd,
+           const ZRegister& za,
+           const ZRegister& zn,
+           const ZRegister& zm,
+           int index);
+  void Mls(const ZRegister& zd,
+           const ZRegister& za,
+           const ZRegister& zn,
+           const ZRegister& zm,
+           int index);
+  void Mul(const ZRegister& zd,
+           const ZRegister& zn,
+           const ZRegister& zm,
+           int index) {
+    VIXL_ASSERT(allow_macro_instructions_);
+    SingleEmissionCheckScope guard(this);
+    mul(zd, zn, zm, index);
+  }
+  void Mul(const ZRegister& zd, const ZRegister& zn, const ZRegister& zm) {
+    VIXL_ASSERT(allow_macro_instructions_);
+    SingleEmissionCheckScope guard(this);
+    mul(zd, zn, zm);
+  }
+  void Nbsl(const ZRegister& zd,
+            const ZRegister& zn,
+            const ZRegister& zm,
+            const ZRegister& zk);
+  void Nmatch(const PRegisterWithLaneSize& pd,
+              const PRegisterZ& pg,
+              const ZRegister& zn,
+              const ZRegister& zm) {
+    VIXL_ASSERT(allow_macro_instructions_);
+    SingleEmissionCheckScope guard(this);
+    nmatch(pd, pg, zn, zm);
+  }
+  void Pmul(const ZRegister& zd, const ZRegister& zn, const ZRegister& zm) {
+    VIXL_ASSERT(allow_macro_instructions_);
+    SingleEmissionCheckScope guard(this);
+    pmul(zd, zn, zm);
+  }
+  void Pmullb(const ZRegister& zd, const ZRegister& zn, const ZRegister& zm) {
+    VIXL_ASSERT(allow_macro_instructions_);
+    SingleEmissionCheckScope guard(this);
+    pmullb(zd, zn, zm);
+  }
+  void Pmullt(const ZRegister& zd, const ZRegister& zn, const ZRegister& zm) {
+    VIXL_ASSERT(allow_macro_instructions_);
+    SingleEmissionCheckScope guard(this);
+    pmullt(zd, zn, zm);
+  }
+  void Raddhnb(const ZRegister& zd, const ZRegister& zn, const ZRegister& zm) {
+    VIXL_ASSERT(allow_macro_instructions_);
+    SingleEmissionCheckScope guard(this);
+    raddhnb(zd, zn, zm);
+  }
+  void Raddhnt(const ZRegister& zd, const ZRegister& zn, const ZRegister& zm) {
+    VIXL_ASSERT(allow_macro_instructions_);
+    SingleEmissionCheckScope guard(this);
+    raddhnt(zd, zn, zm);
+  }
+  void Rshrnb(const ZRegister& zd, const ZRegister& zn, int shift) {
+    VIXL_ASSERT(allow_macro_instructions_);
+    SingleEmissionCheckScope guard(this);
+    rshrnb(zd, zn, shift);
+  }
+  void Rshrnt(const ZRegister& zd, const ZRegister& zn, int shift) {
+    VIXL_ASSERT(allow_macro_instructions_);
+    SingleEmissionCheckScope guard(this);
+    rshrnt(zd, zn, shift);
+  }
+  void Rsubhnb(const ZRegister& zd, const ZRegister& zn, const ZRegister& zm) {
+    VIXL_ASSERT(allow_macro_instructions_);
+    SingleEmissionCheckScope guard(this);
+    rsubhnb(zd, zn, zm);
+  }
+  void Rsubhnt(const ZRegister& zd, const ZRegister& zn, const ZRegister& zm) {
+    VIXL_ASSERT(allow_macro_instructions_);
+    SingleEmissionCheckScope guard(this);
+    rsubhnt(zd, zn, zm);
+  }
+  void Saba(const ZRegister& zd,
+            const ZRegister& za,
+            const ZRegister& zn,
+            const ZRegister& zm);
+  void Sabalb(const ZRegister& zd,
+              const ZRegister& za,
+              const ZRegister& zn,
+              const ZRegister& zm);
+  void Sabalt(const ZRegister& zd,
+              const ZRegister& za,
+              const ZRegister& zn,
+              const ZRegister& zm);
+  void Sabdlb(const ZRegister& zd, const ZRegister& zn, const ZRegister& zm) {
+    VIXL_ASSERT(allow_macro_instructions_);
+    SingleEmissionCheckScope guard(this);
+    sabdlb(zd, zn, zm);
+  }
+  void Sabdlt(const ZRegister& zd, const ZRegister& zn, const ZRegister& zm) {
+    VIXL_ASSERT(allow_macro_instructions_);
+    SingleEmissionCheckScope guard(this);
+    sabdlt(zd, zn, zm);
+  }
+  void Sadalp(const ZRegister& zda, const PRegisterM& pg, const ZRegister& zn) {
+    VIXL_ASSERT(allow_macro_instructions_);
+    SingleEmissionCheckScope guard(this);
+    sadalp(zda, pg, zn);
+  }
+  void Saddlb(const ZRegister& zd, const ZRegister& zn, const ZRegister& zm) {
+    VIXL_ASSERT(allow_macro_instructions_);
+    SingleEmissionCheckScope guard(this);
+    saddlb(zd, zn, zm);
+  }
+  void Saddlbt(const ZRegister& zd, const ZRegister& zn, const ZRegister& zm) {
+    VIXL_ASSERT(allow_macro_instructions_);
+    SingleEmissionCheckScope guard(this);
+    saddlbt(zd, zn, zm);
+  }
+  void Saddlt(const ZRegister& zd, const ZRegister& zn, const ZRegister& zm) {
+    VIXL_ASSERT(allow_macro_instructions_);
+    SingleEmissionCheckScope guard(this);
+    saddlt(zd, zn, zm);
+  }
+  void Saddwb(const ZRegister& zd, const ZRegister& zn, const ZRegister& zm) {
+    VIXL_ASSERT(allow_macro_instructions_);
+    SingleEmissionCheckScope guard(this);
+    saddwb(zd, zn, zm);
+  }
+  void Saddwt(const ZRegister& zd, const ZRegister& zn, const ZRegister& zm) {
+    VIXL_ASSERT(allow_macro_instructions_);
+    SingleEmissionCheckScope guard(this);
+    saddwt(zd, zn, zm);
+  }
+  void Sbclb(const ZRegister& zd,
+             const ZRegister& za,
+             const ZRegister& zn,
+             const ZRegister& zm);
+  void Sbclt(const ZRegister& zd,
+             const ZRegister& za,
+             const ZRegister& zn,
+             const ZRegister& zm);
+  void Shrnb(const ZRegister& zd, const ZRegister& zn, int shift) {
+    VIXL_ASSERT(allow_macro_instructions_);
+    SingleEmissionCheckScope guard(this);
+    shrnb(zd, zn, shift);
+  }
+  void Shrnt(const ZRegister& zd, const ZRegister& zn, int shift) {
+    VIXL_ASSERT(allow_macro_instructions_);
+    SingleEmissionCheckScope guard(this);
+    shrnt(zd, zn, shift);
+  }
+  void Shsub(const ZRegister& zd,
+             const PRegisterM& pg,
+             const ZRegister& zn,
+             const ZRegister& zm);
+  void Sli(const ZRegister& zd, const ZRegister& zn, int shift) {
+    VIXL_ASSERT(allow_macro_instructions_);
+    SingleEmissionCheckScope guard(this);
+    sli(zd, zn, shift);
+  }
+  void Smaxp(const ZRegister& zd,
+             const PRegisterM& pg,
+             const ZRegister& zn,
+             const ZRegister& zm);
+  void Sminp(const ZRegister& zd,
+             const PRegisterM& pg,
+             const ZRegister& zn,
+             const ZRegister& zm);
+  void Smlalb(const ZRegister& zd,
+              const ZRegister& za,
+              const ZRegister& zn,
+              const ZRegister& zm,
+              int index);
+  void Smlalb(const ZRegister& zd,
+              const ZRegister& za,
+              const ZRegister& zn,
+              const ZRegister& zm);
+  void Smlalt(const ZRegister& zd,
+              const ZRegister& za,
+              const ZRegister& zn,
+              const ZRegister& zm,
+              int index);
+  void Smlalt(const ZRegister& zd,
+              const ZRegister& za,
+              const ZRegister& zn,
+              const ZRegister& zm);
+  void Smlslb(const ZRegister& zd,
+              const ZRegister& za,
+              const ZRegister& zn,
+              const ZRegister& zm,
+              int index);
+  void Smlslb(const ZRegister& zd,
+              const ZRegister& za,
+              const ZRegister& zn,
+              const ZRegister& zm);
+  void Smlslt(const ZRegister& zd,
+              const ZRegister& za,
+              const ZRegister& zn,
+              const ZRegister& zm,
+              int index);
+  void Smlslt(const ZRegister& zd,
+              const ZRegister& za,
+              const ZRegister& zn,
+              const ZRegister& zm);
+  void Smulh(const ZRegister& zd, const ZRegister& zn, const ZRegister& zm) {
+    VIXL_ASSERT(allow_macro_instructions_);
+    SingleEmissionCheckScope guard(this);
+    smulh(zd, zn, zm);
+  }
+  void Smullb(const ZRegister& zd,
+              const ZRegister& zn,
+              const ZRegister& zm,
+              int index) {
+    VIXL_ASSERT(allow_macro_instructions_);
+    SingleEmissionCheckScope guard(this);
+    smullb(zd, zn, zm, index);
+  }
+  void Smullb(const ZRegister& zd, const ZRegister& zn, const ZRegister& zm) {
+    VIXL_ASSERT(allow_macro_instructions_);
+    SingleEmissionCheckScope guard(this);
+    smullb(zd, zn, zm);
+  }
+  void Smullt(const ZRegister& zd,
+              const ZRegister& zn,
+              const ZRegister& zm,
+              int index) {
+    VIXL_ASSERT(allow_macro_instructions_);
+    SingleEmissionCheckScope guard(this);
+    smullt(zd, zn, zm, index);
+  }
+  void Smullt(const ZRegister& zd, const ZRegister& zn, const ZRegister& zm) {
+    VIXL_ASSERT(allow_macro_instructions_);
+    SingleEmissionCheckScope guard(this);
+    smullt(zd, zn, zm);
+  }
+  void Sqabs(const ZRegister& zd, const PRegister& pg, const ZRegister& zn) {
+    VIXL_ASSERT(allow_macro_instructions_);
+    MovprfxHelperScope guard(this, zd, pg, zd);
+    sqabs(zd, pg.Merging(), zn);
+  }
+  void Sqcadd(const ZRegister& zd,
+              const ZRegister& zn,
+              const ZRegister& zm,
+              int rot);
+  void Sqdmlalb(const ZRegister& zd,
+                const ZRegister& za,
+                const ZRegister& zn,
+                const ZRegister& zm,
+                int index);
+  void Sqdmlalb(const ZRegister& zd,
+                const ZRegister& za,
+                const ZRegister& zn,
+                const ZRegister& zm);
+  void Sqdmlalbt(const ZRegister& zd,
+                 const ZRegister& za,
+                 const ZRegister& zn,
+                 const ZRegister& zm);
+  void Sqdmlalt(const ZRegister& zd,
+                const ZRegister& za,
+                const ZRegister& zn,
+                const ZRegister& zm,
+                int index);
+  void Sqdmlalt(const ZRegister& zd,
+                const ZRegister& za,
+                const ZRegister& zn,
+                const ZRegister& zm);
+  void Sqdmlslb(const ZRegister& zd,
+                const ZRegister& za,
+                const ZRegister& zn,
+                const ZRegister& zm,
+                int index);
+  void Sqdmlslb(const ZRegister& zd,
+                const ZRegister& za,
+                const ZRegister& zn,
+                const ZRegister& zm);
+  void Sqdmlslbt(const ZRegister& zd,
+                 const ZRegister& za,
+                 const ZRegister& zn,
+                 const ZRegister& zm);
+  void Sqdmlslt(const ZRegister& zd,
+                const ZRegister& za,
+                const ZRegister& zn,
+                const ZRegister& zm,
+                int index);
+  void Sqdmlslt(const ZRegister& zd,
+                const ZRegister& za,
+                const ZRegister& zn,
+                const ZRegister& zm);
+  void Sqdmulh(const ZRegister& zd,
+               const ZRegister& zn,
+               const ZRegister& zm,
+               int index) {
+    VIXL_ASSERT(allow_macro_instructions_);
+    SingleEmissionCheckScope guard(this);
+    sqdmulh(zd, zn, zm, index);
+  }
+  void Sqdmulh(const ZRegister& zd, const ZRegister& zn, const ZRegister& zm) {
+    VIXL_ASSERT(allow_macro_instructions_);
+    SingleEmissionCheckScope guard(this);
+    sqdmulh(zd, zn, zm);
+  }
+  void Sqdmullb(const ZRegister& zd,
+                const ZRegister& zn,
+                const ZRegister& zm,
+                int index) {
+    VIXL_ASSERT(allow_macro_instructions_);
+    SingleEmissionCheckScope guard(this);
+    sqdmullb(zd, zn, zm, index);
+  }
+  void Sqdmullb(const ZRegister& zd, const ZRegister& zn, const ZRegister& zm) {
+    VIXL_ASSERT(allow_macro_instructions_);
+    SingleEmissionCheckScope guard(this);
+    sqdmullb(zd, zn, zm);
+  }
+  void Sqdmullt(const ZRegister& zd,
+                const ZRegister& zn,
+                const ZRegister& zm,
+                int index) {
+    VIXL_ASSERT(allow_macro_instructions_);
+    SingleEmissionCheckScope guard(this);
+    sqdmullt(zd, zn, zm, index);
+  }
+  void Sqdmullt(const ZRegister& zd, const ZRegister& zn, const ZRegister& zm) {
+    VIXL_ASSERT(allow_macro_instructions_);
+    SingleEmissionCheckScope guard(this);
+    sqdmullt(zd, zn, zm);
+  }
+  void Sqneg(const ZRegister& zd, const PRegister& pg, const ZRegister& zn) {
+    VIXL_ASSERT(allow_macro_instructions_);
+    MovprfxHelperScope guard(this, zd, pg, zd);
+    sqneg(zd, pg.Merging(), zn);
+  }
+  void Sqrdcmlah(const ZRegister& zd,
+                 const ZRegister& za,
+                 const ZRegister& zn,
+                 const ZRegister& zm,
+                 int index,
+                 int rot);
+  void Sqrdcmlah(const ZRegister& zd,
+                 const ZRegister& za,
+                 const ZRegister& zn,
+                 const ZRegister& zm,
+                 int rot);
+  void Sqrdmlah(const ZRegister& zd,
+                const ZRegister& za,
+                const ZRegister& zn,
+                const ZRegister& zm);
+  void Sqrdmlah(const ZRegister& zd,
+                const ZRegister& za,
+                const ZRegister& zn,
+                const ZRegister& zm,
+                int index);
+  void Sqrdmlsh(const ZRegister& zd,
+                const ZRegister& za,
+                const ZRegister& zn,
+                const ZRegister& zm);
+  void Sqrdmlsh(const ZRegister& zd,
+                const ZRegister& za,
+                const ZRegister& zn,
+                const ZRegister& zm,
+                int index);
+  void Sqrdmulh(const ZRegister& zd,
+                const ZRegister& zn,
+                const ZRegister& zm,
+                int index) {
+    VIXL_ASSERT(allow_macro_instructions_);
+    SingleEmissionCheckScope guard(this);
+    sqrdmulh(zd, zn, zm, index);
+  }
+  void Sqrdmulh(const ZRegister& zd, const ZRegister& zn, const ZRegister& zm) {
+    VIXL_ASSERT(allow_macro_instructions_);
+    SingleEmissionCheckScope guard(this);
+    sqrdmulh(zd, zn, zm);
+  }
+  void Sqrshl(const ZRegister& zd,
+              const PRegisterM& pg,
+              const ZRegister& zn,
+              const ZRegister& zm);
+  void Sqrshrnb(const ZRegister& zd, const ZRegister& zn, int shift) {
+    VIXL_ASSERT(allow_macro_instructions_);
+    SingleEmissionCheckScope guard(this);
+    sqrshrnb(zd, zn, shift);
+  }
+  void Sqrshrnt(const ZRegister& zd, const ZRegister& zn, int shift) {
+    VIXL_ASSERT(allow_macro_instructions_);
+    SingleEmissionCheckScope guard(this);
+    sqrshrnt(zd, zn, shift);
+  }
+  void Sqrshrunb(const ZRegister& zd, const ZRegister& zn, int shift) {
+    VIXL_ASSERT(allow_macro_instructions_);
+    SingleEmissionCheckScope guard(this);
+    sqrshrunb(zd, zn, shift);
+  }
+  void Sqrshrunt(const ZRegister& zd, const ZRegister& zn, int shift) {
+    VIXL_ASSERT(allow_macro_instructions_);
+    SingleEmissionCheckScope guard(this);
+    sqrshrunt(zd, zn, shift);
+  }
+  void Sqshl(const ZRegister& zd,
+             const PRegisterM& pg,
+             const ZRegister& zn,
+             int shift) {
+    VIXL_ASSERT(allow_macro_instructions_);
+    MovprfxHelperScope guard(this, zd, pg, zn);
+    sqshl(zd, pg, zd, shift);
+  }
+  void Sqshl(const ZRegister& zd,
+             const PRegisterM& pg,
+             const ZRegister& zn,
+             const ZRegister& zm);
+  void Sqshlu(const ZRegister& zd,
+              const PRegisterM& pg,
+              const ZRegister& zn,
+              int shift) {
+    VIXL_ASSERT(allow_macro_instructions_);
+    MovprfxHelperScope guard(this, zd, pg, zn);
+    sqshlu(zd, pg, zd, shift);
+  }
+  void Sqshrnb(const ZRegister& zd, const ZRegister& zn, int shift) {
+    VIXL_ASSERT(allow_macro_instructions_);
+    SingleEmissionCheckScope guard(this);
+    sqshrnb(zd, zn, shift);
+  }
+  void Sqshrnt(const ZRegister& zd, const ZRegister& zn, int shift) {
+    VIXL_ASSERT(allow_macro_instructions_);
+    SingleEmissionCheckScope guard(this);
+    sqshrnt(zd, zn, shift);
+  }
+  void Sqshrunb(const ZRegister& zd, const ZRegister& zn, int shift) {
+    VIXL_ASSERT(allow_macro_instructions_);
+    SingleEmissionCheckScope guard(this);
+    sqshrunb(zd, zn, shift);
+  }
+  void Sqshrunt(const ZRegister& zd, const ZRegister& zn, int shift) {
+    VIXL_ASSERT(allow_macro_instructions_);
+    SingleEmissionCheckScope guard(this);
+    sqshrunt(zd, zn, shift);
+  }
+  void Sqsub(const ZRegister& zd,
+             const PRegisterM& pg,
+             const ZRegister& zn,
+             const ZRegister& zm);
+  void Sqxtnb(const ZRegister& zd, const ZRegister& zn) {
+    VIXL_ASSERT(allow_macro_instructions_);
+    SingleEmissionCheckScope guard(this);
+    sqxtnb(zd, zn);
+  }
+  void Sqxtnt(const ZRegister& zd, const ZRegister& zn) {
+    VIXL_ASSERT(allow_macro_instructions_);
+    SingleEmissionCheckScope guard(this);
+    sqxtnt(zd, zn);
+  }
+  void Sqxtunb(const ZRegister& zd, const ZRegister& zn) {
+    VIXL_ASSERT(allow_macro_instructions_);
+    SingleEmissionCheckScope guard(this);
+    sqxtunb(zd, zn);
+  }
+  void Sqxtunt(const ZRegister& zd, const ZRegister& zn) {
+    VIXL_ASSERT(allow_macro_instructions_);
+    SingleEmissionCheckScope guard(this);
+    sqxtunt(zd, zn);
+  }
+  void Sri(const ZRegister& zd, const ZRegister& zn, int shift) {
+    VIXL_ASSERT(allow_macro_instructions_);
+    SingleEmissionCheckScope guard(this);
+    sri(zd, zn, shift);
+  }
+  void Srshl(const ZRegister& zd,
+             const PRegisterM& pg,
+             const ZRegister& zn,
+             const ZRegister& zm);
+  void Srshr(const ZRegister& zd,
+             const PRegisterM& pg,
+             const ZRegister& zn,
+             int shift) {
+    VIXL_ASSERT(allow_macro_instructions_);
+    MovprfxHelperScope guard(this, zd, pg, zn);
+    srshr(zd, pg, zd, shift);
+  }
+  void Srsra(const ZRegister& zd,
+             const ZRegister& za,
+             const ZRegister& zn,
+             int shift);
+  void Sshllb(const ZRegister& zd, const ZRegister& zn, int shift) {
+    VIXL_ASSERT(allow_macro_instructions_);
+    SingleEmissionCheckScope guard(this);
+    sshllb(zd, zn, shift);
+  }
+  void Sshllt(const ZRegister& zd, const ZRegister& zn, int shift) {
+    VIXL_ASSERT(allow_macro_instructions_);
+    SingleEmissionCheckScope guard(this);
+    sshllt(zd, zn, shift);
+  }
+  void Ssra(const ZRegister& zd,
+            const ZRegister& za,
+            const ZRegister& zn,
+            int shift);
+  void Ssublb(const ZRegister& zd, const ZRegister& zn, const ZRegister& zm) {
+    VIXL_ASSERT(allow_macro_instructions_);
+    SingleEmissionCheckScope guard(this);
+    ssublb(zd, zn, zm);
+  }
+  void Ssublbt(const ZRegister& zd, const ZRegister& zn, const ZRegister& zm) {
+    VIXL_ASSERT(allow_macro_instructions_);
+    SingleEmissionCheckScope guard(this);
+    ssublbt(zd, zn, zm);
+  }
+  void Ssublt(const ZRegister& zd, const ZRegister& zn, const ZRegister& zm) {
+    VIXL_ASSERT(allow_macro_instructions_);
+    SingleEmissionCheckScope guard(this);
+    ssublt(zd, zn, zm);
+  }
+  void Ssubltb(const ZRegister& zd, const ZRegister& zn, const ZRegister& zm) {
+    VIXL_ASSERT(allow_macro_instructions_);
+    SingleEmissionCheckScope guard(this);
+    ssubltb(zd, zn, zm);
+  }
+  void Ssubwb(const ZRegister& zd, const ZRegister& zn, const ZRegister& zm) {
+    VIXL_ASSERT(allow_macro_instructions_);
+    SingleEmissionCheckScope guard(this);
+    ssubwb(zd, zn, zm);
+  }
+  void Ssubwt(const ZRegister& zd, const ZRegister& zn, const ZRegister& zm) {
+    VIXL_ASSERT(allow_macro_instructions_);
+    SingleEmissionCheckScope guard(this);
+    ssubwt(zd, zn, zm);
+  }
+  void Subhnb(const ZRegister& zd, const ZRegister& zn, const ZRegister& zm) {
+    VIXL_ASSERT(allow_macro_instructions_);
+    SingleEmissionCheckScope guard(this);
+    subhnb(zd, zn, zm);
+  }
+  void Subhnt(const ZRegister& zd, const ZRegister& zn, const ZRegister& zm) {
+    VIXL_ASSERT(allow_macro_instructions_);
+    SingleEmissionCheckScope guard(this);
+    subhnt(zd, zn, zm);
+  }
+  void Suqadd(const ZRegister& zd,
+              const PRegisterM& pg,
+              const ZRegister& zn,
+              const ZRegister& zm);
+  void Tbl(const ZRegister& zd,
+           const ZRegister& zn1,
+           const ZRegister& zn2,
+           const ZRegister& zm) {
+    VIXL_ASSERT(allow_macro_instructions_);
+    SingleEmissionCheckScope guard(this);
+    tbl(zd, zn1, zn2, zm);
+  }
+  void Tbx(const ZRegister& zd, const ZRegister& zn, const ZRegister& zm) {
+    VIXL_ASSERT(allow_macro_instructions_);
+    SingleEmissionCheckScope guard(this);
+    tbx(zd, zn, zm);
+  }
+  void Uaba(const ZRegister& zd,
+            const ZRegister& za,
+            const ZRegister& zn,
+            const ZRegister& zm);
+  void Uabalb(const ZRegister& zd,
+              const ZRegister& za,
+              const ZRegister& zn,
+              const ZRegister& zm);
+  void Uabalt(const ZRegister& zd,
+              const ZRegister& za,
+              const ZRegister& zn,
+              const ZRegister& zm);
+  void Uabdlb(const ZRegister& zd, const ZRegister& zn, const ZRegister& zm) {
+    VIXL_ASSERT(allow_macro_instructions_);
+    SingleEmissionCheckScope guard(this);
+    uabdlb(zd, zn, zm);
+  }
+  void Uabdlt(const ZRegister& zd, const ZRegister& zn, const ZRegister& zm) {
+    VIXL_ASSERT(allow_macro_instructions_);
+    SingleEmissionCheckScope guard(this);
+    uabdlt(zd, zn, zm);
+  }
+  void Uadalp(const ZRegister& zda, const PRegisterM& pg, const ZRegister& zn) {
+    VIXL_ASSERT(allow_macro_instructions_);
+    SingleEmissionCheckScope guard(this);
+    uadalp(zda, pg, zn);
+  }
+  void Uaddlb(const ZRegister& zd, const ZRegister& zn, const ZRegister& zm) {
+    VIXL_ASSERT(allow_macro_instructions_);
+    SingleEmissionCheckScope guard(this);
+    uaddlb(zd, zn, zm);
+  }
+  void Uaddlt(const ZRegister& zd, const ZRegister& zn, const ZRegister& zm) {
+    VIXL_ASSERT(allow_macro_instructions_);
+    SingleEmissionCheckScope guard(this);
+    uaddlt(zd, zn, zm);
+  }
+  void Uaddwb(const ZRegister& zd, const ZRegister& zn, const ZRegister& zm) {
+    VIXL_ASSERT(allow_macro_instructions_);
+    SingleEmissionCheckScope guard(this);
+    uaddwb(zd, zn, zm);
+  }
+  void Uaddwt(const ZRegister& zd, const ZRegister& zn, const ZRegister& zm) {
+    VIXL_ASSERT(allow_macro_instructions_);
+    SingleEmissionCheckScope guard(this);
+    uaddwt(zd, zn, zm);
+  }
+  void Uhsub(const ZRegister& zd,
+             const PRegisterM& pg,
+             const ZRegister& zn,
+             const ZRegister& zm);
+  void Umaxp(const ZRegister& zd,
+             const PRegisterM& pg,
+             const ZRegister& zn,
+             const ZRegister& zm);
+  void Uminp(const ZRegister& zd,
+             const PRegisterM& pg,
+             const ZRegister& zn,
+             const ZRegister& zm);
+  void Umlalb(const ZRegister& zd,
+              const ZRegister& za,
+              const ZRegister& zn,
+              const ZRegister& zm,
+              int index);
+  void Umlalb(const ZRegister& zd,
+              const ZRegister& za,
+              const ZRegister& zn,
+              const ZRegister& zm);
+  void Umlalt(const ZRegister& zd,
+              const ZRegister& za,
+              const ZRegister& zn,
+              const ZRegister& zm,
+              int index);
+  void Umlalt(const ZRegister& zd,
+              const ZRegister& za,
+              const ZRegister& zn,
+              const ZRegister& zm);
+  void Umlslb(const ZRegister& zd,
+              const ZRegister& za,
+              const ZRegister& zn,
+              const ZRegister& zm,
+              int index);
+  void Umlslb(const ZRegister& zd,
+              const ZRegister& za,
+              const ZRegister& zn,
+              const ZRegister& zm);
+  void Umlslt(const ZRegister& zd,
+              const ZRegister& za,
+              const ZRegister& zn,
+              const ZRegister& zm,
+              int index);
+  void Umlslt(const ZRegister& zd,
+              const ZRegister& za,
+              const ZRegister& zn,
+              const ZRegister& zm);
+  void Umulh(const ZRegister& zd, const ZRegister& zn, const ZRegister& zm) {
+    VIXL_ASSERT(allow_macro_instructions_);
+    SingleEmissionCheckScope guard(this);
+    umulh(zd, zn, zm);
+  }
+  void Umullb(const ZRegister& zd,
+              const ZRegister& zn,
+              const ZRegister& zm,
+              int index) {
+    VIXL_ASSERT(allow_macro_instructions_);
+    SingleEmissionCheckScope guard(this);
+    umullb(zd, zn, zm, index);
+  }
+  void Umullb(const ZRegister& zd, const ZRegister& zn, const ZRegister& zm) {
+    VIXL_ASSERT(allow_macro_instructions_);
+    SingleEmissionCheckScope guard(this);
+    umullb(zd, zn, zm);
+  }
+  void Umullt(const ZRegister& zd,
+              const ZRegister& zn,
+              const ZRegister& zm,
+              int index) {
+    VIXL_ASSERT(allow_macro_instructions_);
+    SingleEmissionCheckScope guard(this);
+    umullt(zd, zn, zm, index);
+  }
+  void Umullt(const ZRegister& zd, const ZRegister& zn, const ZRegister& zm) {
+    VIXL_ASSERT(allow_macro_instructions_);
+    SingleEmissionCheckScope guard(this);
+    umullt(zd, zn, zm);
+  }
+  void Uqrshl(const ZRegister& zd,
+              const PRegisterM& pg,
+              const ZRegister& zn,
+              const ZRegister& zm);
+  void Uqrshrnb(const ZRegister& zd, const ZRegister& zn, int shift) {
+    VIXL_ASSERT(allow_macro_instructions_);
+    SingleEmissionCheckScope guard(this);
+    uqrshrnb(zd, zn, shift);
+  }
+  void Uqrshrnt(const ZRegister& zd, const ZRegister& zn, int shift) {
+    VIXL_ASSERT(allow_macro_instructions_);
+    SingleEmissionCheckScope guard(this);
+    uqrshrnt(zd, zn, shift);
+  }
+  void Uqshl(const ZRegister& zd,
+             const PRegisterM& pg,
+             const ZRegister& zn,
+             int shift) {
+    VIXL_ASSERT(allow_macro_instructions_);
+    MovprfxHelperScope guard(this, zd, pg, zn);
+    uqshl(zd, pg, zd, shift);
+  }
+  void Uqshl(const ZRegister& zd,
+             const PRegisterM& pg,
+             const ZRegister& zn,
+             const ZRegister& zm);
+  void Uqshrnb(const ZRegister& zd, const ZRegister& zn, int shift) {
+    VIXL_ASSERT(allow_macro_instructions_);
+    SingleEmissionCheckScope guard(this);
+    uqshrnb(zd, zn, shift);
+  }
+  void Uqshrnt(const ZRegister& zd, const ZRegister& zn, int shift) {
+    VIXL_ASSERT(allow_macro_instructions_);
+    SingleEmissionCheckScope guard(this);
+    uqshrnt(zd, zn, shift);
+  }
+  void Uqsub(const ZRegister& zd,
+             const PRegisterM& pg,
+             const ZRegister& zn,
+             const ZRegister& zm);
+  void Uqxtnb(const ZRegister& zd, const ZRegister& zn) {
+    VIXL_ASSERT(allow_macro_instructions_);
+    SingleEmissionCheckScope guard(this);
+    uqxtnb(zd, zn);
+  }
+  void Uqxtnt(const ZRegister& zd, const ZRegister& zn) {
+    VIXL_ASSERT(allow_macro_instructions_);
+    SingleEmissionCheckScope guard(this);
+    uqxtnt(zd, zn);
+  }
+  void Urecpe(const ZRegister& zd, const PRegister& pg, const ZRegister& zn) {
+    VIXL_ASSERT(allow_macro_instructions_);
+    MovprfxHelperScope guard(this, zd, pg, zd);
+    urecpe(zd, pg.Merging(), zn);
+  }
+  void Urshl(const ZRegister& zd,
+             const PRegisterM& pg,
+             const ZRegister& zn,
+             const ZRegister& zm);
+  void Urshr(const ZRegister& zd,
+             const PRegisterM& pg,
+             const ZRegister& zn,
+             int shift) {
+    VIXL_ASSERT(allow_macro_instructions_);
+    MovprfxHelperScope guard(this, zd, pg, zn);
+    urshr(zd, pg, zd, shift);
+  }
+  void Ursqrte(const ZRegister& zd, const PRegister& pg, const ZRegister& zn) {
+    VIXL_ASSERT(allow_macro_instructions_);
+    MovprfxHelperScope guard(this, zd, pg, zd);
+    ursqrte(zd, pg.Merging(), zn);
+  }
+  void Ursra(const ZRegister& zd,
+             const ZRegister& za,
+             const ZRegister& zn,
+             int shift);
+  void Ushllb(const ZRegister& zd, const ZRegister& zn, int shift) {
+    VIXL_ASSERT(allow_macro_instructions_);
+    SingleEmissionCheckScope guard(this);
+    ushllb(zd, zn, shift);
+  }
+  void Ushllt(const ZRegister& zd, const ZRegister& zn, int shift) {
+    VIXL_ASSERT(allow_macro_instructions_);
+    SingleEmissionCheckScope guard(this);
+    ushllt(zd, zn, shift);
+  }
+  void Usqadd(const ZRegister& zd,
+              const PRegisterM& pg,
+              const ZRegister& zn,
+              const ZRegister& zm);
+  void Usra(const ZRegister& zd,
+            const ZRegister& za,
+            const ZRegister& zn,
+            int shift);
+  void Usublb(const ZRegister& zd, const ZRegister& zn, const ZRegister& zm) {
+    VIXL_ASSERT(allow_macro_instructions_);
+    SingleEmissionCheckScope guard(this);
+    usublb(zd, zn, zm);
+  }
+  void Usublt(const ZRegister& zd, const ZRegister& zn, const ZRegister& zm) {
+    VIXL_ASSERT(allow_macro_instructions_);
+    SingleEmissionCheckScope guard(this);
+    usublt(zd, zn, zm);
+  }
+  void Usubwb(const ZRegister& zd, const ZRegister& zn, const ZRegister& zm) {
+    VIXL_ASSERT(allow_macro_instructions_);
+    SingleEmissionCheckScope guard(this);
+    usubwb(zd, zn, zm);
+  }
+  void Usubwt(const ZRegister& zd, const ZRegister& zn, const ZRegister& zm) {
+    VIXL_ASSERT(allow_macro_instructions_);
+    SingleEmissionCheckScope guard(this);
+    usubwt(zd, zn, zm);
+  }
+  void Whilege(const PRegisterWithLaneSize& pd,
+               const Register& rn,
+               const Register& rm) {
+    VIXL_ASSERT(allow_macro_instructions_);
+    SingleEmissionCheckScope guard(this);
+    whilege(pd, rn, rm);
+  }
+  void Whilegt(const PRegisterWithLaneSize& pd,
+               const Register& rn,
+               const Register& rm) {
+    VIXL_ASSERT(allow_macro_instructions_);
+    SingleEmissionCheckScope guard(this);
+    whilegt(pd, rn, rm);
+  }
+  void Whilehi(const PRegisterWithLaneSize& pd,
+               const Register& rn,
+               const Register& rm) {
+    VIXL_ASSERT(allow_macro_instructions_);
+    SingleEmissionCheckScope guard(this);
+    whilehi(pd, rn, rm);
+  }
+  void Whilehs(const PRegisterWithLaneSize& pd,
+               const Register& rn,
+               const Register& rm) {
+    VIXL_ASSERT(allow_macro_instructions_);
+    SingleEmissionCheckScope guard(this);
+    whilehs(pd, rn, rm);
+  }
+  void Whilerw(const PRegisterWithLaneSize& pd,
+               const Register& rn,
+               const Register& rm) {
+    VIXL_ASSERT(allow_macro_instructions_);
+    SingleEmissionCheckScope guard(this);
+    whilerw(pd, rn, rm);
+  }
+  void Whilewr(const PRegisterWithLaneSize& pd,
+               const Register& rn,
+               const Register& rm) {
+    VIXL_ASSERT(allow_macro_instructions_);
+    SingleEmissionCheckScope guard(this);
+    whilewr(pd, rn, rm);
+  }
+  void Xar(const ZRegister& zd,
+           const ZRegister& zn,
+           const ZRegister& zm,
+           int shift) {
+    VIXL_ASSERT(allow_macro_instructions_);
+    if (zd.Aliases(zm)) {
+      SingleEmissionCheckScope guard(this);
+      xar(zd, zm, zn, shift);
+    } else {
+      MovprfxHelperScope guard(this, zd, zn);
+      xar(zd, zd, zm, shift);
+    }
+  }
+  void Fmmla(const ZRegister& zd,
+             const ZRegister& za,
+             const ZRegister& zn,
+             const ZRegister& zm);
+  void Smmla(const ZRegister& zd,
+             const ZRegister& za,
+             const ZRegister& zn,
+             const ZRegister& zm);
+  void Ummla(const ZRegister& zd,
+             const ZRegister& za,
+             const ZRegister& zn,
+             const ZRegister& zm);
+  void Usmmla(const ZRegister& zd,
+              const ZRegister& za,
+              const ZRegister& zn,
+              const ZRegister& zm);
+  void Usdot(const ZRegister& zd,
+             const ZRegister& za,
+             const ZRegister& zn,
+             const ZRegister& zm);
+  void Usdot(const ZRegister& zd,
+             const ZRegister& za,
+             const ZRegister& zn,
+             const ZRegister& zm,
+             int index);
+  void Sudot(const ZRegister& zd,
+             const ZRegister& za,
+             const ZRegister& zn,
+             const ZRegister& zm,
+             int index);
+
   template <typename T>
   Literal<T>* CreateLiteralDestroyedWithPool(T value) {
     return new Literal<T>(value,
@@ -6783,7 +7903,7 @@ class MacroAssembler : public Assembler, public MacroAssemblerInterface {
   // SVE_MUL_VL). The ratio log2 of VL to memory access size is passed as
   // vl_divisor_log2; pass -1 to indicate no dependency.
   template <typename Tg, typename Tf>
-  void SVELoadStoreScalarImmHelper(
+  void SVELoadStoreNTBroadcastQOHelper(
       const ZRegister& zt,
       const Tg& pg,
       const SVEMemOperand& addr,
@@ -6816,25 +7936,30 @@ class MacroAssembler : public Assembler, public MacroAssemblerInterface {
                                                int imm,
                                                int shift);
 
-  typedef void (Assembler::*IntArithFn)(const ZRegister& zd,
-                                        const ZRegister& zn,
-                                        const ZRegister& zm);
+  typedef void (Assembler::*Int3ArithFn)(const ZRegister& zd,
+                                         const ZRegister& zn,
+                                         const ZRegister& zm);
 
-  typedef void (Assembler::*IntWideImmFn)(const ZRegister& zd,
-                                          const ZRegister& zn,
-                                          int imm);
+  typedef void (Assembler::*Int4ArithFn)(const ZRegister& zd,
+                                         const ZRegister& za,
+                                         const ZRegister& zn,
+                                         const ZRegister& zm);
 
-  typedef void (Assembler::*IntArithIndexFn)(const ZRegister& zd,
-                                             const ZRegister& zn,
-                                             const ZRegister& zm,
-                                             int index);
+  typedef void (Assembler::*IntArithImmFn)(const ZRegister& zd,
+                                           const ZRegister& zn,
+                                           int imm);
+
+  typedef void (Assembler::*ZZZImmFn)(const ZRegister& zd,
+                                      const ZRegister& zn,
+                                      const ZRegister& zm,
+                                      int imm);
 
   typedef void (MacroAssembler::*SVEArithPredicatedFn)(const ZRegister& zd,
                                                        const PRegisterM& pg,
                                                        const ZRegister& zn,
                                                        const ZRegister& zm);
 
-  void IntWideImmHelper(IntWideImmFn imm_fn,
+  void IntWideImmHelper(IntArithImmFn imm_fn,
                         SVEArithPredicatedFn reg_fn,
                         const ZRegister& zd,
                         const ZRegister& zn,
@@ -6860,18 +7985,30 @@ class MacroAssembler : public Assembler, public MacroAssemblerInterface {
                        const ZRegister& zn,
                        IntegerOperand imm);
 
-  void SVESdotUdotHelper(IntArithFn fn,
+  void AbsoluteDifferenceAccumulate(Int3ArithFn fn,
+                                    const ZRegister& zd,
+                                    const ZRegister& za,
+                                    const ZRegister& zn,
+                                    const ZRegister& zm);
+
+  void FourRegDestructiveHelper(Int3ArithFn fn,
+                                const ZRegister& zd,
+                                const ZRegister& za,
+                                const ZRegister& zn,
+                                const ZRegister& zm);
+
+  void FourRegDestructiveHelper(Int4ArithFn fn,
+                                const ZRegister& zd,
+                                const ZRegister& za,
+                                const ZRegister& zn,
+                                const ZRegister& zm);
+
+  void SVEDotIndexHelper(ZZZImmFn fn,
                          const ZRegister& zd,
                          const ZRegister& za,
                          const ZRegister& zn,
-                         const ZRegister& zm);
-
-  void SVESdotUdotIndexHelper(IntArithIndexFn fn,
-                              const ZRegister& zd,
-                              const ZRegister& za,
-                              const ZRegister& zn,
-                              const ZRegister& zm,
-                              int index);
+                         const ZRegister& zm,
+                         int index);
 
   // For noncommutative arithmetic operations.
   void NoncommutativeArithmeticHelper(const ZRegister& zd,
@@ -6915,12 +8052,24 @@ class MacroAssembler : public Assembler, public MacroAssemblerInterface {
                                               const ZRegister& zm,
                                               int index);
 
-  void FPMulAddIndexHelper(SVEMulAddIndexFn fn,
-                           const ZRegister& zd,
-                           const ZRegister& za,
-                           const ZRegister& zn,
-                           const ZRegister& zm,
-                           int index);
+  void FourRegOneImmDestructiveHelper(ZZZImmFn fn,
+                                      const ZRegister& zd,
+                                      const ZRegister& za,
+                                      const ZRegister& zn,
+                                      const ZRegister& zm,
+                                      int imm);
+
+  void ShiftRightAccumulate(IntArithImmFn fn,
+                            const ZRegister& zd,
+                            const ZRegister& za,
+                            const ZRegister& zn,
+                            int imm);
+
+  void ComplexAddition(ZZZImmFn fn,
+                       const ZRegister& zd,
+                       const ZRegister& zn,
+                       const ZRegister& zm,
+                       int rot);
 
   // Tell whether any of the macro instruction can be used. When false the
   // MacroAssembler will assert if a method which can emit a variable number

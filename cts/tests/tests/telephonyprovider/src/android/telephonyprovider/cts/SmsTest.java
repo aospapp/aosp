@@ -16,21 +16,28 @@
 
 package android.telephonyprovider.cts;
 
-import static android.telephonyprovider.cts.DefaultSmsAppHelper.assumeTelephony;
+import static android.telephony.cts.util.DefaultSmsAppHelper.assumeTelephony;
+import static android.telephony.cts.util.DefaultSmsAppHelper.assumeMessaging;
 
 import static androidx.test.InstrumentationRegistry.getInstrumentation;
 
 import static com.google.common.truth.Truth.assertThat;
 
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertThrows;
 
 import android.content.ContentResolver;
 import android.content.ContentValues;
 import android.database.Cursor;
 import android.net.Uri;
 import android.provider.Telephony;
+import android.telephony.SubscriptionManager;
+import android.telephony.cts.util.DefaultSmsAppHelper;
 
 import androidx.test.filters.SmallTest;
+
+import com.android.compatibility.common.util.ApiTest;
 
 import org.junit.AfterClass;
 import org.junit.Before;
@@ -62,6 +69,7 @@ public class SmsTest {
     @Before
     public void setupTestEnvironment() {
         assumeTelephony();
+        assumeMessaging();
         cleanup();
         mContentResolver = getInstrumentation().getContext().getContentResolver();
         mSmsTestHelper = new SmsTestHelper();
@@ -122,7 +130,7 @@ public class SmsTest {
 
     @Test
     public void testInsertSmsFromSubid_verifySmsFromNotOtherSubId() {
-        int subId = 1;
+        int subId = -1;
 
         ContentValues values = new ContentValues();
         values.put(Telephony.Sms.BODY, TEST_SMS_BODY);
@@ -235,7 +243,8 @@ public class SmsTest {
             cursor.getInt(cursor.getColumnIndex(Telephony.Sms.LOCKED))).isEqualTo(0);
 
         assertThat(
-            cursor.getInt(cursor.getColumnIndex(Telephony.Sms.SUBSCRIPTION_ID))).isEqualTo(-1);
+            cursor.getInt(cursor.getColumnIndex(Telephony.Sms.SUBSCRIPTION_ID))).isEqualTo(
+                SubscriptionManager.getDefaultSmsSubscriptionId());
 
         assertThat(
             cursor.getInt(cursor.getColumnIndex(Telephony.Sms.ERROR_CODE))).isEqualTo(-1);
@@ -327,5 +336,203 @@ public class SmsTest {
 
         DefaultSmsAppHelper.ensureDefaultSmsApp();
     }
-}
 
+    /**
+     * Verifies sql injection is not allowed within a URI.
+     */
+    @Test
+    @ApiTest(apis = "com.android.providers.telephony.MmsSmsProvider#query")
+    public void query_msgParameter_sqlInjection() {
+        Uri uriWithSqlInjection = Uri.parse("content://mms-sms/pending?protocol=sms&message=1 "
+                + "union select type,name,tbl_name,rootpage,sql,1,1,1,1,1 FROM SQLITE_MASTER; --");
+        Cursor uriWithSqlInjectionCur = mContentResolver.query(uriWithSqlInjection, null,
+                null, null, null);
+        assertNull(uriWithSqlInjectionCur);
+    }
+
+    /**
+     * Verifies query() returns non-null cursor when valid URI is passed to it.
+     */
+    @Test
+    @ApiTest(apis = "com.android.providers.telephony.MmsSmsProvider#query")
+    public void query_msgParameter_withoutSqlInjection() {
+        Uri uriWithoutSqlInjection = Uri.parse("content://mms-sms/pending?protocol=sms&message=1");
+        Cursor uriWithoutSqlInjectionCur = mContentResolver.query(uriWithoutSqlInjection,
+                null, null, null, null);
+        assertNotNull(uriWithoutSqlInjectionCur);
+    }
+
+    /**
+     * Verifies sql injection is not allowed within a URI.
+     */
+    @Test
+    @ApiTest(apis = "com.android.providers.telephony.MmsSmsProvider#query")
+    public void query_threadIdParameter_sqlInjection() {
+        Uri uriWithSqlInjection = Uri.parse("content://mms-sms/conversations?simple=true&"
+                + "thread_type=1 union select type,name,tbl_name,rootpage,sql FROM SQLITE_MASTER;; --");
+        Cursor uriWithSqlInjectionCur = mContentResolver.query(uriWithSqlInjection,
+                new String[]{"1","2","3","4","5"}, null, null, null);
+        assertNull(uriWithSqlInjectionCur);
+    }
+
+    /**
+     * Verifies query() returns non-null cursor when valid URI is passed to it.
+     */
+    @Test
+    @ApiTest(apis = "com.android.providers.telephony.MmsSmsProvider#query")
+    public void query_threadIdParameter_withoutSqlInjection() {
+        Uri uriWithoutSqlInjection = Uri.parse(
+                "content://mms-sms/conversations?simple=true&thread_type=1");
+        Cursor uriWithoutSqlInjectionCur = mContentResolver.query(uriWithoutSqlInjection,
+                new String[]{"1","2","3","4","5"}, null, null, null);
+        assertNotNull(uriWithoutSqlInjectionCur);
+    }
+
+    /**
+     * Verifies query() with conversations path and non-int threadId fails.
+     */
+    @Test
+    @ApiTest(apis = "com.android.providers.telephony.SmsProvider#query")
+    public void query_threadIdParameter_invalidWithNonIntValue() {
+        Uri uri1 = mSmsTestHelper
+                .insertTestSmsWithThread(TEST_SMS_BODY, TEST_ADDRESS, TEST_THREAD_ID_1);
+        assertThat(uri1).isNotNull();
+
+        Uri threadUri = Uri.parse(Telephony.Sms.CONTENT_URI + "/conversations/4 garbage");
+        Cursor cursor = mContentResolver.query(threadUri, null, null, null);
+        assertNull(cursor);
+    }
+
+    /**
+     * Verifies query() with conversations path and int threadId succeeds.
+     */
+    @Test
+    @ApiTest(apis = "com.android.providers.telephony.SmsProvider#query")
+    public void query_threadIdParameter_validWithIntValue() {
+        Uri uri1 = mSmsTestHelper
+                .insertTestSmsWithThread(TEST_SMS_BODY, TEST_ADDRESS, TEST_THREAD_ID_1);
+        assertThat(uri1).isNotNull();
+
+        Uri threadUri = Uri.parse(Telephony.Sms.CONTENT_URI + "/conversations/" + TEST_THREAD_ID_1);
+        Cursor cursor = mContentResolver.query(threadUri, null, null, null);
+        assertNotNull(cursor);
+        cursor.moveToNext();
+
+        int thread_id = cursor.getInt(cursor.getColumnIndex(Telephony.Sms.THREAD_ID));
+        assertThat(thread_id).isEqualTo(TEST_THREAD_ID_1);
+    }
+
+    /**
+     * Verifies delete() with conversations path and non-int threadId fails.
+     */
+    @Test
+    @ApiTest(apis = "com.android.providers.telephony.SmsProvider#delete")
+    public void delete_threadIdParameter_invalidWithNonIntValue() {
+        Uri uri = mSmsTestHelper.insertTestSmsWithThread(TEST_ADDRESS, TEST_SMS_BODY,
+                TEST_THREAD_ID_1);
+        assertThat(uri).isNotNull();
+
+        Uri threadUri = Uri.parse(Telephony.Sms.CONTENT_URI + "/conversations/3 garbage");
+        assertThrows(IllegalArgumentException.class, () -> mContentResolver.delete(threadUri,
+                null, null));
+    }
+
+    /**
+     * Verifies delete() with conversations path and int threadId succeeds.
+     */
+    @Test
+    @ApiTest(apis = "com.android.providers.telephony.SmsProvider#delete")
+    public void delete_threadIdParameter_validWithIntValue() {
+        Uri uri = mSmsTestHelper.insertTestSmsWithThread(TEST_ADDRESS, TEST_SMS_BODY,
+                TEST_THREAD_ID_1);
+        assertThat(uri).isNotNull();
+
+        Uri threadUri = Uri.parse(Telephony.Sms.CONTENT_URI + "/conversations/" + TEST_THREAD_ID_1);
+        int deletedRows = mContentResolver.delete(threadUri, null, null);
+
+        assertThat(deletedRows).isEqualTo(1);
+    }
+
+    /**
+     * Verifies update() with conversations path and non-int threadId fails.
+     */
+    @Test
+    @ApiTest(apis = "com.android.providers.telephony.SmsProvider#update")
+    public void update_threadIdParameter_invalidWithNonIntValue() {
+        Uri uri = mSmsTestHelper.insertTestSmsWithThread(TEST_ADDRESS, TEST_SMS_BODY,
+                TEST_THREAD_ID_1);
+        assertThat(uri).isNotNull();
+
+        mSmsTestHelper.assertSmsColumnEquals(Telephony.Sms.BODY, uri, TEST_SMS_BODY);
+
+        ContentValues values = new ContentValues();
+        values.put(Telephony.Sms.ADDRESS, TEST_ADDRESS);
+        values.put(Telephony.Sms.BODY, "173 monster");
+
+        Uri threadUri = Uri.parse(Telephony.Sms.CONTENT_URI + "/conversations/garbage");
+        assertThrows(UnsupportedOperationException.class, () -> mContentResolver.update(threadUri,
+                values, null));
+    }
+
+    /**
+     * Verifies update() with conversations path and int threadId succeeds.
+     */
+    @Test
+    @ApiTest(apis = "com.android.providers.telephony.SmsProvider#update")
+    public void update_threadIdParameter_validWithIntValue() {
+        String testSmsBodyUpdate = "TEST_SMS_BODY_UPDATED";
+        Uri uri = mSmsTestHelper.insertTestSmsWithThread(TEST_ADDRESS, TEST_SMS_BODY,
+                TEST_THREAD_ID_1);
+        assertThat(uri).isNotNull();
+
+        mSmsTestHelper.assertSmsColumnEquals(Telephony.Sms.BODY, uri, TEST_SMS_BODY);
+
+        ContentValues values = new ContentValues();
+        values.put(Telephony.Sms.ADDRESS, TEST_ADDRESS);
+        values.put(Telephony.Sms.BODY, testSmsBodyUpdate);
+
+        Uri threadUri = Uri.withAppendedPath(Telephony.Sms.CONTENT_URI,
+                "conversations/" + TEST_THREAD_ID_1);
+        mContentResolver.update(threadUri, values, null, null);
+
+        mSmsTestHelper.assertSmsColumnEquals(Telephony.Sms.BODY, threadUri, testSmsBodyUpdate);
+    }
+
+
+    /**
+     * Verifies query() with threadID path and non-int threadId fails.
+     */
+    @Test
+    @ApiTest(apis = "com.android.providers.telephony.SmsProvider#query")
+    public void query_threadIdUri_ignoresNonIntValue() {
+        ContentValues contentValues = new ContentValues();
+        contentValues.put(Telephony.CanonicalAddressesColumns.ADDRESS, "867-5309");
+        Uri threadUri = Uri.parse(Telephony.Sms.CONTENT_URI + "/threadID");
+        Uri uri1 = mContentResolver.insert(threadUri, contentValues);
+        assertThat(uri1).isNotNull();
+
+        Uri canonicalAddressUri = Uri.withAppendedPath(Telephony.Sms.CONTENT_URI,
+                "threadID/garbage");
+        Cursor cursor = mContentResolver.query(canonicalAddressUri, null, null, null);
+        assertThat(cursor).isNull();
+    }
+
+    /**
+     * Verifies query() with threadID path and int threadId succeeds.
+     */
+    @Test
+    @ApiTest(apis = "com.android.providers.telephony.SmsProvider#query")
+    public void query_threadIdUri_validWithIntValue() {
+        ContentValues contentValues = new ContentValues();
+        contentValues.put(Telephony.CanonicalAddressesColumns.ADDRESS, "867-5309");
+        Uri threadUri = Uri.withAppendedPath(Telephony.Sms.CONTENT_URI, "threadID");
+        Uri uri1 = mContentResolver.insert(threadUri, contentValues);
+        assertThat(uri1).isNotNull();
+
+        Uri canonicalAddressUri = Uri.withAppendedPath(Telephony.Sms.CONTENT_URI,
+                "threadID/" + TEST_THREAD_ID_1);
+        Cursor cursor = mContentResolver.query(canonicalAddressUri, null, null, null);
+        assertThat(cursor).isNotNull();
+    }
+
+}

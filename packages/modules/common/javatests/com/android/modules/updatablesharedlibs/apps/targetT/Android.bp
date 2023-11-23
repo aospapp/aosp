@@ -25,5 +25,6 @@ android_test_helper_app {
         "truth-prebuilt",
     ],
     sdk_version: "current",
+    min_sdk_version: "Tiramisu",
     target_sdk_version: "Tiramisu",
 }

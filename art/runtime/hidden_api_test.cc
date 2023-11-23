@@ -26,7 +26,7 @@
 #include "common_runtime_test.h"
 #include "jni/jni_internal.h"
 #include "proxy_test.h"
-#include "well_known_classes.h"
+#include "well_known_classes-inl.h"
 
 namespace art {
 
@@ -59,26 +59,25 @@ static bool Copy(const std::string& src, const std::string& dst, /*out*/ std::st
 }
 
 static bool LoadDexFiles(const std::string& path,
-                         ScopedObjectAccess& soa,
+                         Thread* self,
                          /* out */ std::vector<std::unique_ptr<const DexFile>>* dex_files,
                          /* out */ ObjPtr<mirror::ClassLoader>* class_loader,
                          /* out */ std::string* error_msg) REQUIRES_SHARED(Locks::mutator_lock_) {
-  if (!ArtDexFileLoader().Open(path.c_str(),
-                               path,
-                               /* verify= */ true,
-                               /* verify_checksum= */ true,
-                               error_msg,
-                               dex_files)) {
+  ArtDexFileLoader dex_file_loader(path);
+  if (!dex_file_loader.Open(/* verify= */ true,
+                            /* verify_checksum= */ true,
+                            error_msg,
+                            dex_files)) {
     return false;
   }
 
   ClassLinker* const linker = Runtime::Current()->GetClassLinker();
 
-  StackHandleScope<2> hs(soa.Self());
-  Handle<mirror::Class> h_class = hs.NewHandle(soa.Decode<mirror::Class>(
-      WellKnownClasses::dalvik_system_PathClassLoader));
+  StackHandleScope<2> hs(self);
+  Handle<mirror::Class> h_class =
+      hs.NewHandle(WellKnownClasses::dalvik_system_PathClassLoader.Get());
   Handle<mirror::ClassLoader> h_loader = hs.NewHandle(linker->CreateWellKnownClassLoader(
-      soa.Self(),
+      self,
       MakeNonOwningPointerVector(*dex_files),
       h_class,
       /* parent_loader= */ ScopedNullHandle<mirror::ClassLoader>(),
@@ -198,7 +197,7 @@ class HiddenApiTest : public CommonRuntimeTest {
     ObjPtr<mirror::ClassLoader> class_loader;
 
     ASSERT_TRUE(Copy(GetTestDexFileName("Main"), location, &error_msg)) << error_msg;
-    ASSERT_TRUE(LoadDexFiles(location, soa, &dex_files, &class_loader, &error_msg))
+    ASSERT_TRUE(LoadDexFiles(location, soa.Self(), &dex_files, &class_loader, &error_msg))
         << error_msg;
     ASSERT_GE(dex_files.size(), 1u);
     ASSERT_TRUE(CheckAllDexFilesInDomain(class_loader,
@@ -639,14 +638,14 @@ TEST_F(HiddenApiTest, CheckMemberSignatureForProxyClass) {
 TEST_F(HiddenApiTest, DexDomain_DataDir) {
   // Load file from a non-system directory and check that it is not flagged as framework.
   std::string data_location_path = android_data_ + "/foo.jar";
-  ASSERT_FALSE(LocationIsOnSystemFramework(data_location_path.c_str()));
+  ASSERT_FALSE(LocationIsOnSystemFramework(data_location_path));
   TestLocation(data_location_path, hiddenapi::Domain::kApplication);
 }
 
 TEST_F(HiddenApiTest, DexDomain_SystemDir) {
   // Load file from a system, non-framework directory and check that it is not flagged as framework.
   std::string system_location_path = GetAndroidRoot() + "/foo.jar";
-  ASSERT_FALSE(LocationIsOnSystemFramework(system_location_path.c_str()));
+  ASSERT_FALSE(LocationIsOnSystemFramework(system_location_path));
   TestLocation(system_location_path, hiddenapi::Domain::kApplication);
 }
 
@@ -654,7 +653,7 @@ TEST_F(HiddenApiTest, DexDomain_SystemExtDir) {
   // Load file from a system_ext, non-framework directory and check that it is not flagged as
   // framework.
   std::string system_ext_location_path = android_system_ext_ + "/foo.jar";
-  ASSERT_FALSE(LocationIsOnSystemExtFramework(system_ext_location_path.c_str()));
+  ASSERT_FALSE(LocationIsOnSystemExtFramework(system_ext_location_path));
   TestLocation(system_ext_location_path, hiddenapi::Domain::kApplication);
 }
 
@@ -663,7 +662,7 @@ TEST_F(HiddenApiTest, DexDomain_SystemSystemExtDir) {
   // framework.
   std::filesystem::create_directory(GetAndroidRoot() + "/system_ext");
   std::string system_ext_location_path =  GetAndroidRoot() + "/system_ext/foo.jar";
-  ASSERT_FALSE(LocationIsOnSystemExtFramework(system_ext_location_path.c_str()));
+  ASSERT_FALSE(LocationIsOnSystemExtFramework(system_ext_location_path));
   TestLocation(system_ext_location_path, hiddenapi::Domain::kApplication);
 }
 
@@ -671,7 +670,7 @@ TEST_F(HiddenApiTest, DexDomain_SystemFrameworkDir) {
   // Load file from a system/framework directory and check that it is flagged as a framework dex.
   std::filesystem::create_directory(GetAndroidRoot() + "/framework");
   std::string system_framework_location_path = GetAndroidRoot() + "/framework/foo.jar";
-  ASSERT_TRUE(LocationIsOnSystemFramework(system_framework_location_path.c_str()));
+  ASSERT_TRUE(LocationIsOnSystemFramework(system_framework_location_path));
   TestLocation(system_framework_location_path, hiddenapi::Domain::kPlatform);
 }
 
@@ -679,7 +678,7 @@ TEST_F(HiddenApiTest, DexDomain_SystemExtFrameworkDir) {
   // Load file from a system_ext/framework directory and check that it is flagged as a framework dex.
   std::filesystem::create_directory(android_system_ext_ + "/framework");
   std::string system_ext_framework_location_path = android_system_ext_ + "/framework/foo.jar";
-  ASSERT_TRUE(LocationIsOnSystemExtFramework(system_ext_framework_location_path.c_str()));
+  ASSERT_TRUE(LocationIsOnSystemExtFramework(system_ext_framework_location_path));
   TestLocation(system_ext_framework_location_path, hiddenapi::Domain::kPlatform);
 }
 
@@ -690,14 +689,14 @@ TEST_F(HiddenApiTest, DexDomain_SystemSystemExtFrameworkDir) {
   std::filesystem::create_directory(GetAndroidRoot() + "/system_ext/framework");
   std::string system_ext_framework_location_path =
        GetAndroidRoot() + "/system_ext/framework/foo.jar";
-  ASSERT_TRUE(LocationIsOnSystemExtFramework(system_ext_framework_location_path.c_str()));
+  ASSERT_TRUE(LocationIsOnSystemExtFramework(system_ext_framework_location_path));
   TestLocation(system_ext_framework_location_path, hiddenapi::Domain::kPlatform);
 }
 
 TEST_F(HiddenApiTest, DexDomain_DataDir_MultiDex) {
   // Load multidex file from a non-system directory and check that it is not flagged as framework.
   std::string data_multi_location_path = android_data_ + "/multifoo.jar";
-  ASSERT_FALSE(LocationIsOnSystemFramework(data_multi_location_path.c_str()));
+  ASSERT_FALSE(LocationIsOnSystemFramework(data_multi_location_path));
   TestLocation(data_multi_location_path, hiddenapi::Domain::kApplication);
 }
 
@@ -705,7 +704,7 @@ TEST_F(HiddenApiTest, DexDomain_SystemDir_MultiDex) {
   // Load multidex file from a system, non-framework directory and check that it is not flagged
   // as framework.
   std::string system_multi_location_path = GetAndroidRoot() + "/multifoo.jar";
-  ASSERT_FALSE(LocationIsOnSystemFramework(system_multi_location_path.c_str()));
+  ASSERT_FALSE(LocationIsOnSystemFramework(system_multi_location_path));
   TestLocation(system_multi_location_path, hiddenapi::Domain::kApplication);
 }
 
@@ -713,7 +712,7 @@ TEST_F(HiddenApiTest, DexDomain_SystemExtDir_MultiDex) {
   // Load multidex file from a system_ext, non-framework directory and check that it is not flagged
   // as framework.
   std::string system_ext_multi_location_path = android_system_ext_ + "/multifoo.jar";
-  ASSERT_FALSE(LocationIsOnSystemExtFramework(system_ext_multi_location_path.c_str()));
+  ASSERT_FALSE(LocationIsOnSystemExtFramework(system_ext_multi_location_path));
   TestLocation(system_ext_multi_location_path, hiddenapi::Domain::kApplication);
 }
 
@@ -723,7 +722,7 @@ TEST_F(HiddenApiTest, DexDomain_SystemSystemExtDir_MultiDex) {
   std::filesystem::create_directory(GetAndroidRoot() + "/system_ext");
   std::string system_ext_multi_location_path =
       GetAndroidRoot() + "/system_ext/multifoo.jar";
-  ASSERT_FALSE(LocationIsOnSystemExtFramework(system_ext_multi_location_path.c_str()));
+  ASSERT_FALSE(LocationIsOnSystemExtFramework(system_ext_multi_location_path));
   TestLocation(system_ext_multi_location_path, hiddenapi::Domain::kApplication);
 }
 
@@ -732,7 +731,7 @@ TEST_F(HiddenApiTest, DexDomain_SystemFrameworkDir_MultiDex) {
   // framework dex.
   std::filesystem::create_directory(GetAndroidRoot() + "/framework");
   std::string system_framework_multi_location_path = GetAndroidRoot() + "/framework/multifoo.jar";
-  ASSERT_TRUE(LocationIsOnSystemFramework(system_framework_multi_location_path.c_str()));
+  ASSERT_TRUE(LocationIsOnSystemFramework(system_framework_multi_location_path));
   TestLocation(system_framework_multi_location_path, hiddenapi::Domain::kPlatform);
 }
 
@@ -742,7 +741,7 @@ TEST_F(HiddenApiTest, DexDomain_SystemExtFrameworkDir_MultiDex) {
   std::filesystem::create_directory(android_system_ext_ + "/framework");
   std::string system_ext_framework_multi_location_path =
       android_system_ext_ + "/framework/multifoo.jar";
-  ASSERT_TRUE(LocationIsOnSystemExtFramework(system_ext_framework_multi_location_path.c_str()));
+  ASSERT_TRUE(LocationIsOnSystemExtFramework(system_ext_framework_multi_location_path));
   TestLocation(system_ext_framework_multi_location_path, hiddenapi::Domain::kPlatform);
 }
 
@@ -753,7 +752,7 @@ TEST_F(HiddenApiTest, DexDomain_SystemSystemExtFrameworkDir_MultiDex) {
   std::filesystem::create_directory(GetAndroidRoot() + "/system_ext/framework");
   std::string system_ext_framework_multi_location_path =
        GetAndroidRoot() + "/system_ext/framework/multifoo.jar";
-  ASSERT_TRUE(LocationIsOnSystemExtFramework(system_ext_framework_multi_location_path.c_str()));
+  ASSERT_TRUE(LocationIsOnSystemExtFramework(system_ext_framework_multi_location_path));
   TestLocation(system_ext_framework_multi_location_path, hiddenapi::Domain::kPlatform);
 }
 

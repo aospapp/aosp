@@ -50,7 +50,6 @@ cc_defaults {
 		"liblog",
 		"libcutils",
 		"libdmabufheap",
-		"libion_google",
 		"libsync",
 		"libutils",
 		"libnativewindow",

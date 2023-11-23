@@ -23,6 +23,7 @@ import android.os.Build;
 import android.telephony.TelephonyManager;
 import android.telephony.TelephonyManager.CarrierPrivilegesCallback;
 
+import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 
 import com.android.networkstack.apishim.common.TelephonyManagerShim;
@@ -72,6 +73,12 @@ public class TelephonyManagerShimImpl extends
                 int[] pkgUids = toIntArray(privilegedUids);
                 listener.onCarrierPrivilegesChanged(pkgNames, pkgUids);
             }
+
+            @Override
+            public void onCarrierServiceChanged(@Nullable final String carrierServicePackageName,
+                    final int carrierServiceUid) {
+                listener.onCarrierServiceChanged(carrierServicePackageName, carrierServiceUid);
+            }
         };
         mTm.registerCarrierPrivilegesCallback(logicalSlotIndex, executor,
                 carrierPrivilegesCallback);
@@ -86,6 +93,7 @@ public class TelephonyManagerShimImpl extends
         mListenerMap.remove(listener);
     }
 
+    // TODO : remove this method when all changes are in
     /** See android.telephony.TelephonyManager#getCarrierServicePackageNameForLogicalSlot */
     public String getCarrierServicePackageNameForLogicalSlot(int logicalSlotIndex) {
         return mTm.getCarrierServicePackageNameForLogicalSlot(logicalSlotIndex);

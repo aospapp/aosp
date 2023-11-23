@@ -1,5 +1,5 @@
 #!/bin/bash
-# Copyright 2016 The Chromium OS Authors. All rights reserved.
+# Copyright 2016 The ChromiumOS Authors
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 #
@@ -12,7 +12,7 @@
 # Perf will run for the entire benchmark run, so results should be interpreted
 # in that context. i.e, if this shows a 3% overhead for a particular perf
 # command, that overhead would only be seen during the 2 seconds of measurement
-# during a Chrome OS Wide Profiling collection.
+# during a ChromeOS Wide Profiling collection.
 set -e
 
 board=xxx #<you-board-here>
@@ -74,4 +74,3 @@ RunExperiment 'cycles.callgraph' \
 # overhead.
 RunExperiment 'memory.bandwidth' \
   'stat -e cycles -e instructions -e uncore_imc/data_reads/ -e uncore_imc/data_writes/ -e cpu/event=0xD0,umask=0x11,name=MEM_UOPS_RETIRED-STLB_MISS_LOADS/ -e cpu/event=0xD0,umask=0x12,name=MEM_UOPS_RETIRED-STLB_MISS_STORES/'
-

@@ -20,28 +20,28 @@ import static com.android.compatibility.common.util.PackageUtil.supportsRotation
 
 import static com.google.common.truth.Truth.assertWithMessage;
 
+import android.app.ActivityOptions;
 import android.app.stubs.DisplayTestActivity;
 import android.app.stubs.OrientationTestUtils;
+import android.content.Intent;
 import android.graphics.Point;
-import android.server.wm.IgnoreOrientationRequestSession;
-import android.test.ActivityInstrumentationTestCase2;
+import android.server.wm.SetRequestedOrientationRule;
+import android.util.Pair;
 import android.view.Display;
+
+import androidx.test.platform.app.InstrumentationRegistry;
+
+import com.android.compatibility.common.util.ApiTest;
+
+import org.junit.Rule;
+import org.junit.Test;
 
 /**
  * Tests to verify functionality of {@link Display}.
  */
-public class DisplayTest extends ActivityInstrumentationTestCase2<DisplayTestActivity> {
-    private DisplayTestActivity mActivity;
-
-    public DisplayTest() {
-        super("android.app.stubs", DisplayTestActivity.class);
-    }
-
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
-        mActivity = getActivity();
-    }
+public class DisplayTest {
+    @Rule public SetRequestedOrientationRule mSetRequestedOrientationRule =
+            new SetRequestedOrientationRule();
 
     /**
      * Tests that the underlying {@link android.view.DisplayAdjustments} in {@link Display} updates.
@@ -49,58 +49,70 @@ public class DisplayTest extends ActivityInstrumentationTestCase2<DisplayTestAct
      * {@link android.view.WindowManager}. A display fetched before the rotation should have the
      * updated adjustments after a rotation.
      */
+    @Test
+    @ApiTest(apis = {"android.content.Context#getDisplay"})
     public void testRotation() throws Throwable {
         if (!supportsRotation()) {
             // Skip rotation test if device doesn't support it.
             return;
         }
 
-        try (IgnoreOrientationRequestSession session =
-                new IgnoreOrientationRequestSession(false /* enable */)) {
+        final Pair<Intent, ActivityOptions> launchArgs =
+                SetRequestedOrientationRule.buildFullScreenLaunchArgs(DisplayTestActivity.class);
 
+        final DisplayTestActivity activity = (DisplayTestActivity) InstrumentationRegistry
+                .getInstrumentation()
+                .startActivitySync(launchArgs.first, launchArgs.second.toBundle());
+        try {
             // Get a {@link Display} instance before rotation.
-            final Display origDisplay = mActivity.getDisplay();
+            final Display origDisplay = activity.getDisplay();
 
             // Capture the originally reported width and heights
             final Point origSize = new Point();
             origDisplay.getRealSize(origSize);
 
             // Change orientation
-            mActivity.configurationChangeObserver.startObserving();
-            OrientationTestUtils.switchOrientation(mActivity);
+            activity.configurationChangeObserver.startObserving();
+            OrientationTestUtils.switchOrientation(activity);
 
             final boolean closeToSquareBounds =
-                    OrientationTestUtils.isCloseToSquareBounds(mActivity);
+                    OrientationTestUtils.isCloseToSquareBounds(activity);
 
             // Don't wait for the configuration to change if
             // the display is square. In many cases it won't.
             if (!closeToSquareBounds) {
-                mActivity.configurationChangeObserver.await();
+                activity.configurationChangeObserver.await();
             }
 
             final Point newOrigSize = new Point();
             origDisplay.getRealSize(newOrigSize);
 
             // Get a {@link Display} instance after rotation.
-            final Display updatedDisplay = mActivity.getDisplay();
+            final Display updatedDisplay = activity.getDisplay();
             final Point updatedSize = new Point();
             updatedDisplay.getRealSize(updatedSize);
 
-             // For square screens the following assertions do not make sense and will always fail.
+            // For square screens the following assertions do not make sense and will always
+            // fail.
             if (!closeToSquareBounds) {
-                // Ensure that the width and height of the original instance no longer are the same.
+                // Ensure that the width and height of the original instance no longer are the
+                // same.
                 // Note that this will be false if the device width and height are identical.
-                // Note there are cases where width and height may not all be updated, such as on
-                // docked devices where the app is letterboxed. However, at least one dimension
-                // needs to be updated.
-                assertWithMessage("size from original display instance should have changed")
+                // Note there are cases where width and height may not all be updated, such as
+                // on docked devices where the app is letterboxed. However, at least one
+                // dimension needs to be updated.
+                assertWithMessage(
+                        "size from original display instance should have changed")
                         .that(origSize).isNotEqualTo(newOrigSize);
             }
 
-            // Ensure that the width and height of the original instance have been updated to match
-            // the values that would be found in a new instance.
-            assertWithMessage("size from original display instance should match current")
+            // Ensure that the width and height of the original instance have been updated to
+            // match the values that would be found in a new instance.
+            assertWithMessage(
+                    "size from original display instance should match current")
                     .that(newOrigSize).isEqualTo(updatedSize);
+        } finally {
+            InstrumentationRegistry.getInstrumentation().runOnMainSync(activity::finish);
         }
     }
 }

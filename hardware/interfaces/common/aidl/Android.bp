@@ -30,13 +30,17 @@ aidl_interface {
         ndk: {
             apex_available: [
                 "//apex_available:platform",
-                "com.android.bluetooth",
+                "com.android.btservices",
                 "com.android.media.swcodec",
                 "com.android.neuralnetworks",
             ],
             min_sdk_version: "29",
         },
+        rust: {
+            enabled: true,
+        }
     },
+    frozen: true,
     versions: [
         "1",
         "2",

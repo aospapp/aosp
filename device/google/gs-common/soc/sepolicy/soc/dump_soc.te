@@ -1,0 +1,2 @@
+pixel_bugreport(dump_soc)
+allow dump_soc sysfs_chip_id:file r_file_perms;

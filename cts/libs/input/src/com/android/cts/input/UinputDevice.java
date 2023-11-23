@@ -97,7 +97,7 @@ public final class UinputDevice extends VirtualInputDevice {
         List<UinputResultData> results = new ArrayList<UinputResultData>();
         synchronized (mLock) {
             for (UinputResultData result : mResults) {
-                if (deviceId == result.deviceId && reason.equals(reason)) {
+                if (deviceId == result.deviceId && reason.equals(result.reason)) {
                     results.add(result);
                 }
             }

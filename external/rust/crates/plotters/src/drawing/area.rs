@@ -52,14 +52,13 @@ impl Rect {
     }
 
     /// Evenly split the rectangle to a row * col mesh
-    fn split_evenly<'a>(&'a self, (row, col): (usize, usize)) -> impl Iterator<Item = Rect> + 'a {
+    fn split_evenly(&self, (row, col): (usize, usize)) -> impl Iterator<Item = Rect> + '_ {
         fn compute_evenly_split(from: i32, to: i32, n: usize, idx: usize) -> i32 {
             let size = (to - from) as usize;
             from + idx as i32 * (size / n) as i32 + idx.min(size % n) as i32
         }
         (0..row)
-            .map(move |x| repeat(x).zip(0..col))
-            .flatten()
+            .flat_map(move |x| repeat(x).zip(0..col))
             .map(move |(ri, ci)| Self {
                 y0: compute_evenly_split(self.y0, self.y1, row, ri),
                 y1: compute_evenly_split(self.y0, self.y1, row, ri + 1),
@@ -68,6 +67,7 @@ impl Rect {
             })
     }
 
+    /// Evenly the rectangle into a grid with arbitrary breaks; return a rect iterator.
     fn split_grid(
         &self,
         x_breaks: impl Iterator<Item = i32>,
@@ -78,14 +78,19 @@ impl Rect {
         xs.extend(x_breaks.map(|v| v + self.x0));
         ys.extend(y_breaks.map(|v| v + self.y0));
 
-        xs.sort();
-        ys.sort();
+        xs.sort_unstable();
+        ys.sort_unstable();
 
         let xsegs: Vec<_> = xs
             .iter()
             .zip(xs.iter().skip(1))
             .map(|(a, b)| (*a, *b))
             .collect();
+
+        // Justify: this is actually needed. Because we need to return a iterator that have 
+        // static life time, thus we need to copy the value to a buffer and then turn the buffer
+        // into a iterator.
+        #[allow(clippy::needless_collect)]
         let ysegs: Vec<_> = ys
             .iter()
             .zip(ys.iter().skip(1))
@@ -94,13 +99,12 @@ impl Rect {
 
         ysegs
             .into_iter()
-            .map(move |(y0, y1)| {
+            .flat_map(move |(y0, y1)| {
                 xsegs
                     .clone()
                     .into_iter()
                     .map(move |(x0, x1)| Self { x0, y0, x1, y1 })
             })
-            .flatten()
     }
 
     /// Make the coordinate in the range of the rectangle
@@ -211,10 +215,12 @@ impl<DB: DrawingBackend, X: Ranged, Y: Ranged> DrawingArea<DB, Cartesian2d<X, Y>
         self.coord.get_y_range()
     }
 
+    /// Get the range of X of the backend coordinate for current drawing area
     pub fn get_x_axis_pixel_range(&self) -> Range<i32> {
         self.coord.get_x_axis_pixel_range()
     }
 
+    /// Get the range of Y of the backend coordinate for current drawing area
     pub fn get_y_axis_pixel_range(&self) -> Range<i32> {
         self.coord.get_y_axis_pixel_range()
     }
@@ -235,6 +241,7 @@ impl<DB: DrawingBackend, CT: CoordTranslate> DrawingArea<DB, CT> {
         }
     }
 
+    /// Strip the applied coordinate specification and returns a drawing area
     pub fn use_screen_coord(&self) -> DrawingArea<DB, Shift> {
         DrawingArea {
             rect: self.rect.clone(),
@@ -285,7 +292,7 @@ impl<DB: DrawingBackend, CT: CoordTranslate> DrawingArea<DB, CT> {
         self.backend_ops(|backend| {
             backend.draw_rect(
                 (self.rect.x0, self.rect.y0),
-                (self.rect.x1 - 1, self.rect.y1 - 1),
+                (self.rect.x1, self.rect.y1),
                 &color.to_backend_color(),
                 true,
             )
@@ -519,14 +526,17 @@ impl<DB: DrawingBackend> DrawingArea<DB, Shift> {
 }
 
 impl<DB: DrawingBackend, CT: CoordTranslate> DrawingArea<DB, CT> {
+    /// Returns the coordinates by value
     pub fn into_coord_spec(self) -> CT {
         self.coord
     }
 
+    /// Returns the coordinates by reference
     pub fn as_coord_spec(&self) -> &CT {
         &self.coord
     }
 
+    /// Returns the coordinates by mutable reference
     pub fn as_coord_spec_mut(&mut self) -> &mut CT {
         &mut self.coord
     }
@@ -542,7 +552,7 @@ mod drawing_area_tests {
                 assert_eq!(c, WHITE.to_rgba());
                 assert_eq!(f, true);
                 assert_eq!(u, (0, 0));
-                assert_eq!(d, (1023, 767));
+                assert_eq!(d, (1024, 768));
             });
 
             m.drop_check(|b| {
@@ -570,8 +580,8 @@ mod drawing_area_tests {
                         assert_eq!(
                             d,
                             (
-                                300 + 300 * row as i32 + 2.min(row + 1) as i32 - 1,
-                                300 + 300 * col as i32 - 1
+                                300 + 300 * row as i32 + 2.min(row + 1) as i32,
+                                300 + 300 * col as i32
                             )
                         );
                     });
@@ -599,14 +609,14 @@ mod drawing_area_tests {
                 assert_eq!(c, RED.to_rgba());
                 assert_eq!(f, true);
                 assert_eq!(u, (0, 0));
-                assert_eq!(d, (345 - 1, 768 - 1));
+                assert_eq!(d, (345, 768));
             });
 
             m.check_draw_rect(|c, _, f, u, d| {
                 assert_eq!(c, BLUE.to_rgba());
                 assert_eq!(f, true);
                 assert_eq!(u, (345, 0));
-                assert_eq!(d, (1024 - 1, 768 - 1));
+                assert_eq!(d, (1024, 768));
             });
 
             m.drop_check(|b| {
@@ -627,14 +637,14 @@ mod drawing_area_tests {
                 assert_eq!(c, RED.to_rgba());
                 assert_eq!(f, true);
                 assert_eq!(u, (0, 0));
-                assert_eq!(d, (1024 - 1, 345 - 1));
+                assert_eq!(d, (1024, 345));
             });
 
             m.check_draw_rect(|c, _, f, u, d| {
                 assert_eq!(c, BLUE.to_rgba());
                 assert_eq!(f, true);
                 assert_eq!(u, (0, 345));
-                assert_eq!(d, (1024 - 1, 768 - 1));
+                assert_eq!(d, (1024, 768));
             });
 
             m.drop_check(|b| {
@@ -671,10 +681,8 @@ mod drawing_area_tests {
                             };
 
                             let expected_u = (get_bp(1024, nxb, col), get_bp(768, nyb, row));
-                            let expected_d = (
-                                get_bp(1024, nxb, col + 1) - 1,
-                                get_bp(768, nyb, row + 1) - 1,
-                            );
+                            let expected_d =
+                                (get_bp(1024, nxb, col + 1), get_bp(768, nyb, row + 1));
                             let expected_color =
                                 colors[(row * (nxb + 1) + col) as usize % colors.len()];
 
@@ -717,7 +725,7 @@ mod drawing_area_tests {
                 assert_eq!(f, true);
                 assert_eq!(u.0, 0);
                 assert!(u.1 > 0);
-                assert_eq!(d, (1024 - 1, 768 - 1));
+                assert_eq!(d, (1024, 768));
             });
             m.drop_check(|b| {
                 assert_eq!(b.num_draw_text_call, 1);
@@ -740,7 +748,7 @@ mod drawing_area_tests {
                 assert_eq!(c, WHITE.to_rgba());
                 assert_eq!(f, true);
                 assert_eq!(u, (3, 1));
-                assert_eq!(d, (1024 - 4 - 1, 768 - 2 - 1));
+                assert_eq!(d, (1024 - 4, 768 - 2));
             });
 
             m.drop_check(|b| {
@@ -795,22 +803,22 @@ mod drawing_area_tests {
                     0 => {
                         assert_eq!(c, RED.to_rgba());
                         assert_eq!(u, (0, 0));
-                        assert_eq!(d, (300 - 1, 600 - 1));
+                        assert_eq!(d, (300, 600));
                     }
                     1 => {
                         assert_eq!(c, BLUE.to_rgba());
                         assert_eq!(u, (300, 0));
-                        assert_eq!(d, (1000 - 1, 600 - 1));
+                        assert_eq!(d, (1000, 600));
                     }
                     2 => {
                         assert_eq!(c, GREEN.to_rgba());
                         assert_eq!(u, (0, 600));
-                        assert_eq!(d, (300 - 1, 1200 - 1));
+                        assert_eq!(d, (300, 1200));
                     }
                     3 => {
                         assert_eq!(c, WHITE.to_rgba());
                         assert_eq!(u, (300, 600));
-                        assert_eq!(d, (1000 - 1, 1200 - 1));
+                        assert_eq!(d, (1000, 1200));
                     }
                     _ => panic!("Too many draw rect"),
                 }
@@ -838,7 +846,7 @@ mod drawing_area_tests {
         let drawing_area = create_mocked_drawing_area(1000, 1200, |m| {
             m.check_draw_rect(move |_, _, _, u, d| {
                 assert_eq!((100, 100), u);
-                assert_eq!((300 - 1, 700 - 1), d);
+                assert_eq!((300, 700), d);
             });
 
             m.drop_check(|b| {

@@ -54,7 +54,7 @@ class RoundRobinScheduler {
 
  private:
   void start_round_robin();
-  void buffer_packet(std::map<uint16_t, acl_queue_handler>::iterator acl_queue_handler);
+  void buffer_packet(uint16_t acl_handle);
   void unregister_all_connections();
   void send_next_fragment();
   std::unique_ptr<AclBuilder> handle_enqueue_next_fragment();

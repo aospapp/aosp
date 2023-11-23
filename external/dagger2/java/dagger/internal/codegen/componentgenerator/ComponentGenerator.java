@@ -17,52 +17,56 @@
 package dagger.internal.codegen.componentgenerator;
 
 import static com.google.common.base.Verify.verify;
-import static dagger.internal.codegen.binding.SourceFiles.classFileName;
+import static dagger.internal.codegen.writing.ComponentNames.getRootComponentClassName;
 
+import androidx.room.compiler.processing.XElement;
+import androidx.room.compiler.processing.XFiler;
 import com.google.common.collect.ImmutableList;
-import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.TypeSpec;
 import dagger.Component;
 import dagger.internal.codegen.base.SourceFileGenerator;
 import dagger.internal.codegen.binding.BindingGraph;
 import dagger.internal.codegen.langmodel.DaggerElements;
 import dagger.internal.codegen.writing.ComponentImplementation;
-import javax.annotation.processing.Filer;
+import java.util.Optional;
 import javax.inject.Inject;
 import javax.lang.model.SourceVersion;
-import javax.lang.model.element.Element;
-import javax.lang.model.element.TypeElement;
 
 /** Generates the implementation of the abstract types annotated with {@link Component}. */
 final class ComponentGenerator extends SourceFileGenerator<BindingGraph> {
-  private final ComponentImplementationFactory componentImplementationFactory;
+  private final TopLevelImplementationComponent.Factory topLevelImplementationComponentFactory;
 
   @Inject
   ComponentGenerator(
-      Filer filer,
+      XFiler filer,
       DaggerElements elements,
       SourceVersion sourceVersion,
-      ComponentImplementationFactory componentImplementationFactory) {
+      TopLevelImplementationComponent.Factory topLevelImplementationComponentFactory) {
     super(filer, elements, sourceVersion);
-    this.componentImplementationFactory = componentImplementationFactory;
-  }
-
-  static ClassName componentName(TypeElement componentDefinitionType) {
-    ClassName componentName = ClassName.get(componentDefinitionType);
-    return ClassName.get(componentName.packageName(), "Dagger" + classFileName(componentName));
+    this.topLevelImplementationComponentFactory = topLevelImplementationComponentFactory;
   }
 
   @Override
-  public Element originatingElement(BindingGraph input) {
+  public XElement originatingElement(BindingGraph input) {
     return input.componentTypeElement();
   }
 
   @Override
   public ImmutableList<TypeSpec.Builder> topLevelTypes(BindingGraph bindingGraph) {
     ComponentImplementation componentImplementation =
-        componentImplementationFactory.createComponentImplementation(bindingGraph);
+        topLevelImplementationComponentFactory
+            .create(bindingGraph)
+            .currentImplementationSubcomponentBuilder()
+            .bindingGraph(bindingGraph)
+            .parentImplementation(Optional.empty())
+            .parentRequestRepresentations(Optional.empty())
+            .parentRequirementExpressions(Optional.empty())
+            .build()
+            .componentImplementation();
     verify(
-        componentImplementation.name().equals(componentName(bindingGraph.componentTypeElement())));
-    return ImmutableList.of(componentImplementation.generate());
+        componentImplementation
+            .name()
+            .equals(getRootComponentClassName(bindingGraph.componentDescriptor())));
+    return ImmutableList.of(componentImplementation.generate().toBuilder());
   }
 }

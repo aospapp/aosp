@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 #
 # Copyright 2020 The Chromium OS Authors. All rights reserved.
@@ -14,7 +14,7 @@ from __future__ import print_function
 import logging
 import time
 import unittest
-import mock
+from unittest import mock
 
 import common
 from autotest_lib.server import hosts
@@ -151,11 +151,13 @@ class device_setup_utilsTest(unittest.TestCase):
         self.dut.run.assert_called_once_with(
                 'run command;', ignore_status=True)
         # Error status causes log fatal.
-        logging.warning.assert_called_once_with(
-                'Command execution on DUT lumpy.cros2 failed.\n'
-                'Failing command: run command;\nreturned 1\n'
-                'Error message: Error!\n'
-                '(Failure is considered non-fatal. Continue.)')
+        calls = [
+                mock.call('Command execution on DUT lumpy.cros2 failed.\n'
+                          'Failing command: run command;\nreturned 1\n'
+                          'Error message: Error!'),
+                mock.call('Failure is considered non-fatal. Continue.'),
+        ]
+        logging.warning.assert_has_calls(calls)
 
 
     @mock.patch.object(device_setup_utils, 'run_command_on_dut')
@@ -299,15 +301,15 @@ class device_setup_utilsTest(unittest.TestCase):
         """Test that not exposed cpu0/online will still be in the list."""
 
         def run_command(dut, cmd):
-          """Helper function."""
-          if '/sys/devices/system/cpu/cpu' in cmd:
-              # Cpu0 online is not exposed.
-              return (0, '/sys/devices/system/cpu/cpu1/online 1\n', '')
-          elif '/sys/devices/system/cpu/online' in cmd:
-              # All online cores shows cpu0.
-              return (0, '0-1', '')
-          else:
-              return (1, '', '')
+            """Helper function."""
+            if '/sys/devices/system/cpu/cpu' in cmd:
+                # Cpu0 online is not exposed.
+                return (0, '/sys/devices/system/cpu/cpu1/online 1\n', '')
+            elif '/sys/devices/system/cpu/online' in cmd:
+                # All online cores shows cpu0.
+                return (0, '0-1', '')
+            else:
+                return (1, '', '')
 
         mock_run_command.side_effect = run_command
         cpu_online = device_setup_utils.get_cpu_online(self.dut)
@@ -595,15 +597,23 @@ class device_setup_utilsTest(unittest.TestCase):
     @mock.patch.object(device_setup_utils, 'run_command_on_dut')
     @mock.patch.object(time, 'sleep')
     def test_wait_cooldown_nowait(self, mock_sleep, mock_run_command):
+        """
+        No cooldown wait.
+
+        Don't wait when the temperature in uC does not exceed 40C.
+        """
         mock_sleep.return_value = 0
-        mock_run_command.return_value = (0, '39000', '')
+        mock_run_command.side_effect = [
+                (0, '/sys/class/thermal/thermal_zone0/temp', ''),
+                (0, 'cpu', ''),
+                (0, '39000', ''),
+        ]
         cooldown_time = 10
         cooldown_temp = 40
         wait_time = device_setup_utils.wait_cooldown(self.dut, cooldown_time,
                                                      cooldown_temp)
-        # Send command to DUT only once to check temperature
-        # and make sure it does not exceed the threshold.
-        mock_run_command.assert_called_once()
+        mock_run_command.assert_called()
+        # Expect no wait time.
         mock_sleep.assert_not_called()
         self.assertEqual(wait_time, 0)
 
@@ -614,27 +624,57 @@ class device_setup_utilsTest(unittest.TestCase):
         """
         Wait one iteration for cooldown.
 
-        Set large enough timeout and changing temperature
-        output. Make sure it exits when expected value
-        received.
-        Expect that WaitCooldown check temp twice.
-
+        Set large enough timeout and changing temperature output.
+        Make sure it exits when expected value received.
         """
         mock_sleep.return_value = 0
-        mock_run_command.side_effect = [(0, '41000', ''), (0, '39999', '')]
+        mock_run_command.side_effect = [
+                (0, '/sys/class/thermal/thermal_zone0/temp', ''),
+                (0, 'cpu', ''),
+                (0, '41000', ''),
+                (0, '39000', ''),
+        ]
         cooldown_time = 100
         cooldown_temp = 40
         wait_time = device_setup_utils.wait_cooldown(self.dut, cooldown_time,
                                                      cooldown_temp)
         mock_run_command.assert_called()
-        self.assertEqual(mock_run_command.call_count, 2)
+        # Wait time is non-zero.
         mock_sleep.assert_called()
         self.assertGreater(wait_time, 0)
 
 
     @mock.patch.object(device_setup_utils, 'run_command_on_dut')
     @mock.patch.object(time, 'sleep')
-    def test_wait_cooldown_needwait(self, mock_sleep, mock_run_command):
+    def test_wait_cooldown_space_in_thermal_name(self, mock_sleep,
+                                                 mock_run_command):
+        """
+        Wait one iteration for cooldown.
+
+        Make sure the cooldown is working properly when there is a space
+        in the sensor type name.
+        """
+        mock_sleep.return_value = 0
+        mock_run_command.side_effect = [
+                (0, '/sys/class/thermal/thermal_zone0/temp\n'
+                 '/sys/class/thermal/thermal_zone1/temp', ''),
+                (0, 'cpu\ngpu thermal', ''),
+                (0, '39000', ''),
+                (0, '41000', ''),
+                (0, '38000', ''),
+        ]
+        cooldown_time = 10
+        cooldown_temp = 40
+        wait_time = device_setup_utils.wait_cooldown(self.dut, cooldown_time,
+                                                     cooldown_temp)
+        mock_run_command.assert_called()
+        # Expect no wait time.
+        mock_sleep.assert_called_once()
+        self.assertGreater(wait_time, 0)
+
+    @mock.patch.object(device_setup_utils, 'run_command_on_dut')
+    @mock.patch.object(time, 'sleep')
+    def test_wait_cooldown_wait_timeout(self, mock_sleep, mock_run_command):
         """
         Test exit by timeout.
 
@@ -643,16 +683,26 @@ class device_setup_utilsTest(unittest.TestCase):
         Output from temperature sensor never changes.
 
         """
+
+        def constant_temp(temp):
+            """Helper function returns gradually decreasing temperature."""
+            yield (0, '/sys/class/thermal/thermal_zone0/temp', '')
+            yield (0, 'cpu', '')
+            while True:
+                yield (0, str(temp), '')
+
         mock_sleep.return_value = 0
-        mock_run_command.return_value = (0, '41000', '')
-        cooldown_time = 60
+        # Set the temperature higher than a default threshold 40k.
+        mock_run_command.side_effect = constant_temp(41000)
+        # Cooldown time - 5 minutes.
+        cooldown_time = 5
         cooldown_temp = 40
         wait_time = device_setup_utils.wait_cooldown(self.dut, cooldown_time,
                                                      cooldown_temp)
         mock_run_command.assert_called()
-        self.assertGreater(mock_run_command.call_count, 2)
         mock_sleep.assert_called()
-        self.assertGreater(wait_time, 0)
+        # Convert cooldown_time to seconds.
+        self.assertEqual(wait_time, cooldown_time * 60)
 
 
     @mock.patch.object(device_setup_utils, 'run_command_on_dut')
@@ -665,105 +715,100 @@ class device_setup_utilsTest(unittest.TestCase):
         Set large enough timeout and changing temperature
         output. Make sure it exits when expected value
         for all temperatures received.
-        Expect 3 checks.
-
         """
         mock_sleep.return_value = 0
         mock_run_command.side_effect = [
-                (0, '41000\n20000\n30000\n45000', ''),
-                (0, '39000\n20000\n30000\n41000', ''),
-                (0, '39000\n20000\n30000\n31000', ''),
+                (0, '/sys/class/thermal/thermal_zone0/temp\n'
+                 '/sys/class/thermal/thermal_zone1/temp\n'
+                 '/sys/class/thermal/thermal_zone2/temp', ''),
+                (0, 'cpu0\ncpu1\ngpu', ''),
+                # Iteration 1 of monitoring.
+                (0, '45000', ''),
+                (0, '41000', ''),
+                (0, '20000', ''),
+                # Iteration 2 of monitoring.
+                (0, '42000', ''),
+                (0, '39000', ''),
+                # Iteration 3 of monitoring.
+                (0, '38000', ''),
+                # Monitoring ends.
         ]
         cooldown_time = 100
         cooldown_temp = 40
         wait_time = device_setup_utils.wait_cooldown(self.dut, cooldown_time,
                                                      cooldown_temp)
         mock_run_command.assert_called()
-        self.assertEqual(mock_run_command.call_count, 3)
+        # Wait time is non-zero.
         mock_sleep.assert_called()
         self.assertGreater(wait_time, 0)
+
+
+    @mock.patch.object(device_setup_utils, 'run_command_on_dut')
+    @mock.patch.object(time, 'sleep')
+    def test_wait_cooldown_ignore_irrelevant_sensor(self, mock_sleep,
+                                                    mock_run_command):
+        """
+        Ignore non cpu/gpu sensors.
+
+        Set large temperature of a non-cpu sensor.
+        Make sure we don't wait if cpu temperature is low
+        regardless of other reports.
+        """
+        mock_sleep.return_value = 0
+        mock_run_command.side_effect = [
+                (0, '/sys/class/thermal/thermal_zone0/temp\n'
+                 '/sys/class/thermal/thermal_zone1/temp', ''),
+                (0, 'cpu0\ncharger-sensor', ''),
+                # Iteration 1 of monitoring, check only cpu0.
+                # cpu0
+                (0, '39000', ''),
+                # Monitoring should stop at this point since the other
+                # sensor is irrelevant.
+                # If it doesn't, the test will fail since the function
+                # will continue monitoring until 50C drops but there is
+                # no more input.
+                (0, '50000', ''),
+        ]
+        cooldown_time = 100
+        cooldown_temp = 40
+        wait_time = device_setup_utils.wait_cooldown(self.dut, cooldown_time,
+                                                     cooldown_temp)
+        mock_run_command.assert_called()
+        # Wait time is zero.
+        mock_sleep.assert_not_called()
+        self.assertEqual(wait_time, 0)
 
 
     @mock.patch.object(device_setup_utils, 'run_command_on_dut')
     @mock.patch.object(time, 'sleep')
     def test_wait_cooldown_thermal_error(self, mock_sleep, mock_run_command):
         """
-        Handle error status.
+        Handle error status gracefully.
 
-        Any error should be considered non-fatal.
-
+        Sensor with an error is excluded from temperature monitoring.
+        But wait_cooldown still waits.
         """
         mock_sleep.return_value = 0
+        # Error status and output with a high temperature.
         mock_run_command.side_effect = [
-                (1, '39000\n20000\n30000\n41000', 'Thermal error'),
-                (1, '39000\n20000\n30000\n31000', 'Thermal error'),
+                (0, '/sys/class/thermal/thermal_zone0/temp\n'
+                 '/sys/class/thermal/thermal_zone1/temp', ''),
+                (0, 'cpu0\ncpu1', ''),
+                # Iteration 1 of monitoring.
+                # cpu0
+                (1, '', 'Thernal error'),
+                # Iteration 2 of monitoring.
+                # cpu1
+                (0, '45000', ''),
+                (0, '39000', ''),
         ]
         cooldown_time = 10
         cooldown_temp = 40
         wait_time = device_setup_utils.wait_cooldown(self.dut, cooldown_time,
                                                      cooldown_temp)
-        # Check that errors are ignored.
-        mock_run_command.assert_called_with(
-                self.dut,
-                'cat /sys/class/thermal/thermal_zone*/temp',
-                ignore_status=True)
-        self.assertEqual(mock_run_command.call_count, 2)
-        # Check that we are waiting even when an error is returned
-        # as soon as data is coming.
+        # Wait time is greater than 0.
         mock_sleep.assert_called()
         self.assertGreater(wait_time, 0)
-
-
-    @mock.patch.object(device_setup_utils, 'run_command_on_dut')
-    @mock.patch.object(time, 'sleep')
-    def test_wait_cooldown_thermal_no_output(self, mock_sleep,
-                                             mock_run_command):
-        """
-        Handle no output.
-
-        Check handling of empty stdout.
-
-        """
-        mock_sleep.return_value = 0
-        mock_run_command.side_effect = [(1, '', 'Thermal error')]
-        cooldown_time = 10
-        cooldown_temp = 40
-        wait_time = device_setup_utils.wait_cooldown(self.dut, cooldown_time,
-                                                     cooldown_temp)
-        # Check that errors are ignored.
-        mock_run_command.assert_called_once_with(
-                self.dut,
-                'cat /sys/class/thermal/thermal_zone*/temp',
-                ignore_status=True)
-        # No wait.
-        mock_sleep.assert_not_called()
-        self.assertEqual(wait_time, 0)
-
-
-    @mock.patch.object(device_setup_utils, 'run_command_on_dut')
-    @mock.patch.object(time, 'sleep')
-    def test_wait_cooldown_thermal_ws_output(self, mock_sleep,
-                                             mock_run_command):
-        """
-        Handle whitespace output.
-
-        Check handling of whitespace only.
-
-        """
-        mock_sleep.return_value = 0
-        mock_run_command.side_effect = [(1, '\n', 'Thermal error')]
-        cooldown_time = 10
-        cooldown_temp = 40
-        wait_time = device_setup_utils.wait_cooldown(self.dut, cooldown_time,
-                                                     cooldown_temp)
-        # Check that errors are ignored.
-        mock_run_command.assert_called_once_with(
-                self.dut,
-                'cat /sys/class/thermal/thermal_zone*/temp',
-                ignore_status=True)
-        # No wait.
-        mock_sleep.assert_not_called()
-        self.assertEqual(wait_time, 0)
 
 
     @mock.patch.object(device_setup_utils, 'run_command_on_dut')

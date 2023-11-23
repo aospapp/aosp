@@ -82,6 +82,11 @@ void ParameterProvider::OverrideSnoozLogFilePath(const std::string& path) {
   snooz_log_file_path = path;
 }
 
+// Android doesn't have a need for the sysprops module
+std::string ParameterProvider::SyspropsFilePath() {
+  return "";
+}
+
 bluetooth_keystore::BluetoothKeystoreInterface* ParameterProvider::GetBtKeystoreInterface() {
   std::lock_guard<std::mutex> lock(parameter_mutex);
   return bt_keystore_interface;

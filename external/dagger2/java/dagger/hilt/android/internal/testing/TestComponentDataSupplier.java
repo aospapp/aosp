@@ -32,20 +32,29 @@ public abstract class TestComponentDataSupplier {
           .getDeclaredConstructor()
           .newInstance()
           .get();
-    } catch (ClassNotFoundException
-        | NoSuchMethodException
-        | IllegalAccessException
-        | InstantiationException
-        | InvocationTargetException e) {
-      throw new RuntimeException(
-          String.format(
-              "Hilt test, %s, is missing generated file: %s. Check that the test class is "
-                  + " annotated with @HiltAndroidTest and that the processor is running over your"
-                  + " test.",
-              testClass.getSimpleName(),
-              generatedClassName),
-          e);
+    // We catch each individual exception rather than using a multicatch because multi-catch will
+    // get compiled to the common but new super type ReflectiveOperationException, which is not
+    // allowed on API < 19. See b/187826710.
+    } catch (ClassNotFoundException e) {
+      throw new RuntimeException(errorMessage(testClass, generatedClassName), e);
+    } catch (NoSuchMethodException e) {
+      throw new RuntimeException(errorMessage(testClass, generatedClassName), e);
+    } catch (IllegalAccessException e) {
+      throw new RuntimeException(errorMessage(testClass, generatedClassName), e);
+    } catch (InstantiationException e) {
+      throw new RuntimeException(errorMessage(testClass, generatedClassName), e);
+    } catch (InvocationTargetException e) {
+      throw new RuntimeException(errorMessage(testClass, generatedClassName), e);
     }
+  }
+
+  private static String errorMessage(Class<?> testClass, String generatedClassName) {
+    return String.format(
+        "Hilt test, %s, is missing generated file: %s. Check that the test class is "
+            + " annotated with @HiltAndroidTest and that the processor is running over your"
+            + " test.",
+        testClass.getSimpleName(),
+        generatedClassName);
   }
 
   private static String getEnclosedClassName(Class<?> testClass) {

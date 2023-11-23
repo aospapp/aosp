@@ -177,6 +177,10 @@ public:
         continue;
 
       llvm::StructType *argStructType = llvm::dyn_cast<llvm::StructType>(argType->getPointerElementType());
+      if (!argStructType) {
+          // Abort when dynamic_cast failed?
+          continue;
+      }
 
       for (unsigned int i = 0; i < argStructType->getNumElements(); i++) {
         llvm::Type *currentType = argStructType->getElementType(i);

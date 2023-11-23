@@ -21,12 +21,14 @@
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
+#include <vector>
+#include "media/NdkMediaCodec.h"
 #include "media/NdkMediaExtractor.h"
 #include "media/NdkMediaMuxer.h"
 
 extern "C" jboolean Java_android_media_muxer_cts_NativeMuxerTest_testMuxerNative(
         JNIEnv */*env*/, jclass /*clazz*/, int infd, jlong inoffset, jlong insize, int outfd,
-        jboolean webm) {
+        jboolean webm, jboolean signaleos) {
     AMediaMuxer *muxer = AMediaMuxer_new(outfd,
             webm ? AMEDIAMUXER_OUTPUT_FORMAT_WEBM : AMEDIAMUXER_OUTPUT_FORMAT_MPEG_4);
     AMediaExtractor *ex = AMediaExtractor_new();
@@ -37,6 +39,7 @@ extern "C" jboolean Java_android_media_muxer_cts_NativeMuxerTest_testMuxerNative
     }
     int numtracks = AMediaExtractor_getTrackCount(ex);
     ALOGI("input tracks: %d", numtracks);
+    std::vector<size_t> muxer_track_indices;
     for (int i = 0; i < numtracks; i++) {
         AMediaFormat *format = AMediaExtractor_getTrackFormat(ex, i);
         const char *s = AMediaFormat_toString(format);
@@ -47,6 +50,7 @@ extern "C" jboolean Java_android_media_muxer_cts_NativeMuxerTest_testMuxerNative
             return false;
         } else if (!strncmp(mime, "audio/", 6) || !strncmp(mime, "video/", 6)) {
             ssize_t tidx = AMediaMuxer_addTrack(muxer, format);
+            muxer_track_indices.push_back(tidx);
             ALOGI("track %d -> %zd format %s", i, tidx, s);
             AMediaExtractor_selectTrack(ex, i);
         } else {
@@ -72,6 +76,24 @@ extern "C" jboolean Java_android_media_muxer_cts_NativeMuxerTest_testMuxerNative
         size_t idx = (size_t) AMediaExtractor_getSampleTrackIndex(ex);
         AMediaMuxer_writeSampleData(muxer, idx, buf, &info);
         AMediaExtractor_advance(ex);
+    }
+    // By explicitly passing in an EOS buffer with the correct timestamp, we can
+    // control the duration of the last sample so that the duration of the
+    // produced file matches the input file. This is needed for input files
+    // whose last sample's duration doesn't match the preceding one, because the
+    // MP4 MediaMuxer uses the duration of the sample second to last for the
+    // last sample by default.
+    if (signaleos) {
+        info.size = 0;
+        info.flags = AMEDIACODEC_BUFFER_FLAG_END_OF_STREAM;
+        for (int i = 0; i < numtracks; i++) {
+            AMediaFormat *format = AMediaExtractor_getTrackFormat(ex, i);
+            if (AMediaFormat_getInt64(format, AMEDIAFORMAT_KEY_DURATION,
+                                      &info.presentationTimeUs)) {
+                AMediaMuxer_writeSampleData(muxer, muxer_track_indices.at(i),
+                                            buf, &info);
+            }
+        }
     }
     AMediaExtractor_delete(ex);
     AMediaMuxer_stop(muxer);

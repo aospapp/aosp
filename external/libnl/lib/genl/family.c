@@ -1,12 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-only */
 /*
- * lib/genl/family.c		Generic Netlink Family
- *
- *	This library is free software; you can redistribute it and/or
- *	modify it under the terms of the GNU Lesser General Public
- *	License as published by the Free Software Foundation version 2.1
- *	of the License.
- *
  * Copyright (c) 2003-2012 Thomas Graf <tgraf@suug.ch>
  */
 
@@ -73,6 +66,9 @@ static int family_clone(struct nl_object *_dst, struct nl_object *_src)
 	struct genl_family_op *ops;
 	struct genl_family_grp *grp;
 	int err;
+
+	nl_init_list_head(&dst->gf_ops);
+	nl_init_list_head(&dst->gf_mc_grps);
 
 	nl_list_for_each_entry(ops, &src->gf_ops, o_list) {
 		err = genl_family_add_op(dst, ops->o_id, ops->o_flags);
@@ -260,7 +256,7 @@ char *genl_family_get_name(struct genl_family *family)
  */
 void genl_family_set_name(struct genl_family *family, const char *name)
 {
-	strncpy(family->gf_name, name, GENL_NAMSIZ-1);
+	_nl_strncpy_trunc(family->gf_name, name, GENL_NAMSIZ);
 	family->ce_mask |= FAMILY_ATTR_NAME;
 }
 
@@ -380,7 +376,7 @@ int genl_family_add_grp(struct genl_family *family, uint32_t id,
 		return -NLE_NOMEM;
 
 	grp->id = id;
-	_nl_strncpy(grp->name, name, GENL_NAMSIZ);
+	_nl_strncpy_assert(grp->name, name, GENL_NAMSIZ);
 
 	nl_list_add_tail(&grp->list, &family->gf_mc_grps);
 

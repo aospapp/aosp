@@ -19,6 +19,7 @@
 #include "parse_string.h"
 
 #include <android-base/parseint.h>
+#include <android-base/strings.h>
 
 #include "constants-private.h"
 
@@ -438,9 +439,9 @@ std::string toFQNameString(const std::string& package, const std::string& versio
     ss << package << "@" << version;
     if (!interface.empty()) {
         ss << "::" << interface;
-        if (!instance.empty()) {
-            ss << "/" << instance;
-        }
+    }
+    if (!instance.empty()) {
+        ss << "/" << instance;
     }
     return ss.str();
 }
@@ -506,6 +507,13 @@ std::string aidlVersionRangeToString(const VersionRange& vr) {
 
 bool parseAidlVersionRange(const std::string& s, VersionRange* vr) {
     return parseVersionRange(s, vr, parseAidlVersion);
+}
+
+std::string_view parseApexName(std::string_view path) {
+    if (base::ConsumePrefix(&path, "/apex/")) {
+        return path.substr(0, path.find('/'));
+    }
+    return {};
 }
 
 } // namespace vintf

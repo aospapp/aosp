@@ -27,6 +27,8 @@
     <protected-broadcast android:name="com.android.server.wifi.ClientModeImpl.ACTION_CERT_NOTIF_ACCEPT" />
     <protected-broadcast android:name="com.android.server.wifi.ClientModeImpl.ACTION_CERT_NOTIF_REJECT" />
     <protected-broadcast android:name="com.android.server.wifi.ClientModeImpl.EXTRA_PENDING_CERT_SSID" />
+    <protected-broadcast android:name="com.android.server.wifi.scanner.WifiPnoScanStateMachine.SwPnoScanState.SW_PNO_UPPERBOUND_ALARM" />
+    <protected-broadcast android:name="com.android.server.wifi.scanner.WifiPnoScanStateMachine.SwPnoScanState.SW_PNO_ALARM" />
     <application
         android:label="@string/wifiResourcesAppLabel"
         android:defaultToDeviceProtectedStorage="true"

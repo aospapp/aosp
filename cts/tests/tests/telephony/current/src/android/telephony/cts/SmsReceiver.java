@@ -21,11 +21,16 @@ import android.content.Context;
 import android.content.Intent;
 import android.provider.Telephony;
 import android.telephony.SmsMessage;
+import android.util.Log;
 
 public class SmsReceiver extends BroadcastReceiver {
+    private static final String TAG = "android.telephony.cts.SmsReceiver";
+
     @Override
     public void onReceive(Context context, Intent intent) {
         if (intent == null) return;
+
+        Log.i(TAG, "onReceive intent action " + intent.getAction());
         switch (intent.getAction()) {
             case Telephony.Sms.Intents.SMS_DELIVER_ACTION: {
                 // Send broadcast for SmsManagerTest cases

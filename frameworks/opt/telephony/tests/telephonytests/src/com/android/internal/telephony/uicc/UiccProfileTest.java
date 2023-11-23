@@ -23,7 +23,7 @@ import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.Mockito.anyInt;
 import static org.mockito.Mockito.anyString;
 import static org.mockito.Mockito.atLeast;
@@ -32,8 +32,8 @@ import static org.mockito.Mockito.isA;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
-import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.os.Handler;
 import android.os.Message;
@@ -41,14 +41,17 @@ import android.os.PersistableBundle;
 import android.telephony.CarrierConfigManager;
 import android.telephony.ServiceState;
 import android.telephony.SubscriptionInfo;
+import android.telephony.TelephonyManager;
 import android.testing.AndroidTestingRunner;
 import android.testing.TestableLooper;
 
 import androidx.test.filters.SmallTest;
 
+import com.android.internal.telephony.ISub;
 import com.android.internal.telephony.IccCardConstants.State;
 import com.android.internal.telephony.TelephonyTest;
 import com.android.internal.telephony.cat.CatService;
+import com.android.internal.telephony.subscription.SubscriptionInfoInternal;
 import com.android.internal.telephony.uicc.IccCardApplicationStatus.AppState;
 
 import org.junit.After;
@@ -69,6 +72,8 @@ public class UiccProfileTest extends TelephonyTest {
     }
 
     private IccIoResult mIccIoResult;
+    private PersistableBundle mBundle;
+    private CarrierConfigManager.CarrierConfigChangeListener mCarrierConfigChangeListener;
 
     private static final int UICCPROFILE_CARRIER_PRIVILEGE_LOADED_EVENT = 3;
 
@@ -78,6 +83,7 @@ public class UiccProfileTest extends TelephonyTest {
     private Handler mMockedHandler;
     private UiccCard mUiccCard;
     private SubscriptionInfo mSubscriptionInfo;
+    private ISub mMockedIsub;
 
     private IccCardApplicationStatus composeUiccApplicationStatus(
             IccCardApplicationStatus.AppType appType,
@@ -99,6 +105,13 @@ public class UiccProfileTest extends TelephonyTest {
         mMockedHandler = mock(Handler.class);
         mUiccCard = mock(UiccCard.class);
         mSubscriptionInfo = mock(SubscriptionInfo.class);
+        mMockedIsub = mock(ISub.class);
+
+        doReturn(mMockedIsub).when(mIBinder).queryLocalInterface(anyString());
+        mServiceManagerMockedServices.put("isub", mIBinder);
+
+        doReturn(1).when(mMockedIsub).getSubId(0);
+
          /* initially there are no application available, but the array should not be empty. */
         IccCardApplicationStatus umtsApp = composeUiccApplicationStatus(
                 IccCardApplicationStatus.AppType.APPTYPE_USIM,
@@ -109,8 +122,18 @@ public class UiccProfileTest extends TelephonyTest {
                         mIccCardStatus.mGsmUmtsSubscriptionAppIndex = -1;
         mIccIoResult = new IccIoResult(0x90, 0x00, IccUtils.hexStringToBytes("FF40"));
         mSimulatedCommands.setIccIoResultForApduLogicalChannel(mIccIoResult);
+        mBundle = mContextFixture.getCarrierConfigBundle();
+        when(mCarrierConfigManager.getConfigForSubId(anyInt(), any())).thenReturn(mBundle);
+
+        // Capture CarrierConfigChangeListener to emulate the carrier config change notification
+        ArgumentCaptor<CarrierConfigManager.CarrierConfigChangeListener> listenerArgumentCaptor =
+                ArgumentCaptor.forClass(CarrierConfigManager.CarrierConfigChangeListener.class);
         mUiccProfile = new UiccProfile(mContext, mSimulatedCommands, mIccCardStatus,
               0 /* phoneId */, mUiccCard, new Object());
+        verify(mCarrierConfigManager).registerCarrierConfigChangeListener(any(),
+                listenerArgumentCaptor.capture());
+        mCarrierConfigChangeListener = listenerArgumentCaptor.getAllValues().get(0);
+
         processAllMessages();
         logd("Create UiccProfile");
 
@@ -121,6 +144,7 @@ public class UiccProfileTest extends TelephonyTest {
     public void tearDown() throws Exception {
         mUiccProfile = null;
         mIccIoResult = null;
+        mBundle = null;
         super.tearDown();
     }
 
@@ -203,7 +227,7 @@ public class UiccProfileTest extends TelephonyTest {
                 anyInt(), isA(Message.class));
         verify(mSimulatedCommandsVerifier, times(2)).iccTransmitApduLogicalChannel(
                 anyInt(), anyInt(), anyInt(), anyInt(), anyInt(), anyInt(), anyString(),
-                isA(Message.class)
+                anyBoolean(), isA(Message.class)
         );
     }
 
@@ -526,8 +550,9 @@ public class UiccProfileTest extends TelephonyTest {
         carrierConfigBundle.putString(CarrierConfigManager.KEY_CARRIER_NAME_STRING,
                 fakeCarrierName);
 
-        // broadcast CARRIER_CONFIG_CHANGED
-        mContext.sendBroadcast(new Intent(CarrierConfigManager.ACTION_CARRIER_CONFIG_CHANGED));
+        // send carrier config change
+        mCarrierConfigChangeListener.onCarrierConfigChanged(mPhone.getPhoneId(), mPhone.getSubId(),
+                TelephonyManager.UNKNOWN_CARRIER_ID, TelephonyManager.UNKNOWN_CARRIER_ID);
         processAllMessages();
 
         // verify that setSimOperatorNameForPhone() is called with fakeCarrierName
@@ -552,15 +577,17 @@ public class UiccProfileTest extends TelephonyTest {
 
         mUiccProfile.getApplicationIndex(0).getIccRecords().mIccId = fakeIccId;
 
-        doReturn(false).when(mSubscriptionController)
-                .checkPhoneIdAndIccIdMatch(anyInt(), anyString());
+        doReturn(new SubscriptionInfoInternal.Builder().setSimSlotIndex(0).setId(1)
+                .setIccId("98765").build()).when(mSubscriptionManagerService)
+                .getSubscriptionInfoInternal(anyInt());
         mUiccProfile.setOperatorBrandOverride(fakeBrand);
         String brandInSharedPreference = mContext.getSharedPreferences("file name", 0)
                 .getString("operator_branding_" + fakeIccId, null);
         assertNotEquals(fakeBrand, brandInSharedPreference);
 
-        doReturn(true).when(mSubscriptionController)
-                .checkPhoneIdAndIccIdMatch(anyInt(), anyString());
+        doReturn(new SubscriptionInfoInternal.Builder().setSimSlotIndex(0).setId(1)
+                .setIccId(fakeIccId).build()).when(mSubscriptionManagerService)
+                .getSubscriptionInfoInternal(anyInt());
         mUiccProfile.setOperatorBrandOverride(fakeBrand);
         brandInSharedPreference = mContext.getSharedPreferences("file name", 0)
                 .getString("operator_branding_" + fakeIccId, null);
@@ -576,8 +603,6 @@ public class UiccProfileTest extends TelephonyTest {
 
         mUiccProfile.getApplicationIndex(0).getIccRecords().mIccId = fakeIccId1;
         doReturn(fakeIccId2).when(mSubscriptionInfo).getIccId();
-        doReturn(mSubscriptionInfo).when(mSubscriptionController)
-                .getActiveSubscriptionInfoForSimSlotIndex(eq(0), any(), any());
 
         mUiccProfile.setOperatorBrandOverride(fakeBrand);
         String brandInSharedPreference = mContext.getSharedPreferences("file name", 0)

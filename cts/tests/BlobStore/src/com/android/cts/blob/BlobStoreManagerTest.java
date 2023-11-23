@@ -17,11 +17,11 @@ package com.android.cts.blob;
 
 import static android.os.storage.StorageManager.UUID_DEFAULT;
 
+import static com.android.utils.blob.Utils.TAG;
 import static com.android.utils.blob.Utils.acquireLease;
 import static com.android.utils.blob.Utils.assertLeasedBlobs;
 import static com.android.utils.blob.Utils.assertNoLeasedBlobs;
 import static com.android.utils.blob.Utils.releaseLease;
-import static com.android.utils.blob.Utils.TAG;
 import static com.android.utils.blob.Utils.runShellCmd;
 import static com.android.utils.blob.Utils.triggerIdleMaintenance;
 
@@ -50,12 +50,16 @@ import android.util.Log;
 import android.util.LongSparseArray;
 import android.util.Pair;
 
+import androidx.test.platform.app.InstrumentationRegistry;
+
+import com.android.compatibility.common.util.AmUtils;
 import com.android.compatibility.common.util.SystemUtil;
 import com.android.compatibility.common.util.ThrowingRunnable;
-import com.android.cts.blob.R;
 import com.android.cts.blob.ICommandReceiver;
 import com.android.utils.blob.FakeBlobData;
 import com.android.utils.blob.Utils;
+
+import com.google.common.io.BaseEncoding;
 
 import org.junit.After;
 import org.junit.Before;
@@ -76,10 +80,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
-
-import androidx.test.platform.app.InstrumentationRegistry;
-
-import com.google.common.io.BaseEncoding;
 
 @RunWith(BlobStoreTestRunner.class)
 public class BlobStoreManagerTest {
@@ -130,6 +130,9 @@ public class BlobStoreManagerTest {
         mContext = InstrumentationRegistry.getInstrumentation().getContext();
         mBlobStoreManager = (BlobStoreManager) mContext.getSystemService(
                 Context.BLOB_STORE_SERVICE);
+        // Wait for any previous package/uid related broadcasts to be handled before proceeding
+        // with the verifications.
+        AmUtils.waitForBroadcastBarrier();
     }
 
     @After

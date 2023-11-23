@@ -11,8 +11,11 @@
 
 #include <wayland-client.h>
 
+#include "common/angleutils.h"
+#include "common/linux/dma_buf_utils.h"
 #include "common/system_utils.h"
 #include "libANGLE/Display.h"
+#include "libANGLE/renderer/vulkan/RendererVk.h"
 #include "libANGLE/renderer/vulkan/linux/wayland/WindowSurfaceVkWayland.h"
 #include "libANGLE/renderer/vulkan/vk_caps_utils.h"
 
@@ -20,23 +23,44 @@ namespace rx
 {
 
 DisplayVkWayland::DisplayVkWayland(const egl::DisplayState &state)
-    : DisplayVkLinux(state), mWaylandDisplay(nullptr)
+    : DisplayVkLinux(state), mOwnDisplay(false), mWaylandDisplay(nullptr)
 {}
 
 egl::Error DisplayVkWayland::initialize(egl::Display *display)
 {
-    mWaylandDisplay = reinterpret_cast<wl_display *>(display->getNativeDisplayId());
+    EGLNativeDisplayType nativeDisplay = display->getNativeDisplayId();
+    if (nativeDisplay == EGL_DEFAULT_DISPLAY)
+    {
+        mOwnDisplay     = true;
+        mWaylandDisplay = wl_display_connect(nullptr);
+    }
+    else
+    {
+        mWaylandDisplay = reinterpret_cast<wl_display *>(nativeDisplay);
+    }
+
     if (!mWaylandDisplay)
     {
         ERR() << "Failed to retrieve wayland display";
         return egl::EglNotInitialized();
     }
 
-    return DisplayVk::initialize(display);
+    egl::Error ret = DisplayVk::initialize(display);
+    if (ret.isError())
+    {
+        return ret;
+    }
+
+    return ret;
 }
 
 void DisplayVkWayland::terminate()
 {
+    if (mOwnDisplay)
+    {
+        wl_display_disconnect(mWaylandDisplay);
+        mOwnDisplay = false;
+    }
     mWaylandDisplay = nullptr;
     DisplayVk::terminate();
 }
@@ -85,6 +109,11 @@ const char *DisplayVkWayland::getWSIExtension() const
     return VK_KHR_WAYLAND_SURFACE_EXTENSION_NAME;
 }
 
+bool DisplayVkWayland::isWayland() const
+{
+    return true;
+}
+
 bool IsVulkanWaylandDisplayAvailable()
 {
     wl_display *display = wl_display_connect(nullptr);
@@ -100,4 +129,5 @@ DisplayImpl *CreateVulkanWaylandDisplay(const egl::DisplayState &state)
 {
     return new DisplayVkWayland(state);
 }
+
 }  // namespace rx

@@ -7,7 +7,11 @@ import threading
 
 import dbus
 import dbus.mainloop.glib
-import gobject
+# AU tests use ToT client code, but ToT -3 client version.
+try:
+    from gi.repository import GObject
+except ImportError:
+    import gobject as GObject
 import os
 
 from autotest_lib.client.cros.input_playback import keyboard
@@ -23,7 +27,7 @@ class DarkResumeListener(object):
 
     def __init__(self):
         dbus.mainloop.glib.threads_init()
-        gobject.threads_init()
+        GObject.threads_init()
 
         dbus.mainloop.glib.DBusGMainLoop(set_as_default=True)
         self._bus = dbus.SystemBus()
@@ -39,7 +43,7 @@ class DarkResumeListener(object):
             # will never finish. Instead, we process events as they come in. This
             # thread is set to daemon below, which means that the program will exit
             # when the main thread exits.
-            loop = gobject.MainLoop()
+            loop = GObject.MainLoop()
             context = loop.get_context()
             while True:
                 context.iteration(True)

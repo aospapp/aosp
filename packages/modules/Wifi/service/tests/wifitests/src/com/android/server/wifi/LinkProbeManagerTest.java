@@ -92,6 +92,7 @@ public class LinkProbeManagerTest extends WifiBaseTest {
     private void initLinkProbeManager() {
         mLinkProbeManager = new LinkProbeManager(mClock, mWifiNative, mWifiMetrics,
                 mFrameworkFacade, new Handler(mLooper.getLooper()), mContext);
+        mLinkProbeManager.enableVerboseLogging(true);
     }
 
     /**

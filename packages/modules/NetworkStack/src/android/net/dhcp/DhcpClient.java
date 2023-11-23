@@ -31,11 +31,6 @@ import static android.net.dhcp.DhcpPacket.DHCP_VENDOR_INFO;
 import static android.net.dhcp.DhcpPacket.INADDR_ANY;
 import static android.net.dhcp.DhcpPacket.INADDR_BROADCAST;
 import static android.net.dhcp.DhcpPacket.INFINITE_LEASE;
-import static android.net.util.NetworkStackUtils.DHCP_INIT_REBOOT_VERSION;
-import static android.net.util.NetworkStackUtils.DHCP_IPV6_ONLY_PREFERRED_VERSION;
-import static android.net.util.NetworkStackUtils.DHCP_IP_CONFLICT_DETECT_VERSION;
-import static android.net.util.NetworkStackUtils.DHCP_RAPID_COMMIT_VERSION;
-import static android.net.util.NetworkStackUtils.closeSocketQuietly;
 import static android.net.util.SocketUtils.makePacketSocketAddress;
 import static android.provider.DeviceConfig.NAMESPACE_CONNECTIVITY;
 import static android.system.OsConstants.AF_INET;
@@ -56,6 +51,12 @@ import static com.android.net.module.util.NetworkStackConstants.ETHER_ADDR_LEN;
 import static com.android.net.module.util.NetworkStackConstants.IPV4_ADDR_ANY;
 import static com.android.net.module.util.NetworkStackConstants.IPV4_CONFLICT_ANNOUNCE_NUM;
 import static com.android.net.module.util.NetworkStackConstants.IPV4_CONFLICT_PROBE_NUM;
+import static com.android.net.module.util.SocketUtils.closeSocketQuietly;
+import static com.android.networkstack.util.NetworkStackUtils.DHCP_INIT_REBOOT_VERSION;
+import static com.android.networkstack.util.NetworkStackUtils.DHCP_IPV6_ONLY_PREFERRED_VERSION;
+import static com.android.networkstack.util.NetworkStackUtils.DHCP_IP_CONFLICT_DETECT_VERSION;
+import static com.android.networkstack.util.NetworkStackUtils.DHCP_RAPID_COMMIT_VERSION;
+import static com.android.networkstack.util.NetworkStackUtils.DHCP_SLOW_RETRANSMISSION_VERSION;
 
 import android.content.Context;
 import android.net.DhcpResults;
@@ -73,7 +74,6 @@ import android.net.metrics.DhcpErrorEvent;
 import android.net.metrics.IpConnectivityLog;
 import android.net.networkstack.aidl.dhcp.DhcpOption;
 import android.net.util.HostnameTransliterator;
-import android.net.util.NetworkStackUtils;
 import android.net.util.SocketUtils;
 import android.os.Build;
 import android.os.Handler;
@@ -107,6 +107,7 @@ import com.android.networkstack.apishim.SocketUtilsShimImpl;
 import com.android.networkstack.apishim.common.ShimUtils;
 import com.android.networkstack.arp.ArpPacket;
 import com.android.networkstack.metrics.IpProvisioningMetrics;
+import com.android.networkstack.util.NetworkStackUtils;
 
 import java.io.ByteArrayOutputStream;
 import java.io.FileDescriptor;
@@ -349,6 +350,7 @@ public class DhcpClient extends StateMachine {
     private long mTransactionStartMillis;
     private DhcpResults mDhcpLease;
     private long mDhcpLeaseExpiry;
+    private long mT2;
     private DhcpResults mOffer;
     private Configuration mConfiguration;
     private Inet4Address mLastAssignedIpv4Address;
@@ -580,6 +582,15 @@ public class DhcpClient extends StateMachine {
                 true /* defaultEnabled */);
     }
 
+    /**
+     * Check whether to adopt slow DHCPREQUEST retransmission approach in Renewing/Rebinding state
+     * suggested in RFC2131 section 4.4.5.
+     */
+    public boolean isSlowRetransmissionEnabled() {
+        return mDependencies.isFeatureEnabled(mContext, DHCP_SLOW_RETRANSMISSION_VERSION,
+                false /* defaultEnabled */);
+    }
+
     private void recordMetricEnabledFeatures() {
         if (isDhcpLeaseCacheEnabled()) mMetrics.setDhcpEnabledFeature(DhcpFeature.DF_INITREBOOT);
         if (isDhcpRapidCommitEnabled()) mMetrics.setDhcpEnabledFeature(DhcpFeature.DF_RAPIDCOMMIT);
@@ -688,6 +699,10 @@ public class DhcpClient extends StateMachine {
                 Os.bind(mPacketSock, addr);
             } catch (SocketException | ErrnoException e) {
                 logError("Error creating packet socket", e);
+                if (e instanceof ErrnoException
+                        && ((ErrnoException) e).errno == 524 /* ENOTSUPP */) {
+                    Log.wtf(TAG, "Errno: ENOTSUPP");
+                }
                 closeFd(mPacketSock);
                 mPacketSock = null;
                 return null;
@@ -806,6 +821,7 @@ public class DhcpClient extends StateMachine {
         final long remainingDelay = mDhcpLeaseExpiry - now;
         final long renewDelay = remainingDelay / 2;
         final long rebindDelay = remainingDelay * 7 / 8;
+        mT2 = now + rebindDelay;
         mRenewAlarm.schedule(now + renewDelay);
         mRebindAlarm.schedule(now + rebindDelay);
         mExpiryAlarm.schedule(now + remainingDelay);
@@ -880,6 +896,7 @@ public class DhcpClient extends StateMachine {
     private void clearDhcpState() {
         mDhcpLease = null;
         mDhcpLeaseExpiry = 0;
+        mT2 = 0;
         mOffer = null;
     }
 
@@ -1199,7 +1216,7 @@ public class DhcpClient extends StateMachine {
             return baseTimer + jitter;
         }
 
-        protected void scheduleKick() {
+        protected void scheduleFastKick() {
             long now = SystemClock.elapsedRealtime();
             long timeout = jitterTimer(mTimer);
             long alarmTime = now + timeout;
@@ -1208,6 +1225,12 @@ public class DhcpClient extends StateMachine {
             if (mTimer > MAX_TIMEOUT_MS) {
                 mTimer = MAX_TIMEOUT_MS;
             }
+        }
+
+        protected void scheduleKick() {
+            // Always adopt the fast kick schedule by default unless this method is overrided
+            // by subclasses.
+            scheduleFastKick();
         }
     }
 
@@ -1823,6 +1846,21 @@ public class DhcpClient extends StateMachine {
         // in renew/rebind state or just restart reconfiguration from StoppedState.
         protected abstract boolean shouldRestartOnNak();
 
+        // Schedule alarm for the next DHCPREQUEST tranmission. Per RFC2131 if the client
+        // receives no response to its DHCPREQUEST message, the client should wait one-half
+        // of the remaining time until T2 in RENEWING state, and one-half of the remaining
+        // lease time in REBINDING state, down to a minimum of 60 seconds before transmitting
+        // DHCPREQUEST.
+        private static final long MIN_DELAY_BEFORE_NEXT_REQUEST = 60_000L;
+        protected void scheduleSlowKick(final long target) {
+            final long now = SystemClock.elapsedRealtime();
+            long remainingDelay = (target - now) / 2;
+            if (remainingDelay < MIN_DELAY_BEFORE_NEXT_REQUEST) {
+                remainingDelay = MIN_DELAY_BEFORE_NEXT_REQUEST;
+            }
+            mKickAlarm.schedule(now + remainingDelay);
+        }
+
         protected boolean sendPacket() {
             return sendRequestPacket(
                     (Inet4Address) mDhcpLease.ipAddress.getAddress(),  // ciaddr
@@ -1895,13 +1933,18 @@ public class DhcpClient extends StateMachine {
         protected boolean shouldRestartOnNak() {
             return false;
         }
+
+        @Override
+        protected void scheduleKick() {
+            if (isSlowRetransmissionEnabled()) {
+                scheduleSlowKick(mT2);
+            } else {
+                scheduleFastKick();
+            }
+        }
     }
 
-    class DhcpRebindingState extends DhcpReacquiringState {
-        public DhcpRebindingState() {
-            mLeaseMsg = "Rebound";
-        }
-
+    class DhcpRebindingBaseState extends DhcpReacquiringState {
         @Override
         public void enter() {
             super.enter();
@@ -1926,7 +1969,29 @@ public class DhcpClient extends StateMachine {
         }
     }
 
-    class DhcpRefreshingAddressState extends DhcpRebindingState {
+    class DhcpRebindingState extends DhcpRebindingBaseState {
+        DhcpRebindingState() {
+            mLeaseMsg = "Rebound";
+        }
+
+        @Override
+        protected void scheduleKick() {
+            if (isSlowRetransmissionEnabled()) {
+                scheduleSlowKick(mDhcpLeaseExpiry);
+            } else {
+                scheduleFastKick();
+            }
+        }
+    }
+
+    // The slow retransmission approach complied with RFC2131 should only be applied
+    // for Renewing and Rebinding state. For this state it's expected to refresh IPv4
+    // link address after roam as soon as possible, obviously it should not adopt the
+    // slow retransmission algorithm. Create a base DhcpRebindingBaseState state and
+    // have both of DhcpRebindingState and DhcpRefreshingAddressState extend from it,
+    // then override the scheduleKick method in DhcpRebindingState to comply with slow
+    // schedule and keep DhcpRefreshingAddressState as-is to use the fast schedule.
+    class DhcpRefreshingAddressState extends DhcpRebindingBaseState {
         DhcpRefreshingAddressState() {
             mLeaseMsg = "Refreshing address";
         }

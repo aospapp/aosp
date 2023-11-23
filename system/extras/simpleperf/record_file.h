@@ -81,7 +81,7 @@ class RecordFileWriter {
   RecordFileWriter(const std::string& filename, FILE* fp, bool own_fp);
   ~RecordFileWriter();
 
-  bool WriteAttrSection(const std::vector<EventAttrWithId>& attr_ids);
+  bool WriteAttrSection(const EventAttrIds& attr_ids);
   bool WriteRecord(const Record& record);
   bool WriteData(const void* buf, size_t len);
 
@@ -141,14 +141,7 @@ class RecordFileReader {
 
   const PerfFileFormat::FileHeader& FileHeader() const { return header_; }
 
-  std::vector<EventAttrWithId> AttrSection() const {
-    std::vector<EventAttrWithId> result(file_attrs_.size());
-    for (size_t i = 0; i < file_attrs_.size(); ++i) {
-      result[i].attr = &file_attrs_[i].attr;
-      result[i].ids = event_ids_for_file_attrs_[i];
-    }
-    return result;
-  }
+  const EventAttrIds& AttrSection() const { return event_attrs_; }
 
   const std::unordered_map<uint64_t, size_t>& EventIdMap() const { return event_id_to_attr_map_; }
 
@@ -183,18 +176,24 @@ class RecordFileReader {
 
   // File feature section contains many file information. This function reads
   // one file information located at [read_pos]. [read_pos] is 0 at the first
-  // call, and is updated to point to the next file information. Return true
-  // if read successfully, and return false if there is no more file
-  // information.
-  bool ReadFileFeature(size_t& read_pos, FileFeature* file);
+  // call, and is updated to point to the next file information.
+  // When read successfully, return true and set error to false.
+  // When no more data to read, return false and set error to false.
+  // When having error, return false and set error to true.
+  bool ReadFileFeature(uint64_t& read_pos, FileFeature& file, bool& error);
 
   const std::unordered_map<std::string, std::string>& GetMetaInfoFeature() { return meta_info_; }
   std::string GetClockId();
   std::optional<DebugUnwindFeature> ReadDebugUnwindFeature();
 
-  void LoadBuildIdAndFileFeatures(ThreadTree& thread_tree);
+  bool LoadBuildIdAndFileFeatures(ThreadTree& thread_tree);
 
-  bool ReadAuxData(uint32_t cpu, uint64_t aux_offset, void* buf, size_t size);
+  // Read aux data into buf.
+  // When read successfully, return true and set error to false.
+  // When the data isn't available, return false and set error to false.
+  // When having error, return false and set error to true.
+  bool ReadAuxData(uint32_t cpu, uint64_t aux_offset, size_t size, std::vector<uint8_t>& buf,
+                   bool& error);
 
   bool Close();
 
@@ -204,12 +203,13 @@ class RecordFileReader {
  private:
   RecordFileReader(const std::string& filename, FILE* fp);
   bool ReadHeader();
-  bool CheckSectionDesc(const PerfFileFormat::SectionDesc& desc, uint64_t min_offset);
+  bool CheckSectionDesc(const PerfFileFormat::SectionDesc& desc, uint64_t min_offset,
+                        uint64_t alignment = 1);
   bool ReadAttrSection();
-  bool ReadIdsForAttr(const PerfFileFormat::FileAttr& attr, std::vector<uint64_t>* ids);
+  bool ReadIdSection(const PerfFileFormat::SectionDesc& section, std::vector<uint64_t>* ids);
   bool ReadFeatureSectionDescriptors();
-  bool ReadFileV1Feature(size_t& read_pos, FileFeature* file);
-  bool ReadFileV2Feature(size_t& read_pos, FileFeature* file);
+  bool ReadFileV1Feature(uint64_t& read_pos, uint64_t max_size, FileFeature& file);
+  bool ReadFileV2Feature(uint64_t& read_pos, uint64_t max_size, FileFeature& file);
   bool ReadMetaInfoFeature();
   void UseRecordingEnvironment();
   std::unique_ptr<Record> ReadRecord();
@@ -222,8 +222,7 @@ class RecordFileReader {
   uint64_t file_size_;
 
   PerfFileFormat::FileHeader header_;
-  std::vector<PerfFileFormat::FileAttr> file_attrs_;
-  std::vector<std::vector<uint64_t>> event_ids_for_file_attrs_;
+  EventAttrIds event_attrs_;
   std::unordered_map<uint64_t, size_t> event_id_to_attr_map_;
   std::map<int, PerfFileFormat::SectionDesc> feature_section_descriptors_;
 

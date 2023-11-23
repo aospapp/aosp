@@ -17,7 +17,7 @@
 <resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="app_name" translatable="false">Railway Reference App</string>
     <string name="update_button_title">Update</string>
-    <string name="connect_button_title">Test Connect</string>
+    <string name="connect_button_title">Bind Interface</string>
     <string name="enable_button_title">Enable</string>
     <string name="disable_button_title">Disable</string>
     <string name="activity_title">Vehicular Networking App</string>
@@ -26,7 +26,7 @@
     <string name="ip_configuration_title">Update Configuration (IPv4 only)</string>
     <string name="interface_name_title">Interface Name</string>
     <string name="network_capabilities_title">Network Capabilities</string>
-    <string name="enable_disable_section_title">Enable/Disable/Connect Interface</string>
+    <string name="enable_disable_section_title">Enable/Disable/Bind Interface</string>
     <string name="current_ethernet_networks_section_title">Current Ethernet Networks</string>
     <string name="success">Success</string>
     <string name="error">Error</string>

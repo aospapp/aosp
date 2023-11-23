@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-2.0+
+// SPDX-License-Identifier: GPL-2.0+ OR Apache-2.0
 /*
  * Copyright (C) 2018-2019 HUAWEI, Inc.
  *             http://www.huawei.com/
@@ -96,6 +96,8 @@ unsigned int erofs_iput(struct erofs_inode *inode)
 	list_for_each_entry_safe(d, t, &inode->i_subdirs, d_child)
 		free(d);
 
+	if (inode->eof_tailraw)
+		free(inode->eof_tailraw);
 	list_del(&inode->i_hash);
 	free(inode);
 	return 0;
@@ -593,28 +595,31 @@ static int erofs_prepare_inode_buffer(struct erofs_inode *inode)
 		inodesize = Z_EROFS_VLE_EXTENT_ALIGN(inodesize) +
 			    inode->extent_isize;
 
-	if (is_inode_layout_compression(inode))
-		goto noinline;
+	/* TODO: tailpacking inline of chunk-based format isn't finalized */
 	if (inode->datalayout == EROFS_INODE_CHUNK_BASED)
 		goto noinline;
 
-	if (cfg.c_noinline_data && S_ISREG(inode->i_mode)) {
-		inode->datalayout = EROFS_INODE_FLAT_PLAIN;
-		goto noinline;
+	if (!is_inode_layout_compression(inode)) {
+		if (cfg.c_noinline_data && S_ISREG(inode->i_mode)) {
+			inode->datalayout = EROFS_INODE_FLAT_PLAIN;
+			goto noinline;
+		}
+		/*
+		 * If the file sizes of uncompressed files are block-aligned,
+		 * should use the EROFS_INODE_FLAT_PLAIN data layout.
+		 */
+		if (!inode->idata_size)
+			inode->datalayout = EROFS_INODE_FLAT_PLAIN;
 	}
-
-	/*
-	 * if the file size is block-aligned for uncompressed files,
-	 * should use EROFS_INODE_FLAT_PLAIN data mapping mode.
-	 */
-	if (!inode->idata_size)
-		inode->datalayout = EROFS_INODE_FLAT_PLAIN;
 
 	bh = erofs_balloc(INODE, inodesize, 0, inode->idata_size);
 	if (bh == ERR_PTR(-ENOSPC)) {
 		int ret;
 
-		inode->datalayout = EROFS_INODE_FLAT_PLAIN;
+		if (is_inode_layout_compression(inode))
+			z_erofs_drop_inline_pcluster(inode);
+		else
+			inode->datalayout = EROFS_INODE_FLAT_PLAIN;
 noinline:
 		/* expend an extra block for tail-end data */
 		ret = erofs_prepare_tail_block(inode);
@@ -627,7 +632,17 @@ noinline:
 	} else if (IS_ERR(bh)) {
 		return PTR_ERR(bh);
 	} else if (inode->idata_size) {
-		inode->datalayout = EROFS_INODE_FLAT_INLINE;
+		if (is_inode_layout_compression(inode)) {
+			DBG_BUGON(!cfg.c_ztailpacking);
+			erofs_dbg("Inline %scompressed data (%u bytes) to %s",
+				  inode->compressed_idata ? "" : "un",
+				  inode->idata_size, inode->i_srcpath);
+			erofs_sb_set_ztailpacking();
+		} else {
+			inode->datalayout = EROFS_INODE_FLAT_INLINE;
+			erofs_dbg("Inline tail-end data (%u bytes) to %s",
+				  inode->idata_size, inode->i_srcpath);
+		}
 
 		/* allocate inline buffer */
 		ibh = erofs_battach(bh, META, inode->idata_size);
@@ -685,15 +700,26 @@ static int erofs_write_tail_end(struct erofs_inode *inode)
 		erofs_droid_blocklist_write_tail_end(inode, NULL_ADDR);
 	} else {
 		int ret;
-		erofs_off_t pos;
+		erofs_off_t pos, zero_pos;
 
 		erofs_mapbh(bh->block);
 		pos = erofs_btell(bh, true) - EROFS_BLKSIZ;
+
+		/* 0'ed data should be padded at head for 0padding conversion */
+		if (erofs_sb_has_lz4_0padding() && inode->compressed_idata) {
+			zero_pos = pos;
+			pos += EROFS_BLKSIZ - inode->idata_size;
+		} else {
+			/* pad 0'ed data for the other cases */
+			zero_pos = pos + inode->idata_size;
+		}
 		ret = dev_write(inode->idata, pos, inode->idata_size);
 		if (ret)
 			return ret;
+
+		DBG_BUGON(inode->idata_size > EROFS_BLKSIZ);
 		if (inode->idata_size < EROFS_BLKSIZ) {
-			ret = dev_fillzero(pos + inode->idata_size,
+			ret = dev_fillzero(zero_pos,
 					   EROFS_BLKSIZ - inode->idata_size,
 					   false);
 			if (ret)
@@ -1057,7 +1083,7 @@ static struct erofs_inode *erofs_mkfs_build_tree(struct erofs_inode *dir)
 		erofs_fixup_meta_blkaddr(dir);
 
 	list_for_each_entry(d, &dir->i_subdirs, d_child) {
-		char buf[PATH_MAX];
+		char buf[PATH_MAX], *trimmed;
 		unsigned char ftype;
 
 		if (is_dot_dotdot(d->name)) {
@@ -1072,6 +1098,10 @@ static struct erofs_inode *erofs_mkfs_build_tree(struct erofs_inode *dir)
 			goto fail;
 		}
 
+		trimmed = erofs_trim_for_progressinfo(erofs_fspath(buf),
+					sizeof("Processing  ...") - 1);
+		erofs_update_progressinfo("Processing %s ...", trimmed);
+		free(trimmed);
 		d->inode = erofs_mkfs_build_tree_from_path(dir, buf);
 		if (IS_ERR(d->inode)) {
 			ret = PTR_ERR(d->inode);
@@ -1086,7 +1116,7 @@ fail:
 		d->type = ftype;
 
 		erofs_d_invalidate(d);
-		erofs_info("add file %s/%s (nid %llu, type %d)",
+		erofs_info("add file %s/%s (nid %llu, type %u)",
 			   dir->i_srcpath, d->name, (unsigned long long)d->nid,
 			   d->type);
 	}

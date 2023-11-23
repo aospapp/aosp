@@ -17,17 +17,17 @@
 #ifndef ANDROID_AUTOMOTIVE_EVS_V1_0_EVSCAMERAENUMERATOR_H
 #define ANDROID_AUTOMOTIVE_EVS_V1_0_EVSCAMERAENUMERATOR_H
 
-#include <list>
-
 #include "HalCamera.h"
 #include "VirtualCamera.h"
 
-#include <android/hardware/automotive/evs/1.0/IEvsEnumerator.h>
 #include <android/hardware/automotive/evs/1.0/IEvsDisplay.h>
+#include <android/hardware/automotive/evs/1.0/IEvsEnumerator.h>
+
+#include <list>
 
 using namespace ::android::hardware::automotive::evs::V1_0;
-using ::android::hardware::Return;
 using ::android::hardware::hidl_string;
+using ::android::hardware::Return;
 
 namespace android {
 namespace automotive {
@@ -38,12 +38,12 @@ namespace implementation {
 class Enumerator : public IEvsEnumerator {
 public:
     // Methods from ::android::hardware::automotive::evs::V1_0::IEvsEnumerator follow.
-    Return<void>            getCameraList(getCameraList_cb _hidl_cb)  override;
-    Return<sp<IEvsCamera>>  openCamera(const hidl_string& cameraId)  override;
-    Return<void>            closeCamera(const ::android::sp<IEvsCamera>& virtualCamera)  override;
-    Return<sp<IEvsDisplay>> openDisplay()  override;
-    Return<void>            closeDisplay(const ::android::sp<IEvsDisplay>& display)  override;
-    Return<DisplayState>    getDisplayState()  override;
+    Return<void> getCameraList(getCameraList_cb _hidl_cb) override;
+    Return<sp<IEvsCamera>> openCamera(const hidl_string& cameraId) override;
+    Return<void> closeCamera(const ::android::sp<IEvsCamera>& virtualCamera) override;
+    Return<sp<IEvsDisplay>> openDisplay() override;
+    Return<void> closeDisplay(const ::android::sp<IEvsDisplay>& display) override;
+    Return<DisplayState> getDisplayState() override;
 
     // Implementation details
     bool init(const char* hardwareServiceName);
@@ -51,15 +51,15 @@ public:
 private:
     bool checkPermission();
 
-    sp<IEvsEnumerator>          mHwEnumerator;  // Hardware enumerator
-    wp<IEvsDisplay>             mActiveDisplay; // Display proxy object warpping hw display
-    std::list<sp<HalCamera>>    mCameras;       // Camera proxy objects wrapping hw cameras
+    sp<IEvsEnumerator> mHwEnumerator;   // Hardware enumerator
+    wp<IEvsDisplay> mActiveDisplay;     // Display proxy object warpping hw display
+    std::list<sp<HalCamera>> mCameras;  // Camera proxy objects wrapping hw cameras
 };
 
-} // namespace implementation
-} // namespace V1_0
-} // namespace evs
-} // namespace automotive
-} // namespace android
+}  // namespace implementation
+}  // namespace V1_0
+}  // namespace evs
+}  // namespace automotive
+}  // namespace android
 
 #endif  // ANDROID_AUTOMOTIVE_EVS_V1_0_EVSCAMERAENUMERATOR_H

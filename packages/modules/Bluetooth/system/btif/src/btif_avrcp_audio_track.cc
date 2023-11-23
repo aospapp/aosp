@@ -23,6 +23,8 @@
 #include <base/logging.h>
 #include <utils/StrongPointer.h>
 
+#include <algorithm>
+
 #include "bt_target.h"
 #include "osi/include/log.h"
 
@@ -34,12 +36,18 @@ typedef struct {
   int channelCount;
   float* buffer;
   size_t bufferLength;
+  float gain;
 } BtifAvrcpAudioTrack;
 
 #if (DUMP_PCM_DATA == TRUE)
 FILE* outputPcmSampleFile;
 char outputFilename[50] = "/data/misc/bluedroid/output_sample.pcm";
 #endif
+
+// Maximum track gain that can be set.
+constexpr float kMaxTrackGain = 1.0f;
+// Minimum track gain that can be set.
+constexpr float kMinTrackGain = 0.0f;
 
 void* BtifAvrcpAudioTrackCreate(int trackFreq, int bitsPerSample,
                                 int channelCount) {
@@ -66,6 +74,7 @@ void* BtifAvrcpAudioTrackCreate(int trackFreq, int bitsPerSample,
   trackHolder->channelCount = channelCount;
   trackHolder->bufferLength =
       trackHolder->channelCount * AAudioStream_getBufferSizeInFrames(stream);
+  trackHolder->gain = kMaxTrackGain;
   trackHolder->buffer = new float[trackHolder->bufferLength]();
 
 #if (DUMP_PCM_DATA == TRUE)
@@ -137,7 +146,16 @@ void BtifAvrcpSetAudioTrackGain(void* handle, float gain) {
     LOG_INFO("%s handle is null.", __func__);
     return;
   }
-  // Does nothing right now
+  BtifAvrcpAudioTrack* trackHolder = static_cast<BtifAvrcpAudioTrack*>(handle);
+  if (trackHolder != NULL) {
+    const float clampedGain = std::clamp(gain, kMinTrackGain, kMaxTrackGain);
+    if (clampedGain != gain) {
+      LOG_WARN("Out of bounds gain set. Clamping the gain from :%f to %f", gain,
+               clampedGain);
+    }
+    trackHolder->gain = clampedGain;
+    LOG_INFO("Avrcp audio track gain is set to %f", trackHolder->gain);
+  }
 }
 
 constexpr float kScaleQ15ToFloat = 1.0f / 32768.0f;
@@ -152,8 +170,9 @@ static size_t transcodeQ15ToFloat(uint8_t* buffer, size_t length,
                                   BtifAvrcpAudioTrack* trackHolder) {
   size_t sampleSize = sampleSizeFor(trackHolder);
   size_t i = 0;
+  const float scaledGain = trackHolder->gain * kScaleQ15ToFloat;
   for (; i <= length / sampleSize; i++) {
-    trackHolder->buffer[i] = ((int16_t*)buffer)[i] * kScaleQ15ToFloat;
+    trackHolder->buffer[i] = ((int16_t*)buffer)[i] * scaledGain;
   }
   return i * sampleSize;
 }
@@ -162,10 +181,11 @@ static size_t transcodeQ23ToFloat(uint8_t* buffer, size_t length,
                                   BtifAvrcpAudioTrack* trackHolder) {
   size_t sampleSize = sampleSizeFor(trackHolder);
   size_t i = 0;
+  const float scaledGain = trackHolder->gain * kScaleQ23ToFloat;
   for (; i <= length / sampleSize; i++) {
     size_t offset = i * sampleSize;
     int32_t sample = *((int32_t*)(buffer + offset - 1)) & 0x00FFFFFF;
-    trackHolder->buffer[i] = sample * kScaleQ23ToFloat;
+    trackHolder->buffer[i] = sample * scaledGain;
   }
   return i * sampleSize;
 }
@@ -174,8 +194,9 @@ static size_t transcodeQ31ToFloat(uint8_t* buffer, size_t length,
                                   BtifAvrcpAudioTrack* trackHolder) {
   size_t sampleSize = sampleSizeFor(trackHolder);
   size_t i = 0;
+  const float scaledGain = trackHolder->gain * kScaleQ31ToFloat;
   for (; i <= length / sampleSize; i++) {
-    trackHolder->buffer[i] = ((int32_t*)buffer)[i] * kScaleQ31ToFloat;
+    trackHolder->buffer[i] = ((int32_t*)buffer)[i] * scaledGain;
   }
   return i * sampleSize;
 }

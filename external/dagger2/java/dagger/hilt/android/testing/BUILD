@@ -42,7 +42,8 @@ android_library(
     testonly = 1,
     srcs = ["HiltAndroidTest.java"],
     exported_plugins = [
-        "//java/dagger/hilt/processor/internal/root:plugin",
+        "//java/dagger/hilt/processor/internal/root:component_tree_deps_plugin",
+        "//java/dagger/hilt/processor/internal/root:root_plugin",
         "//java/dagger/hilt/android/processor/internal/androidentrypoint:plugin",
         "//java/dagger/hilt/android/processor/internal/viewmodel:validation_plugin",
     ],
@@ -54,7 +55,9 @@ android_library(
         "//:dagger_with_compiler",
         "//java/dagger/hilt:install_in",
         "//java/dagger/hilt/android/components",
+        "//java/dagger/hilt/android/internal",
         "//java/dagger/hilt/android/internal/builders",
+        "//java/dagger/hilt/android/internal/legacy:aggregated_element_proxy",
         "//java/dagger/hilt/android/internal/managers",
         "//java/dagger/hilt/android/internal/modules",
         "//java/dagger/hilt/android/internal/testing:early_test_singleton_component_creator",
@@ -71,6 +74,7 @@ android_library(
         "//java/dagger/hilt/internal:preconditions",
         "//java/dagger/hilt/internal:test_singleton_component",
         "//java/dagger/hilt/internal/aggregatedroot",
+        "//java/dagger/hilt/internal/componenttreedeps",
         "//java/dagger/hilt/internal/processedrootsentinel",
         "//java/dagger/hilt/migration:disable_install_in_check",
         "@maven//:androidx_annotation_annotation",
@@ -118,10 +122,11 @@ android_library(
         ":package_info",
         "//:dagger_with_compiler",
         "//java/dagger/hilt:entry_point",
+        "//java/dagger/hilt/android/internal",
         "//java/dagger/hilt/android/internal/testing:test_application_component_manager_holder",
         "//java/dagger/hilt/internal:component_manager",
         "//java/dagger/hilt/internal:preconditions",
-        "@google_bazel_common//third_party/java/auto:value",
+        "//third_party/java/auto:value",
     ],
 )
 
@@ -141,7 +146,7 @@ android_library(
     ],
 )
 
-java_library(
+android_library(
     name = "bind_value",
     testonly = 1,
     srcs = [
@@ -167,7 +172,7 @@ java_library(
     name = "package_info",
     srcs = ["package-info.java"],
     deps = [
-        "@google_bazel_common//third_party/java/jsr305_annotations",
+        "//third_party/java/jsr305_annotations",
     ],
 )
 
@@ -226,6 +231,7 @@ gen_maven_artifact(
         "com.google.dagger:hilt-android",
         "javax.inject:javax.inject",
         "junit:junit",
+        "org.jetbrains.kotlin:kotlin-stdlib",
     ],
     artifact_target_maven_deps_banned = [
         "com.google.guava:guava",

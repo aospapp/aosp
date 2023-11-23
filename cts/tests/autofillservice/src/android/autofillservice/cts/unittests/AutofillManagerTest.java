@@ -26,6 +26,7 @@ import android.autofillservice.cts.testcore.Helper;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.os.SystemClock;
 import android.platform.test.annotations.AppModeFull;
 import android.provider.Settings;
@@ -35,9 +36,11 @@ import androidx.test.platform.app.InstrumentationRegistry;
 import androidx.test.runner.AndroidJUnit4;
 
 import com.android.compatibility.common.util.BlockingBroadcastReceiver;
+import com.android.compatibility.common.util.RequiredFeatureRule;
 import com.android.compatibility.common.util.SettingsStateKeeperRule;
 
 import org.junit.ClassRule;
+import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -57,6 +60,10 @@ public class AutofillManagerTest {
     @ClassRule
     public static final SettingsStateKeeperRule sPublicServiceSettingsKeeper =
             new SettingsStateKeeperRule(sContext, Settings.Secure.AUTOFILL_SERVICE);
+
+    @Rule
+    public final RequiredFeatureRule sRequiredFeatureRule =
+            new RequiredFeatureRule(PackageManager.FEATURE_AUTOFILL);
 
     @Test
     @AppModeFull(reason = "Package cannot install in instant app mode")
@@ -79,7 +86,7 @@ public class AutofillManagerTest {
     private void enableOutsidePackageTestAutofillService() {
         final String outsidePackageAutofillServiceName =
                 "android.autofill.cts2/.NoOpAutofillService";
-        Helper.enableAutofillService(sContext, outsidePackageAutofillServiceName);
+        Helper.enableAutofillService(outsidePackageAutofillServiceName);
     }
 
     private void install(String apk) {

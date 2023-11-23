@@ -15,20 +15,28 @@
  */
 package android.media.player.cts;
 
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
+
 import android.content.res.AssetFileDescriptor;
 import android.media.MediaPlayer;
 import android.media.cts.MediaHeavyPresubmitTest;
-import android.media.cts.MediaStubActivity;
-import android.media.cts.NonMediaMainlineTest;
-import android.media.cts.Preconditions;
-import android.os.Environment;
+import android.media.cts.MediaTestBase;
 import android.os.ParcelFileDescriptor;
 import android.platform.test.annotations.AppModeFull;
-import android.test.ActivityInstrumentationTestCase2;
 import android.util.Log;
 import android.view.SurfaceHolder;
 
+import androidx.test.ext.junit.runners.AndroidJUnit4;
+
+import com.android.compatibility.common.util.NonMainlineTest;
+import com.android.compatibility.common.util.Preconditions;
 import com.android.compatibility.common.util.WatchDog;
+
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
 import java.io.File;
 import java.util.Random;
@@ -38,10 +46,11 @@ import java.util.Random;
  *
  * <p>Only fails when a crash or a blocking call happens. Does not verify output.
  */
-@NonMediaMainlineTest
+@NonMainlineTest
 @MediaHeavyPresubmitTest
 @AppModeFull(reason = "TODO: evaluate and port to instant")
-public class MediaPlayerRandomTest extends ActivityInstrumentationTestCase2<MediaStubActivity> {
+@RunWith(AndroidJUnit4.class)
+public class MediaPlayerRandomTest extends MediaTestBase {
     private static final int MAX_PARAM = 1000000;
     private static final String TAG = "MediaPlayerRandomTest";
 
@@ -55,8 +64,9 @@ public class MediaPlayerRandomTest extends ActivityInstrumentationTestCase2<Medi
     // Modified across multiple threads
     private volatile boolean mMediaServerDied;
 
+    @Before
     @Override
-    protected void setUp() throws Exception {
+    public void setUp() throws Throwable {
         super.setUp();
         getInstrumentation().waitForIdleSync();
         mMediaServerDied = false;
@@ -64,7 +74,7 @@ public class MediaPlayerRandomTest extends ActivityInstrumentationTestCase2<Medi
         try {
             // Running this on UI thread make sure that
             // onError callback can be received.
-            runTestOnUiThread(new Runnable() {
+            getActivity().runOnUiThread(new Runnable() {
                 public void run() {
                     mPlayer = new MediaPlayer();
                 }
@@ -75,17 +85,14 @@ public class MediaPlayerRandomTest extends ActivityInstrumentationTestCase2<Medi
         }
     }
 
+    @After
     @Override
-    protected void tearDown() throws Exception {
+    public void tearDown() {
         if (mPlayer != null) {
             mPlayer.release();
             mPlayer = null;
         }
         super.tearDown();
-    }
-
-    public MediaPlayerRandomTest() {
-        super("android.media.player.cts", MediaStubActivity.class);
     }
 
     private void loadSource(final String res) throws Exception {
@@ -102,21 +109,25 @@ public class MediaPlayerRandomTest extends ActivityInstrumentationTestCase2<Medi
         }
     }
 
+    @Test
     public void testPlayerRandomActionAV1() throws Exception {
         testPlayerRandomAction(
                 "video_480x360_webm_av1_400kbps_30fps_vorbis_stereo_128kbps_48000hz.webm");
     }
 
+    @Test
     public void testPlayerRandomActionH264() throws Exception {
         testPlayerRandomAction(
                 "video_480x360_mp4_h264_500kbps_30fps_aac_stereo_128kbps_44100hz.mp4");
     }
 
+    @Test
     public void testPlayerRandomActionHEVC() throws Exception {
         testPlayerRandomAction(
                 "video_480x360_mp4_hevc_650kbps_30fps_aac_stereo_128kbps_48000hz.mp4");
     }
 
+    @Test
     public void testPlayerRandomActionMpeg2() throws Exception {
         testPlayerRandomAction(
                 "video_480x360_mp4_mpeg2_1500kbps_30fps_aac_stereo_128kbps_48000hz.mp4");

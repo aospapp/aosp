@@ -22,14 +22,17 @@ namespace lib {
 
 // A POD struct storing metadata of a term.
 struct TermMetadata {
-  TermMetadata(std::string content_in, int hit_count_in)
-      : content(std::move(content_in)), hit_count(hit_count_in) {}
+  TermMetadata(std::string content_in, int score_in)
+      : content(std::move(content_in)), score(score_in) {}
 
   // Content of the term.
   std::string content;
 
-  // Number of document hits associated with the term.
-  int hit_count;
+  // The score of the term.
+  // It will either be:
+  //- HIT_COUNT - number of document+section hits associated with the term
+  //- TERM_FREQUENCY - the number of times that the term appears in documents
+  int score;
 };
 
 }  // namespace lib

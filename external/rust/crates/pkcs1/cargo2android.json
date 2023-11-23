@@ -1,0 +1,9 @@
+{
+  "apex-available": [
+    "//apex_available:platform",
+    "com.android.virt"
+  ],
+  "run": true,
+  "vendor-available": true,
+  "features": "alloc"
+}

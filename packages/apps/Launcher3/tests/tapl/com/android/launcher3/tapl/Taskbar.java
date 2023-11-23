@@ -15,10 +15,12 @@
  */
 package com.android.launcher3.tapl;
 
-import static com.android.launcher3.testing.TestProtocol.REQUEST_DISABLE_MANUAL_TASKBAR_STASHING;
-import static com.android.launcher3.testing.TestProtocol.REQUEST_ENABLE_MANUAL_TASKBAR_STASHING;
+import static com.android.launcher3.tapl.LauncherInstrumentation.TASKBAR_RES_ID;
+import static com.android.launcher3.testing.shared.TestProtocol.REQUEST_DISABLE_MANUAL_TASKBAR_STASHING;
+import static com.android.launcher3.testing.shared.TestProtocol.REQUEST_ENABLE_MANUAL_TASKBAR_STASHING;
 
 import android.graphics.Point;
+import android.graphics.Rect;
 import android.os.SystemClock;
 import android.text.TextUtils;
 import android.view.MotionEvent;
@@ -51,7 +53,7 @@ public final class Taskbar {
         try (LauncherInstrumentation.Closable c = mLauncher.addContextLayer(
                 "want to get a taskbar icon")) {
             return new TaskbarAppIcon(mLauncher, mLauncher.waitForObjectInContainer(
-                    mLauncher.waitForLauncherObject("taskbar_view"),
+                    mLauncher.waitForSystemLauncherObject(TASKBAR_RES_ID),
                     AppIcon.getAppIconSelector(appName, mLauncher)));
         }
     }
@@ -67,7 +69,7 @@ public final class Taskbar {
         try (LauncherInstrumentation.Closable c = mLauncher.addContextLayer(
                 "want to hide the taskbar");
              LauncherInstrumentation.Closable e = mLauncher.eventsCheck()) {
-            mLauncher.waitForLauncherObject("taskbar_view");
+            mLauncher.waitForSystemLauncherObject(TASKBAR_RES_ID);
 
             final long downTime = SystemClock.uptimeMillis();
             Point stashTarget = new Point(
@@ -78,7 +80,7 @@ public final class Taskbar {
             LauncherInstrumentation.log("hideTaskbar: sent down");
 
             try (LauncherInstrumentation.Closable c2 = mLauncher.addContextLayer("pressed down")) {
-                mLauncher.waitUntilLauncherObjectGone("taskbar_view");
+                mLauncher.waitUntilSystemLauncherObjectGone(TASKBAR_RES_ID);
                 mLauncher.sendPointer(downTime, downTime, MotionEvent.ACTION_UP, stashTarget,
                         LauncherInstrumentation.GestureScope.INSIDE);
             }
@@ -96,7 +98,8 @@ public final class Taskbar {
              LauncherInstrumentation.Closable e = mLauncher.eventsCheck()) {
 
             mLauncher.clickLauncherObject(mLauncher.waitForObjectInContainer(
-                    mLauncher.waitForLauncherObject("taskbar_view"), getAllAppsButtonSelector()));
+                    mLauncher.waitForSystemLauncherObject(TASKBAR_RES_ID),
+                    getAllAppsButtonSelector()));
 
             return new AllAppsFromTaskbar(mLauncher);
         }
@@ -107,7 +110,7 @@ public final class Taskbar {
         try (LauncherInstrumentation.Closable c = mLauncher.addContextLayer(
                 "want to get all taskbar icons")) {
             return mLauncher.waitForObjectsInContainer(
-                    mLauncher.waitForLauncherObject("taskbar_view"),
+                    mLauncher.waitForSystemLauncherObject(TASKBAR_RES_ID),
                     AppIcon.getAnyAppIconSelector())
                     .stream()
                     .map(UiObject2::getText)
@@ -119,5 +122,34 @@ public final class Taskbar {
     private static BySelector getAllAppsButtonSelector() {
         // Look for an icon with no text
         return By.clazz(TextView.class).text("");
+    }
+
+    private Rect getVisibleBounds() {
+        return mLauncher.waitForSystemLauncherObject(TASKBAR_RES_ID).getVisibleBounds();
+    }
+
+    /**
+     * Touch either on the right or the left corner of the screen, 1 pixel from the bottom and
+     * from the sides.
+     */
+    void touchBottomCorner(boolean tapRight) {
+        try (LauncherInstrumentation.Closable c = mLauncher.addContextLayer(
+                "want to tap bottom corner on the " + (tapRight ? "right" : "left"))) {
+            final long downTime = SystemClock.uptimeMillis();
+            final Point tapTarget = new Point(
+                    tapRight
+                            ?
+                            getVisibleBounds().right
+                                    - mLauncher.getTargetInsets().right
+                                    - 1
+                            : getVisibleBounds().left
+                                    + 1,
+                    mLauncher.getRealDisplaySize().y - 1);
+
+            mLauncher.sendPointer(downTime, downTime, MotionEvent.ACTION_DOWN, tapTarget,
+                    LauncherInstrumentation.GestureScope.INSIDE);
+            mLauncher.sendPointer(downTime, downTime, MotionEvent.ACTION_UP, tapTarget,
+                    LauncherInstrumentation.GestureScope.INSIDE);
+        }
     }
 }

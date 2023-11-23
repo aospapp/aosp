@@ -75,16 +75,7 @@ public class HomepageFragment extends SettingsFragment {
     @Override
     protected void setupToolbar(@NonNull ToolbarController toolbar) {
         super.setupToolbar(toolbar);
-        // If the fragment is root, change the back button to settings icon.
-        if (!getContext().getResources().getBoolean(R.bool.config_is_quick_settings_root)) {
-            toolbar.setNavButtonMode(NavButtonMode.DISABLED);
-            toolbar.setLogo(getContext().getResources()
-                    .getBoolean(R.bool.config_show_settings_root_exit_icon)
-                    ? R.drawable.ic_launcher_settings
-                    : 0);
-        } else {
-            toolbar.setNavButtonMode(NavButtonMode.BACK);
-        }
+        toolbar.setNavButtonMode(NavButtonMode.BACK);
     }
 
     private void onSearchButtonClicked() {

@@ -69,6 +69,7 @@ public class UserCallIntentProcessor {
      *
      * @param intent The intent.
      * @param callingPackageName The package name of the calling app.
+     * @param isSelfManaged      {@code true} if SelfManaged profile enabled.
      * @param canCallNonEmergency {@code true} if the caller is permitted to call non-emergency
      *                            numbers.
      * @param isLocalInvocation {@code true} if the caller is within the system service (i.e. the
@@ -79,19 +80,21 @@ public class UserCallIntentProcessor {
      *                            service resides.
      */
     public void processIntent(Intent intent, String callingPackageName,
-            boolean canCallNonEmergency, boolean isLocalInvocation) {
+            boolean isSelfManaged, boolean canCallNonEmergency,
+            boolean isLocalInvocation) {
         String action = intent.getAction();
 
         if (Intent.ACTION_CALL.equals(action) ||
                 Intent.ACTION_CALL_PRIVILEGED.equals(action) ||
                 Intent.ACTION_CALL_EMERGENCY.equals(action)) {
-            processOutgoingCallIntent(intent, callingPackageName, canCallNonEmergency,
-                    isLocalInvocation);
+            processOutgoingCallIntent(intent, callingPackageName, isSelfManaged,
+                    canCallNonEmergency, isLocalInvocation);
         }
     }
 
     private void processOutgoingCallIntent(Intent intent, String callingPackageName,
-            boolean canCallNonEmergency, boolean isLocalInvocation) {
+            boolean isSelfManaged, boolean canCallNonEmergency,
+            boolean isLocalInvocation) {
         Uri handle = intent.getData();
         if (handle == null) return;
         String scheme = handle.getScheme();
@@ -102,40 +105,43 @@ public class UserCallIntentProcessor {
             handle = Uri.fromParts(PhoneAccount.SCHEME_SIP, uriString, null);
         }
 
-        // Check DISALLOW_OUTGOING_CALLS restriction. Note: We are skipping this check in a managed
-        // profile user because this check can always be bypassed by copying and pasting the phone
-        // number into the personal dialer.
-        if (!UserUtil.isManagedProfile(mContext, mUserHandle)) {
-            // Only emergency calls are allowed for users with the DISALLOW_OUTGOING_CALLS
-            // restriction.
-            if (!TelephonyUtil.shouldProcessAsEmergency(mContext, handle)) {
-                final UserManager userManager = (UserManager) mContext.getSystemService(
-                        Context.USER_SERVICE);
-                if (userManager.hasBaseUserRestriction(UserManager.DISALLOW_OUTGOING_CALLS,
-                        mUserHandle)) {
-                    showErrorDialogForRestrictedOutgoingCall(mContext,
-                            R.string.outgoing_call_not_allowed_user_restriction);
-                    Log.w(this, "Rejecting non-emergency phone call due to DISALLOW_OUTGOING_CALLS "
-                            + "restriction");
-                    return;
-                } else if (userManager.hasUserRestriction(UserManager.DISALLOW_OUTGOING_CALLS,
-                        mUserHandle)) {
-                    final DevicePolicyManager dpm =
-                            mContext.getSystemService(DevicePolicyManager.class);
-                    if (dpm == null) {
+       if(!isSelfManaged) {
+            // Check DISALLOW_OUTGOING_CALLS restriction. Note: We are skipping this
+            // check in a managed profile user because this check can always be bypassed
+            // by copying and pasting the phone number into the personal dialer.
+            if (!UserUtil.isManagedProfile(mContext, mUserHandle)) {
+                // Only emergency calls are allowed for users with the DISALLOW_OUTGOING_CALLS
+                // restriction.
+                if (!TelephonyUtil.shouldProcessAsEmergency(mContext, handle)) {
+                    final UserManager userManager =
+                            (UserManager) mContext.getSystemService(Context.USER_SERVICE);
+                    if (userManager.hasBaseUserRestriction(UserManager.DISALLOW_OUTGOING_CALLS,
+                            mUserHandle)) {
+                        showErrorDialogForRestrictedOutgoingCall(mContext,
+                                R.string.outgoing_call_not_allowed_user_restriction);
+                        Log.w(this, "Rejecting non-emergency phone call "
+                                + "due to DISALLOW_OUTGOING_CALLS restriction");
+                        return;
+                    } else if (userManager.hasUserRestriction(UserManager.DISALLOW_OUTGOING_CALLS,
+                            mUserHandle)) {
+                        final DevicePolicyManager dpm =
+                                mContext.getSystemService(DevicePolicyManager.class);
+                        if (dpm == null) {
+                            return;
+                        }
+                        final Intent adminSupportIntent = dpm.createAdminSupportIntent(
+                                UserManager.DISALLOW_OUTGOING_CALLS);
+                        if (adminSupportIntent != null) {
+                            mContext.startActivity(adminSupportIntent);
+                        }
                         return;
                     }
-                    final Intent adminSupportIntent = dpm.createAdminSupportIntent(
-                            UserManager.DISALLOW_OUTGOING_CALLS);
-                    if (adminSupportIntent != null) {
-                        mContext.startActivity(adminSupportIntent);
-                    }
-                    return;
                 }
             }
         }
 
-        if (!canCallNonEmergency && !TelephonyUtil.shouldProcessAsEmergency(mContext, handle)) {
+        if (!isSelfManaged && !canCallNonEmergency &&
+                !TelephonyUtil.shouldProcessAsEmergency(mContext, handle)) {
             showErrorDialogForRestrictedOutgoingCall(mContext,
                     R.string.outgoing_call_not_allowed_no_permission);
             Log.w(this, "Rejecting non-emergency phone call because "

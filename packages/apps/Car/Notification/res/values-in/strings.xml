@@ -19,7 +19,7 @@
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="assist_action_play_label" msgid="6278705468288338172">"Putar"</string>
     <string name="assist_action_reply_label" msgid="6946087036560525072">"Balas"</string>
-    <string name="action_mute_short" msgid="5239851786101022633">"Nonaktifkan"</string>
+    <string name="action_mute_short" msgid="5239851786101022633">"Bisukan"</string>
     <string name="action_mute_long" msgid="6846675719189989477">"Sembunyikan percakapan"</string>
     <string name="action_unmute_short" msgid="7157822835069715986">"Aktifkan"</string>
     <string name="action_unmute_long" msgid="22482625837159466">"Tampilkan percakapan"</string>
@@ -49,4 +49,11 @@
     <string name="see_more_message" msgid="6343183827924395955">"Lihat lainnya"</string>
     <string name="restricted_hun_message_content" msgid="631111937988857716">"Pesan baru"</string>
     <string name="manage_text" msgid="4225197445283791757">"Kelola"</string>
+    <string name="category_navigation" msgid="4406139232918521087">"navigation"</string>
+    <string name="category_call" msgid="2249490790700877973">"call"</string>
+    <string name="category_message" msgid="451360226248504859">"msg"</string>
+    <string name="hun_suppression_channel_name" msgid="8298850157350352525">"Penyembunyian Peringatan Dini"</string>
+    <string name="hun_suppression_notification_title_park" msgid="2790860076784227523">"Ikuti berita terbaru"</string>
+    <string name="hun_suppression_notification_title_drive" msgid="4403363470548899844">"Fokus mengemudi"</string>
+    <string name="hun_suppression_notification_description" msgid="5269238832987802104">"Beberapa notifikasi baru disimpan di Pusat Notifikasi"</string>
 </resources>

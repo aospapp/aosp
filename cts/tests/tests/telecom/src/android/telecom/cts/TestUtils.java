@@ -37,6 +37,7 @@ import android.provider.ContactsContract;
 import android.telecom.PhoneAccount;
 import android.telecom.PhoneAccountHandle;
 import android.telecom.TelecomManager;
+import android.telecom.VideoProfile;
 
 import androidx.test.InstrumentationRegistry;
 
@@ -70,17 +71,22 @@ public class TestUtils {
     // Non-final to allow modification by tests not in this package (e.g. permission-related
     // tests in the Telecom2 test package.
     public static String PACKAGE = "android.telecom.cts";
+    public static String SELF_MANAGED_PACKAGE = "android.telecom.cts.selfmanagedcstestappone";
     public static final String TEST_URI_SCHEME = "foobuzz";
     public static final String COMPONENT = "android.telecom.cts.CtsConnectionService";
     public static final String INCALL_COMPONENT = "android.telecom.cts/.MockInCallService";
     public static final String SELF_MANAGED_COMPONENT =
             "android.telecom.cts.CtsSelfManagedConnectionService";
+    public static final String SELF_MANAGED_COMPONENT_1 =
+            "android.telecom.cts.selfmanagedcstestappone.CtsSelfManagedConnectionServiceOne";
     public static final String REMOTE_COMPONENT = "android.telecom.cts.CtsRemoteConnectionService";
     public static final String ACCOUNT_ID_1 = "xtstest_CALL_PROVIDER_ID_1";
     public static final String ACCOUNT_ID_2 = "xtstest_CALL_PROVIDER_ID_2";
     public static final String ACCOUNT_ID_SIM = "sim_acct";
     public static final String ACCOUNT_ID_EMERGENCY = "xtstest_CALL_PROVIDER_EMERGENCY";
     public static final String EXTRA_PHONE_NUMBER = "android.telecom.cts.extra.PHONE_NUMBER";
+    public static final ComponentName TELECOM_CTS_COMPONENT_NAME = new ComponentName(
+            TestUtils.PACKAGE, TestUtils.COMPONENT);
     public static final PhoneAccountHandle TEST_PHONE_ACCOUNT_HANDLE =
             new PhoneAccountHandle(new ComponentName(PACKAGE, COMPONENT), ACCOUNT_ID_1);
     public static final PhoneAccountHandle TEST_SIM_PHONE_ACCOUNT_HANDLE =
@@ -119,6 +125,16 @@ public class TestUtils {
     public static final PhoneAccountHandle TEST_SELF_MANAGED_HANDLE_4 =
             new PhoneAccountHandle(new ComponentName(PACKAGE, SELF_MANAGED_COMPONENT),
                     SELF_MANAGED_ACCOUNT_ID_4);
+    public static final String SELF_MANAGED_CS_1_ACCOUNT_ID_1 = "ctstest_SELF_MANAGED_CS_1_ID_1";
+    public static final String SELF_MANAGED_CS_1_ACCOUNT_ID_3 = "ctstest_SELF_MANAGED_CS_1_ID_3";
+    public static final PhoneAccountHandle TEST_SELF_MANAGED_CS_1_HANDLE_1 =
+            new PhoneAccountHandle(
+                    new ComponentName(SELF_MANAGED_PACKAGE, SELF_MANAGED_COMPONENT_1),
+                    SELF_MANAGED_CS_1_ACCOUNT_ID_1);
+    public static final PhoneAccountHandle TEST_SELF_MANAGED_CS_1_HANDLE_3 =
+            new PhoneAccountHandle(
+                    new ComponentName(SELF_MANAGED_PACKAGE, SELF_MANAGED_COMPONENT_1),
+                    SELF_MANAGED_CS_1_ACCOUNT_ID_3);
 
     public static final String ACCOUNT_LABEL = "CTSConnectionService";
     public static final String SIM_ACCOUNT_LABEL = "CTSConnectionServiceSim";
@@ -137,6 +153,24 @@ public class TestUtils {
             .addSupportedUriScheme(PhoneAccount.SCHEME_TEL)
             .addSupportedUriScheme(PhoneAccount.SCHEME_VOICEMAIL)
             .build();
+
+    public static final PhoneAccount TEST_PHONE_ACCOUNT_THAT_HANDLES_CONTENT_SCHEME =
+            PhoneAccount.builder(
+                            TEST_PHONE_ACCOUNT_HANDLE, ACCOUNT_LABEL)
+                    .setAddress(Uri.parse("tel:555-TEST"))
+                    .setSubscriptionAddress(Uri.parse("tel:555-TEST"))
+                    .setCapabilities(PhoneAccount.CAPABILITY_CALL_PROVIDER |
+                            PhoneAccount.CAPABILITY_VIDEO_CALLING |
+                            PhoneAccount.CAPABILITY_RTT |
+                            PhoneAccount.CAPABILITY_CONNECTION_MANAGER |
+                            PhoneAccount.CAPABILITY_PLACE_EMERGENCY_CALLS |
+                            PhoneAccount.CAPABILITY_ADHOC_CONFERENCE_CALLING)
+                    .setHighlightColor(Color.RED)
+                    .setShortDescription(ACCOUNT_LABEL)
+                    .addSupportedUriScheme(PhoneAccount.SCHEME_TEL)
+                    .addSupportedUriScheme(PhoneAccount.SCHEME_VOICEMAIL)
+                    .addSupportedUriScheme("content")
+                    .build();
 
     public static final PhoneAccount TEST_SIM_PHONE_ACCOUNT = PhoneAccount.builder(
             TEST_SIM_PHONE_ACCOUNT_HANDLE, SIM_ACCOUNT_LABEL)
@@ -238,6 +272,18 @@ public class TestUtils {
         SELF_MANAGED_ACCOUNT_4_EXTRAS.putBoolean(
                 PhoneAccount.EXTRA_ADD_SELF_MANAGED_CALLS_TO_INCALLSERVICE, true);
     }
+    public static final Bundle SELF_MANAGED_CS_1_ACCOUNT_1_EXTRAS;
+    static {
+        SELF_MANAGED_CS_1_ACCOUNT_1_EXTRAS = new Bundle();
+        SELF_MANAGED_CS_1_ACCOUNT_1_EXTRAS.putBoolean(
+                PhoneAccount.EXTRA_ADD_SELF_MANAGED_CALLS_TO_INCALLSERVICE, true);
+    }
+    public static final Bundle SELF_MANAGED_CS_1_ACCOUNT_3_EXTRAS;
+    static {
+        SELF_MANAGED_CS_1_ACCOUNT_3_EXTRAS = new Bundle();
+        SELF_MANAGED_CS_1_ACCOUNT_3_EXTRAS.putBoolean(
+                PhoneAccount.EXTRA_ADD_SELF_MANAGED_CALLS_TO_INCALLSERVICE, false);
+    }
 
     public static final PhoneAccount TEST_SELF_MANAGED_PHONE_ACCOUNT_2 = PhoneAccount.builder(
             TEST_SELF_MANAGED_HANDLE_2, SELF_MANAGED_ACCOUNT_LABEL)
@@ -278,6 +324,41 @@ public class TestUtils {
             .addSupportedUriScheme(PhoneAccount.SCHEME_SIP)
             .setExtras(SELF_MANAGED_ACCOUNT_4_EXTRAS)
             .build();
+    public static final PhoneAccount TEST_SELF_MANAGED_CS_1_PHONE_ACCOUNT_1 = PhoneAccount.builder(
+            TEST_SELF_MANAGED_CS_1_HANDLE_1, SELF_MANAGED_ACCOUNT_LABEL)
+            .setAddress(Uri.parse("sip:test@test.com"))
+            .setSubscriptionAddress(Uri.parse("sip:test@test.com"))
+            .setCapabilities(PhoneAccount.CAPABILITY_SELF_MANAGED
+                    | PhoneAccount.CAPABILITY_SUPPORTS_VIDEO_CALLING
+                    | PhoneAccount.CAPABILITY_VIDEO_CALLING)
+            .setHighlightColor(Color.BLUE)
+            .setShortDescription(SELF_MANAGED_ACCOUNT_LABEL)
+            .addSupportedUriScheme(PhoneAccount.SCHEME_TEL)
+            .addSupportedUriScheme(PhoneAccount.SCHEME_SIP)
+            .setExtras(SELF_MANAGED_CS_1_ACCOUNT_1_EXTRAS)
+            .build();
+    public static final PhoneAccount TEST_SELF_MANAGED_CS_1_PHONE_ACCOUNT_2 = PhoneAccount.builder(
+            TEST_SELF_MANAGED_CS_1_HANDLE_1, SELF_MANAGED_ACCOUNT_LABEL)
+            .setAddress(Uri.parse("sip:test@test.com"))
+            .setSubscriptionAddress(Uri.parse("sip:test@test.com"))
+            .setCapabilities(PhoneAccount.CAPABILITY_SELF_MANAGED)
+            .setHighlightColor(Color.BLUE)
+            .setShortDescription(SELF_MANAGED_ACCOUNT_LABEL)
+            .addSupportedUriScheme(PhoneAccount.SCHEME_TEL)
+            .addSupportedUriScheme(PhoneAccount.SCHEME_SIP)
+            .setExtras(SELF_MANAGED_CS_1_ACCOUNT_1_EXTRAS)
+            .build();
+    public static final PhoneAccount TEST_SELF_MANAGED_CS_1_PHONE_ACCOUNT_3 = PhoneAccount.builder(
+            TEST_SELF_MANAGED_CS_1_HANDLE_3, SELF_MANAGED_ACCOUNT_LABEL)
+            .setAddress(Uri.parse("sip:test@test.com"))
+            .setSubscriptionAddress(Uri.parse("sip:test@test.com"))
+            .setCapabilities(PhoneAccount.CAPABILITY_SELF_MANAGED)
+            .setHighlightColor(Color.BLUE)
+            .setShortDescription(SELF_MANAGED_ACCOUNT_LABEL)
+            .addSupportedUriScheme(PhoneAccount.SCHEME_TEL)
+            .addSupportedUriScheme(PhoneAccount.SCHEME_SIP)
+            .setExtras(SELF_MANAGED_CS_1_ACCOUNT_3_EXTRAS)
+            .build();
 
     /**
      * See {@link TelecomManager#ENABLE_GET_CALL_STATE_PERMISSION_PROTECTION}
@@ -303,6 +384,8 @@ public class TestUtils {
     private static final String COMMAND_GET_SYSTEM_DIALER = "telecom get-system-dialer";
 
     private static final String COMMAND_ENABLE = "telecom set-phone-account-enabled ";
+
+    private static final String COMMAND_DISABLE = "telecom set-phone-account-disabled ";
 
     private static final String COMMAND_SET_ACCT_SUGGESTION =
             "telecom set-phone-acct-suggestion-component ";
@@ -336,8 +419,13 @@ public class TestUtils {
             return false;
         }
         final PackageManager pm = context.getPackageManager();
-        return pm.hasSystemFeature(PackageManager.FEATURE_TELEPHONY) &&
-                pm.hasSystemFeature(PackageManager.FEATURE_TELECOM);
+        return pm.hasSystemFeature(PackageManager.FEATURE_TELECOM);
+    }
+
+    public static boolean hasTelephonyFeature(Context context) {
+        final PackageManager pm = context.getPackageManager();
+        return (pm.hasSystemFeature(PackageManager.FEATURE_TELEPHONY) && pm.hasSystemFeature(
+                PackageManager.FEATURE_TELEPHONY_CALLING));
     }
 
     public static String setCallDiagnosticService(Instrumentation instrumentation,
@@ -381,6 +469,15 @@ public class TestUtils {
         final ComponentName component = handle.getComponentName();
         final long currentUserSerial = getCurrentUserSerialNumber(instrumentation);
         executeShellCommand(instrumentation, COMMAND_ENABLE
+                + component.getPackageName() + "/" + component.getClassName() + " "
+                + handle.getId() + " " + currentUserSerial);
+    }
+
+    public static void disablePhoneAccount(Instrumentation instrumentation,
+            PhoneAccountHandle handle) throws Exception {
+        final ComponentName component = handle.getComponentName();
+        final long currentUserSerial = getCurrentUserSerialNumber(instrumentation);
+        executeShellCommand(instrumentation, COMMAND_DISABLE
                 + component.getPackageName() + "/" + component.getClassName() + " "
                 + handle.getId() + " " + currentUserSerial);
     }
@@ -580,8 +677,20 @@ public class TestUtils {
         }
     }
     public static boolean hasBluetoothFeature() {
-        return InstrumentationRegistry.getContext().getPackageManager().
-                hasSystemFeature(PackageManager.FEATURE_BLUETOOTH);
+        try {
+            return InstrumentationRegistry.getContext().getPackageManager()
+                    .hasSystemFeature(PackageManager.FEATURE_BLUETOOTH);
+        } catch (Exception e) {
+            return false;
+        }
+    }
+    public static boolean hasAutomotiveFeature() {
+        try {
+            return InstrumentationRegistry.getContext().getPackageManager()
+                    .hasSystemFeature(PackageManager.FEATURE_AUTOMOTIVE);
+        } catch (Exception e) {
+            return false;
+        }
     }
     public static BluetoothDevice makeBluetoothDevice(String address) {
         if (!HAS_BLUETOOTH) return null;
@@ -604,9 +713,29 @@ public class TestUtils {
     public static void placeOutgoingCall(Instrumentation instrumentation,
                                           TelecomManager telecomManager, PhoneAccountHandle handle,
                                           Uri address) {
+        placeOutgoingCall(instrumentation, telecomManager, handle, address,
+                VideoProfile.STATE_AUDIO_ONLY);
+    }
+
+    /**
+     * Places a new outgoing call.
+     *
+     * @param telecomManager the TelecomManager.
+     * @param handle the PhoneAccountHandle associated with the call.
+     * @param address outgoing call address.
+     * @return the new self-managed outgoing call.
+     */
+    public static void placeOutgoingCall(Instrumentation instrumentation,
+                                          TelecomManager telecomManager, PhoneAccountHandle handle,
+                                          Uri address, int videoState) {
         // Inform telecom of new incoming self-managed connection.
         Bundle extras = new Bundle();
         extras.putParcelable(TelecomManager.EXTRA_PHONE_ACCOUNT_HANDLE, handle);
+
+        if (!VideoProfile.isAudioOnly(videoState)) {
+            extras.putInt(TelecomManager.EXTRA_START_CALL_WITH_VIDEO_STATE, videoState);
+        }
+
         telecomManager.placeCall(address, extras);
 
         // Wait for Telecom to finish creating the new connection.
@@ -841,6 +970,10 @@ public class TestUtils {
         byte[] array = new byte[16];
         random.nextBytes(array);
         return UUID.nameUUIDFromBytes(array);
+    }
+
+    public static PhoneAccountHandle makePhoneAccountHandle(String id) {
+        return new PhoneAccountHandle(TELECOM_CTS_COMPONENT_NAME, id);
     }
 
 

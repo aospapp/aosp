@@ -1,4 +1,0 @@
-# b/187015816
-dontaudit incidentd apex_info_file:file getattr;
-# b/190337296
-dontaudit incidentd debugfs_wakeup_sources:file read;

@@ -21,6 +21,8 @@ import static android.view.Display.DEFAULT_DISPLAY;
 
 import static androidx.test.platform.app.InstrumentationRegistry.getInstrumentation;
 
+import static com.google.common.truth.Truth.assertThat;
+
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -33,11 +35,10 @@ import static org.junit.Assume.assumeTrue;
 
 import android.Manifest;
 import android.app.Activity;
-import android.app.Instrumentation;
 import android.app.Presentation;
+import android.app.UiAutomation;
 import android.app.UiModeManager;
 import android.content.Context;
-import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.content.res.Configuration;
 import android.graphics.Color;
@@ -50,7 +51,6 @@ import android.hardware.display.DisplayManager.DisplayListener;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
-import android.os.IBinder;
 import android.os.Looper;
 import android.os.ParcelFileDescriptor;
 import android.os.SystemProperties;
@@ -61,19 +61,21 @@ import android.util.DisplayMetrics;
 import android.util.Log;
 import android.view.Display;
 import android.view.Display.HdrCapabilities;
-import android.view.SurfaceControl;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.WindowManager;
 
-import androidx.test.InstrumentationRegistry;
+import androidx.test.ext.junit.runners.AndroidJUnit4;
+import androidx.test.platform.app.InstrumentationRegistry;
 import androidx.test.rule.ActivityTestRule;
-import androidx.test.runner.AndroidJUnit4;
 
 import com.android.compatibility.common.util.AdoptShellPermissionsRule;
 import com.android.compatibility.common.util.CddTest;
+import com.android.compatibility.common.util.DisplayStateManager;
 import com.android.compatibility.common.util.DisplayUtil;
+import com.android.compatibility.common.util.MediaUtils;
 import com.android.compatibility.common.util.PropertyUtil;
+import com.android.compatibility.common.util.StateKeeperRule;
 
 import com.google.common.truth.Truth;
 
@@ -103,7 +105,7 @@ import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Predicate;
 
 @RunWith(AndroidJUnit4.class)
-public class DisplayTest {
+public class DisplayTest extends TestBase {
     private static final String TAG = "DisplayTest";
 
     // The CTS package brings up an overlay display on the target device (see AndroidTest.xml).
@@ -130,22 +132,23 @@ public class DisplayTest {
     private Context mContext;
     private ColorSpace[] mSupportedWideGamuts;
     private Display mDefaultDisplay;
-    private HdrSettings mOriginalHdrSettings;
     private int mInitialRefreshRateSwitchingType;
 
     // To test display mode switches.
     private TestPresentation mPresentation;
 
-    private Activity mScreenOnActivity;
+    private UiAutomation mUiAutomation;
 
     private static class DisplayModeState {
         public final int mHeight;
         public final int mWidth;
         public final float mRefreshRate;
+        public final int[] mSupportedHdrTypes;
 
         DisplayModeState(Display display) {
             mHeight = display.getMode().getPhysicalHeight();
             mWidth = display.getMode().getPhysicalWidth();
+            mSupportedHdrTypes = display.getMode().getSupportedHdrTypes();
 
             // Starting Android S the, the platform might throttle down
             // applications frame rate to a divisor of the refresh rate instead if changing the
@@ -167,7 +170,8 @@ public class DisplayTest {
             DisplayModeState other = (DisplayModeState) obj;
             return mHeight == other.mHeight
                 && mWidth == other.mWidth
-                && mRefreshRate == other.mRefreshRate;
+                && mRefreshRate == other.mRefreshRate
+                && Arrays.equals(mSupportedHdrTypes, other.mSupportedHdrTypes);
         }
 
         @Override
@@ -176,6 +180,7 @@ public class DisplayTest {
                     .append("width=").append(mWidth)
                     .append(", height=").append(mHeight)
                     .append(", fps=").append(mRefreshRate)
+                    .append(", supportedHdrTypes=").append(Arrays.toString(mSupportedHdrTypes))
                     .append("}")
                     .toString();
         }
@@ -199,7 +204,7 @@ public class DisplayTest {
      * This rule adopts the Shell process permissions, needed because OVERRIDE_DISPLAY_MODE_REQUESTS
      * and ACCESS_SURFACE_FLINGER are privileged permission.
      */
-    @Rule
+    @Rule(order = 0)
     public AdoptShellPermissionsRule mAdoptShellPermissionsRule = new AdoptShellPermissionsRule(
             InstrumentationRegistry.getInstrumentation().getUiAutomation(),
             Manifest.permission.OVERRIDE_DISPLAY_MODE_REQUESTS,
@@ -208,27 +213,36 @@ public class DisplayTest {
             Manifest.permission.HDMI_CEC,
             Manifest.permission.MODIFY_REFRESH_RATE_SWITCHING_TYPE);
 
+    @Rule(order = 1)
+    public StateKeeperRule<DisplayStateManager.DisplayState>
+            mDisplayManagerStateKeeper =
+            new StateKeeperRule<>(new DisplayStateManager(
+                    InstrumentationRegistry.getInstrumentation().getTargetContext()));
+
     @Before
     public void setUp() throws Exception {
-        mScreenOnActivity = launchScreenOnActivity();
+        mUiAutomation = InstrumentationRegistry.getInstrumentation().getUiAutomation();
+
+        launchScreenOnActivity();
         mContext = getInstrumentation().getTargetContext();
-        assertTrue("Physical display is expected.", DisplayUtil.isDisplayConnected(mContext));
+        assertTrue("Physical display is expected.", DisplayUtil.isDisplayConnected(mContext)
+                || MediaUtils.onCuttlefish());
 
         mDisplayManager = mContext.getSystemService(DisplayManager.class);
         mWindowManager = mContext.getSystemService(WindowManager.class);
         mUiModeManager = mContext.getSystemService(UiModeManager.class);
         mDefaultDisplay = mDisplayManager.getDisplay(DEFAULT_DISPLAY);
         mSupportedWideGamuts = mDefaultDisplay.getSupportedWideColorGamut();
-        mOriginalHdrSettings = new HdrSettings();
-        cacheAndClearOriginalHdrSettings();
+
+        addSecondaryDisplay();
     }
 
     @After
-    public void tearDown() throws Exception {
-        restoreOriginalHdrSettings();
-        if (mScreenOnActivity != null) {
-            mScreenOnActivity.finish();
+    public void tearDown() {
+        if (mDisplayManager != null) {
+            mDisplayManager.overrideHdrTypes(DEFAULT_DISPLAY, new int[]{});
         }
+        mUiAutomation.executeShellCommand("settings delete global overlay_display_devices");
     }
 
     private void enableAppOps() {
@@ -275,6 +289,32 @@ public class DisplayTest {
         return null;
     }
 
+    private void addSecondaryDisplay() throws InterruptedException {
+        final CountDownLatch signal = new CountDownLatch(1);
+        Handler handler = new Handler(Looper.getMainLooper());
+        mDisplayManager.registerDisplayListener(new DisplayListener() {
+            @Override
+            public void onDisplayAdded(int displayId) {
+                if (getSecondaryDisplay(mDisplayManager.getDisplays()) != null) {
+                    signal.countDown();
+                }
+            }
+
+            @Override
+            public void onDisplayRemoved(int displayId) {}
+
+            @Override
+            public void onDisplayChanged(int displayId) {}
+        }, handler);
+
+        // Add a secondary display
+        mUiAutomation.executeShellCommand(
+                "settings put global overlay_display_devices 181x161/214|182x162/214");
+
+        // Wait for the secondary display to become available
+        assertTrue(signal.await(5, TimeUnit.SECONDS));
+    }
+
     /**
      * Verify that the getDisplays method returns both a default and an overlay display.
      */
@@ -295,6 +335,13 @@ public class DisplayTest {
         }
         assertTrue(hasDefaultDisplay);
         assertTrue(hasSecondaryDisplay);
+    }
+
+    @Test
+    public void getDisplaysWithInvalidCategory_returnsEmptyArray() {
+        Display[] displays = mDisplayManager.getDisplays("InvalidDisplayCategory");
+
+        assertThat(displays).isEmpty();
     }
 
     /**
@@ -336,6 +383,7 @@ public class DisplayTest {
     public void
             testGetHdrCapabilitiesWhenUserDisabledFormatsAreNotAllowedReturnsFilteredHdrTypes()
                     throws Exception {
+        overrideHdrTypes();
         waitUntil(
                 mDefaultDisplay,
                 mDefaultDisplay ->
@@ -376,6 +424,7 @@ public class DisplayTest {
     public void
             testGetHdrCapabilitiesWhenUserDisabledFormatsAreAllowedReturnsNonFilteredHdrTypes()
                     throws Exception {
+        overrideHdrTypes();
         waitUntil(
                 mDefaultDisplay,
                 mDefaultDisplay ->
@@ -404,6 +453,7 @@ public class DisplayTest {
      */
     @Test
     public void testSetUserDisabledHdrTypesStoresDisabledFormatsInSettings() throws Exception {
+        overrideHdrTypes();
         waitUntil(
                 mDefaultDisplay,
                 mDefaultDisplay ->
@@ -428,32 +478,11 @@ public class DisplayTest {
         assertEquals(HdrCapabilities.HDR_TYPE_HLG, userDisabledFormats[1]);
     }
 
-    private static final class HdrSettings  {
-        public boolean areUserDisabledHdrTypesAllowed;
-        public int[] userDisabledHdrTypes;
-    }
-
-    private void cacheAndClearOriginalHdrSettings() {
-        mOriginalHdrSettings.areUserDisabledHdrTypesAllowed =
-                mDisplayManager.areUserDisabledHdrTypesAllowed();
-        mOriginalHdrSettings.userDisabledHdrTypes =
-                mDisplayManager.getUserDisabledHdrTypes();
-        final IBinder displayToken = SurfaceControl.getInternalDisplayToken();
-        SurfaceControl.overrideHdrTypes(displayToken, new int[]{
+    private void overrideHdrTypes() {
+        mDisplayManager.overrideHdrTypes(DEFAULT_DISPLAY, new int[]{
                 HdrCapabilities.HDR_TYPE_DOLBY_VISION, HdrCapabilities.HDR_TYPE_HDR10,
                 HdrCapabilities.HDR_TYPE_HLG, HdrCapabilities.HDR_TYPE_HDR10_PLUS});
         mDisplayManager.setAreUserDisabledHdrTypesAllowed(true);
-    }
-
-    private void restoreOriginalHdrSettings() {
-        final IBinder displayToken = SurfaceControl.getInternalDisplayToken();
-        SurfaceControl.overrideHdrTypes(displayToken, new int[]{});
-        if (mDisplayManager != null) {
-            mDisplayManager.setUserDisabledHdrTypes(
-                    mOriginalHdrSettings.userDisabledHdrTypes);
-            mDisplayManager.setAreUserDisabledHdrTypesAllowed(
-                    mOriginalHdrSettings.areUserDisabledHdrTypesAllowed);
-        }
     }
 
     private void waitUntil(Display display, Predicate<Display> pred, Duration maxWait)
@@ -722,6 +751,9 @@ public class DisplayTest {
         assertEquals(targetMode.getPhysicalHeight(), currentMode.mHeight);
         assertEquals(targetMode.getPhysicalWidth(), currentMode.mWidth);
         assertEquals(targetMode.getRefreshRate(), currentMode.mRefreshRate, REFRESH_RATE_TOLERANCE);
+        assertArrayEquals(targetMode.getSupportedHdrTypes(), currentMode.mSupportedHdrTypes);
+        assertArrayEquals(mDefaultDisplay.getHdrCapabilities().getSupportedHdrTypes(),
+                currentMode.mSupportedHdrTypes);
 
 
         boolean isResolutionSwitch = initialMode.mHeight != targetMode.getPhysicalHeight()
@@ -899,7 +931,9 @@ public class DisplayTest {
 
             @Override
             public void onDisplayChanged(int displayId) {
-                if (displayId == display.getDisplayId()) {
+                if (displayId == display.getDisplayId()
+                        && display.getMode() != null
+                        && display.getMode().getModeId() == newMode.getModeId()) {
                     changeSignal.countDown();
                 }
             }
@@ -1088,78 +1122,6 @@ public class DisplayTest {
             // between the test checking the mode of the display and the mode changing back to the
             // default because the requesting Presentation is no longer showing.
         }
-    }
-
-    private Activity launchScreenOnActivity() {
-        Class clazz = ScreenOnActivity.class;
-        String targetPackage =
-                InstrumentationRegistry.getInstrumentation().getContext().getPackageName();
-        Instrumentation.ActivityResult result =
-                new Instrumentation.ActivityResult(0, new Intent());
-        Instrumentation.ActivityMonitor monitor =
-                new Instrumentation.ActivityMonitor(clazz.getName(), result, false);
-        InstrumentationRegistry.getInstrumentation().addMonitor(monitor);
-        launchActivity(targetPackage, clazz, null);
-        return monitor.waitForActivity();
-    }
-
-    private <T extends Activity> T launchActivity(ActivityTestRule<T> activityRule) {
-        final T activity = activityRule.launchActivity(null);
-        InstrumentationRegistry.getInstrumentation().waitForIdleSync();
-        return activity;
-    }
-
-    /**
-     * Utility method for launching an activity. Copied from InstrumentationTestCase since
-     * InstrumentationRegistry does not provide these APIs anymore.
-     *
-     * <p>The {@link Intent} used to launch the Activity is:
-     *  action = {@link Intent#ACTION_MAIN}
-     *  extras = null, unless a custom bundle is provided here
-     * All other fields are null or empty.
-     *
-     * <p><b>NOTE:</b> The parameter <i>pkg</i> must refer to the package identifier of the
-     * package hosting the activity to be launched, which is specified in the AndroidManifest.xml
-     * file.  This is not necessarily the same as the java package name.
-     *
-     * @param pkg The package hosting the activity to be launched.
-     * @param activityCls The activity class to launch.
-     * @param extras Optional extra stuff to pass to the activity.
-     * @return The activity, or null if non launched.
-     */
-    private final <T extends Activity> T launchActivity(
-            String pkg,
-            Class<T> activityCls,
-            Bundle extras) {
-        Intent intent = new Intent(Intent.ACTION_MAIN);
-        if (extras != null) {
-            intent.putExtras(extras);
-        }
-        return launchActivityWithIntent(pkg, activityCls, intent);
-    }
-
-    /**
-     * Utility method for launching an activity with a specific Intent.
-     *
-     * <p><b>NOTE:</b> The parameter <i>pkg</i> must refer to the package identifier of the
-     * package hosting the activity to be launched, which is specified in the AndroidManifest.xml
-     * file.  This is not necessarily the same as the java package name.
-     *
-     * @param pkg The package hosting the activity to be launched.
-     * @param activityCls The activity class to launch.
-     * @param intent The intent to launch with
-     * @return The activity, or null if non launched.
-     */
-    @SuppressWarnings("unchecked")
-    private final <T extends Activity> T launchActivityWithIntent(
-            String pkg,
-            Class<T> activityCls,
-            Intent intent) {
-        intent.setClassName(pkg, activityCls.getName());
-        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-        T activity = (T) InstrumentationRegistry.getInstrumentation().startActivitySync(intent);
-        InstrumentationRegistry.getInstrumentation().waitForIdleSync();
-        return activity;
     }
 
     /**

@@ -1,6 +1,5 @@
 package com.android.customization.testing;
 
-import com.android.customization.model.clock.Clockface;
 import com.android.customization.model.color.ColorOption;
 import com.android.customization.model.grid.GridOption;
 import com.android.customization.model.theme.ThemeBundle;
@@ -24,16 +23,6 @@ public class TestThemesUserEventLogger extends TestUserEventLogger
 
     @Override
     public void logColorApplied(int action, ColorOption colorOption) {
-        // Do nothing.
-    }
-
-    @Override
-    public void logClockSelected(Clockface clock) {
-        // Do nothing.
-    }
-
-    @Override
-    public void logClockApplied(Clockface clock) {
         // Do nothing.
     }
 

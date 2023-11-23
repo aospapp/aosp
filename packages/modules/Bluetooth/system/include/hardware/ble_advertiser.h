@@ -17,7 +17,7 @@
 #ifndef ANDROID_INCLUDE_BLE_ADVERTISER_H
 #define ANDROID_INCLUDE_BLE_ADVERTISER_H
 
-#include <base/callback_forward.h>
+#include <base/functional/callback_forward.h>
 #include <raw_address.h>
 #include <stdint.h>
 
@@ -39,7 +39,8 @@ struct AdvertiseParameters {
 };
 
 struct PeriodicAdvertisingParameters {
-  uint8_t enable;
+  bool enable;
+  bool include_adi;
   uint16_t min_interval;
   uint16_t max_interval;
   uint16_t periodic_advertising_properties;
@@ -117,7 +118,8 @@ class BleAdvertiserInterface {
   /** Start the advertising set. This include registering, setting all
    * parameters and data, and enabling it. |register_cb| is called when the set
    * is advertising. |timeout_cb| is called when the timeout_s have passed.
-   * |reg_id| is the callback id assigned from upper layer */
+   * |reg_id| is the callback id assigned from upper layer
+   */
   virtual void StartAdvertisingSet(
       int reg_id, IdTxPowerStatusCallback register_cb,
       AdvertiseParameters params, std::vector<uint8_t> advertise_data,
@@ -135,6 +137,7 @@ class BleAdvertiserInterface {
                                           StatusCallback cb) = 0;
 
   virtual void SetPeriodicAdvertisingEnable(int advertiser_id, bool enable,
+                                            bool include_adi,
                                             StatusCallback cb) = 0;
   virtual void RegisterCallbacks(AdvertisingCallbacks* callbacks) = 0;
 };

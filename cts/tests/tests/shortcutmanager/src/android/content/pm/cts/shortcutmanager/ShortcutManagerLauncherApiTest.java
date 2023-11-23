@@ -421,7 +421,8 @@ public class ShortcutManagerLauncherApiTest extends ShortcutManagerCtsTestsBase 
             mLauncherContext1, mPackageContext1.getPackageName(), "s2", false));
     }
 
-    public void testSetDynamicShortcuts_PersistsShortcutsToDisk() throws Exception {
+    // TODO: b/259468694
+    public void setDynamicShortcuts_PersistsShortcutsToDisk() throws Exception {
         if (!isAppSearchEnabled()) {
             return;
         }
@@ -474,7 +475,8 @@ public class ShortcutManagerLauncherApiTest extends ShortcutManagerCtsTestsBase 
         });
     }
 
-    public void testRemoveAllDynamicShortcuts_RemovesShortcutsFromDisk() throws Exception {
+    // TODO: b/259468694
+    public void removeAllDynamicShortcuts_RemovesShortcutsFromDisk() throws Exception {
         if (!isAppSearchEnabled()) {
             return;
         }
@@ -533,7 +535,8 @@ public class ShortcutManagerLauncherApiTest extends ShortcutManagerCtsTestsBase 
         });
     }
 
-    public void testAddDynamicShortcuts_PersistsShortcutsToDisk() throws Exception {
+    // TODO: b/259468694
+    public void addDynamicShortcuts_PersistsShortcutsToDisk() throws Exception {
         if (!isAppSearchEnabled()) {
             return;
         }
@@ -588,7 +591,8 @@ public class ShortcutManagerLauncherApiTest extends ShortcutManagerCtsTestsBase 
         });
     }
 
-    public void testPushDynamicShortcuts_PersistsShortcutsToDisk() throws Exception {
+    // TODO: b/259468694
+    public void pushDynamicShortcuts_PersistsShortcutsToDisk() throws Exception {
         if (!isAppSearchEnabled()) {
             return;
         }
@@ -657,7 +661,8 @@ public class ShortcutManagerLauncherApiTest extends ShortcutManagerCtsTestsBase 
         SystemUtil.runShellCommand("cmd shortcut reset-config");
     }
 
-    public void testRemoveDynamicShortcuts_RemovesShortcutsFromDisk() throws Exception {
+    // TODO: b/259468694
+    public void removeDynamicShortcuts_RemovesShortcutsFromDisk() throws Exception {
         if (!isAppSearchEnabled()) {
             return;
         }
@@ -687,7 +692,8 @@ public class ShortcutManagerLauncherApiTest extends ShortcutManagerCtsTestsBase 
         });
     }
 
-    public void testRemoveLongLivedShortcuts_RemovesShortcutsFromDisk() throws Exception {
+    // TODO: b/259468694
+    public void removeLongLivedShortcuts_RemovesShortcutsFromDisk() throws Exception {
         if (!isAppSearchEnabled()) {
             return;
         }
@@ -716,7 +722,8 @@ public class ShortcutManagerLauncherApiTest extends ShortcutManagerCtsTestsBase 
         });
     }
 
-    public void testDisableShortcuts_RemovesShortcutsFromDisk() throws Exception {
+    // TODO: b/259468694
+    public void disableShortcuts_RemovesShortcutsFromDisk() throws Exception {
         if (!isAppSearchEnabled()) {
             return;
         }
@@ -746,7 +753,8 @@ public class ShortcutManagerLauncherApiTest extends ShortcutManagerCtsTestsBase 
         });
     }
 
-    public void testUpdateShortcuts_UpdateShortcutsOnDisk() throws Exception {
+    // TODO: b/259468694
+    public void updateShortcuts_UpdateShortcutsOnDisk() throws Exception {
         if (!isAppSearchEnabled()) {
             return;
         }

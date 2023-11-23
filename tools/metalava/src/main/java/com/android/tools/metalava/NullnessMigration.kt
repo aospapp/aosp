@@ -50,8 +50,8 @@ class NullnessMigration : ComparisonVisitor(visitAddedItemsRecursively = true) {
     override fun compare(old: MethodItem, new: MethodItem) {
         @Suppress("ConstantConditionIf")
         if (SUPPORT_TYPE_USE_ANNOTATIONS) {
-            val newType = new.returnType() ?: return
-            val oldType = old.returnType() ?: return
+            val newType = new.returnType()
+            val oldType = old.returnType()
             checkType(oldType, newType)
         }
     }

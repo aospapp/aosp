@@ -22,6 +22,8 @@ ifeq ($(TARGET_USE_TABLET_LAUNCHER), true)
 # Setup tablet build
 $(call inherit-product, frameworks/native/build/tablet-10in-xhdpi-2048-dalvik-heap.mk)
 $(call inherit-product, $(SRC_TARGET_DIR)/product/full_base.mk)
+# Packages to invoke RC pairing
+PRODUCT_PACKAGES += YukawaService YukawaAndroidOverlay
 else
 # Setup TV Build
 USE_OEM_TV_APP := true
@@ -73,6 +75,9 @@ PRODUCT_PACKAGES += \
     bootctrl.yukawa
 endif
 
+# System RO FS Type
+TARGET_RO_FILE_SYSTEM_TYPE ?= ext4
+
 # Dynamic partitions
 PRODUCT_BUILD_SUPER_PARTITION := true
 PRODUCT_USE_DYNAMIC_PARTITIONS := true
@@ -122,10 +127,17 @@ PRODUCT_COPY_FILES += \
     $(LOCAL_PATH)/wifi/p2p_supplicant_overlay.conf:$(TARGET_COPY_OUT_VENDOR)/etc/wifi/p2p_supplicant_overlay.conf
 
 # BT and Wifi FW
+ifeq ($(TARGET_ADT3), true)
+PRODUCT_COPY_FILES += \
+    $(LOCAL_PATH)/binaries/bt-wifi-firmware/BCM4356A2.hcd:$(TARGET_COPY_OUT_VENDOR)/firmware/brcm/BCM4356A2.hcd \
+    $(LOCAL_PATH)/binaries/bt-wifi-firmware/fw_bcm4356a2_ag.bin:$(TARGET_COPY_OUT_VENDOR)/firmware/brcm/fw_bcm4356a2_ag.bin \
+    $(LOCAL_PATH)/binaries/bt-wifi-firmware/nvram_ap6356.txt:$(TARGET_COPY_OUT_VENDOR)/firmware/brcm/nvram.txt
+else
 PRODUCT_COPY_FILES += \
     $(LOCAL_PATH)/binaries/bt-wifi-firmware/BCM.hcd:$(TARGET_COPY_OUT_VENDOR)/firmware/brcm/BCM4359C0.hcd \
     $(LOCAL_PATH)/binaries/bt-wifi-firmware/fw_bcm4359c0_ag.bin:$(TARGET_COPY_OUT_VENDOR)/firmware/brcm/fw_bcm4359c0_ag.bin \
     $(LOCAL_PATH)/binaries/bt-wifi-firmware/nvram_ap6359.txt:$(TARGET_COPY_OUT_VENDOR)/firmware/brcm/nvram.txt
+endif
 
 ifeq ($(TARGET_USE_TABLET_LAUNCHER), true)
 # Use Launcher3QuickStep
@@ -244,6 +256,7 @@ PRODUCT_PACKAGES += \
     hdmi_cec.yukawa
 
 PRODUCT_PROPERTY_OVERRIDES += ro.hdmi.device_type=4 \
+    ro.hdmi.cec_device_types=playback_device \
     persist.sys.hdmi.keep_awake=false
 
 PRODUCT_COPY_FILES += \
@@ -365,10 +378,9 @@ PRODUCT_COPY_FILES += \
     frameworks/av/media/libstagefright/data/media_codecs_google_audio.xml:$(TARGET_COPY_OUT_VENDOR)/etc/media_codecs_google_audio.xml
 
 # Enable BT Pairing with button BTN_0 (key 256)
-PRODUCT_PACKAGES += YukawaService YukawaAndroidOverlay
+
 PRODUCT_COPY_FILES += \
     device/amlogic/yukawa/input/Vendor_0001_Product_0001.kl:$(TARGET_COPY_OUT_VENDOR)/usr/keylayout/Vendor_0001_Product_0001.kl
-
 
 # Light HAL
 PRODUCT_PACKAGES += \

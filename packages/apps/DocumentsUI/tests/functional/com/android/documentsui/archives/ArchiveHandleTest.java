@@ -137,15 +137,10 @@ public class ArchiveHandleTest {
         return list;
     }
 
-    private static final List<ArchiveEntryRecord> sExpectEntries =
-            new ArrayList<ArchiveEntryRecord>() {
-        {
-            add(new ArchiveEntryRecord("hello/hello.txt", 48, false));
-            add(new ArchiveEntryRecord("hello/inside_folder/hello_insside.txt",
-                            14, false));
-            add(new ArchiveEntryRecord("hello/hello2.txt", 48, false));
-        }
-    };
+    private static final List<ArchiveEntryRecord> sExpectEntries = List.of(
+            new ArchiveEntryRecord("hello/hello.txt", 48, false),
+            new ArchiveEntryRecord("hello/inside_folder/hello_insside.txt", 14, false),
+            new ArchiveEntryRecord("hello/hello2.txt", 48, false));
 
 
     @Test

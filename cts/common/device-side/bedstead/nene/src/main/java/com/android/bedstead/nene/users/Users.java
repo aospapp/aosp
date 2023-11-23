@@ -19,9 +19,15 @@ package com.android.bedstead.nene.users;
 import static android.Manifest.permission.CREATE_USERS;
 import static android.Manifest.permission.INTERACT_ACROSS_USERS;
 import static android.Manifest.permission.INTERACT_ACROSS_USERS_FULL;
+import static android.Manifest.permission.QUERY_USERS;
+import static android.app.ActivityManager.STOP_USER_ON_SWITCH_DEFAULT;
+import static android.app.ActivityManager.STOP_USER_ON_SWITCH_FALSE;
+import static android.app.ActivityManager.STOP_USER_ON_SWITCH_TRUE;
 import static android.os.Build.VERSION.SDK_INT;
 import static android.os.Build.VERSION_CODES.S;
 import static android.os.Build.VERSION_CODES.S_V2;
+import static android.os.Build.VERSION_CODES.TIRAMISU;
+import static android.os.Build.VERSION_CODES.UPSIDE_DOWN_CAKE;
 import static android.os.Process.myUserHandle;
 
 import static com.android.bedstead.nene.users.UserType.MANAGED_PROFILE_TYPE_NAME;
@@ -40,11 +46,13 @@ import androidx.annotation.CheckResult;
 import androidx.annotation.Nullable;
 
 import com.android.bedstead.nene.TestApis;
+import com.android.bedstead.nene.annotations.Experimental;
 import com.android.bedstead.nene.exceptions.AdbException;
 import com.android.bedstead.nene.exceptions.AdbParseException;
 import com.android.bedstead.nene.exceptions.NeneException;
 import com.android.bedstead.nene.permissions.PermissionContext;
 import com.android.bedstead.nene.permissions.Permissions;
+import com.android.bedstead.nene.types.OptionalBoolean;
 import com.android.bedstead.nene.utils.Poll;
 import com.android.bedstead.nene.utils.ShellCommand;
 import com.android.bedstead.nene.utils.Versions;
@@ -98,14 +106,25 @@ public final class Users {
         ).collect(Collectors.toSet());
     }
 
+    /** Get all {@link UserReference}s in the instrumented user's profile group. */
+    @Experimental
+    public Collection<UserReference> profileGroup() {
+        return profileGroup(TestApis.users().instrumented());
+    }
+
+    /** Get all {@link UserReference}s in the given profile group. */
+    @Experimental
+    public Collection<UserReference> profileGroup(UserReference user) {
+        return users().filter(ui -> ui.profileGroupId == user.id()).map(ui -> find(ui.id)).collect(
+                Collectors.toSet());
+    }
+
     /**
      * Gets a {@link UserReference} for the initial user for the device.
      *
      * <p>This will be the {@link #system()} user on most systems.</p>
      */
     public UserReference initial() {
-        boolean skipUserZero = false;
-
         if (!isHeadlessSystemUserMode()) {
             return system();
         }
@@ -113,14 +132,13 @@ public final class Users {
             try {
                 UserReference user =
                         ShellCommand.builder("cmd car_service get-initial-user")
-                        .executeAndParseOutput(i -> find(Integer.parseInt(i.trim())));
+                                .executeAndParseOutput(i -> find(Integer.parseInt(i.trim())));
 
                 if (user.exists()) {
                     return user;
                 } else {
                     Log.d(LOG_TAG, "Initial user " + user + " does not exist."
                             + "Finding first non-system full user");
-                    skipUserZero = true;
                 }
             } catch (AdbException e) {
                 throw new NeneException("Error finding initial user on Auto", e);
@@ -134,7 +152,7 @@ public final class Users {
             if (user.parent() != null) {
                 continue;
             }
-            if (skipUserZero && user.id() == 0) {
+            if (user.id() == 0) {
                 continue;
             }
 
@@ -149,7 +167,9 @@ public final class Users {
         if (Versions.meetsMinimumSdkVersionRequirement(S)) {
             try (PermissionContext p =
                          TestApis.permissions().withPermission(INTERACT_ACROSS_USERS_FULL)) {
-                return find(ActivityManager.getCurrentUser());
+                int currentUserId = ActivityManager.getCurrentUser();
+                Log.d(LOG_TAG, "current(): finding " + currentUserId);
+                return find(currentUserId);
             }
         }
 
@@ -211,7 +231,13 @@ public final class Users {
         }
 
         return all().stream()
-                .filter(u -> u.type().equals(userType))
+                .filter(u -> {
+                    try {
+                        return u.type().equals(userType);
+                    } catch (NeneException e) {
+                        return false;
+                    }
+                })
                 .collect(Collectors.toSet());
     }
 
@@ -275,6 +301,20 @@ public final class Users {
         }
 
         return profiles.iterator().next();
+    }
+
+
+    /**
+     * Find all users which have the given {@link UserType} and the instrumented user as parent.
+     *
+     * <p>If there are no users of the given type and parent, {@code Null} will be returned.
+     *
+     * <p>If there is more than one user of the given type and parent, {@link NeneException} will
+     * be thrown.
+     */
+    @Nullable
+    public UserReference findProfileOfType(UserType userType) {
+        return findProfileOfType(userType, TestApis.users().instrumented());
     }
 
     private void ensureSupportedTypesCacheFilled() {
@@ -453,11 +493,50 @@ public final class Users {
         }
     }
 
+    /** Checks if a profile of type {@code userType} can be created. */
+    @Experimental
+    public boolean canCreateProfile(UserType userType) {
+        // UserManager#getRemainingCreatableProfileCount is added in T, so we need a version guard.
+        if (Versions.meetsMinimumSdkVersionRequirement(TIRAMISU)) {
+            try (PermissionContext p = TestApis.permissions().withPermission(CREATE_USERS)) {
+                return sUserManager.getRemainingCreatableProfileCount(userType.name()) > 0;
+            }
+        }
+
+        // For S and older versions, we need to keep the previous behavior by returning true here
+        // so that the check can pass.
+        Log.d(LOG_TAG, "canCreateProfile pre-T: true");
+        return true;
+    }
+
     /** See {@link UserManager#isHeadlessSystemUserMode()}. */
     @SuppressWarnings("NewApi")
     public boolean isHeadlessSystemUserMode() {
         if (Versions.meetsMinimumSdkVersionRequirement(S)) {
-            return UserManager.isHeadlessSystemUserMode();
+            boolean value = UserManager.isHeadlessSystemUserMode();
+            Log.d(LOG_TAG, "isHeadlessSystemUserMode: " + value);
+            return value;
+        }
+
+        Log.d(LOG_TAG, "isHeadlessSystemUserMode pre-S: false");
+        return false;
+    }
+
+    /** See {@link UserManager#isVisibleBackgroundUsersSupported()}. */
+    @SuppressWarnings("NewApi")
+    public boolean isVisibleBackgroundUsersSupported() {
+        if (Versions.meetsMinimumSdkVersionRequirement(UPSIDE_DOWN_CAKE)) {
+            return sUserManager.isVisibleBackgroundUsersSupported();
+        }
+
+        return false;
+    }
+
+    /** See {@link UserManager#isVisibleBackgroundUsersOnDefaultDisplaySupported()}. */
+    @SuppressWarnings("NewApi")
+    public boolean isVisibleBackgroundUsersOnDefaultDisplaySupported() {
+        if (Versions.meetsMinimumSdkVersionRequirement(UPSIDE_DOWN_CAKE)) {
+            return sUserManager.isVisibleBackgroundUsersOnDefaultDisplaySupported();
         }
 
         return false;
@@ -468,14 +547,20 @@ public final class Users {
      *
      * <p>This affects if background users will be swapped when switched away from on some devices.
      */
-    public void setStopBgUsersOnSwitch(int value) {
+    public void setStopBgUsersOnSwitch(OptionalBoolean value) {
+        int intValue =
+                (value == OptionalBoolean.TRUE)
+                        ? STOP_USER_ON_SWITCH_TRUE
+                        : (value == OptionalBoolean.FALSE)
+                                ? STOP_USER_ON_SWITCH_FALSE
+                                : STOP_USER_ON_SWITCH_DEFAULT;
         if (!Versions.meetsMinimumSdkVersionRequirement(S_V2)) {
             return;
         }
         Context context = TestApis.context().instrumentedContext();
         try (PermissionContext p = TestApis.permissions()
                 .withPermission(INTERACT_ACROSS_USERS)) {
-            context.getSystemService(ActivityManager.class).setStopUserOnSwitch(value);
+            context.getSystemService(ActivityManager.class).setStopUserOnSwitch(intValue);
         }
     }
 
@@ -483,6 +568,11 @@ public final class Users {
     AdbUser fetchUser(int id) {
         fillCache();
         return mCachedUsers.get(id);
+    }
+
+    @Experimental
+    public boolean supportsMultipleUsers() {
+        return UserManager.supportsMultipleUsers();
     }
 
     static Stream<UserInfo> users() {
@@ -493,7 +583,9 @@ public final class Users {
                     /* excludePreCreated= */ false).stream();
         }
 
-        try (PermissionContext p = TestApis.permissions().withPermission(CREATE_USERS)) {
+        try (PermissionContext p =
+                     TestApis.permissions().withPermission(CREATE_USERS)
+                             .withPermissionOnVersionAtLeast(Versions.U, QUERY_USERS)) {
             return sUserManager.getUsers(
                     /* excludePartial= */ false,
                     /* excludeDying= */ true,

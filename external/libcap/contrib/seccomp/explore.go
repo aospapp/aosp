@@ -114,46 +114,46 @@ func validateArchitecture() []SockFilter {
 	}
 }
 
-func ExamineSyscall() []SockFilter {
+func examineSyscall() []SockFilter {
 	return []SockFilter{
 		bpfStmt(bpfLd+bpfW+bpfAbs, syscallNr),
 	}
 }
 
-func AllowSyscall(syscallNum uint32) []SockFilter {
+func allowSyscall(syscallNum uint32) []SockFilter {
 	return []SockFilter{
 		bpfJump(bpfJmp+bpfJeq+bpfK, syscallNum, 0, 1),
 		bpfStmt(bpfRet+bpfK, seccompRetAllow),
 	}
 }
 
-func DisallowSyscall(syscallNum, errno uint32) []SockFilter {
+func disallowSyscall(syscallNum, errno uint32) []SockFilter {
 	return []SockFilter{
 		bpfJump(bpfJmp+bpfJeq+bpfK, syscallNum, 0, 1),
 		bpfStmt(bpfRet+bpfK, seccompRetErrno|(errno&seccompRetData)),
 	}
 }
 
-func KillProcess() []SockFilter {
+func killProcess() []SockFilter {
 	return []SockFilter{
 		bpfStmt(bpfRet+bpfK, seccompRetKillProcess),
 	}
 }
 
-func NotifyProcessAndDie() []SockFilter {
+func notifyProcessAndDie() []SockFilter {
 	return []SockFilter{
 		bpfStmt(bpfRet+bpfK, seccompRetTrap),
 	}
 }
 
-func TrapOnSyscall(syscallNum uint32) []SockFilter {
+func trapOnSyscall(syscallNum uint32) []SockFilter {
 	return []SockFilter{
 		bpfJump(bpfJmp+bpfJeq+bpfK, syscallNum, 0, 1),
 		bpfStmt(bpfRet+bpfK, seccompRetTrap),
 	}
 }
 
-func AllGood() []SockFilter {
+func allGood() []SockFilter {
 	return []SockFilter{
 		bpfStmt(bpfRet+bpfK, seccompRetAllow),
 	}
@@ -244,20 +244,20 @@ func main() {
 	filter = append(filter, validateArchitecture()...)
 
 	// Grab the system call number.
-	filter = append(filter, ExamineSyscall()...)
+	filter = append(filter, examineSyscall()...)
 
 	// List disallowed syscalls.
 	for _, x := range []uint32{
 		syscall.SYS_SETUID,
 	} {
 		if *kill {
-			filter = append(filter, TrapOnSyscall(x)...)
+			filter = append(filter, trapOnSyscall(x)...)
 		} else {
-			filter = append(filter, DisallowSyscall(x, uint32(*errno))...)
+			filter = append(filter, disallowSyscall(x, uint32(*errno))...)
 		}
 	}
 
-	filter = append(filter, AllGood()...)
+	filter = append(filter, allGood()...)
 
 	prog := &SockFProg{
 		Len:    uint16(len(filter)),

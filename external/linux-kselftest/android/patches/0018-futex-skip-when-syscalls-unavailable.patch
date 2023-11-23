@@ -1,0 +1,140 @@
+From 0868889b82ca072a17d449f66d78ea1196b66e32 Mon Sep 17 00:00:00 2001
+From: Edward Liaw <edliaw@google.com>
+Date: Wed, 27 Apr 2022 22:17:23 +0000
+Subject: [PATCH 18/24] futex: skip when syscalls unavailable
+
+Skip tests when required syscall is not present
+
+Bug: 189333904
+Test: atest vts_linux_kselftest_x86_64:futex_functional_run.sh_x86_64
+Signed-off-by: Edward Liaw <edliaw@google.com>
+---
+ android/kselftest_test_list.mk                       |  5 ++++-
+ .../testing/selftests/futex/functional/futex_wait.c  |  2 ++
+ .../selftests/futex/functional/futex_wait_timeout.c  |  6 +++---
+ .../futex/functional/futex_wait_wouldblock.c         | 12 ++++++++----
+ .../testing/selftests/futex/functional/futex_waitv.c |  5 +++++
+ tools/testing/selftests/futex/functional/run.sh      |  4 +++-
+ 6 files changed, 25 insertions(+), 9 deletions(-)
+
+diff --git a/android/kselftest_test_list.mk b/android/kselftest_test_list.mk
+index 46b9b92c58fba..fcd3b393e6f81 100644
+--- a/android/kselftest_test_list.mk
++++ b/android/kselftest_test_list.mk
+@@ -21,13 +21,16 @@ kselftest_modules += \
+   kselftest_efivarfs_tests_create-read \
+   kselftest_efivarfs_tests_open-unlink \
+   kselftest_exec_test_execveat \
+-  kselftest_futex_tests_futex_requeue_pi \
+   kselftest_futex_tests_futex_requeue_pi_mismatched_ops \
+   kselftest_futex_tests_futex_requeue_pi_signal_restart \
++  kselftest_futex_tests_futex_requeue_pi \
++  kselftest_futex_tests_futex_requeue \
+   kselftest_futex_tests_futex_wait_private_mapped_file \
+   kselftest_futex_tests_futex_wait_timeout \
+   kselftest_futex_tests_futex_wait_uninitialized_heap \
+   kselftest_futex_tests_futex_wait_wouldblock \
++  kselftest_futex_tests_futex_wait \
++  kselftest_futex_tests_futex_waitv \
+   kselftest_intel_pstate_tests_aperf \
+   kselftest_intel_pstate_tests_msr \
+   kselftest_kcmp_tests_kcmp_test \
+diff --git a/tools/testing/selftests/futex/functional/futex_wait.c b/tools/testing/selftests/futex/functional/futex_wait.c
+index 685140d9b93d2..9bf695431e7aa 100644
+--- a/tools/testing/selftests/futex/functional/futex_wait.c
++++ b/tools/testing/selftests/futex/functional/futex_wait.c
+@@ -96,6 +96,8 @@ int main(int argc, char *argv[])
+ 	/* Testing an anon page shared memory */
+ 	shm_id = shmget(IPC_PRIVATE, 4096, IPC_CREAT | 0666);
+ 	if (shm_id < 0) {
++		if (errno == ENOSYS)
++			exit(KSFT_SKIP);
+ 		perror("shmget");
+ 		exit(1);
+ 	}
+diff --git a/tools/testing/selftests/futex/functional/futex_wait_timeout.c b/tools/testing/selftests/futex/functional/futex_wait_timeout.c
+index 3651ce17beeb9..831f876a7b691 100644
+--- a/tools/testing/selftests/futex/functional/futex_wait_timeout.c
++++ b/tools/testing/selftests/futex/functional/futex_wait_timeout.c
+@@ -60,7 +60,7 @@ void *get_pi_lock(void *arg)
+  */
+ static void test_timeout(int res, int *ret, char *test_name, int err)
+ {
+-	if (!res || errno != err) {
++	if (!res || !(errno & err)) {
+ 		ksft_test_result_fail("%s returned %d\n", test_name,
+ 				      res < 0 ? errno : res);
+ 		*ret = RET_FAIL;
+@@ -186,13 +186,13 @@ int main(int argc, char *argv[])
+ 	if (futex_get_abs_timeout(CLOCK_MONOTONIC, &to, timeout_ns))
+ 		return RET_FAIL;
+ 	res = futex_waitv(&waitv, 1, 0, &to, CLOCK_MONOTONIC);
+-	test_timeout(res, &ret, "futex_waitv monotonic", ETIMEDOUT);
++	test_timeout(res, &ret, "futex_waitv monotonic", ETIMEDOUT | ENOSYS);
+ 
+ 	/* futex_waitv with CLOCK_REALTIME */
+ 	if (futex_get_abs_timeout(CLOCK_REALTIME, &to, timeout_ns))
+ 		return RET_FAIL;
+ 	res = futex_waitv(&waitv, 1, 0, &to, CLOCK_REALTIME);
+-	test_timeout(res, &ret, "futex_waitv realtime", ETIMEDOUT);
++	test_timeout(res, &ret, "futex_waitv realtime", ETIMEDOUT | ENOSYS);
+ 
+ 	ksft_print_cnts();
+ 	return ret;
+diff --git a/tools/testing/selftests/futex/functional/futex_wait_wouldblock.c b/tools/testing/selftests/futex/functional/futex_wait_wouldblock.c
+index 7d7a6a06cdb75..0a67934590f04 100644
+--- a/tools/testing/selftests/futex/functional/futex_wait_wouldblock.c
++++ b/tools/testing/selftests/futex/functional/futex_wait_wouldblock.c
+@@ -98,10 +98,14 @@ int main(int argc, char *argv[])
+ 	info("Calling futex_waitv on f1: %u @ %p with val=%u\n", f1, &f1, f1+1);
+ 	res = futex_waitv(&waitv, 1, 0, &to, CLOCK_MONOTONIC);
+ 	if (!res || errno != EWOULDBLOCK) {
+-		ksft_test_result_pass("futex_waitv returned: %d %s\n",
+-				      res ? errno : res,
+-				      res ? strerror(errno) : "");
+-		ret = RET_FAIL;
++		if (errno == ENOSYS)
++			ksft_test_result_skip("futex_waitv syscall not available in this kernel\n");
++		else {
++			ksft_test_result_fail("futex_waitv returned: %d %s\n",
++								res ? errno : res,
++								res ? strerror(errno) : "");
++			ret = RET_FAIL;
++		}
+ 	} else {
+ 		ksft_test_result_pass("futex_waitv\n");
+ 	}
+diff --git a/tools/testing/selftests/futex/functional/futex_waitv.c b/tools/testing/selftests/futex/functional/futex_waitv.c
+index a94337f677e18..aafc6a4f25b5d 100644
+--- a/tools/testing/selftests/futex/functional/futex_waitv.c
++++ b/tools/testing/selftests/futex/functional/futex_waitv.c
+@@ -47,6 +47,11 @@ void *waiterfn(void *arg)
+ 
+ 	res = futex_waitv(waitv, NR_FUTEXES, 0, &to, CLOCK_MONOTONIC);
+ 	if (res < 0) {
++		if (errno == ENOSYS) {
++			ksft_test_result_skip("futex_waitv syscall not available in this kernel\n");
++			ksft_print_cnts();
++			exit(KSFT_SKIP);
++		}
+ 		ksft_test_result_fail("futex_waitv returned: %d %s\n",
+ 				      errno, strerror(errno));
+ 	} else if (res != NR_FUTEXES - 1) {
+diff --git a/tools/testing/selftests/futex/functional/run.sh b/tools/testing/selftests/futex/functional/run.sh
+index 6eb4a8dd86757..9b2dbb88c5f1e 100755
+--- a/tools/testing/selftests/futex/functional/run.sh
++++ b/tools/testing/selftests/futex/functional/run.sh
+@@ -21,7 +21,9 @@
+ run_test()
+ {
+ 	$@
+-	if [ $? -ne 0 ]; then
++    ret=$?
++	if [ $ret -ne 0 ] && [ $ret -ne 4 ]; then  # KSFT_SKIP=4
++        echo "Failed with $ret"
+ 		rc=1
+ 	fi
+ }
+-- 
+2.36.0.550.gb090851708-goog
+

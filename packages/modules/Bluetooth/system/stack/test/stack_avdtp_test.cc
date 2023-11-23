@@ -16,11 +16,16 @@
 
 //#include <dlfcn.h>
 #include <gtest/gtest.h>
+#include <sys/types.h>
+
+#include <cstdint>
+#include <cstring>
 
 #include "osi/include/allocator.h"
 #include "stack/avdt/avdt_int.h"
 #include "stack/include/avdt_api.h"
 #include "stack/test/common/mock_stack_avdt_msg.h"
+#include "test/common/mock_functions.h"
 #include "types/raw_address.h"
 
 #ifndef UNUSED_ATTR
@@ -29,11 +34,6 @@
 
 // Global trace level referred in the code under test
 uint8_t appl_trace_level = BT_TRACE_LEVEL_VERBOSE;
-
-void LogMsg(uint32_t trace_set_mask, const char* fmt_str, ...) { }
-
-// All mock requires this symbol to count calling times
-std::map<std::string, int> mock_function_count_map;
 
 class StackAvdtpTest : public ::testing::Test {
  protected:
@@ -49,20 +49,20 @@ class StackAvdtpTest : public ::testing::Test {
   static void AvdtConnCallback(uint8_t handle, const RawAddress& bd_addr,
                                uint8_t event, tAVDT_CTRL* p_data,
                                uint8_t scb_index) {
-    mock_function_count_map[__func__]++;
+    inc_func_call_count(__func__);
     callback_event_ = event;
   }
 
   static void StreamCtrlCallback(uint8_t handle, const RawAddress& bd_addr,
                                  uint8_t event, tAVDT_CTRL* p_data,
                                  uint8_t scb_index) {
-    mock_function_count_map[__func__]++;
+    inc_func_call_count(__func__);
     callback_event_ = event;
   }
 
   static void AvdtReportCallback(uint8_t handle, AVDT_REPORT_TYPE type,
                                  tAVDT_REPORT_DATA* p_data) {
-    mock_function_count_map[__func__]++;
+    inc_func_call_count(__func__);
   }
 
   static void SetUpTestCase() {
@@ -89,7 +89,7 @@ class StackAvdtpTest : public ::testing::Test {
 
   void SetUp() override {
     callback_event_ = AVDT_MAX_EVT + 1;
-    mock_function_count_map.clear();
+    reset_mock_function_count_map();
   }
 
   void TearDown() override {
@@ -124,16 +124,16 @@ TEST_F(StackAvdtpTest, test_delay_report_as_accept) {
   ASSERT_EQ(AVDT_ConfigRsp(scb_handle_, label, err_code, category), AVDT_SUCCESS);
 
   // Config response sent
-  ASSERT_EQ(mock_function_count_map["avdt_msg_send_rsp"], 1);
+  ASSERT_EQ(get_func_call_count("avdt_msg_send_rsp"), 1);
   ASSERT_EQ(mock_avdt_msg_send_rsp_get_sig_id_at(0), AVDT_SIG_SETCONFIG);
 
   // Delay report command sent
-  ASSERT_EQ(mock_function_count_map["avdt_msg_send_cmd"], 1);
+  ASSERT_EQ(get_func_call_count("avdt_msg_send_cmd"), 1);
   ASSERT_EQ(mock_avdt_msg_send_cmd_get_sig_id_at(0), AVDT_SIG_DELAY_RPT);
 
   // Delay report confirmed
   tAVDT_SCB_EVT data;
-  ASSERT_EQ(mock_function_count_map["StreamCtrlCallback"], 0);
+  ASSERT_EQ(get_func_call_count("StreamCtrlCallback"), 0);
   avdt_scb_hdl_delay_rpt_rsp(pscb, &data);
   ASSERT_EQ(callback_event_, AVDT_DELAY_REPORT_CFM_EVT);
 }
@@ -151,8 +151,10 @@ TEST_F(StackAvdtpTest, test_no_delay_report_if_not_sink) {
   uint8_t err_code = 0;
   uint8_t category = 0;
   ASSERT_EQ(AVDT_ConfigRsp(scb_handle_, label, err_code, category), AVDT_SUCCESS);
-  ASSERT_EQ(mock_function_count_map["avdt_msg_send_rsp"], 1); // Config response sent
-  ASSERT_EQ(mock_function_count_map["avdt_msg_send_cmd"], 0); // Delay report command not sent
+  ASSERT_EQ(get_func_call_count("avdt_msg_send_rsp"),
+            1);  // Config response sent
+  ASSERT_EQ(get_func_call_count("avdt_msg_send_cmd"),
+            0);  // Delay report command not sent
 }
 
 TEST_F(StackAvdtpTest, test_no_delay_report_if_not_enabled) {
@@ -168,8 +170,10 @@ TEST_F(StackAvdtpTest, test_no_delay_report_if_not_enabled) {
   uint8_t err_code = 0;
   uint8_t category = 0;
   ASSERT_EQ(AVDT_ConfigRsp(scb_handle_, label, err_code, category), AVDT_SUCCESS);
-  ASSERT_EQ(mock_function_count_map["avdt_msg_send_rsp"], 1); // Config response sent
-  ASSERT_EQ(mock_function_count_map["avdt_msg_send_cmd"], 0); // Delay report command not sent
+  ASSERT_EQ(get_func_call_count("avdt_msg_send_rsp"),
+            1);  // Config response sent
+  ASSERT_EQ(get_func_call_count("avdt_msg_send_cmd"),
+            0);  // Delay report command not sent
 }
 
 TEST_F(StackAvdtpTest, test_delay_report_as_init) {
@@ -181,7 +185,7 @@ TEST_F(StackAvdtpTest, test_delay_report_as_init) {
   // Delay report -> Open command
   mock_avdt_msg_send_cmd_clear_history();
   avdt_scb_event(pscb, AVDT_SCB_MSG_SETCONFIG_RSP_EVT, &data);
-  ASSERT_EQ(mock_function_count_map["avdt_msg_send_cmd"], 2);
+  ASSERT_EQ(get_func_call_count("avdt_msg_send_cmd"), 2);
   ASSERT_EQ(mock_avdt_msg_send_cmd_get_sig_id_at(0), AVDT_SIG_DELAY_RPT);
   ASSERT_EQ(mock_avdt_msg_send_cmd_get_sig_id_at(1), AVDT_SIG_OPEN);
 }
@@ -204,28 +208,28 @@ TEST_F(StackAvdtpTest, test_SR_reporting_handler) {
   *data.p_pkt = {.len = packet_length, .layer_specific = AVDT_CHAN_REPORT};
   memcpy(data.p_pkt->data, sender_report_packet, packet_length);
   avdt_scb_hdl_pkt(pscb, &data);
-  ASSERT_EQ(mock_function_count_map["AvdtReportCallback"], 1);
+  ASSERT_EQ(get_func_call_count("AvdtReportCallback"), 1);
 
   // no payload
   data.p_pkt = (BT_HDR*)osi_calloc(sizeof(BT_HDR) + packet_length);
   *data.p_pkt = {.layer_specific = AVDT_CHAN_REPORT};
   memcpy(data.p_pkt->data, sender_report_packet, packet_length);
   avdt_scb_hdl_pkt(pscb, &data);
-  ASSERT_EQ(mock_function_count_map["AvdtReportCallback"], 1);
+  ASSERT_EQ(get_func_call_count("AvdtReportCallback"), 1);
 
   // only reporting header
   data.p_pkt = (BT_HDR*)osi_calloc(sizeof(BT_HDR) + packet_length);
   *data.p_pkt = {.len = 8, .layer_specific = AVDT_CHAN_REPORT};
   memcpy(data.p_pkt->data, sender_report_packet, packet_length);
   avdt_scb_hdl_pkt(pscb, &data);
-  ASSERT_EQ(mock_function_count_map["AvdtReportCallback"], 1);
+  ASSERT_EQ(get_func_call_count("AvdtReportCallback"), 1);
 
   // reporting header + sender info
   data.p_pkt = (BT_HDR*)osi_calloc(sizeof(BT_HDR) + packet_length);
   *data.p_pkt = {.len = 28, .layer_specific = AVDT_CHAN_REPORT};
   memcpy(data.p_pkt->data, sender_report_packet, packet_length);
   avdt_scb_hdl_pkt(pscb, &data);
-  ASSERT_EQ(mock_function_count_map["AvdtReportCallback"], 2);
+  ASSERT_EQ(get_func_call_count("AvdtReportCallback"), 2);
 }
 
 TEST_F(StackAvdtpTest, test_RR_reporting_handler) {
@@ -243,28 +247,28 @@ TEST_F(StackAvdtpTest, test_RR_reporting_handler) {
   *data.p_pkt = {.len = packet_length, .layer_specific = AVDT_CHAN_REPORT};
   memcpy(data.p_pkt->data, receiver_report_packet, packet_length);
   avdt_scb_hdl_pkt(pscb, &data);
-  ASSERT_EQ(mock_function_count_map["AvdtReportCallback"], 1);
+  ASSERT_EQ(get_func_call_count("AvdtReportCallback"), 1);
 
   // no payload
   data.p_pkt = (BT_HDR*)osi_calloc(sizeof(BT_HDR) + packet_length);
   *data.p_pkt = {.layer_specific = AVDT_CHAN_REPORT};
   memcpy(data.p_pkt->data, receiver_report_packet, packet_length);
   avdt_scb_hdl_pkt(pscb, &data);
-  ASSERT_EQ(mock_function_count_map["AvdtReportCallback"], 1);
+  ASSERT_EQ(get_func_call_count("AvdtReportCallback"), 1);
 
   // only reporting header
   data.p_pkt = (BT_HDR*)osi_calloc(sizeof(BT_HDR) + packet_length);
   *data.p_pkt = {.len = 8, .layer_specific = AVDT_CHAN_REPORT};
   memcpy(data.p_pkt->data, receiver_report_packet, packet_length);
   avdt_scb_hdl_pkt(pscb, &data);
-  ASSERT_EQ(mock_function_count_map["AvdtReportCallback"], 1);
+  ASSERT_EQ(get_func_call_count("AvdtReportCallback"), 1);
 
   // reporting header + report block
   data.p_pkt = (BT_HDR*)osi_calloc(sizeof(BT_HDR) + packet_length);
   *data.p_pkt = {.len = 32, .layer_specific = AVDT_CHAN_REPORT};
   memcpy(data.p_pkt->data, receiver_report_packet, packet_length);
   avdt_scb_hdl_pkt(pscb, &data);
-  ASSERT_EQ(mock_function_count_map["AvdtReportCallback"], 2);
+  ASSERT_EQ(get_func_call_count("AvdtReportCallback"), 2);
 }
 
 TEST_F(StackAvdtpTest, test_SDES_reporting_handler) {
@@ -283,28 +287,28 @@ TEST_F(StackAvdtpTest, test_SDES_reporting_handler) {
   *data.p_pkt = {.len = packet_length, .layer_specific = AVDT_CHAN_REPORT};
   memcpy(data.p_pkt->data, source_description_packet, packet_length);
   avdt_scb_hdl_pkt(pscb, &data);
-  ASSERT_EQ(mock_function_count_map["AvdtReportCallback"], 1);
+  ASSERT_EQ(get_func_call_count("AvdtReportCallback"), 1);
 
   // no payload
   data.p_pkt = (BT_HDR*)osi_calloc(sizeof(BT_HDR) + packet_length);
   *data.p_pkt = {.layer_specific = AVDT_CHAN_REPORT};
   memcpy(data.p_pkt->data, source_description_packet, packet_length);
   avdt_scb_hdl_pkt(pscb, &data);
-  ASSERT_EQ(mock_function_count_map["AvdtReportCallback"], 1);
+  ASSERT_EQ(get_func_call_count("AvdtReportCallback"), 1);
 
   // only reporting header
   data.p_pkt = (BT_HDR*)osi_calloc(sizeof(BT_HDR) + packet_length);
   *data.p_pkt = {.len = 4, .layer_specific = AVDT_CHAN_REPORT};
   memcpy(data.p_pkt->data, source_description_packet, packet_length);
   avdt_scb_hdl_pkt(pscb, &data);
-  ASSERT_EQ(mock_function_count_map["AvdtReportCallback"], 1);
+  ASSERT_EQ(get_func_call_count("AvdtReportCallback"), 1);
 
   // SDES Item (CNAME) with empty value
   data.p_pkt = (BT_HDR*)osi_calloc(sizeof(BT_HDR) + packet_length);
   *data.p_pkt = {.len = 10, .layer_specific = AVDT_CHAN_REPORT};
   memcpy(data.p_pkt->data, source_description_packet, packet_length);
   avdt_scb_hdl_pkt(pscb, &data);
-  ASSERT_EQ(mock_function_count_map["AvdtReportCallback"], 1);
+  ASSERT_EQ(get_func_call_count("AvdtReportCallback"), 1);
 
   // SDES Item (not CNAME) which is not supported
   data.p_pkt = (BT_HDR*)osi_calloc(sizeof(BT_HDR) + packet_length);
@@ -313,5 +317,142 @@ TEST_F(StackAvdtpTest, test_SDES_reporting_handler) {
   *(data.p_pkt->data + 8) = 0x02;
   *(data.p_pkt->data + 9) = 0x00;
   avdt_scb_hdl_pkt(pscb, &data);
-  ASSERT_EQ(mock_function_count_map["AvdtReportCallback"], 1);
+  ASSERT_EQ(get_func_call_count("AvdtReportCallback"), 1);
+}
+
+void avdt_scb_hdl_pkt_no_frag(AvdtpScb* p_scb, tAVDT_SCB_EVT* p_data);
+// regression tests for b/258057241 (CVE-2022-40503)
+// The regression tests are divided into 2 tests:
+// avdt_scb_hdl_pkt_no_frag_regression_test1 verifies that
+// OOB access resulted from integer overflow
+// from the ex_len field in the packet is properly handled
+
+TEST_F(StackAvdtpTest, avdt_scb_hdl_pkt_no_frag_regression_test0) {
+  const uint16_t extra_size = 0;
+  BT_HDR* p_pkt = (BT_HDR*)osi_malloc(sizeof(BT_HDR) + extra_size);
+  ASSERT_NE(p_pkt, nullptr);
+  tAVDT_SCB_EVT evt_data = {
+      .p_pkt = p_pkt,
+  };
+  p_pkt->len = 0;
+
+  // get the stream control block
+  AvdtpScb* pscb = avdt_scb_by_hdl(scb_handle_);
+  ASSERT_NE(pscb, nullptr);
+
+  // any memory issue would be caught be the address sanitizer
+  avdt_scb_hdl_pkt_no_frag(pscb, &evt_data);
+
+  // here we would also assume that p_pkt would have been freed
+  // by avdt_scb_hdl_pkt_no_frag by calling osi_free_and_reset
+  // thus vt_data.p_pkt will be set to nullptr
+  ASSERT_EQ(evt_data.p_pkt, nullptr);
+}
+
+TEST_F(StackAvdtpTest, avdt_scb_hdl_pkt_no_frag_regression_test1) {
+  const uint16_t extra_size = 100;
+  BT_HDR* p_pkt = (BT_HDR*)osi_malloc(sizeof(BT_HDR) + extra_size);
+  ASSERT_NE(p_pkt, nullptr);
+  tAVDT_SCB_EVT evt_data = {
+      .p_pkt = p_pkt,
+  };
+
+  // setup p_pkt
+  // no overflow here
+  p_pkt->len = extra_size;
+  p_pkt->offset = 0;
+
+  uint8_t* p = (uint8_t*)(p_pkt + 1);
+  // fill the p_pkt with 0xff to
+  // make ex_len * 4 overflow
+  memset(p, 0xff, extra_size);
+
+  // get the stream control block
+  AvdtpScb* pscb = avdt_scb_by_hdl(scb_handle_);
+  ASSERT_NE(pscb, nullptr);
+
+  // any memory issue would be caught be the address sanitizer
+  avdt_scb_hdl_pkt_no_frag(pscb, &evt_data);
+
+  // here we would also assume that p_pkt would have been freed
+  // by avdt_scb_hdl_pkt_no_frag by calling osi_free_and_reset
+  // thus vt_data.p_pkt will be set to nullptr
+  ASSERT_EQ(evt_data.p_pkt, nullptr);
+}
+
+// avdt_scb_hdl_pkt_no_frag_regression_test2 verifies that
+// OOB access resulted from integer overflow
+// from the pad_len field in the packet is properly handled
+TEST_F(StackAvdtpTest, avdt_scb_hdl_pkt_no_frag_regression_test2) {
+  const uint16_t extra_size = 100;
+  BT_HDR* p_pkt = (BT_HDR*)osi_malloc(sizeof(BT_HDR) + extra_size);
+  ASSERT_NE(p_pkt, nullptr);
+  tAVDT_SCB_EVT evt_data = {
+      .p_pkt = p_pkt,
+  };
+
+  // setup p_pkt
+  // no overflow here
+  p_pkt->len = extra_size;
+  p_pkt->offset = 0;
+
+  uint8_t* p = (uint8_t*)(p_pkt + 1);
+  // zero out all bytes first
+  memset(p, 0, extra_size);
+  // setup o_v, o_p, o_x, o_cc
+  *p = 0xff;
+  // set the pad_len to be 0xff
+  p[extra_size - 1] = 0xff;
+
+  // get the stream control block
+  AvdtpScb* pscb = avdt_scb_by_hdl(scb_handle_);
+  ASSERT_NE(pscb, nullptr);
+
+  // any memory issue would be caught be the address sanitizer
+  avdt_scb_hdl_pkt_no_frag(pscb, &evt_data);
+
+  // here we would also assume that p_pkt would have been freed
+  // by avdt_scb_hdl_pkt_no_frag by calling osi_free_and_reset
+  // thus vt_data.p_pkt will be set to nullptr
+  ASSERT_EQ(evt_data.p_pkt, nullptr);
+}
+
+// avdt_scb_hdl_pkt_no_frag_regression_test3 verifies that
+// zero length packets are filtered out
+TEST_F(StackAvdtpTest, avdt_scb_hdl_pkt_no_frag_regression_test3) {
+  // 12 btyes of minimal + 15 * oc (4 bytes each) + 4 btye to ex_len
+  const uint16_t extra_size = 12 + 15 * 4 + 4;
+  BT_HDR* p_pkt = (BT_HDR*)osi_malloc(sizeof(BT_HDR) + extra_size);
+  ASSERT_NE(p_pkt, nullptr);
+  tAVDT_SCB_EVT evt_data = {
+      .p_pkt = p_pkt,
+  };
+
+  // setup p_pkt
+  // no overflow here
+  p_pkt->len = extra_size;
+  p_pkt->offset = 0;
+
+  uint8_t* p = (uint8_t*)(p_pkt + 1);
+  // fill the p_pkt with 0 to
+  // make ex_len * 4 overflow
+  memset(p, 0, extra_size);
+  // setup
+  // o_v = 0b10
+  // o_p = 0b01 // with padding
+  // o_x = 0b10
+  // o_cc = 0b1111
+  *p = 0xff;
+
+  // get the stream control block
+  AvdtpScb* pscb = avdt_scb_by_hdl(scb_handle_);
+  ASSERT_NE(pscb, nullptr);
+
+  // any memory issue would be caught be the address sanitizer
+  avdt_scb_hdl_pkt_no_frag(pscb, &evt_data);
+
+  // here we would also assume that p_pkt would have been freed
+  // by avdt_scb_hdl_pkt_no_frag by calling osi_free_and_reset
+  // thus vt_data.p_pkt will be set to nullptr
+  ASSERT_EQ(evt_data.p_pkt, nullptr);
 }

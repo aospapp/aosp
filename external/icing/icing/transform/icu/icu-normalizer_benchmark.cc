@@ -25,7 +25,7 @@
 //    //icing/transform/icu:icu-normalizer_benchmark
 //
 //    $ blaze-bin/icing/transform/icu/icu-normalizer_benchmark
-//    --benchmarks=all
+//    --benchmark_filter=all
 //
 // Run on an Android device:
 //    Make target //icing/transform:normalizer depend on
@@ -39,7 +39,7 @@
 //    blaze-bin/icing/transform/icu/icu-normalizer_benchmark
 //    /data/local/tmp/
 //
-//    $ adb shell /data/local/tmp/icu-normalizer_benchmark --benchmarks=all
+//    $ adb shell /data/local/tmp/icu-normalizer_benchmark --benchmark_filter=all
 //    --adb
 
 // Flag to tell the benchmark that it'll be run on an Android device via adb,

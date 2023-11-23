@@ -24,13 +24,14 @@ import static android.incrementalinstall.common.Consts.NOT_LOADED_COMPONENTS_TAG
 import static android.incrementalinstall.common.Consts.PACKAGE_TO_LAUNCH_TAG;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.assertNotEquals;
 
 import android.content.Context;
 import android.content.IntentFilter;
 import android.platform.test.annotations.AppModeFull;
 import android.support.test.uiautomator.UiDevice;
+import android.system.Os;
+import android.system.StructStat;
 
 import androidx.test.platform.app.InstrumentationRegistry;
 import androidx.test.runner.AndroidJUnit4;
@@ -38,6 +39,12 @@ import androidx.test.runner.AndroidJUnit4;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.file.Paths;
 
 @RunWith(AndroidJUnit4.class)
 @AppModeFull
@@ -62,17 +69,18 @@ public class AppValidationTest {
                 .getString(NOT_LOADED_COMPONENTS_TAG).split(",");
         StatusReceiver statusReceiver = new StatusReceiver();
         IntentFilter intentFilter = new IntentFilter(INCREMENTAL_TEST_APP_STATUS_RECEIVER_ACTION);
-        mContext.registerReceiver(statusReceiver, intentFilter);
+        mContext.registerReceiver(statusReceiver, intentFilter,
+                Context.RECEIVER_EXPORTED_UNAUDITED);
         launchTestApp();
         for (String component : loadedComponents) {
-            assertTrue(
+            assertEquals(
                     String.format("Component :%s was not loaded, when it should have.", component),
-                    statusReceiver.verifyComponentInvoked(component));
+                    "true", statusReceiver.verifyComponentInvoked(component));
         }
         for (String component : notLoadedComponents) {
-            assertFalse(
+            assertNotEquals(
                     String.format("Component :%s was loaded, when it shouldn't have.", component),
-                    statusReceiver.verifyComponentInvoked(component));
+                    "true", statusReceiver.verifyComponentInvoked(component));
         }
         mContext.unregisterReceiver(statusReceiver);
     }
@@ -86,7 +94,22 @@ public class AppValidationTest {
         InstalledAppInfo installedAppInfo = getInstalledAppInfo();
         assertEquals(isIncfsInstallation,
                 new PathChecker().isIncFsPath(installedAppInfo.installationPath));
+
+        StructStat st =
+                Os.stat(Paths.get(installedAppInfo.installationPath).getParent().toString());
+        assertEquals("App parent directory may not be world-readable", 0771, st.st_mode & 0777);
         assertEquals(versionCode, installedAppInfo.versionCode);
+        // Read the whole file to make sure it's streamed.
+        readFullFile(new File(installedAppInfo.installationPath, "base.apk"));
+    }
+
+    private static void readFullFile(File file) throws IOException {
+        try (InputStream inputStream = new FileInputStream(file)) {
+            byte[] buffer = new byte[1024];
+            while (inputStream.read(buffer) != -1) {
+                // ignore
+            }
+        }
     }
 
     private void launchTestApp() throws Exception {

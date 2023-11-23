@@ -18,6 +18,11 @@ package com.android.car.obd2.test;
 
 import static android.hardware.automotive.vehicle.VehicleProperty.OBD2_LIVE_FRAME;
 
+import static com.android.car.obd2.test.Obd2FrameGeneratorTestConstants.EXPECTED_DISCOVERY_COMMANDS;
+import static com.android.car.obd2.test.Obd2FrameGeneratorTestConstants.EXPECTED_DISCOVERY_RESPONSES;
+import static com.android.car.obd2.test.Obd2FrameGeneratorTestConstants.EXPECTED_INIT_COMMANDS;
+import static com.android.car.obd2.test.Obd2FrameGeneratorTestConstants.EXPECTED_INIT_RESPONSES;
+import static com.android.car.obd2.test.Obd2FrameGeneratorTestConstants.OBD2_PROMPT;
 import static com.android.car.obd2.test.Utils.concatIntArrays;
 import static com.android.car.obd2.test.Utils.stringsToIntArray;
 
@@ -36,35 +41,12 @@ import org.junit.Test;
 import java.io.StringReader;
 import java.io.StringWriter;
 
-public class Obd2LiveFrameGeneratorTest {
-    private static final String[] EXPECTED_INIT_COMMANDS =
-            new String[] {
-                "ATD\r", "ATZ\r", "AT E0\r", "AT L0\r", "AT S0\r", "AT H0\r", "AT SP 0\r"
-            };
+public final class Obd2LiveFrameGeneratorTest {
 
-    private static final String OBD2_PROMPT = ">";
-
-    private static final String[] EXPECTED_INIT_RESPONSES =
-            new String[] {
-                OBD2_PROMPT,
-                OBD2_PROMPT,
-                OBD2_PROMPT,
-                OBD2_PROMPT,
-                OBD2_PROMPT,
-                OBD2_PROMPT,
-                OBD2_PROMPT
-            };
-
-    private static final String[] EXPECTED_DISCOVERY_COMMANDS =
-            new String[] {"0100\r", "0120\r", "0140\r", "0160\r"};
-
-    private static final String[] EXPECTED_DISCOVERY_RESPONSES =
-            new String[] {"00 00 00 18 00 00", OBD2_PROMPT, OBD2_PROMPT, OBD2_PROMPT, OBD2_PROMPT};
-
-    private static final String[] EXPECTED_FRAME_COMMANDS = new String[] {"010C\r", "010D\r"};
+    private static final String[] EXPECTED_FRAME_COMMANDS = new String[]{"010C\r", "010D\r"};
 
     private static final String[] EXPECTED_FRAME_RESPONSES =
-            new String[] {"41 0C 12 0F", OBD2_PROMPT, "41 0D 82", OBD2_PROMPT};
+            new String[]{"41 0C 12 0F", OBD2_PROMPT, "41 0D 82", OBD2_PROMPT};
 
     @Test
     public void testObd2LiveFrameGeneration() throws Exception {

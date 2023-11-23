@@ -15,13 +15,10 @@
  */
 
 #include "base/sdk_version.h"
-#include "class_linker.h"
 #include "dex/art_dex_file_loader.h"
 #include "hidden_api.h"
 #include "jni.h"
 #include "runtime.h"
-#include "scoped_thread_state_change-inl.h"
-#include "thread.h"
 #include "ti-agent/scoped_utf_chars.h"
 
 namespace art {
@@ -62,12 +59,10 @@ extern "C" JNIEXPORT jint JNICALL Java_Main_appendToBootClassLoader(
   const jint int_index = static_cast<jint>(index);
   opened_dex_files.push_back(std::vector<std::unique_ptr<const DexFile>>());
 
-  ArtDexFileLoader dex_loader;
+  DexFileLoader dex_loader(path);
   std::string error_msg;
 
-  if (!dex_loader.Open(path,
-                       path,
-                       /* verify */ false,
+  if (!dex_loader.Open(/* verify */ false,
                        /* verify_checksum */ true,
                        &error_msg,
                        &opened_dex_files[index])) {
@@ -77,10 +72,7 @@ extern "C" JNIEXPORT jint JNICALL Java_Main_appendToBootClassLoader(
 
   Java_Main_setDexDomain(env, klass, int_index, is_core_platform);
 
-  ScopedObjectAccess soa(Thread::Current());
-  for (std::unique_ptr<const DexFile>& dex_file : opened_dex_files[index]) {
-    Runtime::Current()->GetClassLinker()->AppendToBootClassPath(Thread::Current(), dex_file.get());
-  }
+  Runtime::Current()->AppendToBootClassPath(path, path, opened_dex_files[index]);
 
   return int_index;
 }

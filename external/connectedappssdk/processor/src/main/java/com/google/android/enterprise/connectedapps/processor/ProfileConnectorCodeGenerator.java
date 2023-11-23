@@ -15,6 +15,9 @@
  */
 package com.google.android.enterprise.connectedapps.processor;
 
+import static com.google.android.enterprise.connectedapps.processor.ClassNameUtilities.getBuilderClassName;
+import static com.google.android.enterprise.connectedapps.processor.ClassNameUtilities.prepend;
+import static com.google.android.enterprise.connectedapps.processor.ClassNameUtilities.transformClassName;
 import static com.google.android.enterprise.connectedapps.processor.CommonClassNames.ABSTRACT_PROFILE_CONNECTOR_BUILDER_CLASSNAME;
 import static com.google.android.enterprise.connectedapps.processor.CommonClassNames.ABSTRACT_PROFILE_CONNECTOR_CLASSNAME;
 import static com.google.android.enterprise.connectedapps.processor.CommonClassNames.AVAILABILITY_RESTRICTIONS_CLASSNAME;
@@ -27,6 +30,7 @@ import com.google.android.enterprise.connectedapps.annotations.CustomProfileConn
 import com.google.android.enterprise.connectedapps.annotations.GeneratedProfileConnector;
 import com.google.android.enterprise.connectedapps.processor.containers.GeneratorContext;
 import com.google.android.enterprise.connectedapps.processor.containers.ProfileConnectorInfo;
+import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.CodeBlock;
 import com.squareup.javapoet.FieldSpec;
@@ -143,6 +147,7 @@ class ProfileConnectorCodeGenerator {
 
     classBuilder.addMethod(
         MethodSpec.methodBuilder("setScheduledExecutorService")
+            .addAnnotation(CanIgnoreReturnValue.class)
             .addModifiers(Modifier.PUBLIC)
             .addParameter(SCHEDULED_EXECUTOR_SERVICE_CLASSNAME, "scheduledExecutorService")
             .returns(builderClassName)
@@ -153,6 +158,7 @@ class ProfileConnectorCodeGenerator {
 
     classBuilder.addMethod(
         MethodSpec.methodBuilder("setBinder")
+            .addAnnotation(CanIgnoreReturnValue.class)
             .addModifiers(Modifier.PUBLIC)
             .addParameter(CONNECTION_BINDER_CLASSNAME, "binder")
             .returns(builderClassName)
@@ -172,18 +178,11 @@ class ProfileConnectorCodeGenerator {
 
   static ClassName getGeneratedProfileConnectorClassName(
       GeneratorContext generatorContext, ProfileConnectorInfo connector) {
-    return ClassName.get(
-        connector.connectorClassName().packageName(),
-        "Generated" + connector.connectorClassName().simpleName());
+    return transformClassName(connector.connectorClassName(), prepend("Generated"));
   }
 
   static ClassName getGeneratedProfileConnectorBuilderClassName(
       GeneratorContext generatorContext, ProfileConnectorInfo connector) {
-    return ClassName.get(
-        connector.connectorClassName().packageName()
-            + "."
-            + "Generated"
-            + connector.connectorClassName().simpleName(),
-        "Builder");
+    return getBuilderClassName(getGeneratedProfileConnectorClassName(generatorContext, connector));
   }
 }

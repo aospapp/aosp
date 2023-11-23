@@ -19,14 +19,15 @@ package android.voicerecognition.cts;
 import static com.android.compatibility.common.util.ShellUtils.runShellCommand;
 
 import static com.google.common.truth.Truth.assertThat;
+
 import static org.junit.Assert.assertThrows;
 
 import android.content.Context;
 import android.speech.SpeechRecognizer;
 
-import androidx.test.InstrumentationRegistry;
 import androidx.test.core.app.ActivityScenario;
 import androidx.test.ext.junit.rules.ActivityScenarioRule;
+import androidx.test.platform.app.InstrumentationRegistry;
 import androidx.test.runner.AndroidJUnit4;
 
 import com.google.common.truth.TruthJUnit;
@@ -39,7 +40,8 @@ import org.junit.runner.RunWith;
 @RunWith(AndroidJUnit4.class)
 public final class SpeechRecognizerAvailabilityTest {
 
-    protected final Context mContext = InstrumentationRegistry.getTargetContext();
+    protected final Context mContext =
+            InstrumentationRegistry.getInstrumentation().getTargetContext();
     private ActivityScenario<SpeechRecognitionActivity> mScenario;
 
     @Rule

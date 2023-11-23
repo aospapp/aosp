@@ -114,7 +114,8 @@ enum {
   BTA_AV_AVDT_RPT_CONN_EVT,
   BTA_AV_API_START_EVT, /* the following 2 events must be in the same order as
                            the *AP_*EVT */
-  BTA_AV_API_STOP_EVT
+  BTA_AV_API_STOP_EVT,
+  BTA_AV_API_SET_LATENCY_EVT,
 };
 
 /* events for AV control block state machine */
@@ -126,13 +127,13 @@ enum {
 
 /* events that do not go through state machine */
 #define BTA_AV_FIRST_NSM_EVT BTA_AV_API_ENABLE_EVT
-#define BTA_AV_LAST_NSM_EVT BTA_AV_API_STOP_EVT
+#define BTA_AV_LAST_NSM_EVT BTA_AV_API_SET_LATENCY_EVT
 
 /* API events passed to both SSMs (by bta_av_api_to_ssm) */
 #define BTA_AV_FIRST_A2S_API_EVT BTA_AV_API_START_EVT
 #define BTA_AV_FIRST_A2S_SSM_EVT BTA_AV_AP_START_EVT
 
-#define BTA_AV_LAST_EVT BTA_AV_API_STOP_EVT
+#define BTA_AV_LAST_EVT BTA_AV_API_SET_LATENCY_EVT
 
 /* maximum number of SEPS in stream discovery results */
 #define BTA_AV_NUM_SEPS 32
@@ -263,6 +264,18 @@ typedef struct {
   tBTA_AV_RS_RES switch_res;
   uint16_t uuid; /* uuid of initiator */
 } tBTA_AV_API_OPEN;
+
+/* data type for BTA_AV_API_SET_LATENCY_EVT */
+typedef struct {
+  BT_HDR_RIGID hdr;
+  bool is_low_latency;
+} tBTA_AV_API_SET_LATENCY;
+
+/* data type for BTA_AV_API_START_EVT and bta_av_do_start */
+typedef struct {
+  BT_HDR_RIGID hdr;
+  bool use_latency_mode;
+} tBTA_AV_DO_START;
 
 /* data type for BTA_AV_API_STOP_EVT */
 typedef struct {
@@ -429,6 +442,8 @@ union tBTA_AV_DATA {
   tBTA_AV_API_ENABLE api_enable;
   tBTA_AV_API_REG api_reg;
   tBTA_AV_API_OPEN api_open;
+  tBTA_AV_API_SET_LATENCY api_set_latency;
+  tBTA_AV_DO_START do_start;
   tBTA_AV_API_STOP api_stop;
   tBTA_AV_API_DISCNT api_discnt;
   tBTA_AV_API_PROTECT_REQ api_protect_req;
@@ -675,7 +690,7 @@ extern tBTA_AV_CB bta_av_cb;
 
 /* config struct */
 extern const tBTA_AV_CFG* p_bta_av_cfg;
-extern const tBTA_AV_CFG bta_avk_cfg;
+const tBTA_AV_CFG* get_bta_avk_cfg();
 extern const tBTA_AV_CFG bta_av_cfg;
 extern const tBTA_AV_CFG bta_av_cfg_compatibility;
 
@@ -684,128 +699,128 @@ extern uint16_t* p_bta_av_rc_id;
 extern uint16_t* p_bta_av_rc_id_ac;
 
 extern const tBTA_AV_CO_FUNCTS bta_av_a2dp_cos;
-extern void bta_av_sink_data_cback(uint8_t handle, BT_HDR* p_pkt,
-                                   uint32_t time_stamp, uint8_t m_pt);
+void bta_av_sink_data_cback(uint8_t handle, BT_HDR* p_pkt, uint32_t time_stamp,
+                            uint8_t m_pt);
 
 /*****************************************************************************
  *  Function prototypes
  ****************************************************************************/
 /* utility functions */
-extern tBTA_AV_SCB* bta_av_hndl_to_scb(uint16_t handle);
+tBTA_AV_SCB* bta_av_hndl_to_scb(uint16_t handle);
 tBTA_AV_SCB* bta_av_addr_to_scb(const RawAddress& bd_addr);
-extern bool bta_av_chk_start(tBTA_AV_SCB* p_scb);
-extern void bta_av_restore_switch(void);
-extern void bta_av_conn_cback(uint8_t handle, const RawAddress& bd_addr,
-                              uint8_t event, tAVDT_CTRL* p_data,
-                              uint8_t scb_index);
-extern uint8_t bta_av_rc_create(tBTA_AV_CB* p_cb, uint8_t role, uint8_t shdl,
-                                uint8_t lidx);
-extern void bta_av_stream_chg(tBTA_AV_SCB* p_scb, bool started);
-extern bool bta_av_is_scb_opening(tBTA_AV_SCB* p_scb);
-extern bool bta_av_is_scb_incoming(tBTA_AV_SCB* p_scb);
-extern void bta_av_set_scb_sst_init(tBTA_AV_SCB* p_scb);
-extern bool bta_av_is_scb_init(tBTA_AV_SCB* p_scb);
-extern void bta_av_set_scb_sst_incoming(tBTA_AV_SCB* p_scb);
-extern tBTA_AV_LCB* bta_av_find_lcb(const RawAddress& addr, uint8_t op);
-extern const char* bta_av_sst_code(uint8_t state);
-extern void bta_av_free_scb(tBTA_AV_SCB* p_scb);
+bool bta_av_chk_start(tBTA_AV_SCB* p_scb);
+void bta_av_restore_switch(void);
+void bta_av_conn_cback(uint8_t handle, const RawAddress& bd_addr, uint8_t event,
+                       tAVDT_CTRL* p_data, uint8_t scb_index);
+uint8_t bta_av_rc_create(tBTA_AV_CB* p_cb, uint8_t role, uint8_t shdl,
+                         uint8_t lidx);
+void bta_av_stream_chg(tBTA_AV_SCB* p_scb, bool started);
+bool bta_av_is_scb_opening(tBTA_AV_SCB* p_scb);
+bool bta_av_is_scb_incoming(tBTA_AV_SCB* p_scb);
+void bta_av_set_scb_sst_init(tBTA_AV_SCB* p_scb);
+bool bta_av_is_scb_init(tBTA_AV_SCB* p_scb);
+void bta_av_set_scb_sst_incoming(tBTA_AV_SCB* p_scb);
+tBTA_AV_LCB* bta_av_find_lcb(const RawAddress& addr, uint8_t op);
+const char* bta_av_sst_code(uint8_t state);
+void bta_av_free_scb(tBTA_AV_SCB* p_scb);
 
 /* main functions */
-extern void bta_av_api_deregister(tBTA_AV_DATA* p_data);
-extern void bta_av_dup_audio_buf(tBTA_AV_SCB* p_scb, BT_HDR* p_buf);
-extern void bta_av_sm_execute(tBTA_AV_CB* p_cb, uint16_t event,
-                              tBTA_AV_DATA* p_data);
-extern void bta_av_ssm_execute(tBTA_AV_SCB* p_scb, uint16_t event,
-                               tBTA_AV_DATA* p_data);
-extern bool bta_av_hdl_event(BT_HDR_RIGID* p_msg);
-extern const char* bta_av_evt_code(uint16_t evt_code);
-extern bool bta_av_switch_if_needed(tBTA_AV_SCB* p_scb);
-extern bool bta_av_link_role_ok(tBTA_AV_SCB* p_scb, uint8_t bits);
+void bta_av_api_deregister(tBTA_AV_DATA* p_data);
+void bta_av_dup_audio_buf(tBTA_AV_SCB* p_scb, BT_HDR* p_buf);
+void bta_av_sm_execute(tBTA_AV_CB* p_cb, uint16_t event, tBTA_AV_DATA* p_data);
+void bta_av_ssm_execute(tBTA_AV_SCB* p_scb, uint16_t event,
+                        tBTA_AV_DATA* p_data);
+bool bta_av_hdl_event(BT_HDR_RIGID* p_msg);
+const char* bta_av_evt_code(uint16_t evt_code);
+bool bta_av_switch_if_needed(tBTA_AV_SCB* p_scb);
+bool bta_av_link_role_ok(tBTA_AV_SCB* p_scb, uint8_t bits);
 
 /* nsm action functions */
-extern void bta_av_api_disconnect(tBTA_AV_DATA* p_data);
-extern void bta_av_sig_chg(tBTA_AV_DATA* p_data);
-extern void bta_av_signalling_timer(tBTA_AV_DATA* p_data);
-extern void bta_av_rc_disc_done(tBTA_AV_DATA* p_data);
-extern void bta_av_rc_closed(tBTA_AV_DATA* p_data);
-extern void bta_av_rc_browse_opened(tBTA_AV_DATA* p_data);
-extern void bta_av_rc_browse_closed(tBTA_AV_DATA* p_data);
-extern void bta_av_rc_disc(uint8_t disc);
-extern void bta_av_conn_chg(tBTA_AV_DATA* p_data);
-extern void bta_av_dereg_comp(tBTA_AV_DATA* p_data);
+void bta_av_api_disconnect(tBTA_AV_DATA* p_data);
+void bta_av_set_use_latency_mode(tBTA_AV_SCB* p_scb, bool use_latency_mode);
+void bta_av_api_set_latency(tBTA_AV_DATA* p_data);
+void bta_av_sig_chg(tBTA_AV_DATA* p_data);
+void bta_av_signalling_timer(tBTA_AV_DATA* p_data);
+void bta_av_rc_disc_done(tBTA_AV_DATA* p_data);
+void bta_av_rc_closed(tBTA_AV_DATA* p_data);
+void bta_av_rc_browse_opened(tBTA_AV_DATA* p_data);
+void bta_av_rc_browse_closed(tBTA_AV_DATA* p_data);
+void bta_av_rc_disc(uint8_t disc);
+void bta_av_conn_chg(tBTA_AV_DATA* p_data);
+void bta_av_dereg_comp(tBTA_AV_DATA* p_data);
 
 /* sm action functions */
-extern void bta_av_disable(tBTA_AV_CB* p_cb, tBTA_AV_DATA* p_data);
-extern void bta_av_rc_opened(tBTA_AV_CB* p_cb, tBTA_AV_DATA* p_data);
-extern void bta_av_rc_remote_cmd(tBTA_AV_CB* p_cb, tBTA_AV_DATA* p_data);
-extern void bta_av_rc_vendor_cmd(tBTA_AV_CB* p_cb, tBTA_AV_DATA* p_data);
-extern void bta_av_rc_vendor_rsp(tBTA_AV_CB* p_cb, tBTA_AV_DATA* p_data);
-extern void bta_av_rc_msg(tBTA_AV_CB* p_cb, tBTA_AV_DATA* p_data);
-extern void bta_av_rc_close(tBTA_AV_CB* p_cb, tBTA_AV_DATA* p_data);
-extern void bta_av_rc_meta_rsp(tBTA_AV_CB* p_cb, tBTA_AV_DATA* p_data);
-extern void bta_av_rc_free_rsp(tBTA_AV_CB* p_cb, tBTA_AV_DATA* p_data);
-extern void bta_av_rc_free_browse_msg(tBTA_AV_CB* p_cb, tBTA_AV_DATA* p_data);
+void bta_av_disable(tBTA_AV_CB* p_cb, tBTA_AV_DATA* p_data);
+void bta_av_rc_opened(tBTA_AV_CB* p_cb, tBTA_AV_DATA* p_data);
+void bta_av_rc_remote_cmd(tBTA_AV_CB* p_cb, tBTA_AV_DATA* p_data);
+void bta_av_rc_vendor_cmd(tBTA_AV_CB* p_cb, tBTA_AV_DATA* p_data);
+void bta_av_rc_vendor_rsp(tBTA_AV_CB* p_cb, tBTA_AV_DATA* p_data);
+void bta_av_rc_msg(tBTA_AV_CB* p_cb, tBTA_AV_DATA* p_data);
+void bta_av_rc_close(tBTA_AV_CB* p_cb, tBTA_AV_DATA* p_data);
+void bta_av_rc_meta_rsp(tBTA_AV_CB* p_cb, tBTA_AV_DATA* p_data);
+void bta_av_rc_free_rsp(tBTA_AV_CB* p_cb, tBTA_AV_DATA* p_data);
+void bta_av_rc_free_browse_msg(tBTA_AV_CB* p_cb, tBTA_AV_DATA* p_data);
 
-extern tBTA_AV_RCB* bta_av_get_rcb_by_shdl(uint8_t shdl);
-extern void bta_av_del_rc(tBTA_AV_RCB* p_rcb);
+tBTA_AV_RCB* bta_av_get_rcb_by_shdl(uint8_t shdl);
+void bta_av_del_rc(tBTA_AV_RCB* p_rcb);
 
-extern void bta_av_proc_stream_evt(uint8_t handle, const RawAddress& bd_addr,
-                                   uint8_t event, tAVDT_CTRL* p_data,
-                                   uint8_t scb_index);
+void bta_av_proc_stream_evt(uint8_t handle, const RawAddress& bd_addr,
+                            uint8_t event, tAVDT_CTRL* p_data,
+                            uint8_t scb_index);
 
 /* ssm action functions */
-extern void bta_av_do_disc_a2dp(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data);
-extern void bta_av_cleanup(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data);
-extern void bta_av_free_sdb(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data);
-extern void bta_av_config_ind(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data);
-extern void bta_av_disconnect_req(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data);
-extern void bta_av_security_req(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data);
-extern void bta_av_security_rsp(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data);
-extern void bta_av_setconfig_rsp(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data);
-extern void bta_av_str_opened(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data);
-extern void bta_av_security_ind(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data);
-extern void bta_av_security_cfm(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data);
-extern void bta_av_do_close(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data);
-extern void bta_av_connect_req(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data);
-extern void bta_av_sdp_failed(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data);
-extern void bta_av_disc_results(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data);
-extern void bta_av_disc_res_as_acp(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data);
-extern void bta_av_open_failed(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data);
-extern void bta_av_getcap_results(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data);
-extern void bta_av_setconfig_rej(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data);
-extern void bta_av_discover_req(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data);
-extern void bta_av_conn_failed(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data);
-extern void bta_av_do_start(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data);
-extern void bta_av_str_stopped(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data);
-extern void bta_av_reconfig(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data);
-extern void bta_av_data_path(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data);
-extern void bta_av_start_ok(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data);
-extern void bta_av_start_failed(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data);
-extern void bta_av_str_closed(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data);
-extern void bta_av_clr_cong(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data);
-extern void bta_av_suspend_cfm(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data);
-extern void bta_av_rcfg_str_ok(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data);
-extern void bta_av_rcfg_failed(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data);
-extern void bta_av_rcfg_connect(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data);
-extern void bta_av_rcfg_discntd(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data);
-extern void bta_av_suspend_cont(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data);
-extern void bta_av_rcfg_cfm(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data);
-extern void bta_av_rcfg_open(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data);
-extern void bta_av_security_rej(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data);
-extern void bta_av_open_rc(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data);
-extern void bta_av_chk_2nd_start(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data);
-extern void bta_av_save_caps(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data);
-extern void bta_av_rej_conn(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data);
-extern void bta_av_rej_conn(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data);
-extern void bta_av_set_use_rc(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data);
-extern void bta_av_cco_close(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data);
-extern void bta_av_switch_role(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data);
-extern void bta_av_role_res(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data);
-extern void bta_av_delay_co(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data);
-extern void bta_av_open_at_inc(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data);
-extern void bta_av_offload_req(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data);
-extern void bta_av_offload_rsp(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data);
-extern void bta_av_vendor_offload_stop(void);
-extern void bta_av_st_rc_timer(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data);
+void bta_av_do_disc_a2dp(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data);
+void bta_av_cleanup(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data);
+void bta_av_free_sdb(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data);
+void bta_av_config_ind(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data);
+void bta_av_disconnect_req(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data);
+void bta_av_security_req(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data);
+void bta_av_security_rsp(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data);
+void bta_av_setconfig_rsp(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data);
+void bta_av_str_opened(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data);
+void bta_av_security_ind(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data);
+void bta_av_security_cfm(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data);
+void bta_av_do_close(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data);
+void bta_av_connect_req(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data);
+void bta_av_sdp_failed(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data);
+void bta_av_disc_results(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data);
+void bta_av_disc_res_as_acp(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data);
+void bta_av_open_failed(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data);
+void bta_av_getcap_results(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data);
+void bta_av_setconfig_rej(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data);
+void bta_av_discover_req(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data);
+void bta_av_conn_failed(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data);
+void bta_av_do_start(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data);
+void bta_av_str_stopped(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data);
+void bta_av_reconfig(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data);
+void bta_av_data_path(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data);
+void bta_av_start_ok(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data);
+void bta_av_start_failed(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data);
+void bta_av_str_closed(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data);
+void bta_av_clr_cong(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data);
+void bta_av_suspend_cfm(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data);
+void bta_av_rcfg_str_ok(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data);
+void bta_av_rcfg_failed(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data);
+void bta_av_rcfg_connect(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data);
+void bta_av_rcfg_discntd(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data);
+void bta_av_suspend_cont(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data);
+void bta_av_rcfg_cfm(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data);
+void bta_av_rcfg_open(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data);
+void bta_av_security_rej(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data);
+void bta_av_open_rc(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data);
+void bta_av_chk_2nd_start(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data);
+void bta_av_save_caps(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data);
+void bta_av_rej_conn(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data);
+void bta_av_rej_conn(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data);
+void bta_av_set_use_rc(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data);
+void bta_av_cco_close(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data);
+void bta_av_switch_role(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data);
+void bta_av_role_res(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data);
+void bta_av_delay_co(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data);
+void bta_av_open_at_inc(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data);
+void bta_av_offload_req(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data);
+void bta_av_offload_rsp(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data);
+void bta_av_vendor_offload_stop(void);
+void bta_av_st_rc_timer(tBTA_AV_SCB* p_scb, tBTA_AV_DATA* p_data);
 
 #endif /* BTA_AV_INT_H */

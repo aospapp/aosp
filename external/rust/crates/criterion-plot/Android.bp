@@ -31,11 +31,17 @@ rust_library {
     host_supported: true,
     crate_name: "criterion_plot",
     cargo_env_compat: true,
-    cargo_pkg_version: "0.4.4",
+    cargo_pkg_version: "0.5.0",
     srcs: ["src/lib.rs"],
     edition: "2018",
     rustlibs: [
         "libcast",
         "libitertools",
     ],
+    apex_available: [
+        "//apex_available:platform",
+        "//apex_available:anyapex",
+    ],
+    product_available: true,
+    vendor_available: true,
 }

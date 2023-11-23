@@ -18,6 +18,7 @@ package android.telecom.cts;
 
 import android.net.Uri;
 import android.os.Bundle;
+import android.telecom.CallEndpoint;
 import android.telecom.Conference;
 import android.telecom.Connection;
 import android.telecom.DisconnectCause;
@@ -43,6 +44,8 @@ public class MockConference extends Conference {
     private String mDtmfString = "";
     public TestUtils.InvokeCounter mOnExtrasChanged =
             new TestUtils.InvokeCounter("onExtrasChanged");
+    public TestUtils.InvokeCounter mCurrentCallEndpoint =
+            new TestUtils.InvokeCounter("mCurrentCallEndpoint");
     public List<Uri> mParticipants = new ArrayList<>();
     public CompletableFuture<Void> mLock = new CompletableFuture<>();
     private int mVideoState = VideoProfile.STATE_AUDIO_ONLY;
@@ -205,6 +208,11 @@ public class MockConference extends Conference {
     public void onExtrasChanged(Bundle extras) {
         setExtras(extras);
         mOnExtrasChanged.invoke(extras);
+    }
+
+    @Override
+    public void onCallEndpointChanged(CallEndpoint callEndpoint) {
+        mCurrentCallEndpoint.invoke(callEndpoint);
     }
 
     public boolean acquireLock(long time, TimeUnit unit) {

@@ -273,10 +273,14 @@ if:reference.apilevels && obj.since ?><?cs
       else
         ?><a href="<?cs var:toroot ?>guide/topics/manifest/uses-sdk-element.html#ApiLevels">API level<?cs
       /if ?> <?cs
-    var:obj.since ?></a><?cs
+    var:obj.since ?></a><?cs if:obj.sdkextsince ?><br/>Also in <a href="<?cs var:toroot ?>sdkExtensions"><?cs var:obj.sdkextsince ?></a><?cs /if ?><?cs
   else ?><a data-version-added="<?cs var:obj.since ?>" href="<?cs var:toroot ?>preview/"><b>Added in Android <?cs
-    var:obj.since ?></b></a><?cs
+    var:obj.since ?></b></a><?cs if:obj.sdkextsince ?><br/>Also in <a href="<?cs var:toroot ?>sdkExtensions"><?cs var:obj.sdkextsince ?></a><?cs /if ?><?cs
   /if?><?cs
+elif:obj.sdkextsince ?>
+  <?cs # This symbol exists in an extension SDK, but not in a finalized dessert ?>
+  Added in <a href="<?cs var:toroot ?>sdkExtensions"><?cs var:obj.sdkextsince ?></a>
+<?cs
 /if ?>
   <?cs if:obj.deprecatedsince ?><?cs
     if:class.artifact ?><br>Deprecated in version <?cs var:obj.deprecatedsince ?><?cs

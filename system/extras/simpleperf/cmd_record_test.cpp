@@ -98,15 +98,15 @@ static void CheckEventType(const std::string& record_file, const std::string& ev
   ASSERT_TRUE(type != nullptr);
   std::unique_ptr<RecordFileReader> reader = RecordFileReader::CreateInstance(record_file);
   ASSERT_TRUE(reader);
-  std::vector<EventAttrWithId> attrs = reader->AttrSection();
-  for (auto& attr : attrs) {
-    if (attr.attr->type == type->type && attr.attr->config == type->config) {
-      if (attr.attr->freq == 0) {
-        ASSERT_EQ(sample_period, attr.attr->sample_period);
+  for (const auto& attr_with_id : reader->AttrSection()) {
+    const perf_event_attr& attr = attr_with_id.attr;
+    if (attr.type == type->type && attr.config == type->config) {
+      if (attr.freq == 0) {
+        ASSERT_EQ(sample_period, attr.sample_period);
         ASSERT_EQ(sample_freq, 0u);
       } else {
         ASSERT_EQ(sample_period, 0u);
-        ASSERT_EQ(sample_freq, attr.attr->sample_freq);
+        ASSERT_EQ(sample_freq, attr.sample_freq);
       }
       return;
     }
@@ -192,6 +192,9 @@ TEST(record_cmd, rN_event) {
   } else if (GetTargetArch() == ARCH_X86_32 || GetTargetArch() == ARCH_X86_64) {
     // As in volume 3 chapter 19 of the Intel manual, 0x00c0 is the event number for instruction.
     event_number = 0x00c0;
+  } else if (GetTargetArch() == ARCH_RISCV64) {
+    // RISCV_PMU_INSTRET = 1
+    event_number = 0x1;
   } else {
     GTEST_LOG_(INFO) << "Omit arch " << GetTargetArch();
     return;
@@ -201,10 +204,10 @@ TEST(record_cmd, rN_event) {
   ASSERT_TRUE(RunRecordCmd({"-e", event_name}, tmpfile.path));
   std::unique_ptr<RecordFileReader> reader = RecordFileReader::CreateInstance(tmpfile.path);
   ASSERT_TRUE(reader);
-  std::vector<EventAttrWithId> attrs = reader->AttrSection();
+  const EventAttrIds& attrs = reader->AttrSection();
   ASSERT_EQ(1u, attrs.size());
-  ASSERT_EQ(PERF_TYPE_RAW, attrs[0].attr->type);
-  ASSERT_EQ(event_number, attrs[0].attr->config);
+  ASSERT_EQ(PERF_TYPE_RAW, attrs[0].attr.type);
+  ASSERT_EQ(event_number, attrs[0].attr.config);
 }
 
 TEST(record_cmd, branch_sampling) {
@@ -254,7 +257,16 @@ TEST(record_cmd, dwarf_callchain_sampling) {
   ASSERT_TRUE(RunRecordCmd({"-p", pid, "--call-graph", "dwarf"}));
   ASSERT_TRUE(RunRecordCmd({"-p", pid, "--call-graph", "dwarf,16384"}));
   ASSERT_FALSE(RunRecordCmd({"-p", pid, "--call-graph", "dwarf,65536"}));
-  ASSERT_TRUE(RunRecordCmd({"-p", pid, "-g"}));
+  TemporaryFile tmpfile;
+  ASSERT_TRUE(RunRecordCmd({"-p", pid, "-g"}, tmpfile.path));
+  auto reader = RecordFileReader::CreateInstance(tmpfile.path);
+  ASSERT_TRUE(reader);
+  const EventAttrIds& attrs = reader->AttrSection();
+  ASSERT_GT(attrs.size(), 0);
+  // Check that reg and stack fields are removed after unwinding.
+  for (const auto& attr : attrs) {
+    ASSERT_EQ(attr.attr.sample_type & (PERF_SAMPLE_REGS_USER | PERF_SAMPLE_STACK_USER), 0);
+  }
 }
 
 TEST(record_cmd, system_wide_dwarf_callchain_sampling) {
@@ -349,14 +361,16 @@ static void ProcessSymbolsInPerfDataFile(
   auto reader = RecordFileReader::CreateInstance(perf_data_file);
   ASSERT_TRUE(reader);
   FileFeature file;
-  size_t read_pos = 0;
-  while (reader->ReadFileFeature(read_pos, &file)) {
+  uint64_t read_pos = 0;
+  bool error = false;
+  while (reader->ReadFileFeature(read_pos, file, error)) {
     for (const auto& symbol : file.symbols) {
       if (callback(symbol, file.type)) {
         return;
       }
     }
   }
+  ASSERT_FALSE(error);
 }
 
 // Check if dumped symbols in perf.data matches our expectation.
@@ -507,6 +521,7 @@ TEST(record_cmd, record_meta_info_feature) {
   auto& info_map = reader->GetMetaInfoFeature();
   ASSERT_NE(info_map.find("simpleperf_version"), info_map.end());
   ASSERT_NE(info_map.find("timestamp"), info_map.end());
+  ASSERT_NE(info_map.find("record_stat"), info_map.end());
 #if defined(__ANDROID__)
   ASSERT_NE(info_map.find("product_props"), info_map.end());
   ASSERT_NE(info_map.find("android_version"), info_map.end());
@@ -546,7 +561,7 @@ TEST(record_cmd, trace_offcpu_option) {
   auto info_map = reader->GetMetaInfoFeature();
   ASSERT_EQ(info_map["trace_offcpu"], "true");
   if (IsSwitchRecordSupported()) {
-    ASSERT_EQ(reader->AttrSection()[0].attr->context_switch, 1);
+    ASSERT_EQ(reader->AttrSection()[0].attr.context_switch, 1);
   }
   // Release recording environment in perf.data, to avoid affecting tests below.
   reader.reset();
@@ -709,8 +724,9 @@ class RecordingAppHelper {
 
   bool RecordData(const std::string& record_cmd) {
     std::vector<std::string> args = android::base::Split(record_cmd, " ");
-    args.emplace_back("-o");
-    args.emplace_back(perf_data_file_.path);
+    // record_cmd may end with child command. We should put output options before it.
+    args.emplace(args.begin(), "-o");
+    args.emplace(args.begin() + 1, GetDataPath());
     return RecordCmd()->Run(args);
   }
 
@@ -722,9 +738,14 @@ class RecordingAppHelper {
       }
       return success;
     };
-    ProcessSymbolsInPerfDataFile(perf_data_file_.path, callback);
+    ProcessSymbolsInPerfDataFile(GetDataPath(), callback);
+    if (!success) {
+      DumpData();
+    }
     return success;
   }
+
+  void DumpData() { CreateCommandInstance("report")->Run({"-i", GetDataPath()}); }
 
   std::string GetDataPath() const { return perf_data_file_.path; }
 
@@ -763,7 +784,9 @@ static void TestRecordingApps(const std::string& app_name, const std::string& ap
   reader.reset(nullptr);
 
   // Check that simpleperf can't execute child command in app uid.
-  ASSERT_FALSE(helper.RecordData("--app " + app_name + " -e " + GetDefaultEvent() + " sleep 1"));
+  if (!IsRoot()) {
+    ASSERT_FALSE(helper.RecordData("--app " + app_name + " -e " + GetDefaultEvent() + " sleep 1"));
+  }
 }
 
 TEST(record_cmd, app_option_for_debuggable_app) {
@@ -812,15 +835,18 @@ TEST(record_cmd, record_java_app) {
   }
 
   // Check perf.data by looking for java symbols.
+  const char* java_symbols[] = {
+      "androidx.test.runner",
+      "androidx.test.espresso",
+      "android.app.ActivityThread.main",
+  };
   auto process_symbol = [&](const char* name) {
-#if !defined(IN_CTS_TEST)
-    const char* expected_name_with_keyguard = "androidx.test.runner";  // when screen is locked
-    if (strstr(name, expected_name_with_keyguard) != nullptr) {
-      return true;
+    for (const char* java_symbol : java_symbols) {
+      if (strstr(name, java_symbol) != nullptr) {
+        return true;
+      }
     }
-#endif
-    const char* expected_name = "androidx.test.espresso";  // when screen stays awake
-    return strstr(name, expected_name) != nullptr;
+    return false;
   };
   ASSERT_TRUE(helper.CheckData(process_symbol));
 #else
@@ -930,9 +956,9 @@ TEST(record_cmd, cs_etm_event) {
 
   // cs-etm uses sample period instead of sample freq.
   ASSERT_EQ(reader->AttrSection().size(), 1u);
-  const perf_event_attr* attr = reader->AttrSection()[0].attr;
-  ASSERT_EQ(attr->freq, 0);
-  ASSERT_EQ(attr->sample_period, 1);
+  const perf_event_attr& attr = reader->AttrSection()[0].attr;
+  ASSERT_EQ(attr.freq, 0);
+  ASSERT_EQ(attr.sample_period, 1);
 
   bool has_auxtrace_info = false;
   bool has_auxtrace = false;
@@ -1031,6 +1057,23 @@ TEST(record_cmd, addr_filter_option) {
   // kernel range
   filter = StringPrintf("filter 0x%" PRIx64 "-0x%" PRIx64, fake_kernel_addr, fake_kernel_addr + 4);
   ASSERT_TRUE(RunRecordCmd({"-e", "cs-etm", "--addr-filter", filter}));
+}
+
+TEST(record_cmd, decode_etm_option) {
+  if (!ETMRecorder::GetInstance().CheckEtmSupport().ok()) {
+    GTEST_LOG_(INFO) << "Omit this test since etm isn't supported on this device";
+    return;
+  }
+  ASSERT_TRUE(RunRecordCmd({"-e", "cs-etm", "--decode-etm"}));
+  ASSERT_TRUE(RunRecordCmd({"-e", "cs-etm", "--decode-etm", "--exclude-perf"}));
+}
+
+TEST(record_cmd, binary_option) {
+  if (!ETMRecorder::GetInstance().CheckEtmSupport().ok()) {
+    GTEST_LOG_(INFO) << "Omit this test since etm isn't supported on this device";
+    return;
+  }
+  ASSERT_TRUE(RunRecordCmd({"-e", "cs-etm", "--decode-etm", "--binary", ".*"}));
 }
 
 TEST(record_cmd, pmu_event_option) {
@@ -1197,6 +1240,7 @@ TEST(record_cmd, add_meta_info_option) {
 }
 
 TEST(record_cmd, device_meta_info) {
+#if defined(__ANDROID__)
   TemporaryFile tmpfile;
   ASSERT_TRUE(RunRecordCmd({}, tmpfile.path));
   auto reader = RecordFileReader::CreateInstance(tmpfile.path);
@@ -1209,6 +1253,9 @@ TEST(record_cmd, device_meta_info) {
   it = meta_info.find("android_build_type");
   ASSERT_NE(it, meta_info.end());
   ASSERT_FALSE(it->second.empty());
+#else
+  GTEST_LOG_(INFO) << "This test tests a function only available on Android.";
+#endif
 }
 
 TEST(record_cmd, add_counter_option) {
@@ -1230,4 +1277,26 @@ TEST(record_cmd, add_counter_option) {
     return true;
   }));
   ASSERT_TRUE(has_sample);
+}
+
+TEST(record_cmd, user_buffer_size_option) {
+  ASSERT_TRUE(RunRecordCmd({"--user-buffer-size", "256M"}));
+}
+
+TEST(record_cmd, record_process_name) {
+  TemporaryFile tmpfile;
+  ASSERT_TRUE(RecordCmd()->Run({"-e", GetDefaultEvent(), "-o", tmpfile.path, "sleep", SLEEP_SEC}));
+  std::unique_ptr<RecordFileReader> reader = RecordFileReader::CreateInstance(tmpfile.path);
+  ASSERT_TRUE(reader);
+  bool has_comm = false;
+  ASSERT_TRUE(reader->ReadDataSection([&](std::unique_ptr<Record> r) {
+    if (r->type() == PERF_RECORD_COMM) {
+      CommRecord* cr = static_cast<CommRecord*>(r.get());
+      if (strcmp(cr->comm, "sleep") == 0) {
+        has_comm = true;
+      }
+    }
+    return true;
+  }));
+  ASSERT_TRUE(has_comm);
 }

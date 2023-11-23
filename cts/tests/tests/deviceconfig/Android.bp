@@ -25,6 +25,7 @@ android_test {
     test_suites: [
         "cts",
         "general-tests",
+        "mts-configinfrastructure",
     ],
     libs: ["android.test.base"],
     static_libs: [
@@ -34,4 +35,6 @@ android_test {
     ],
     srcs: ["src/**/*.java"],
     sdk_version: "test_current",
+    min_sdk_version: "34",
+    target_sdk_version: "34",
 }

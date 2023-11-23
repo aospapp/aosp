@@ -32,12 +32,14 @@ abstract public class PatternElement
 
     static List<Wildcard> createWildcards(List<? extends PatternElement> patterns) {
         List<Wildcard> wildcards = new ArrayList<Wildcard>();
+        int ruleIndex = 0;
         for (PatternElement pattern : patterns) {
             String result = (pattern instanceof Rule) ? ((Rule)pattern).getResult() : "";
             String expr = pattern.getPattern();
             if (expr.indexOf('/') >= 0)
                 throw new IllegalArgumentException("Patterns cannot contain slashes");
-            wildcards.add(new Wildcard(expr.replace('.', '/'), result));
+            wildcards.add(new Wildcard(expr.replace('.', '/'), result, ruleIndex));
+            ruleIndex++;
         }
         return wildcards;
     }

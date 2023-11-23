@@ -20,6 +20,8 @@ import android.annotation.Nullable;
 import android.app.Notification;
 import android.os.Build;
 import android.os.Bundle;
+import android.text.TextUtils;
+import android.util.Log;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -321,9 +323,30 @@ public class NotificationGroup {
         if (mGroupKey == null) {
             setGroupKey(groupKey);
         } else if (!mGroupKey.equals(groupKey)) {
-            throw new IllegalStateException(
-                    "Group key mismatch when adding a notification to a group. " +
-                            "mGroupKey: " + mGroupKey + "; groupKey:" + groupKey);
+            updateGroupKeyOrThrowError(groupKey);
+        }
+    }
+
+    /**
+     * If {@link mGroupKey} and the passed groupKey doesn't match, then compare the passed groupKey
+     * with the groupKey of a single notification to decide whether to update or throw an error.
+     */
+    private void updateGroupKeyOrThrowError(String groupKey) {
+        if (getSingleNotification() != null
+                && getSingleNotification().getStatusBarNotification() != null) {
+            String singleGroupKey =
+                    getSingleNotification().getStatusBarNotification().getGroupKey();
+            if (TextUtils.equals(groupKey, singleGroupKey)) {
+                if (DEBUG) {
+                    Log.d(TAG, "The current groupKey is: " + mGroupKey + ", and it will be"
+                            + "updated to: " + singleGroupKey);
+                }
+                setGroupKey(singleGroupKey);
+            } else {
+                throw new IllegalStateException(
+                        "Group key mismatch when adding a notification to a group. "
+                                + "mGroupKey: " + mGroupKey + "; groupKey:" + groupKey);
+            }
         }
     }
 

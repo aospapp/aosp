@@ -289,11 +289,6 @@ public class BluetoothHeadsetFragment extends Fragment {
     }
 
     @Override
-    public void onPause() {
-        super.onPause();
-    }
-
-    @Override
     public void onDestroy() {
         getContext().unbindService(mInCallServiceConnection);
         super.onDestroy();

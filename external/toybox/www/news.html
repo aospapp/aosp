@@ -8,6 +8,608 @@ a development environment. See the links on the left for details.</p>
 
 <h2>News</h2>
 
+<a name="10-01-2023" /><a href="#10-01-2023"><hr><h2><b>January 10, 2023</b></h2></a>
+<blockquote>
+<p>"Why," Arthur said, "is there a sofa in that field?"</br>
+"I told you!" shouted Ford, leaping to his feet. "Eddies in the space-time
+continuum!"</br>
+"And this is his sofa, is it?"</p>
+<p>- The Hitchhiker's Guide to the Galaxy</p>
+</p></blockquote>
+
+<p><a href=downloads/toybox-0.8.9.tar.gz>Toybox 0.8.9</a>
+(<a href=https://github.com/landley/toybox/releases/tag/0.8.9>git commit</a>)
+is out, with prebuilt <a href=downloads/binaries/0.8.9>static binaries</a> and
+<a href=downloads/binaries/mkroot/0.8.9>mkroot images</a>
+bootable under QEMU (built using a <a href=https://github.com/landley/linux/tree/mkroot-6.1>lightly patched</a> linux-6.1).</p>
+
+<p>The new <b>nbd-server</b> command interoperates with nbd-client to serve
+network block devices (using the v1 protocol), and Moritz Weber contributed a read-only <b>git</b>
+implementation to pending.</p>
+
+<p><u>Features</u>: New <b>grep</b> fast path for fixed or simple patterns that
+don't need the full regex engine (I.E. "^", ".", "$" but not "*" or "[]")
+most noticeable when searching for many patterns at once.
+Improved <b>tar --xform</b> support parsing flags= and trailing s/// scope
+flags (but using --xform now requires toybox sed in the $PATH).</p>
+
+<p>Added <b>sort -C</b>, <b>lsusb -i</b>, <b>netcat -n</b>,
+<b>swapoff -a -v</b>, <b>httpd -v</b>, <b>nbd-client -b</b>,
+a <b>uname -p</b> stub to mollify package builds,
+<b>sleep</b> accepts multiple arguments,
+<b>sed</b> now parses interlaced -e and -f arguments in order,
+several new options in <b>readlink</b> and <b>realpath</b> (and better
+handling of relative paths), and UDP mode in netcat is more useful now:
+<b>netcat -u -s 127.0.0.1 -p 9876 -l</b> can type at <b>netcat -u 127.0.0.1 9876</b>
+in both directions. (Figuring out when the other side hangs up is an unsolved
+problem, but that's UDP for you.)
+Elliott added <b>ls -N</b>.</p>
+
+<p><u>Bugfixes</u>: Fixed off by one error in <b>sort -c</b> output,
+fixed <b>sed -z</b> and other sed cases where Linux has never obeyed
+Posix (N at EOF does a default print, l escapes \n),
+<b>patch --dry-run</b> should no longer create or delete files,
+<b>gzip</b>/<b>zcat</b> couldn't handle concatenated archives,
+the ./configure of gmake 4.3 depends on <b>test</b> treating one argument -a as a synonym for -e,
+autodetectiong compression types in <b>tar</b> should be more reliable now
+and sanitize weird path corner cases (like .. past /) better,
+<b>scripts/make.sh</b> (and thus "make toybox") should no longer truncate log
+files stderr is redirected to,
+<b>httpd</b> now handles ? and # in URLs,
+<b>xxd</b> disables columns for -c 0 and groups for -g 0 (so you can get
+a long interrupted string of hex digits out of it), two fixes to
+<b>mountpoint</b> (the conversion to same_file() was inappropriate because
+the logic isn't quite the same, and -q should also quiet "not found" errors),
+fixed <b>httpd</b> not always displaying index.html files instead of directory
+contents, fixed <b>comm -</b> not recognizing it as stdin, and multiple fixes to
+<b>timeout</b> which now kills process group and thus child processes,
+isn't suspended by SIGTTIN, and recursive commands it calls don't
+inherit an inappropriate SIGCHLD handler.</p>
+
+<p>Yi-Yo Chiang fixed loopback <b>mount</b> (the recent switch to xrunread()
+kept the newline from losetup's output) and added <b>tail +123</b>
+(old-style synonym for tail -n +123).
+Daniel Mentz added scmversion to the <b>modinfo</b> tag list (Android uses
+it for external modules). Alexander Holler fixed <b>su</b> to not require
+/etc/shadow when run as root, and nomas2000 reported an inverted test in
+<b>date</b>'s check for trailing rubbish. Daniel Mentz fixed an off by
+one in <b>grep -f</b> that discarded the last character of the pattern file's
+contents. Kelvin Zhang made <b>modinfo</b> better at handling symlinks.
+Antoni Villalonga fixed <b>fmt</b> on 64 bit big endian systems (like s390x and
+powerpc). Li Cheng fixed <b>mount</b>'s type detection not autodetecting
+the need to bind mount files when type "none" was specified in fstab.
+Tomasz Sterna reported that <b>modprobe</b> resolving dependencies shouldn't
+feed a NULL pointer to the syscall's options arguments (the kernel goes -EWTF),
+and Vincent Donnefort made modprobe work when /proc/modules isn't available.</p>
+
+<p><u>Library</u>:
+The TOYFLAG_ARGFAIL() exit value is now the default <b>error_msg()</b> sets,
+<b>sendfile()</b> now falls back to the read/write loop for any error (not just
+EINVAL, the kernel sends ENOSYS and EXDEV and who knows what else),
+<b>xgetrandom()</b> can now return arbitrary amounts of data (looping internally
+as necessary),
+<b>xwaitpid()</b> returns status 127 for cases (like bad PID) which don't
+return a status for the PID,
+several fixes to <b>xabspath()</b> as part of the readlink/realpath work,
+new <b>octal_deslash()</b> to remove octal escapes common in kernel strings
+(ala /proc/mounts),
+the <b>FLAG_x</b> macros always use a 64 bit type now (so you don't have to
+worry about toys.optflags &= ~FLAG_x; blanking the top 32 bits),
+replaced memcmp() with new library function <b>smemcmp()</b> to placate ASAN
+when returning first difference in known differing arguments of unequal length.
+Elliott added three more filesystem types to <b>fs_type_name()</b> which is
+used by <b>stat -f</b> and friends.</p>
+
+<p><u>Mkroot</u>:
+New <b>scripts/test_mkroot.sh</b> runs each target under qemu to confirm
+1) it boots, 2) the block device works, 3) networking works, and 4) the clock is set
+reasonably. It runs them in parallel, with an httpd instance on the host to
+fetch a file from, and a timeout to detect hangs.
+New <b>scripts/root/overlay</b> package copies $OVERLAY directory into
+target filesystem, ala <b>scripts/mkroot.sh overlay OVERLAY=$PWD/blah</b>
+The init script now mounts any /dev/?da on /mnt and when /mnt/init exists
+sets $HANDOFF to that instead of running a shell prompt, so you can provide
+automated control images that run code in the emulator automatically. (The
+emulator process still when whatever $HANDOFF called exits.)</p>
+
+<p>Some kernel changes finally made it upstream so we can drop workarounds
+for them, such as kernel commit
+<a href=https://github.com/torvalds/linux/commit/f8f0d06438e5>f8f0d06438e5</a>
+fixing the <a href=https://landley.net/notes-2014.html#13-08-2014>longstanding</a>
+"allnoconfig has =y" issue so miniconfig doesn't need to add a magic #comment
+line forcing a symbol OFF anymore. The remaining kernel patches (including
+several maintained locally but hadn't merged into mkroot) moved to a
+<a href=https://github.com/landley/linux/tree/mkroot-6.1>seperate repository</a>
+so mkroot.sh doesn't have to call sed on the build snapshot. (They're are also
+included in the mkroot binary release directory, and were all submitted to lkml
+months if not years ago.)</p>
+
+<p>The host airlock setup (creating the temporary restricted environment
+mkroot builds packages in both so they don't pick up strange dependencies from
+the host, and to prove the build can use the toybox commands)
+removed a bunch of commands (dd, diff, vi, xzcat, ar, nm) no longer
+needed by the linux-6.1 build. The kernel patches also remove the need
+for gcc (it can use the "cc" symlink all modern distros install, and
+autodetects whether that points to gcc or clang) and bc (which is just
+<a href=https://landley.net/notes-2013.html#18-05-2013>generally obsolete</a>).
+Left those two in for one more release, but NEXT time building a vanilla
+kernel without the <a href=https://landley.net/toybox/downloads/binaries/mkroot/0.8.9/linux-patches/0001-try-generic-compiler-name-cc-before-falling-back-to-.patch>gcc removal patch</a>
+and <a href=https://landley.net/toybox/downloads/binaries/mkroot/0.8.9/linux-patches/0004-Replace-timeconst.bc-with-mktimeconst.c.patch>bc removal patch</a>
+may require you to add <b>HOST_EXTRA="gcc bc"</b> to the mkroot command line
+for the airlock build to add extra symlinks to root/build/airlock.</p>
+
+<p>Added a kernel build for powerpc64 big endian,
+m68k and powerpc now support "run-qemu.sh -hda file.img", and m68k only
+has one /dev/?db (disabled Apple Desktop Bus in the config).
+Added basic module support (the kernel build saves modules in modules.cpio.gz
+so it can extract them when you rebuild the root filesystem but not the kernel)
+and added <b>scripts/root/tests</b> which (among other things) builds two
+innocuous modules that depend on each other (fscache and cachefiles) for
+modprobe/insmod testing that hopefully won't break anything else. (If
+there was a scripts/root/pending/ tests would be in it: it does not actually
+run the test suite under mkroot yet, because toysh needs work.)</p>
+
+<p><u>Pending</u>: Elliott made <b>strace</b> build on 32-bit x86.
+James Farrell added <b>diff -f</b>.
+Alexander Holler fixed two parameter substitution bugs in <b>toysh</b>.
+Rob fixed assignment suppression, &amp;&amp; and || parsing, math
+priority, a number of ASAN test failures, untangled and commented the
+brace expansion logic, and other ongoing shell work.</p>
+
+<p>A large rewrite of diff happened but couldn't be checked in unfinished
+because if people are using stuff out of pending, how do you do a pending for
+pending? (Meta-pending?)</p>
+
+<p><u>Cleanup</u>:
+<b>cksum</b>, <b>od</b>, <b>file</b>, <b>getopt</b>, <b>gpiod</b>,
+<b>nbd-client</b>, better output messages for <b>host</b>,
+and make <b>base64</b> use line buffering.
+Moved -Wno-string-plus-int into portability.sh and had it only apply to
+clang. Moved num_cache() out of lib into netstat (its only user).</p>
+
+<p>In the test suite plumbing, $SKIPNEXT was replaced by <b>$SKIP</b> holding
+a count that counts down with each test (so you can easily skip a block of
+tests). Fixed <b>txpect</b> to actually listen to error code (oops) and to not
+complain about multiple X. The old dochroot() and mkchroot() shell functions were removed from
+scripts/runtest.sh because they required root access to use (which mkroot
+does not). More conversion to use <b>testcmd</b> in individual command.tests
+(both to remove workarounds for shell builtins, and to be more concise).
+Remove redundant cleanup from several tests (which run as proper child processes
+now, and the work directory is deleted and recreated between each, so
+individual tests need less cleanup).</p>
+
+<p><u>Portability</u>: More tests now pass on MacOS and FreeBSD
+(weird filesystems, root vs wheel group name, dealing with headers that
+define stdin as a macro and don't define PATH_MAX, the ancient bash in MacOS
+doesn't understand &amp;&gt;&gt;, won't let normal users use "chmod +s",
+symlinks don't have all permission bits set, no O_PATH and the Linux definition
+is used for something else, and so on), at least half of which Elliott did.
+Not sure we've quite got Mac and BSD
+doing "gmake test_singlecommand" right yet, but it's a lot closer.
+Added all the commands to <b>make bsd_defconfig</b> that compile on FreeBSD 13
+(which is no guarantee they WORK).
+ASAN=1 should work in more places  now, including <b>make_test_command</b>.
+The build uses $CC insted of cc in more places, and doesn't apply $ASAN
+for $HOSTCC (the legacy kconfig/ directory stands no chance).</p>
+
+Fedora inexplicably sticks \x09 style hex escapes into the dmesg output and
+expects them to be parsed.
+Android is still running the test suite under mksh which doesn't
+understand bashisms like &lt;(command). LLVM insisted that "ptr - 1" could
+never be NULL (demonstrably untrue) and needed some (unsigned long) typecasts
+to force it to actually do the math.
+Khem Raj aliased timer_settime to timer_settime64 when the first isn't
+available. Antoni Villalonga debianized some install paths and added
+a bunch of --longopt synonyms for existing options that package builds
+use.</p>
+
+<p><u>Documentation</u>: The <a href=help.html>help page</a>
+generation logic (toybox help -av) now filter out invisible aliases and
+outputs "See command" for visible aliases, plus fixes for broken corner
+cases like <b>nohup --help</b>.
+The <a href=https://landley.net/toybox/git>local git repo</a>
+now has a simple index.html generated by a
+<a href=https://github.com/landley/toybox/blob/0.8.9/scripts/git-static-index.sh>small shell script</a>,
+linking to the <b>git format-patch</b> files for
+each commit, applicable via <b>git am</b>.</p>
+
+<p>There was a
+<a href=https://github.com/landley/toybox/pull/244>bug report</a> that specifying the cross compiler prefix twice
+includes the prefix twice (ala CROSS_COMPILE=prefix- CC=prefix-cc results in
+prefix-prefix-cc) which is what happens when you ask it to do that, yes. It's now
+<a href=faq.html#cross>better documented</a>. (See also
+<a href=https://lkml.iu.edu/hypermail/linux/kernel/2202.0/01505.html>this kernel patch</a>.)</p>
+
+<p>Yi-Yo Chiang's losetup fix spawned an email thread where the
+android developers <a href=http://lists.landley.net/pipermail/toybox-landley.net/2022-August/029139.html>explained</a> why Android doesn't (and can't)
+use devtmpfs. Rob forwarded a link to linux weekly news to see if he could get
+any attention from the kernel guys, but they didn't reply.</p>
+
+<a name="12-08-2022" /><a href="#12-08-2022"><hr><h2><b>August 12, 2022</b></h2></a>
+<blockquote><p>
+Huge as office blocks, silent as birds. They hung in the air exactly the same
+way that bricks don't.</p>
+<p>- The Hitchhiker's Guide to the Galaxy</p>
+</p></blockquote>
+
+<p><a href=downloads/toybox-0.8.8.tar.gz>Toybox 0.8.8</a>
+(<a href=https://github.com/landley/toybox/releases/tag/0.8.8>git commit</a>)
+is out, with prebuilt <a href=downloads/binaries/0.8.8>static binaries</a> and
+<a href=downloads/binaries/mkroot/0.8.8>mkroot images</a>
+bootable under QEMU (built using vanilla linux-5.19).</p>
+
+<p>No new or promoted commands this time. (Time based releases mean NOT
+holding the release to wait for things like that.)</p>
+
+<p>Thanks to Google for sponsoring the project's maintainer to focus on toybox
+for a while. (They want a hermetic build, I want Android to build under
+Android. Working on it...)</p>
+
+<p><u>Features</u>:
+The new <b>timeout -i</b> option kills a command for inactivity (output
+to stdout resets the timer).
+Basic support for <b>tar --xform</b> (but not yet the special tar-only s///x
+options).
+--long options now support unambigous abbrevations by default, so you can
+go "ls --col" and it'll figure out you mean --color.
+Added <b>blkid -o</b> understanding "full", "value", and "export" output
+formats. Added <b>nsenter -C</b> (cgroup namespace) and <b>-a</b> (enable all
+supported namespaces).
+Added <b>mount -R</b> and switched the bind mount default to be recursive
+(it still autodetects --bind and --loop mounts based on the source/target type,
+all --bind or --rbind do is switch the recursive flag on and off).</p>
+
+<p>Elliott implemented <b>tar --null</b>,
+and taught <b>file</b> to recognize some Linux kernel images, and
+binaries for Linux's <a href=https://github.com/torvalds/linux/commit/fa96b57c1490>newly merged</a>
+arch/loongarch (a <a href=https://linleygroup.com/newsletters/newsletter_detail.php?num=4623>mips64 variant</a>
+from <a href=https://phoronix.com/news/LoongArch-MIPS-Copy-Kernel>china</a>).</p>
+
+<p><u>Bugfixes</u>:
+Several cleanups to taskset, mostly due to reviewing it before making
+an explainer video, but the review found an inappropriate use of
+TOYFLAG_STAYROOT that got fixed.
+Argument parsing for <b>unshare</b> and <b>nsenter</b> should now match
+debian's (I.E. "unshare -npu" works the same as "unshare -n -p -u" not
+"unshare --net=pu").
+<b>kill 1</b> no longer says "unknown pid 1: not permitted" (it
+says "bad pid" like everywhere else).
+<b>test -x</b> and friends now test live access, not permission bits.
+(Root ignores a lot of permissions, chmod u-x blocks you from executing your
+own file even if g+x and o+x should let you access it, things like selinux can
+further break the unix permission model, etc).
+
+<p>In lib/ a fencepost error in <b>chomp()</b> could read one byte past the start of the string, and
+<b>xpclose_both()</b> no longer closes the parent's stdin and stdout
+when they're explicitly passed through to the child.
+In scripts/runtest.sh, moving tests into subshells broke failure reporting with VERBOSE=all.
+While "make install" was creating directories when $PREFIX pointed to a
+nonexistent directory, "make toybox" didn't even though it tried to place the
+output file there.</p>
+
+<p>James Farrell switched the test suite from detecting root via $UID to
+$(id -u). (It's not a security issue, this just controls which tests we attempt.
+It's another workaround for missing features in mksh.)
+Taolaw spotted that httpd could segfault when xabspath() returns NULL
+(for error conditions such as infinitely looping symlinks
+or "." not resolving when the current directory was deleted).</p>
+
+<p><u>Documentation</u>:
+We <a href=design.html>recorded</a> the
+move from C99 to the C11 standard, which was actually made a while ago:
+the typecast constants we've
+been using for a while are a 2011 feature not available in the 1999 edition
+of the C standard. (This came up when we had to move to C11's "_Noreturn" to work around a compiler bug in llvm.
+Yes __attribute__((__noreturn__)) should be identical, that's the bug part.)</p>
+
+<p>The website's nav bar got updated (among other things, linking to
+our <a href=https://www.youtube.com/channel/UC4VFy3wc1nzq5tUHhiti6fw>youtube
+channel</a>), and the FAQ entry on cross compiling got
+expanded.
+The toys/example commands moved from "make list" to "make list_example"
+(since they're not enabled in defconfig either).
+The cross compiling example command line in "make help" now sets
+LDFLAGS=--static instead of putting that in CFLAGS.</p>
+
+<p>The web archive is back, and since the missing messages were
+never delivered (the mailserver trying to deliver them timed out and bounced
+them back after a couple days) this means unlike previous failures the web
+archive isn't out of sync with reality: the hole was the list actually being
+down until Dreamhost tech support figured out what they broke this time.</p>
+
+<p><u>Pending</u>:
+More work on toysh: case/esac was confused by nested flow control blocks,
+support for [[ &lt; &gt; =~ ]] tests, implemented the rest of the $((math))
+operators and support for ((math)) tests and "for ((math;math;math))" loops,
+and so on. (The next toysh goal is to get the test suite running under mkroot, but
+other stuff keeps coming up.)
+James Farrell upgraded diff, adding three line format options and support
+for diffing FIFOs.
+Rob did several rounds of dd cleanup, then got distracted by diff cleanup
+which turned into a complete rewrite of diff.
+Neither was ready to promote in time for this release though (although the release
+got delayed almost a week before Rob admitted that).</p>
+
+<p><u>Library</u>:
+The <b>lib/args.c</b> command line parser now has two optional modifiers
+(" " and ";") for each argument type, providing 4 combinations (both unset,
+both set, one of each set), and all 4 now have defined semantics and
+tests/skeleton.test exercises them. (This was motivated by <b>unshare</b>
+needing a new combination to match the debian behavior.)
+<b>lib/args.c</b> also added "~" to collate bare longopts (so multiple bare
+longopts can be synonyms setting the same flag or argument variable).</p>
+
+<p>New function <b>xrunread()</b> which launches a child function, writes a
+string to its stdin, and returns everything the child wrote to stdout as another
+string (or NULL if it couldn't run or exited with an error), leaving
+stderr alone (so it goes to the same place the parent's goes).</p>
+
+<p>New functions <b>same_file()</b> and <b>same_def_ino()</b> to simplify
+file metadata comparisons. (If you're wondering why something so simple should
+have a function encapsulating the logic, this release also has at least 3
+different bugfix commits for thinkos from switching all the commands over
+to use them instead of doing the test ourselves. All missing/extra ! or
+&& vs || level stuff.)</p>
+
+<p>The <b>exit_signal()</b> handler now blocks signals so <b>sigatexit()</b> won't
+re-enter the list when it receives two different killer signals. (Since
+<b>xexit()</b> capture uses siglongjmp() this should clean itself up
+when not actually exiting.)</p>
+
+<p><u>Plumbing</u>:
+Several warning suppressions due to things like llvm's fortify finding
+false positives, gcc's "int and long are identical on 32 bits!" warnings
+(yes... they are), the MacOS build being crotchety about vfork()... All verified
+non-issues at present.</p>
+
+<p>The build plumbing now puts more effort into resolving dependencies and figuring
+out when stuff needs to be rebuilt. This includes noticing when the
+toolchain we're building with changes flags, and outputting a warning
+when it detects the need to run "make oldconfig" again. (At the moment
+calling kconfig/ from scripts/ would be a layering violation: I need to
+rewrite kconfig from scratch before it can do that automatically.).</p>
+
+<p>Removed most compile time probes from <b>scripts/genconfig.sh</b>,
+replaced with things like #ifdef (_NR_syscall) and
+#if __has_include(&lt;utmpx.h&gt;), or acknowledging when a probe is a bug
+workaround for a specific libc version and testing for that instead,
+plus simply deleting some config options due to the 7 year horizon expiring
+so we can trust it to be there now.</p>
+
+<p>Usual batch of musl workarounds for behavior that
+<a href=https://github.com/landley/toybox/commit/9a5d7a063c8c>doesn't match</a>
+glibc and bionic or where they've been
+<a href=https://www.openwall.com/lists/musl/2022/07/27/5>arguing about</a>
+stuff for years without actually fixing it.
+Ed Maste of FreeBSD added some FreeBSD checks/cases to
+lib/portability.[hc], mostly in places we already supported Apple or
+OpenBSD.
+The top level "configure" is now re-entrant (shouldn't append stuff
+to enviornment varibles like $CFLAGS twice when read twice).
+The MacOS defconfig now includes a lot more commands.</p>
+
+<p><u>Test suite</u>:
+The diff for failing tests is now output after the FAIL line instead
+of before, "make tests" now runs tar.test by default,
+a new skeleton.test uses toys/example/skeleton.c to exercise the
+lib/args.c command line parsing plumbing,
+scripts/runtest.sh now uses do_pass and do_fail consistently,
+and Rob keeps accidentally checking in bashisms and Elliott keeps submitting
+patches to remove them because android runs the tests under mksh and
+toysh isn't ready yet.</p>
+
+<p>Work in progress to make TEST_HOST=1 pass on newer debian, which is a moving
+target. (The tests didn't change, but the behavior of the gnu utilities
+is not consistent. Or standardized. Or coherent. Or predictable. Or sane.)
+Some minor changes to commands like <b>xxd</b> and <b>cmp</b> to
+make their output look more like what debian's currently producing.</p>
+
+<p>Making the tests pass on MacOS is harder: that calls group 0 "wheel"
+instead of "root" (so things like "tar.test" don't get the same result),
+stuff like "du" or "ls" often cares what filesystem you're mounted on
+(and MacOS hasn't even got the same ones _available_), 
+and we even found a mac kernel bug where extending a sparse
+file sparsely allocates the previous length as actual zeroed disk space
+(ala "truncate -s 3m file; truncate -s 5m file; du file" says it's using
+3 megabytes of disk space). There's probably more but
+that's where we stopped looking for now: since Rob doesn't have a mac
+to test on and the github tests don't reliably run when new commits are
+pushed (skipped when the servers are busy), fixing this hasn't
+been a priority. Lots of little red X in the github history because of this,
+though...</p>
+
+<p><u>Mkroot</u>:
+The output file names are now consistent across architectures: each
+root/$TARGET directory now contains an <b>fs</b> subdirectory with the
+expanded root filesystem, packaged into <b>initramfs.cpio.gz</b>,
+a <b>linux-kernel</b> built from <b>linux-fullconfig</b> which is built
+from <b>linux-miniconfig</b>, and a <b>run-qemu.sh</b> script to launch
+it under qemu. No more architecture name in the filenames (that's what
+the directory name is for), and no more "bzImage" or "vmlinux" depending
+on what filename the kernel build produced.</p>
+
+<p>The fs/init script has better chroot support (not warning about /dev/shm and
+/dev/pts already existing).
+The airlock build no longer includes ftpd (you can use
+httpd and wget, scp out of dropbear, mount a network filesystem from the
+host, or if you really want to still use ftp can match ftpget and ftpput).
+When mkroot is downloading extra packages (for example in the dropbear build),
+it falls back to the host wget if it can't fetch with toybox's version.
+(This is because toybox hasn't got built-in https support yet, it's on the
+todo list.)
+Updated the dropbear build to the current version and fixed a compiler
+path issue.
+Fixed version skew in the <a href=http://lkml.iu.edu/hypermail/linux/kernel/2110.3/00278.html>workaround</a>
+so the Linux kernel build doesn't require a third ELF package (but only
+for x86, not for any other architecture).</p>
+
+<a name="23-07-2022" /><a href="#23-07-2022"><hr><h2><b>July 23, 2022</b></h2></a>
+<p>Sorry the mailing list has been down since the 19th, Dreamhost
+<a href=https://landley.net/notes-2022.html#22-07-2022>happened
+again</a>. (First the web archive was empty, then it was down, then it was
+restored from a backup taken before the "upgrade" but was not updating with
+new messages, which they denied was an actual problem but now timeout bounce
+messages from all the attempts to send to it since it broke have started
+coming back saying a path doesn't exist on their server...)</p>
+
+<p>Dreamhost tech support has been informed of the issue a half-dozen times,
+and did at least replace the "Currently there are no messages" page with a
+backup from before they broke it on the first day. Unfortunately they have yet
+to acknowledge anything else is wrong with it since then, and don't seem to
+have support staff working over the weekend. This used to be an
+<a href=https://landley.net/dreamhost.txt>annual</a>
+<a href=https://landley.net/dreamhost2.txt>event</a> for them,
+but they hadn't done a truly major breakage in
+<a href=#12-21-2015>a while</a>. I _think_ the 11 month gap that last link
+mentions is still missing, but the server's down again (or at least timing
+out) so I can't check.</p>
+</span>
+
+<a name="06-05-2022" /><a href="#06-05-2022"><hr><h2><b>May 6, 2022</b></h2></a>
+<blockquote><p>
+The mighty ships tore across the empty wastes of space and
+finally dived screaming on to the first planet they came across - which
+happened to be the Earth - where due to a terrible miscalculation of scale
+the entire battle fleet was accidentally swallowed by a small dog.</p>
+<p>- The Hitchhiker's Guide to the Galaxy</p></blockquote>
+
+<p><a href=downloads/toybox-0.8.7.tar.gz>Toybox 0.8.7</a>
+(<a href=https://github.com/landley/toybox/releases/tag/0.8.7>git commit</a>)
+is out, with prebuilt <a href=downloads/binaries/0.8.7>static binaries</a> and
+<a href=downloads/binaries/mkroot/0.8.7>mkroot images</a>
+bootable under QEMU (using vanilla linux-5.17).</p>
+
+<p>Rob also <a href=downloads/binaries/toolchains/latest>uploaded</a>
+the prebuilt binary cross and native compilers used to build those
+mkroot images (there's a <a href=downloads/binaries/toolchains/latest/README>README</a>
+in there), and started producing
+<a href=https://www.youtube.com/channel/UC4VFy3wc1nzq5tUHhiti6fw>tutorial videos</a> explaining the
+toybox commands, their implementation, toybox's infrastructure...</p>
+
+<p>The commands <b>host</b>, <b>wget</b>, <b>openvt</b>, and
+<b>deallocvt</b> were cleaned up and promoted.
+Elliott contributed the new commands <b>uclampset</b>, <b>gpiodetect</b>,
+<b>gpioinfo</b>, <b>gpioiget</b>, <b>gpiofind</b>, and <b>gpioset</b>,
+and Rob wrote a simple <b>httpd</b> (largely to give wget.test something to
+talk to).</p>
+
+<p>One command was removed: <b>catv</b> didn't really serve a purpose
+(everybody just uses <b>cat -v</b>).</p>
+
+
+
+
+<p><u>Features</u>:
+<b>top</b> can now move the list with the LEFT/RIGHT cursor keys (changing the
+sort field is now SHIFT LEFT/RIGHT). Added <b>find -samefile</b>,
+<b>cmp -n</b> (and wired up skip1 skip2),
+<b>tar --strip components</b> (and tar --owner and --group can now specify :UID and :GID making tar.test more portable),
+<b>lsusb</b> and </b>lspci</b> now read /etc/{usb,pci}.ids[.gz] (when
+available) to provide human readable device descriptions,
+<b>ifconfig</b> can now rename interfaces.
+Moritz Weber added <b>wget</b> post support for form data.
+In toysh, <b>cd</b> got updated ("cd -" jumps to $OLDPWD,
+and cd can now handle deleted directories).</p>
+
+<p><u>Bugfixes</u>:
+<b>cp --preserve xattr,context</b> work together now, and
+Dario Freni fixed <b>cp --xattr</b> to avoid copying selinux context.
+The <b>sort -u</b> option now implies -s, <b>wget -O -</b> now writes to stdout,
+<b>pwget -B</b> removes more characters other implementations don't emit,
+</b>time</b>'s realtime output was not properly zero padding the fractional
+part, and <b>sed</b> now works with multiple w to the same file.
+Fixed <b>nl -E</b>, <b>realpath -e</b>, <b>find</b> -newerXY and @time.nanosecond parsing,
+Various <b>sh</b> (it handles ${X: -1:1} properly now,
+which is not the same as ${X:-1:1} because :- has special meaning).
+The <b>hello</b> command in the examples directory now wait for a keypress before
+exiting when run as PID 1 (because calling wait() returned "No child process"
+immediately.)
+The multiplexer's <b>toybox command --help</b> once again shows the command's
+help (not toybox --help).
+Elliott fixed a strip bug in the MacOS build, taught <b>file</b> not to be confused
+by ELF BSS sections but to otherwise detect more invalid ELF files,
+and fixed an <b>xargs</b> bug where stdin was inappropriately O_CLOEXEC.
+Github user hg42 reported a bug where <b>tar</b> was looping trying to remove ".."
+at the start of names.</p>
+
+<p><u>Library</u>:
+Taught flags.h to #define its own CLEANUP macros so switching FLAG()
+contexts requires fewer steps.
+When args.c is just enforcing max/min argument count but collecting no
+options, imply "?" so "command -123" isn't an unknown option.
+Moved lib/help.c into main.c (nothing else in lib/ had to rebuild
+when the config changes which commands are enabled).
+The remains of linestack.c were renamed utf8.c, and
+toys.h now includes sys/syscall.h so commands don't have to.</p>
+
+<p>Yank things with only one remaining user: moved get_line()
+to patch.c, struct str_len to bc.c, and struct ptr_len to ps.c
+Removed tty_esc() and tty_jump() wrappers.
+Various cleanups to lib/password.c and lib/tty.c.
+Removed the PEDANTIC_ARGS config option which just set a macro that was never
+used, xsignal_all_killers() now takes SIG_DFL as the reset value instead
+of explicitly checking for NULL,
+chomp() now removes any number of trailing \r\n, and it's now safe to
+llist_pop(0) just like dlist_pop(0).
+LongPing Wei improved support for copy_file_range().</p>
+
+<p><u>Build</u>:
+If you don't set $PREFIX, <b>make install</b> now defaults to $PWD/install
+(which does not require root access to write to, and you can tar up your
+pile of symlinks from there).
+More command sub-options removed (NETCAT_LISTEN and CAT_V).</p>
+
+<p>Some of the uglier scripts/make.sh plumbing moved into scripts/portability.sh
+(which should now be safe to source twice),
+and moved almost all config varible definitions to "configure" now. The
+new $GENDIR variable theoretically lets the "generated" directory live
+somewhere else (not very tested yet).
+Various tweaks to scripts/make.sh to try to avoid unnecessary rebuilds
+and library probes when toolchain and config haven't changed.
+Added -Wno-pointer-sign to $CFLAGS because passing an unsigned char * to a
+function that expects char * is not a problem.
+
+<p>The airlock install in scripts/install.sh had the $PENDING items sorted
+into "started" and "not started". Add git and bash to $PENDING (used
+out of $PATH by --version and the powerpc64le build, respectively).</p>
+
+<p><u>Cleanup</u>:
+Removed the lib/linestack.c plumbing (which was never finished and hadn't
+been touched in years).
+Merged lspci.c into lsusb.c (so they can share config file reading
+infrastructure), and merged chvt/deallocvt into openvt.c.
+Minor cleanups to ping, fsync, ionice, pmap, truncate, timeout, tty,
+factor, mount.
+Went through and replaced \033 with \e in strings (since clang supports
+it and \033 is just awkward). Added LL to constant 0 in the FLAG macros
+to prevent gcc from warning that 0<<32 might produce 0.
+Moved llvm's -Wno-string-plus-int into configure instead of probing
+for it, since gcc no longer dies when asked to suppress an unknown warning.</p>
+
+<p><u>mkroot</u>:
+the ANSI escape to undo QEMU's wordwrap bug is now in both the init script
+and launch wrapper script (so wordwrap isn't broken while running the
+emulated system, nor if the emulated system fails to run).
+If devtmpfs was already mounted on /dev, we still need to create dev/pts.
+The init script now includes the linux kernel bug workaround to enable ping
+support. The armv7 target enabled CONFIG_ARM_LPAE in the kernel to work around
+around <a href=https://bugs.launchpad.net/qemu/+bug/1790975>a QEMU bug</a>
+that's gone unfixed for 4 years. Enable network support in m68k target.
+The mcm-buildall.sh script got some minor updates, and the resulting
+cross and native compiler binaries are now downloadable so you don't have
+to run the build if you don't want to.</p>
+
+<p><u>Docs</u>:
+"toybox --help" no longer says "see toybox --help".
+There's an ANSI escape cheat sheet at the start of lib/tty.c.
+Reworded some command directory READMEs, and tweaked menuconfig display.
+Converted www/doc/mount.html and www/doc/ext2.html from text to html.
+Freshened up design.html a little (and fixed some typos pointed out by
+Peter Ennis).
+Replaced the git internals video URL in roadmap.html with a different
+performance of the same talk that hasn't been made private.
+Added the kconfig-language.txt from Linux-2.6.12 to the kconfig/ directory.</p>
+
 <a name="30-11-2021" /><a href="#30-11-2021"><hr><h2><b>November 30, 2021</b></h2></a>
 <blockquote><p>
 Busy? We'll I've just got this bulldozer to lie in front of or otherwise it'll

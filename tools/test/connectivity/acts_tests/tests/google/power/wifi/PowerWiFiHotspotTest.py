@@ -23,6 +23,7 @@ from acts_contrib.test_utils.wifi import wifi_test_utils as wutils
 from acts_contrib.test_utils.wifi import wifi_power_test_utils as wputils
 from acts_contrib.test_utils.power.IperfHelper import IperfHelper
 
+WAIT_TIME_BEFORE_CONNECT = 10
 
 class PowerWiFiHotspotTest(PWBT.PowerWiFiBaseTest):
     """ WiFi Tethering HotSpot Power test.
@@ -60,6 +61,7 @@ class PowerWiFiHotspotTest(PWBT.PowerWiFiBaseTest):
         Configures the Hotspot SSID
         """
         super().setup_class()
+        self.set_attenuation([0, 0, 0, 0])
 
         # If an SSID and password are indicated in the configuration parameters,
         # use those. If not, use default parameters and warn the user.
@@ -101,6 +103,15 @@ class PowerWiFiHotspotTest(PWBT.PowerWiFiBaseTest):
         super().setup_test()
         wutils.reset_wifi(self.android_devices[1])
 
+    def teardown_test(self):
+        # Tearing down tethering on dut
+        if self.dut.droid.isSdkAtLeastS():
+            hotspot_cmd = "cmd wifi stop-softap " + str(self.network[wutils.WifiEnums.SSID_KEY]) + \
+                          " wpa2 " + str(self.network[wutils.WifiEnums.PWD_KEY]) + " -b " + \
+                          str(list(self.test_configs.band)[0])
+            self.dut.adb.shell(hotspot_cmd)
+            wutils.reset_wifi(self.android_devices[1])
+
     def setup_hotspot(self, connect_client=False):
         """Configure Hotspot and connects client device.
 
@@ -134,12 +145,21 @@ class PowerWiFiHotspotTest(PWBT.PowerWiFiBaseTest):
                 self.main_network[self.test_configs.wifi_sharing])
 
         # Setup tethering on dut
-        wutils.start_wifi_tethering(
-            self.dut, self.network[wutils.WifiEnums.SSID_KEY],
-            self.network[wutils.WifiEnums.PWD_KEY], wifi_band_id)
+        if self.dut.droid.isSdkAtLeastS():
+            # Setup tethering on dut with adb command.
+            hotspot_cmd = "cmd wifi start-softap " + str(self.network[wutils.WifiEnums.SSID_KEY]) + \
+                          " wpa2 " + str(self.network[wutils.WifiEnums.PWD_KEY]) + " -b " + \
+                          str(list(self.test_configs.band)[0])
+            self.log.info(str(hotspot_cmd))
+            self.dut.adb.shell(hotspot_cmd)
+        else:
+            wutils.start_wifi_tethering(
+                self.dut, self.network[wutils.WifiEnums.SSID_KEY],
+                self.network[wutils.WifiEnums.PWD_KEY], wifi_band_id)
 
         # Connect client device to Hotspot
         if connect_client:
+            time.sleep(WAIT_TIME_BEFORE_CONNECT)
             wutils.wifi_connect(
                 self.android_devices[1],
                 self.network,
@@ -168,7 +188,14 @@ class PowerWiFiHotspotTest(PWBT.PowerWiFiBaseTest):
             self.client_iperf_helper.process_iperf_results(
                 self.dut, self.log, self.iperf_servers, self.test_name)
 
-        self.pass_fail_check(self.avg_current)
+        if hasattr(self, 'bitses'):
+            """
+            If measurement is taken through BITS, metric value is avg_power,
+            else metric value is avg_current.
+            """
+            self.pass_fail_check(self.power_result.metric_value)
+        else:
+            self.pass_fail_check(self.avg_current)
 
     def power_idle_tethering_test(self):
         """ Start power test when Hotspot is idle

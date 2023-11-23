@@ -12,11 +12,12 @@
 [package]
 edition = "2018"
 name = "getrandom"
-version = "0.2.5"
+version = "0.2.8"
 authors = ["The Rand Project Developers"]
 exclude = [".*"]
 description = "A small cross-platform library for retrieving random data from system source"
 documentation = "https://docs.rs/getrandom"
+readme = "README.md"
 categories = [
     "os",
     "no-std",
@@ -75,8 +76,8 @@ default-features = false
 version = "0.3.18"
 
 [target."cfg(target_os = \"wasi\")".dependencies.wasi]
-version = "0.10"
+version = "0.11"
 
 [target."cfg(unix)".dependencies.libc]
-version = "0.2.64"
+version = "0.2.120"
 default-features = false

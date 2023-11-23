@@ -5,12 +5,16 @@
  * Created by Wang Qi <mpiglet@outlook.com>
  *            Guo Xuenan <guoxuenan@huawei.com>
  */
+#define _GNU_SOURCE
 #include <stdlib.h>
 #include <getopt.h>
 #include <time.h>
+#include <sys/stat.h>
 #include "erofs/print.h"
 #include "erofs/inode.h"
 #include "erofs/io.h"
+#include "erofs/dir.h"
+#include "../lib/liberofs_private.h"
 
 #ifdef HAVE_LIBUUID
 #include <uuid.h>
@@ -22,6 +26,7 @@ struct erofsdump_cfg {
 	bool show_extent;
 	bool show_superblock;
 	bool show_statistics;
+	bool show_subdirectories;
 	erofs_nid_t nid;
 	const char *inode_path;
 };
@@ -73,6 +78,7 @@ static struct option long_options[] = {
 	{"nid", required_argument, NULL, 2},
 	{"device", required_argument, NULL, 3},
 	{"path", required_argument, NULL, 4},
+	{"ls", no_argument, NULL, 5},
 	{0, 0, 0, 0},
 };
 
@@ -91,10 +97,7 @@ static struct erofsdump_feature feature_lists[] = {
 	{ false, EROFS_FEATURE_INCOMPAT_DEVICE_TABLE, "device_table" },
 };
 
-static int erofs_read_dir(erofs_nid_t nid, erofs_nid_t parent_nid);
-static inline int erofs_checkdirent(struct erofs_dirent *de,
-		struct erofs_dirent *last_de,
-		u32 maxsize, const char *dname);
+static int erofsdump_readdir(struct erofs_dir_context *ctx);
 
 static void usage(void)
 {
@@ -102,9 +105,10 @@ static void usage(void)
 	      "Dump erofs layout from IMAGE, and [options] are:\n"
 	      " -S              show statistic information of the image\n"
 	      " -V              print the version number of dump.erofs and exit.\n"
-	      " -e              show extent info (--nid is required)\n"
+	      " -e              show extent info (INODE required)\n"
 	      " -s              show information about superblock\n"
 	      " --device=X      specify an extra device to be used together\n"
+	      " --ls            show directory contents (INODE required)\n"
 	      " --nid=#         show the target inode info of nid #\n"
 	      " --path=X        show the target inode info of path X\n"
 	      " --help          display this help and exit.\n",
@@ -113,7 +117,7 @@ static void usage(void)
 
 static void erofsdump_print_version(void)
 {
-	fprintf(stderr, "dump.erofs %s\n", cfg.c_version);
+	printf("dump.erofs %s\n", cfg.c_version);
 }
 
 static int erofsdump_parse_options_cfg(int argc, char **argv)
@@ -157,6 +161,9 @@ static int erofsdump_parse_options_cfg(int argc, char **argv)
 			dumpcfg.show_inode = true;
 			++dumpcfg.totalshow;
 			break;
+		case 5:
+			dumpcfg.show_subdirectories = true;
+			break;
 		default:
 			return -EINVAL;
 		}
@@ -178,7 +185,7 @@ static int erofsdump_parse_options_cfg(int argc, char **argv)
 	return 0;
 }
 
-static int erofs_get_occupied_size(struct erofs_inode *inode,
+static int erofsdump_get_occupied_size(struct erofs_inode *inode,
 		erofs_off_t *size)
 {
 	*size = 0;
@@ -196,23 +203,25 @@ static int erofs_get_occupied_size(struct erofs_inode *inode,
 		break;
 	default:
 		erofs_err("unknown datalayout");
-		return -1;
+		return -ENOTSUP;
 	}
 	return 0;
 }
 
-static int erofs_getfile_extension(const char *filename)
+static void inc_file_extension_count(const char *dname, unsigned int len)
 {
-	char *postfix = strrchr(filename, '.');
-	int type = 0;
+	char *postfix = memrchr(dname, '.', len);
+	int type;
 
-	if (!postfix)
-		return OTHERFILETYPE - 1;
-	for (type = 0; type < OTHERFILETYPE - 1; ++type) {
-		if (strcmp(postfix, file_types[type]) == 0)
-			break;
+	if (!postfix) {
+		type = OTHERFILETYPE - 1;
+	} else {
+		for (type = 0; type < OTHERFILETYPE - 1; ++type)
+			if (!strncmp(postfix, file_types[type],
+				     len - (postfix - dname)))
+				break;
 	}
-	return type;
+	++stats.file_type_stat[type];
 }
 
 static void update_file_size_statatics(erofs_off_t occupied_size,
@@ -247,190 +256,65 @@ static void update_file_size_statatics(erofs_off_t occupied_size,
 		stats.file_comp_size[occupied_size_mark]++;
 }
 
-static inline int erofs_checkdirent(struct erofs_dirent *de,
-		struct erofs_dirent *last_de,
-		u32 maxsize, const char *dname)
+static int erofsdump_ls_dirent_iter(struct erofs_dir_context *ctx)
 {
-	int dname_len;
-	unsigned int nameoff = le16_to_cpu(de->nameoff);
+	char fname[EROFS_NAME_LEN + 1];
 
-	if (nameoff < sizeof(struct erofs_dirent) ||
-			nameoff >= PAGE_SIZE) {
-		erofs_err("invalid de[0].nameoff %u @ nid %llu",
-				nameoff, de->nid | 0ULL);
-		return -EFSCORRUPTED;
-	}
-
-	dname_len = (de + 1 >= last_de) ? strnlen(dname, maxsize - nameoff) :
-				le16_to_cpu(de[1].nameoff) - nameoff;
-	/* a corrupted entry is found */
-	if (nameoff + dname_len > maxsize ||
-			dname_len > EROFS_NAME_LEN) {
-		erofs_err("bogus dirent @ nid %llu",
-				le64_to_cpu(de->nid) | 0ULL);
-		DBG_BUGON(1);
-		return -EFSCORRUPTED;
-	}
-	if (de->file_type >= EROFS_FT_MAX) {
-		erofs_err("invalid file type %llu", de->nid);
-		return -EFSCORRUPTED;
-	}
-	return dname_len;
+	strncpy(fname, ctx->dname, ctx->de_namelen);
+	fname[ctx->de_namelen] = '\0';
+	fprintf(stdout, "%10llu    %u  %s\n",  ctx->de_nid | 0ULL,
+		ctx->de_ftype, fname);
+	return 0;
 }
 
-static int erofs_read_dirent(struct erofs_dirent *de,
-		erofs_nid_t nid, erofs_nid_t parent_nid,
-		const char *dname)
+static int erofsdump_dirent_iter(struct erofs_dir_context *ctx)
+{
+	/* skip "." and ".." dentry */
+	if (ctx->dot_dotdot)
+		return 0;
+
+	return erofsdump_readdir(ctx);
+}
+
+static int erofsdump_readdir(struct erofs_dir_context *ctx)
 {
 	int err;
 	erofs_off_t occupied_size = 0;
-	struct erofs_inode inode = { .nid = de->nid };
-
-	stats.files++;
-	stats.file_category_stat[de->file_type]++;
-	err = erofs_read_inode_from_disk(&inode);
-	if (err) {
-		erofs_err("read file inode from disk failed!");
-		return err;
-	}
-
-	err = erofs_get_occupied_size(&inode, &occupied_size);
-	if (err) {
-		erofs_err("get file size failed\n");
-		return err;
-	}
-
-	if (de->file_type == EROFS_FT_REG_FILE) {
-		stats.files_total_origin_size += inode.i_size;
-		stats.file_type_stat[erofs_getfile_extension(dname)]++;
-		stats.files_total_size += occupied_size;
-		update_file_size_statatics(occupied_size, inode.i_size);
-	}
-
-	if ((de->file_type == EROFS_FT_DIR)
-			&& de->nid != nid && de->nid != parent_nid) {
-		err = erofs_read_dir(de->nid, nid);
-		if (err) {
-			erofs_err("parse dir nid %llu error occurred\n",
-					de->nid);
-			return err;
-		}
-	}
-	return 0;
-}
-
-static int erofs_read_dir(erofs_nid_t nid, erofs_nid_t parent_nid)
-{
-	int err;
-	erofs_off_t offset;
-	char buf[EROFS_BLKSIZ];
-	struct erofs_inode vi = { .nid = nid };
+	struct erofs_inode vi = { .nid = ctx->de_nid };
 
 	err = erofs_read_inode_from_disk(&vi);
-	if (err)
+	if (err) {
+		erofs_err("failed to read file inode from disk");
 		return err;
+	}
+	stats.files++;
+	stats.file_category_stat[erofs_mode_to_ftype(vi.i_mode)]++;
 
-	offset = 0;
-	while (offset < vi.i_size) {
-		erofs_off_t maxsize = min_t(erofs_off_t,
-						vi.i_size - offset, EROFS_BLKSIZ);
-		struct erofs_dirent *de = (void *)buf;
-		struct erofs_dirent *end;
-		unsigned int nameoff;
+	err = erofsdump_get_occupied_size(&vi, &occupied_size);
+	if (err) {
+		erofs_err("get file size failed");
+		return err;
+	}
 
-		err = erofs_pread(&vi, buf, maxsize, offset);
-		if (err)
-			return err;
+	if (S_ISREG(vi.i_mode)) {
+		stats.files_total_origin_size += vi.i_size;
+		inc_file_extension_count(ctx->dname, ctx->de_namelen);
+		stats.files_total_size += occupied_size;
+		update_file_size_statatics(occupied_size, vi.i_size);
+	}
 
-		nameoff = le16_to_cpu(de->nameoff);
-		end = (void *)buf + nameoff;
-		while (de < end) {
-			const char *dname;
-			int ret;
+	/* XXXX: the dir depth should be restricted in order to avoid loops */
+	if (S_ISDIR(vi.i_mode)) {
+		struct erofs_dir_context nctx = {
+			.flags = ctx->dir ? EROFS_READDIR_VALID_PNID : 0,
+			.pnid = ctx->dir ? ctx->dir->nid : 0,
+			.dir = &vi,
+			.cb = erofsdump_dirent_iter,
+		};
 
-			/* skip "." and ".." dentry */
-			if (de->nid == nid || de->nid == parent_nid) {
-				de++;
-				continue;
-			}
-
-			dname = (char *)buf + nameoff;
-			ret = erofs_checkdirent(de, end, maxsize, dname);
-			if (ret < 0)
-				return ret;
-			ret = erofs_read_dirent(de, nid, parent_nid, dname);
-			if (ret < 0)
-				return ret;
-			++de;
-		}
-		offset += maxsize;
+		return erofs_iterate_dir(&nctx, false);
 	}
 	return 0;
-}
-
-static int erofs_get_pathname(erofs_nid_t nid, erofs_nid_t parent_nid,
-		erofs_nid_t target, char *path, unsigned int pos)
-{
-	int err;
-	erofs_off_t offset;
-	char buf[EROFS_BLKSIZ];
-	struct erofs_inode inode = { .nid = nid };
-
-	path[pos++] = '/';
-	if (target == sbi.root_nid)
-		return 0;
-
-	err = erofs_read_inode_from_disk(&inode);
-	if (err) {
-		erofs_err("read inode failed @ nid %llu", nid | 0ULL);
-		return err;
-	}
-
-	offset = 0;
-	while (offset < inode.i_size) {
-		erofs_off_t maxsize = min_t(erofs_off_t,
-					inode.i_size - offset, EROFS_BLKSIZ);
-		struct erofs_dirent *de = (void *)buf;
-		struct erofs_dirent *end;
-		unsigned int nameoff;
-
-		err = erofs_pread(&inode, buf, maxsize, offset);
-		if (err)
-			return err;
-
-		nameoff = le16_to_cpu(de->nameoff);
-		end = (void *)buf + nameoff;
-		while (de < end) {
-			const char *dname;
-			int len;
-
-			nameoff = le16_to_cpu(de->nameoff);
-			dname = (char *)buf + nameoff;
-			len = erofs_checkdirent(de, end, maxsize, dname);
-			if (len < 0)
-				return len;
-
-			if (de->nid == target) {
-				memcpy(path + pos, dname, len);
-				path[pos + len] = '\0';
-				return 0;
-			}
-
-			if (de->file_type == EROFS_FT_DIR &&
-					de->nid != parent_nid &&
-					de->nid != nid) {
-				memcpy(path + pos, dname, len);
-				err = erofs_get_pathname(de->nid, nid,
-						target, path, pos + len);
-				if (!err)
-					return 0;
-				memset(path + pos, 0, len);
-			}
-			++de;
-		}
-		offset += maxsize;
-	}
-	return -1;
 }
 
 static int erofsdump_map_blocks(struct erofs_inode *inode,
@@ -451,7 +335,7 @@ static void erofsdump_show_fileinfo(bool show_extent)
 	erofs_off_t size;
 	u16 access_mode;
 	struct erofs_inode inode = { .nid = dumpcfg.nid };
-	char path[PATH_MAX + 1] = {0};
+	char path[PATH_MAX];
 	char access_mode_str[] = "rwxrwxrwx";
 	char timebuf[128] = {0};
 	unsigned int extent_count = 0;
@@ -481,8 +365,7 @@ static void erofsdump_show_fileinfo(bool show_extent)
 		return;
 	}
 
-	err = erofs_get_pathname(sbi.root_nid, sbi.root_nid,
-				 inode.nid, path, 0);
+	err = erofs_get_pathname(inode.nid, path, sizeof(path));
 	if (err < 0) {
 		erofs_err("file path not found @ nid %llu", inode.nid | 0ULL);
 		return;
@@ -510,10 +393,29 @@ static void erofsdump_show_fileinfo(bool show_extent)
 	fprintf(stdout, "Access: %04o/%s\n", access_mode, access_mode_str);
 	fprintf(stdout, "Timestamp: %s.%09d\n", timebuf, inode.i_mtime_nsec);
 
+	if (dumpcfg.show_subdirectories) {
+		struct erofs_dir_context ctx = {
+			.flags = EROFS_READDIR_VALID_PNID,
+			.pnid = inode.nid,
+			.dir = &inode,
+			.cb = erofsdump_ls_dirent_iter,
+			.de_nid = 0,
+			.dname = "",
+			.de_namelen = 0,
+		};
+
+		fprintf(stdout, "\n       NID TYPE  FILENAME\n");
+		err = erofs_iterate_dir(&ctx, false);
+		if (err) {
+			erofs_err("failed to list directory contents");
+			return;
+		}
+	}
+
 	if (!dumpcfg.show_extent)
 		return;
 
-	fprintf(stdout, "\n Ext:   logical offset   |  length :     physical offset    |  length \n");
+	fprintf(stdout, "\n Ext:   logical offset   |  length :     physical offset    |  length\n");
 	while (map.m_la < inode.i_size) {
 		struct erofs_map_dev mdev;
 
@@ -631,13 +533,21 @@ static void erofsdump_file_statistic(void)
 static void erofsdump_print_statistic(void)
 {
 	int err;
+	struct erofs_dir_context ctx = {
+		.flags = 0,
+		.pnid = 0,
+		.dir = NULL,
+		.cb = erofsdump_dirent_iter,
+		.de_nid = sbi.root_nid,
+		.dname = "",
+		.de_namelen = 0,
+	};
 
-	err = erofs_read_dir(sbi.root_nid, sbi.root_nid);
+	err = erofsdump_readdir(&ctx);
 	if (err) {
 		erofs_err("read dir failed");
 		return;
 	}
-
 	erofsdump_file_statistic();
 	erofsdump_filesize_distribution("Original",
 			stats.file_original_size,

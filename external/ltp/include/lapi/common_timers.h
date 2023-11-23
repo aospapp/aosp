@@ -4,15 +4,15 @@
  * Keep all the common defines/checks for the timer tests here
  */
 
-#ifndef __COMMON_TIMERS_H__
-#define __COMMON_TIMERS_H__
+#ifndef LAPI_COMMON_TIMERS_H__
+#define LAPI_COMMON_TIMERS_H__
 
 #include "config.h"
 #include "lapi/syscalls.h"
 #include "lapi/posix_clocks.h"
 
 #ifndef NSEC_PER_SEC
-#define NSEC_PER_SEC (1000000000L)
+#define NSEC_PER_SEC (1000000000LL)
 #endif
 
 static const clock_t clock_list[] = {
@@ -63,11 +63,6 @@ static inline int possibly_unsupported(clock_t clock)
 	}
 }
 
-static inline int have_cputime_timers(void)
-{
-	return tst_kvercmp(2, 6, 12) >= 0;
-}
-
 #include "lapi/syscalls.h"
 
 #include <time.h>
@@ -78,4 +73,4 @@ static inline int have_cputime_timers(void)
  */
 typedef int kernel_timer_t;
 
-#endif
+#endif /* LAPI_COMMON_TIMERS_H__ */

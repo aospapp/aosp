@@ -17,7 +17,6 @@
  ******************************************************************************/
 
 #include "bt_target.h"
-#include "bt_utils.h"
 #include "gatt_api.h"
 #include "gatt_int.h"
 #include "osi/include/allocator.h"
@@ -50,6 +49,7 @@ static tGATT_CBACK srvc_gatt_cback = {
     .p_congestion_cb = nullptr,
     .p_phy_update_cb = nullptr,
     .p_conn_update_cb = nullptr,
+    .p_subrate_chg_cb = nullptr,
 };
 
 /* type for action functions */
@@ -316,7 +316,7 @@ static void srvc_eng_connect_cback(UNUSED_ATTR tGATT_IF gatt_if,
                                    const RawAddress& bda, uint16_t conn_id,
                                    bool connected, tGATT_DISCONN_REASON reason,
                                    UNUSED_ATTR tBT_TRANSPORT transport) {
-  VLOG(1) << __func__ << ": from " << bda
+  VLOG(1) << __func__ << ": from " << ADDRESS_TO_LOGGABLE_STR(bda)
           << StringPrintf(" connected:%d conn_id=%d", connected, conn_id);
 
   if (connected) {

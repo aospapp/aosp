@@ -31,7 +31,7 @@ import android.util.Log;
 
 import androidx.fragment.app.FragmentActivity;
 
-import com.android.tv.settings.library.overlay.FlavorUtils;
+import com.android.tv.settings.overlay.FlavorUtils;
 
 import java.io.IOException;
 
@@ -58,7 +58,7 @@ public class AddAccountWithTypeActivity extends FragmentActivity {
                     Log.e(TAG, "Failed to retrieve add account intent from authenticator");
                     setResultAndFinish(Activity.RESULT_CANCELED);
                 } else {
-                    startActivityForResult(addAccountIntent, REQUEST_ADD_ACCOUNT);
+                    startActivityForResult(new Intent(addAccountIntent), REQUEST_ADD_ACCOUNT);
                 }
             } catch (IOException|AuthenticatorException|OperationCanceledException e) {
                 Log.e(TAG, "Failed to get add account intent: ", e);
@@ -93,6 +93,7 @@ public class AddAccountWithTypeActivity extends FragmentActivity {
         }
     }
 
+    @SuppressWarnings("MissingSuperCall") // TODO: fix me
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         // User selected an account type, so kick off the add account flow for that.

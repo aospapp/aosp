@@ -159,6 +159,7 @@ class GoldfishComputeClient(android_compute_client.AndroidComputeClient):
                        kernel_build_target=None,
                        emulator_branch=None,
                        emulator_build_id=None,
+                       emulator_build_target=None,
                        blank_data_disk_size_gb=None,
                        gpu=None,
                        avd_spec=None,
@@ -180,6 +181,7 @@ class GoldfishComputeClient(android_compute_client.AndroidComputeClient):
             kernel_build_target: kernel target, e.g. "kernel_x86_64"
             emulator_branch: String, emulator branch name, e.g."aosp-emu-master-dev"
             emulator_build_id: String, emulator build id, a string, e.g. "2263051", "P2804227"
+            emulator_build_target: String, emulator build target.
             blank_data_disk_size_gb: Integer, size of the blank data disk in GB.
             gpu: String, GPU that should be attached to the instance, or None of no
                  acceleration is needed. e.g. "nvidia-tesla-k80"
@@ -220,6 +222,8 @@ class GoldfishComputeClient(android_compute_client.AndroidComputeClient):
             metadata[
                 "cvd_01_fetch_emulator_bid"] = "{branch}/{build_id}".format(
                     branch=emulator_branch, build_id=emulator_build_id)
+        if emulator_build_target:
+            metadata["cvd_01_fetch_emulator_build_target"] = emulator_build_target
         if launch_args:
             metadata["launch_args"] = launch_args
         metadata["cvd_01_launch"] = "1"

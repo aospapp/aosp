@@ -52,7 +52,7 @@ public class QosCallbackTracker {
     private final Handler mConnectivityServiceHandler;
 
     @NonNull
-    private final ConnectivityService.PerUidCounter mNetworkRequestCounter;
+    private final ConnectivityService.RequestInfoPerUidCounter mNetworkRequestCounter;
 
     /**
      * Each agent gets a unique callback id that is used to proxy messages back to the original
@@ -78,7 +78,7 @@ public class QosCallbackTracker {
      *                              uid
      */
     public QosCallbackTracker(@NonNull final Handler connectivityServiceHandler,
-            final ConnectivityService.PerUidCounter networkRequestCounter) {
+            final ConnectivityService.RequestInfoPerUidCounter networkRequestCounter) {
         mConnectivityServiceHandler = connectivityServiceHandler;
         mNetworkRequestCounter = networkRequestCounter;
     }

@@ -5,5 +5,11 @@
   ],
   "device": true,
   "run": true,
-  "tests": true
+  "tests": true,
+  "dependency-blocklist": [
+    "trybuild"
+  ],
+  "test-blocklist": [
+    "tests/compiletest.rs"
+  ]
 }

@@ -1574,6 +1574,7 @@ public class TextUtilsTest  {
     }
 
     @Test(expected=NullPointerException.class)
+    @SuppressWarnings("NullArgumentForNonNullParameter")
     public void testIsGraphicCharNull() {
         assertFalse(TextUtils.isGraphic((Character) null));
     }

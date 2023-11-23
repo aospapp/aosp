@@ -30,7 +30,7 @@
     <string name="notification_disconnectedCall_body" msgid="600491714584417536">"由於你正在撥打緊急電話，因此你與<xliff:g id="CALLER">%s</xliff:g>的通話已中斷。"</string>
     <string name="notification_disconnectedCall_generic_body" msgid="5282765206349184853">"你撥出了緊急電話，因此目前的通話已中斷。"</string>
     <string name="notification_audioProcessing_title" msgid="1619035039880584575">"背景通話"</string>
-    <string name="notification_audioProcessing_body" msgid="6397005913770420388">"「<xliff:g id="AUDIO_PROCESSING_APP_NAME">%s</xliff:g>」已將通話切換到在背景進行。這個應用程式可能會在通話期間存取及播放音訊。"</string>
+    <string name="notification_audioProcessing_body" msgid="8811420157964118913">"「<xliff:g id="AUDIO_PROCESSING_APP_NAME">%s</xliff:g>」正在背景處理通話，因此可能會在通話期間存取及播放音訊。"</string>
     <string name="notification_incallservice_not_responding_title" msgid="5347557574288598548">"「<xliff:g id="IN_CALL_SERVICE_APP_NAME">%s</xliff:g>」已停止回應"</string>
     <string name="notification_incallservice_not_responding_body" msgid="9209308270131968623">"目前是透過裝置內建的電話應用程式進行通話"</string>
     <string name="accessibility_call_muted" msgid="2968461092554300779">"通話已靜音。"</string>
@@ -39,7 +39,7 @@
     <string name="respond_via_sms_canned_response_2" msgid="2052951316129952406">"我待會就回電。"</string>
     <string name="respond_via_sms_canned_response_3" msgid="6656147963478092035">"我晚點回電。"</string>
     <string name="respond_via_sms_canned_response_4" msgid="9141132488345561047">"我現在不方便講話，晚點再打來好嗎？"</string>
-    <string name="respond_via_sms_setting_title" msgid="4762275482898830160">"快速回應"</string>
+    <string name="respond_via_sms_setting_title" msgid="4762275482898830160">"應答短訊"</string>
     <string name="respond_via_sms_setting_title_2" msgid="4914853536609553457">"編輯快速回應"</string>
     <string name="respond_via_sms_setting_summary" msgid="8054571501085436868"></string>
     <string name="respond_via_sms_edittext_dialog_title" msgid="6579353156073272157">"快速回應"</string>
@@ -100,6 +100,7 @@
     <string name="notification_channel_background_calls" msgid="7785659903711350506">"背景通話"</string>
     <string name="notification_channel_disconnected_calls" msgid="8228636543997645757">"通話中斷"</string>
     <string name="notification_channel_in_call_service_crash" msgid="7313237519166984267">"通話應用程式異常終止"</string>
+    <string name="notification_channel_call_streaming" msgid="5100510699787538991">"通話串流"</string>
     <string name="alert_outgoing_call" msgid="5319895109298927431">"撥打這通電話將結束你的「<xliff:g id="OTHER_APP">%1$s</xliff:g>」通話。"</string>
     <string name="alert_redirect_outgoing_call_or_not" msgid="665409645789521636">"選擇撥打這通電話的方式"</string>
     <string name="alert_place_outgoing_call_with_redirection" msgid="5221065030959024121">"使用「<xliff:g id="OTHER_APP">%1$s</xliff:g>」轉接電話"</string>
@@ -123,4 +124,14 @@
     <string name="developer_title" msgid="9146088855661672353">"電信開發人員選單"</string>
     <string name="toast_emergency_can_not_pull_call" msgid="9074229465338410869">"如果裝置已撥打緊急電話，就無法進行其他通話。"</string>
     <string name="cancel" msgid="6733466216239934756">"取消"</string>
+    <string name="back" msgid="6915955601805550206">"返回"</string>
+    <string name="callendpoint_name_earpiece" msgid="7047285080319678594">"耳機"</string>
+    <string name="callendpoint_name_bluetooth" msgid="210210953208913172">"藍牙"</string>
+    <string name="callendpoint_name_wiredheadset" msgid="6860787176412079742">"有線耳機"</string>
+    <string name="callendpoint_name_speaker" msgid="1971760468695323189">"喇叭"</string>
+    <string name="callendpoint_name_streaming" msgid="2337595450408275576">"外部"</string>
+    <string name="callendpoint_name_unknown" msgid="2199074708477193852">"不明"</string>
+    <string name="call_streaming_notification_body" msgid="502216105683378263">"正在將音訊串流到其他裝置"</string>
+    <string name="call_streaming_notification_action_hang_up" msgid="7017663335289063827">"掛斷"</string>
+    <string name="call_streaming_notification_action_switch_here" msgid="3524180754186221228">"切換到這部裝置"</string>
 </resources>

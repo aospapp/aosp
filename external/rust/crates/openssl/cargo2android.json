@@ -1,0 +1,11 @@
+{
+  "apex-available": [
+    "//apex_available:platform",
+    "com.android.virt"
+  ],
+  "device": true,
+  "features": "unstable_boringssl",
+  "run": true,
+  "vendor-available": true,
+  "patch": "patches/Android.bp.diff"
+}

@@ -35,6 +35,7 @@ import android.car.CarBugreportManager;
 import android.car.CarNotConnectedException;
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.ServiceInfo;
 import android.hardware.display.DisplayManager;
 import android.media.AudioManager;
 import android.media.Ringtone;
@@ -61,6 +62,7 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.util.Objects;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -265,7 +267,8 @@ public class BugReportService extends Service {
         mIsCollectingBugReport.set(true);
         mBugReportProgress.set(0);
 
-        startForeground(BUGREPORT_IN_PROGRESS_NOTIF_ID, buildProgressNotification());
+        startForeground(BUGREPORT_IN_PROGRESS_NOTIF_ID, buildProgressNotification(),
+                ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE);
         showProgressNotification();
 
         collectBugReport();
@@ -557,7 +560,7 @@ public class BugReportService extends Service {
             startActivity(BugReportActivity.buildAddAudioIntent(this, mMetaBugReport));
         } else {
             // NOTE: If bugreport is TYPE_AUDIO_FIRST, it will already contain an audio message.
-            Status status = mConfig.getAutoUpload()
+            Status status = mConfig.isAutoUpload()
                     ? Status.STATUS_UPLOAD_PENDING : Status.STATUS_PENDING_USER_ACTION;
             BugStorageUtils.setBugReportStatus(BugReportService.this,
                     mMetaBugReport, status, /* message= */ "");
@@ -617,7 +620,8 @@ public class BugReportService extends Service {
                 }
                 String filename = file.getName();
                 // only for the zipped output file, we add individual entries to zip file.
-                if (filename.equals(OUTPUT_ZIP_FILE) || filename.equals(EXTRA_OUTPUT_ZIP_FILE)) {
+                if (Objects.equals(filename, OUTPUT_ZIP_FILE)
+                        || Objects.equals(filename, EXTRA_OUTPUT_ZIP_FILE)) {
                     ZipUtils.extractZippedFileToZipStream(file, zipStream);
                 } else {
                     ZipUtils.addFileToZipStream(file, zipStream);

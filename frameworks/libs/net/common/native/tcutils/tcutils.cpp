@@ -19,7 +19,7 @@
 #include "tcutils/tcutils.h"
 
 #include "logging.h"
-#include "kernelversion.h"
+#include "bpf/KernelUtils.h"
 #include "scopeguard.h"
 
 #include <arpa/inet.h>
@@ -386,6 +386,12 @@ int sendAndProcessNetlinkResponse(const void *req, int len) {
     return -error;
   }
 
+  if (setsockopt(fd, SOL_NETLINK, NETLINK_EXT_ACK, &on, sizeof(on))) {
+    int error = errno;
+    ALOGW("setsockopt(fd, SOL_NETLINK, NETLINK_EXT_ACK, 1): %d", error);
+    // will fail on 4.9 kernels so don't: return -error;
+  }
+
   // this is needed to get valid strace netlink parsing, it allocates the pid
   if (bind(fd, (const struct sockaddr *)&KERNEL_NLADDR,
            sizeof(KERNEL_NLADDR))) {
@@ -498,7 +504,7 @@ int isEthernet(const char *iface, bool &isEthernet) {
     // shipped with Android S, so (for safety) let's limit ourselves to
     // >5.10, ie. 5.11+ as a guarantee we're on Android T+ and thus no
     // longer need this non-upstream compatibility logic
-    static bool is_pre_5_11_kernel = !isAtLeastKernelVersion(5, 11, 0);
+    static bool is_pre_5_11_kernel = !bpf::isAtLeastKernelVersion(5, 11, 0);
     if (is_pre_5_11_kernel)
       return false;
   }

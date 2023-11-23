@@ -38,3 +38,23 @@ prop {
     access: Readonly
     prop_name: "apexd.config.dm_create.timeout"
 }
+
+prop {
+    api_name: "loop_wait_attempts"
+    type: UInt
+    scope: Internal
+    access: Readonly
+    prop_name: "apexd.config.loop_wait.attempts"
+}
+
+# This sysprop allows adjusting the number of threads that are used
+# to activate Apex Packages. If this sysprop is not set or set to 0,
+# the total number of threads equal the number of packages.
+# The maximum number of threads is capped to the number of packages.
+prop {
+    api_name: "boot_activation_threads"
+    type: UInt
+    scope: Internal
+    access: Readonly
+    prop_name: "apexd.config.boot_activation.threads"
+}

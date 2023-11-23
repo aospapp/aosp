@@ -32,7 +32,6 @@ static_library("osi") {
     "src/properties.cc",
     "src/reactor.cc",
     "src/ringbuffer.cc",
-    "src/semaphore.cc",
     "src/socket.cc",
 
     # TODO(mcchou): Remove these sources after platform specific
@@ -41,14 +40,21 @@ static_library("osi") {
     "src/socket_utils/socket_local_server.cc",
     "src/thread.cc",
     "src/wakelock.cc",
+
+    # internal dependencies to not be used outside
+    "src/internal/semaphore.cc",
   ]
 
   include_dirs = [
     "//bt/system/",
-    "//bt/system/linux_include",
     "//bt/system/internal_include",
-    "//bt/system/utils/include",
+    "//bt/system/linux_include",
+    "//bt/system/osi/include_internal",
     "//bt/system/stack/include",
+  ]
+
+  cflags = [
+    "-DLIB_OSI_INTERNAL",
   ]
 
   deps = [
@@ -79,11 +85,18 @@ if (use.test) {
       "test/reactor_test.cc",
       "test/ringbuffer_test.cc",
       "test/thread_test.cc",
+
+      "test/internal/semaphore_test.cc",
     ]
 
     include_dirs = [
       "//bt/system/",
+      "//bt/system/osi/include_internal",
       "//bt/system/osi/test",
+    ]
+
+    cflags = [
+      "-DLIB_OSI_INTERNAL",
     ]
 
     deps = [

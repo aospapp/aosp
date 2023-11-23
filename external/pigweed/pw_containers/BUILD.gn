@@ -14,6 +14,7 @@
 
 import("//build_overrides/pigweed.gni")
 
+import("$dir_pw_bloat/bloat.gni")
 import("$dir_pw_build/target_types.gni")
 import("$dir_pw_docgen/docs.gni")
 import("$dir_pw_unit_test/test.gni")
@@ -24,20 +25,39 @@ config("public_include_path") {
 
 group("pw_containers") {
   public_deps = [
+    ":algorithm",
     ":flat_map",
     ":intrusive_list",
     ":vector",
   ]
 }
 
+pw_source_set("algorithm") {
+  public_configs = [ ":public_include_path" ]
+  public = [
+    "public/pw_containers/algorithm.h",
+    "public/pw_containers/internal/algorithm_internal.h",
+  ]
+}
+
 pw_source_set("filtered_view") {
   public_configs = [ ":public_include_path" ]
   public = [ "public/pw_containers/filtered_view.h" ]
+  public_deps = [
+    dir_pw_assert,
+    dir_pw_preprocessor,
+  ]
 }
 
 pw_source_set("flat_map") {
   public_configs = [ ":public_include_path" ]
   public = [ "public/pw_containers/flat_map.h" ]
+}
+
+pw_source_set("iterator") {
+  public_configs = [ ":public_include_path" ]
+  public_deps = [ dir_pw_polyfill ]
+  public = [ "public/pw_containers/iterator.h" ]
 }
 
 pw_source_set("to_array") {
@@ -47,7 +67,10 @@ pw_source_set("to_array") {
 
 pw_source_set("vector") {
   public_configs = [ ":public_include_path" ]
-  public_deps = [ dir_pw_assert ]
+  public_deps = [
+    dir_pw_assert,
+    dir_pw_polyfill,
+  ]
   public = [ "public/pw_containers/vector.h" ]
 }
 
@@ -68,6 +91,7 @@ pw_source_set("intrusive_list") {
 
 pw_test_group("tests") {
   tests = [
+    ":algorithm_test",
     ":filtered_view_test",
     ":flat_map_test",
     ":intrusive_list_test",
@@ -77,11 +101,22 @@ pw_test_group("tests") {
   ]
 }
 
+pw_test("algorithm_test") {
+  sources = [ "algorithm_test.cc" ]
+  deps = [
+    ":algorithm",
+    ":intrusive_list",
+    ":vector",
+    dir_pw_span,
+  ]
+}
+
 pw_test("filtered_view_test") {
   sources = [ "filtered_view_test.cc" ]
   deps = [
     ":filtered_view",
     ":intrusive_list",
+    dir_pw_span,
   ]
 }
 
@@ -111,8 +146,46 @@ pw_test("intrusive_list_test") {
     ":intrusive_list",
     "$dir_pw_preprocessor",
   ]
+  negative_compilation_tests = true
 }
 
 pw_doc_group("docs") {
   sources = [ "docs.rst" ]
+  report_deps = [ ":containers_size_report" ]
+}
+
+pw_size_diff("containers_size_report") {
+  title = "Pigweed containers size report"
+  binaries = [
+    {
+      target = "size_report:linked_list_one_item"
+      base = "size_report:base"
+      label = "linked list one item"
+    },
+    {
+      target = "size_report:linked_list_two_item"
+      base = "size_report:base"
+      label = "linked list two item"
+    },
+    {
+      target = "size_report:linked_list_four_item"
+      base = "size_report:base"
+      label = "linked list four item"
+    },
+    {
+      target = "size_report:intrusive_list_one_item"
+      base = "size_report:base"
+      label = "intrusive list one item"
+    },
+    {
+      target = "size_report:intrusive_list_two_item"
+      base = "size_report:base"
+      label = "intrusive list two item"
+    },
+    {
+      target = "size_report:intrusive_list_four_item"
+      base = "size_report:base"
+      label = "intrusive list four item"
+    },
+  ]
 }

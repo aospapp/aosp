@@ -283,7 +283,8 @@ status_t EmulatedCameraDeviceSessionHwlImpl::ConfigurePipeline(
                            : EmulatedSensor::OverrideFormat(
                                  stream.format, stream.dynamic_profile),
               .producer_usage = is_input ? 0
-                                         : GRALLOC_USAGE_HW_CAMERA_WRITE |
+                                         : GRALLOC_USAGE_SW_WRITE_OFTEN |
+                                               GRALLOC_USAGE_HW_CAMERA_WRITE |
                                                GRALLOC_USAGE_HW_CAMERA_READ,
               .consumer_usage = 0,
               .max_buffers = max_pipeline_depth_,
@@ -302,7 +303,8 @@ status_t EmulatedCameraDeviceSessionHwlImpl::ConfigurePipeline(
              .buffer_size = stream.buffer_size,
              .is_input = is_input,
              .group_id = stream.group_id,
-             .use_case = stream.use_case}));
+             .use_case = stream.use_case,
+             .color_space = stream.color_space}));
 
     if (stream.group_id != -1 && stream.is_physical_camera_stream) {
       // TODO: For quad bayer camera, the logical camera id should be used if

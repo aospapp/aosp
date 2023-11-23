@@ -16,6 +16,8 @@
 
 package android.net;
 
+import static android.annotation.SystemApi.Client.PRIVILEGED_APPS;
+
 import android.annotation.IntDef;
 import android.annotation.IntRange;
 import android.annotation.NonNull;
@@ -52,7 +54,8 @@ import java.util.concurrent.Executor;
  * request. If it does, it MUST support at least 3 concurrent keepalive slots.
  */
 public abstract class SocketKeepalive implements AutoCloseable {
-    static final String TAG = "SocketKeepalive";
+    /** @hide */
+    protected static final String TAG = "SocketKeepalive";
 
     /**
      * Success. It indicates there is no error.
@@ -60,6 +63,12 @@ public abstract class SocketKeepalive implements AutoCloseable {
      */
     @SystemApi
     public static final int SUCCESS = 0;
+
+    /**
+     * Success when trying to suspend.
+     * @hide
+     */
+    public static final int SUCCESS_PAUSED = 1;
 
     /**
      * No keepalive. This should only be internally as it indicates There is no keepalive.
@@ -140,9 +149,7 @@ public abstract class SocketKeepalive implements AutoCloseable {
     public static final int ERROR_INSUFFICIENT_RESOURCES = -32;
 
     /**
-     * There was no such slot. This should only be internally as it indicates
-     * a programming error in the system server. It should not propagate to
-     * applications.
+     * There was no such slot, or no keepalive running on this slot.
      * @hide
      */
     @SystemApi
@@ -171,6 +178,27 @@ public abstract class SocketKeepalive implements AutoCloseable {
             ERROR_INSUFFICIENT_RESOURCES,
     })
     public @interface KeepaliveEvent {}
+
+    /**
+     * Whether the system automatically toggles keepalive when no TCP connection is open on the VPN.
+     *
+     * If this flag is present, the system will monitor the VPN(s) running on top of the specified
+     * network for open TCP connections. When no such connections are open, it will turn off the
+     * keepalives to conserve battery power. When there is at least one such connection it will
+     * turn on the keepalives to make sure functionality is preserved.
+     *
+     * This only works with {@link NattSocketKeepalive}.
+     * @hide
+     */
+    @SystemApi
+    public static final int FLAG_AUTOMATIC_ON_OFF = 1 << 0;
+
+    /** @hide */
+    @Retention(RetentionPolicy.SOURCE)
+    @IntDef(prefix = { "FLAG_"}, flag = true, value = {
+            FLAG_AUTOMATIC_ON_OFF
+    })
+    public @interface StartFlags {}
 
     /**
      * The minimum interval in seconds between keepalive packet transmissions.
@@ -215,15 +243,19 @@ public abstract class SocketKeepalive implements AutoCloseable {
         }
     }
 
-    @NonNull final IConnectivityManager mService;
-    @NonNull final Network mNetwork;
-    @NonNull final ParcelFileDescriptor mPfd;
-    @NonNull final Executor mExecutor;
-    @NonNull final ISocketKeepaliveCallback mCallback;
-    // TODO: remove slot since mCallback could be used to identify which keepalive to stop.
-    @Nullable Integer mSlot;
+    /** @hide */
+    @NonNull protected final IConnectivityManager mService;
+    /** @hide */
+    @NonNull protected final Network mNetwork;
+    /** @hide */
+    @NonNull protected final ParcelFileDescriptor mPfd;
+    /** @hide */
+    @NonNull protected final Executor mExecutor;
+    /** @hide */
+    @NonNull protected final ISocketKeepaliveCallback mCallback;
 
-    SocketKeepalive(@NonNull IConnectivityManager service, @NonNull Network network,
+    /** @hide */
+    public SocketKeepalive(@NonNull IConnectivityManager service, @NonNull Network network,
             @NonNull ParcelFileDescriptor pfd,
             @NonNull Executor executor, @NonNull Callback callback) {
         mService = service;
@@ -232,12 +264,23 @@ public abstract class SocketKeepalive implements AutoCloseable {
         mExecutor = executor;
         mCallback = new ISocketKeepaliveCallback.Stub() {
             @Override
-            public void onStarted(int slot) {
+            public void onStarted() {
                 final long token = Binder.clearCallingIdentity();
                 try {
                     mExecutor.execute(() -> {
-                        mSlot = slot;
                         callback.onStarted();
+                    });
+                } finally {
+                    Binder.restoreCallingIdentity(token);
+                }
+            }
+
+            @Override
+            public void onResumed() {
+                final long token = Binder.clearCallingIdentity();
+                try {
+                    mExecutor.execute(() -> {
+                        callback.onResumed();
                     });
                 } finally {
                     Binder.restoreCallingIdentity(token);
@@ -249,8 +292,19 @@ public abstract class SocketKeepalive implements AutoCloseable {
                 final long token = Binder.clearCallingIdentity();
                 try {
                     executor.execute(() -> {
-                        mSlot = null;
                         callback.onStopped();
+                    });
+                } finally {
+                    Binder.restoreCallingIdentity(token);
+                }
+            }
+
+            @Override
+            public void onPaused() {
+                final long token = Binder.clearCallingIdentity();
+                try {
+                    executor.execute(() -> {
+                        callback.onPaused();
                     });
                 } finally {
                     Binder.restoreCallingIdentity(token);
@@ -262,7 +316,6 @@ public abstract class SocketKeepalive implements AutoCloseable {
                 final long token = Binder.clearCallingIdentity();
                 try {
                     executor.execute(() -> {
-                        mSlot = null;
                         callback.onError(error);
                     });
                 } finally {
@@ -275,7 +328,6 @@ public abstract class SocketKeepalive implements AutoCloseable {
                 final long token = Binder.clearCallingIdentity();
                 try {
                     executor.execute(() -> {
-                        mSlot = null;
                         callback.onDataReceived();
                     });
                 } finally {
@@ -286,13 +338,15 @@ public abstract class SocketKeepalive implements AutoCloseable {
     }
 
     /**
-     * Request that keepalive be started with the given {@code intervalSec}. See
-     * {@link SocketKeepalive}. If the remote binder dies, or the binder call throws an exception
-     * when invoking start or stop of the {@link SocketKeepalive}, a {@link RemoteException} will be
-     * thrown into the {@code executor}. This is typically not important to catch because the remote
-     * party is the system, so if it is not in shape to communicate through binder the system is
-     * probably going down anyway. If the caller cares regardless, it can use a custom
-     * {@link Executor} to catch the {@link RemoteException}.
+     * Request that keepalive be started with the given {@code intervalSec}.
+     *
+     * See {@link SocketKeepalive}. If the remote binder dies, or the binder call throws an
+     * exception when invoking start or stop of the {@link SocketKeepalive}, a
+     * {@link RuntimeException} caused by a {@link RemoteException} will be thrown into the
+     * {@link Executor}. This is typically not important to catch because the remote party is
+     * the system, so if it is not in shape to communicate through binder the system is going
+     * down anyway. If the caller still cares, it can use a custom {@link Executor} to catch the
+     * {@link RuntimeException}.
      *
      * @param intervalSec The target interval in seconds between keepalive packet transmissions.
      *                    The interval should be between 10 seconds and 3600 seconds, otherwise
@@ -300,10 +354,39 @@ public abstract class SocketKeepalive implements AutoCloseable {
      */
     public final void start(@IntRange(from = MIN_INTERVAL_SEC, to = MAX_INTERVAL_SEC)
             int intervalSec) {
-        startImpl(intervalSec);
+        startImpl(intervalSec, 0 /* flags */, null /* underpinnedNetwork */);
     }
 
-    abstract void startImpl(int intervalSec);
+    /**
+     * Request that keepalive be started with the given {@code intervalSec}.
+     *
+     * See {@link SocketKeepalive}. If the remote binder dies, or the binder call throws an
+     * exception when invoking start or stop of the {@link SocketKeepalive}, a
+     * {@link RuntimeException} caused by a {@link RemoteException} will be thrown into the
+     * {@link Executor}. This is typically not important to catch because the remote party is
+     * the system, so if it is not in shape to communicate through binder the system is going
+     * down anyway. If the caller still cares, it can use a custom {@link Executor} to catch the
+     * {@link RuntimeException}.
+     *
+     * @param intervalSec The target interval in seconds between keepalive packet transmissions.
+     *                    The interval should be between 10 seconds and 3600 seconds. Otherwise,
+     *                    the supplied {@link Callback} will see a call to
+     *                    {@link Callback#onError(int)} with {@link #ERROR_INVALID_INTERVAL}.
+     * @param flags Flags to enable/disable available options on this keepalive.
+     * @param underpinnedNetwork an optional network running over mNetwork that this
+     *                           keepalive is intended to keep up, e.g. an IPSec
+     *                           tunnel running over mNetwork.
+     * @hide
+     */
+    @SystemApi(client = PRIVILEGED_APPS)
+    public final void start(@IntRange(from = MIN_INTERVAL_SEC, to = MAX_INTERVAL_SEC)
+            int intervalSec, @StartFlags int flags, @Nullable Network underpinnedNetwork) {
+        startImpl(intervalSec, flags, underpinnedNetwork);
+    }
+
+    /** @hide */
+    protected abstract void startImpl(int intervalSec, @StartFlags int flags,
+            Network underpinnedNetwork);
 
     /**
      * Requests that keepalive be stopped. The application must wait for {@link Callback#onStopped}
@@ -313,7 +396,8 @@ public abstract class SocketKeepalive implements AutoCloseable {
         stopImpl();
     }
 
-    abstract void stopImpl();
+    /** @hide */
+    protected abstract void stopImpl();
 
     /**
      * Deactivate this {@link SocketKeepalive} and free allocated resources. The instance won't be
@@ -336,8 +420,18 @@ public abstract class SocketKeepalive implements AutoCloseable {
     public static class Callback {
         /** The requested keepalive was successfully started. */
         public void onStarted() {}
+        /**
+         * The keepalive was resumed by the system after being suspended.
+         * @hide
+         **/
+        public void onResumed() {}
         /** The keepalive was successfully stopped. */
         public void onStopped() {}
+        /**
+         * The keepalive was paused by the system because it's not necessary right now.
+         * @hide
+         **/
+        public void onPaused() {}
         /** An error occurred. */
         public void onError(@ErrorCode int error) {}
         /** The keepalive on a TCP socket was stopped because the socket received data. This is

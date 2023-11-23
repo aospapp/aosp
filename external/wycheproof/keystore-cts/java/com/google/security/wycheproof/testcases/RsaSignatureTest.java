@@ -18,6 +18,7 @@ import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
 import java.math.BigInteger;
+import java.security.KeyStore;
 import java.security.KeyFactory;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
@@ -31,16 +32,43 @@ import java.security.interfaces.RSAPublicKey;
 import java.security.spec.InvalidKeySpecException;
 import java.security.spec.RSAPrivateCrtKeySpec;
 import java.security.spec.RSAPublicKeySpec;
+import java.security.spec.KeySpec;
+import java.security.spec.PKCS8EncodedKeySpec;
+import org.junit.After;
 import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
+import java.security.cert.X509Certificate;
+import javax.security.auth.x500.X500Principal;
+import java.security.cert.Certificate;
+import android.security.keystore.KeyProtection;
+import android.security.keystore.KeyProperties;
+import android.keystore.cts.util.KeyStoreUtil;
 
 /** Tests PKCS #1 v 1.5 signatures */
 // TODO(bleichen):
 // - document stuff
 // - Join other RSA tests
-@RunWith(JUnit4.class)
 public class RsaSignatureTest {
+  private static final String EXPECTED_PROVIDER_NAME = TestUtil.EXPECTED_PROVIDER_NAME;
+  private static final String KEY_ALIAS_1 = "TestKey";
+  private static final String KEY_ALIAS_INVALID = "InvalidSigningKey";
+
+  @After
+  public void tearDown() throws Exception {
+    KeyStoreUtil.cleanUpKeyStore();
+  }
+
+  private static PrivateKey getKeystorePrivateKey(PublicKey pubKey, PrivateKey privKey,
+                                                  boolean isStrongBox) throws Exception {
+    KeyStore keyStore = KeyStoreUtil.saveKeysToKeystore(KEY_ALIAS_1, pubKey, privKey,
+                            new KeyProtection.Builder(KeyProperties.PURPOSE_SIGN |
+                                KeyProperties.PURPOSE_VERIFY)
+                            .setDigests(KeyProperties.DIGEST_SHA256)
+                            .setSignaturePaddings(KeyProperties.SIGNATURE_PADDING_RSA_PKCS1)
+                            .setIsStrongBoxBacked(isStrongBox)
+                            .build());
+    return (PrivateKey) keyStore.getKey(KEY_ALIAS_1, null);
+  }
+
   static final RSAPublicKeySpec RSA_KEY1 =
       new RSAPublicKeySpec(
           new BigInteger(
@@ -1083,6 +1111,14 @@ public class RsaSignatureTest {
 
   @Test
   public void testBasic() throws Exception {
+    testBasic(false);
+  }
+  @Test
+  public void testBasic_StrongBox() throws Exception {
+    KeyStoreUtil.assumeStrongBox();
+    testBasic(true);
+  }
+  private void testBasic(boolean isStrongBox) throws Exception {
     String algorithm = "SHA256WithRSA";
     String hashAlgorithm = "SHA-256";
     String message = "Hello";
@@ -1095,29 +1131,15 @@ public class RsaSignatureTest {
     RSAPrivateKey priv = (RSAPrivateKey) keyPair.getPrivate();
 
     byte[] messageBytes = message.getBytes("UTF-8");
-    Signature signer = Signature.getInstance(algorithm);
-    Signature verifier = Signature.getInstance(algorithm);
-    signer.initSign(priv);
+    Signature signer = Signature.getInstance(algorithm, TestUtil.EXPECTED_CRYPTO_OP_PROVIDER_NAME);
+    Signature verifier = Signature.getInstance(algorithm,
+                                                TestUtil.EXPECTED_CRYPTO_OP_PROVIDER_NAME);
+    signer.initSign(getKeystorePrivateKey(pub, priv, isStrongBox));
     signer.update(messageBytes);
     byte[] signature = signer.sign();
     verifier.initVerify(pub);
     verifier.update(messageBytes);
     assertTrue(verifier.verify(signature));
-
-    // Extract some parameters.
-    byte[] rawHash = MessageDigest.getInstance(hashAlgorithm).digest(messageBytes);
-
-    // Print keys and signature, so that it can be used to generate new test vectors.
-    System.out.println("Message:" + message);
-    System.out.println("Hash:" + TestUtil.bytesToHex(rawHash));
-    System.out.println("Public key:");
-    System.out.println("Modulus:" + pub.getModulus().toString());
-    System.out.println("E:" + pub.getPublicExponent().toString());
-    System.out.println("encoded:" + TestUtil.bytesToHex(pub.getEncoded()));
-    System.out.println("Private key:");
-    System.out.println("D:" + priv.getPrivateExponent().toString());
-    System.out.println("encoded:" + TestUtil.bytesToHex(priv.getEncoded()));
-    System.out.println("Signature:" + TestUtil.bytesToHex(signature));
   }
 
   /**
@@ -1135,7 +1157,8 @@ public class RsaSignatureTest {
   private void testVectors(RSAPublicKeySpec key, String algorithm, String[] testvectors)
       throws Exception {
     byte[] message = "Test".getBytes("UTF-8");
-    Signature verifier = Signature.getInstance(algorithm);
+    Signature verifier = Signature.getInstance(algorithm,
+                                                TestUtil.EXPECTED_CRYPTO_OP_PROVIDER_NAME);
     KeyFactory kf = KeyFactory.getInstance("RSA");
     PublicKey pub = kf.generatePublic(key);
     int errors = 0;
@@ -1151,10 +1174,8 @@ public class RsaSignatureTest {
         // verify can throw SignatureExceptions if the signature is malformed.
       }
       if (first && !verified) {
-        System.out.println("Valid signature not verified:" + signature);
         errors++;
       } else if (!first && verified) {
-        System.out.println("Incorrect signature verified:" + signature);
         errors++;
       }
       first = false;
@@ -1201,9 +1222,11 @@ public class RsaSignatureTest {
     RSAPublicKeySpec key = RSA_KEY1;
     String algorithm = ALGORITHM_KEY1;
     byte[] message = "Test".getBytes("UTF-8");
-    Signature verifier = Signature.getInstance(algorithm);
+    Signature verifier = Signature.getInstance(algorithm,
+                                                TestUtil.EXPECTED_CRYPTO_OP_PROVIDER_NAME);
     KeyFactory kf = KeyFactory.getInstance("RSA");
     PublicKey pub = kf.generatePublic(key);
+    int nonverified = 0;
     for (String signature : LEGACY_SIGNATURES_KEY1) {
       byte[] signatureBytes = TestUtil.hexToBytes(signature);
       verifier.initVerify(pub);
@@ -1213,13 +1236,10 @@ public class RsaSignatureTest {
         verified = verifier.verify(signatureBytes);
       } catch (SignatureException ex) {
         verified = false;
-      }
-      if (verified) {
-        System.out.println("Verfied legacy signature:" + signature);
-      } else {
-        System.out.println("Rejected legacy signature:" + signature);
+        nonverified++;
       }
     }
+    assertEquals(0, nonverified);
   }
 
   /**
@@ -1245,6 +1265,16 @@ public class RsaSignatureTest {
    */
   @Test
   public void testFaultySigner() throws Exception {
+    // b/244609904#comment64
+    KeyStoreUtil.assumeKeyMintV1OrNewer(false);
+    testFaultySigner(false);
+  }
+  @Test
+  public void testFaultySigner_StrongBox() throws Exception {
+    KeyStoreUtil.assumeStrongBox();
+    testFaultySigner(true);
+  }
+  private void testFaultySigner(boolean isStrongBox) throws Exception {
     BigInteger e = new BigInteger("65537");
     BigInteger d = new BigInteger(
         "1491581187972832788084570222215155297353839087630599492610691218"
@@ -1280,30 +1310,50 @@ public class RsaSignatureTest {
     byte[] message = "Test".getBytes("UTF-8");
     KeyFactory kf = KeyFactory.getInstance("RSA");
     PrivateKey validPrivKey = kf.generatePrivate(validKey);
-    Signature signer = Signature.getInstance("SHA256WithRSA");
-    signer.initSign(validPrivKey);
+    Signature signer = Signature.getInstance("SHA256WithRSA",
+                                                TestUtil.EXPECTED_CRYPTO_OP_PROVIDER_NAME);
+    RSAPublicKeySpec pubKeySpec = new RSAPublicKeySpec(n, e);
+    PublicKey pubKey = kf.generatePublic(pubKeySpec);
+
+    signer.initSign(getKeystorePrivateKey(pubKey, validPrivKey, isStrongBox));
     signer.update(message);
     byte[] signature = signer.sign();
     PrivateKey invalidPrivKey = null;
+    // Here if we use common code to get key from keystore (getKeystorePrivateKey).
+    // It throws run time exception while creating Certificate.
+    // Hence creating certificate using vaid keys.
+    KeyPair keyPair = new KeyPair(pubKey, validPrivKey);
+    X509Certificate certificate = KeyStoreUtil.createCertificate(keyPair,
+                                    new X500Principal("CN=Test1"),
+                                    new X500Principal("CN=Test1"));
+    Certificate[] certChain = new Certificate[]{certificate};
+    KeyStore keyStore2 = KeyStore.getInstance("AndroidKeyStore");
+    keyStore2.load(null);
     try {
       invalidPrivKey = kf.generatePrivate(invalidKey);
-    } catch (InvalidKeySpecException ex) {
+      keyStore2.setEntry(
+              KEY_ALIAS_INVALID,
+              new KeyStore.PrivateKeyEntry(invalidPrivKey, certChain),
+              new KeyProtection.Builder(KeyProperties.PURPOSE_SIGN)
+                  .setDigests(KeyProperties.DIGEST_SHA256)
+                  .setSignaturePaddings(KeyProperties.SIGNATURE_PADDING_RSA_PKCS1)
+                  .setIsStrongBoxBacked(isStrongBox)
+                  .build());
+    } catch (InvalidKeySpecException | java.security.KeyStoreException ex) {
       // The provider checks the private key and notices a mismatch.
       // This is a good sign, though of course in this case it means that we can't
       // check for faults.
-      System.out.println("Provider catches invalid RSA key:" + ex);
       return;
     }
     byte[] invalidSignature = null;
     try {
-      signer.initSign(invalidPrivKey);
+      signer.initSign((PrivateKey)keyStore2.getKey(KEY_ALIAS_INVALID, null));
       signer.update(message);
       invalidSignature = signer.sign();
     } catch (Exception ex) {
       // We do not necessarily expect a checked exception here, since generating
       // an invalid signature typically indicates a programming error.
       // Though RuntimeExceptions are fine here.
-      System.out.println("Generating PKCS#1 signature with faulty key throws:" + ex);
       return;
     }
     String signatureHex = TestUtil.bytesToHex(signature);
@@ -1311,7 +1361,6 @@ public class RsaSignatureTest {
     if (signatureHex.equals(invalidSignatureHex)) {
       // The provider generated a correct signature. This can for example happen if the provider
       // does not use the CRT parameters.
-      System.out.println("Signature generation did not use faulty parameter");
       return;
     }
     fail("Generated faulty PKCS #1 signature with faulty parameters"

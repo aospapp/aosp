@@ -15,17 +15,17 @@
  */
 package com.android.car.vehiclehal.test;
 
-import static org.junit.Assert.assertEquals;
+import static com.google.common.truth.Truth.assertThat;
 
-import android.hardware.automotive.vehicle.V2_0.IVehicle;
+import android.car.test.CarTestManager;
 
 import java.time.Duration;
-import java.util.ArrayList;
-import java.util.Arrays;
+import java.util.List;
 
 class LinearVhalEventGenerator implements VhalEventGenerator {
 
-    private final IVehicle mVehicle;
+    private final CarTestManager mCarTestManager;
+    private final long mVhalDumpTimeoutMs;
 
     private int mProp;
     private Duration mInterval;
@@ -33,8 +33,9 @@ class LinearVhalEventGenerator implements VhalEventGenerator {
     private float mDispersion;
     private float mIncrement;
 
-    LinearVhalEventGenerator(IVehicle vehicle) {
-        mVehicle = vehicle;
+    LinearVhalEventGenerator(CarTestManager carTestManager, long vhalDumpTimeoutMs) {
+        mCarTestManager = carTestManager;
+        mVhalDumpTimeoutMs = vhalDumpTimeoutMs;
         reset();
     }
 
@@ -74,28 +75,21 @@ class LinearVhalEventGenerator implements VhalEventGenerator {
 
     @Override
     public void start() throws Exception {
-        ArrayList<String> options = new ArrayList<String>(Arrays.asList(
-                "--debughal", "--genfakedata", "--startlinear", String.format("%d", mProp),
+        List<String> options = List.of("--genfakedata", "--startlinear", String.format("%d", mProp),
                 String.format("%f", mInitialValue), String.format("%f", mInitialValue),
                 String.format("%f", mDispersion), String.format("%f", mIncrement),
-                String.format("%d", mInterval.toNanos())));
+                String.format("%d", mInterval.toNanos()));
 
-        NativePipeHelper pipe = new NativePipeHelper();
-        pipe.create();
-        mVehicle.debug(pipe.getNativeHandle(), options);
-        assertEquals("", pipe.getOutput());
-        pipe.close();
+        String output = mCarTestManager.dumpVhal(options, mVhalDumpTimeoutMs);
+
+        assertThat(output).contains("started successfully");
     }
 
     @Override
     public void stop() throws Exception {
-        ArrayList<String> options = new ArrayList<String>(Arrays.asList(
-                "--debughal", "--genfakedata", "--stoplinear",
-                String.format("%d", mProp)));
-        NativePipeHelper pipe = new NativePipeHelper();
-        pipe.create();
-        mVehicle.debug(pipe.getNativeHandle(), options);
-        assertEquals("", pipe.getOutput());
-        pipe.close();
+        List<String> options = List.of("--genfakedata", "--stoplinear", String.format("%d", mProp));
+
+        // Ignore output since the generator might have already stopped.
+        mCarTestManager.dumpVhal(options, mVhalDumpTimeoutMs);
     }
 }

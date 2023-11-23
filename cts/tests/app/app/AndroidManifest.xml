@@ -16,6 +16,7 @@
  -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
+          xmlns:tools="http://schemas.android.com/tools"
      package="android.app.stubs">
 
     <permission android:name="android.app.stubs.permission.TEST_GRANTED"
@@ -61,11 +62,21 @@
     <uses-permission android:name="android.permission.PACKAGE_USAGE_STATS"/>
     <uses-permission android:name="android.permission.SET_WALLPAPER"/>
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION"/>
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CAMERA"/>
+    <uses-permission android:name="android.permission.CAMERA"/>
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE"/>
+    <uses-permission android:name="android.permission.RECORD_AUDIO"/>
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_PHONE_CALL"/>
+    <uses-permission android:name="android.permission.MANAGE_OWN_CALLS"/>
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE"/>
     <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT"/>
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW"/>
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.KILL_BACKGROUND_PROCESSES" />
+
 
     <application android:label="Android TestCase"
          android:icon="@drawable/size_48x48"
@@ -152,9 +163,6 @@
         <service android:name="android.app.stubs.LocalService"
              android:attributionTags="localService"
              android:exported="true">
-            <intent-filter>
-                <action android:name="android.app.stubs.activity.SERVICE_LOCAL"/>
-            </intent-filter>
             <meta-data android:name="android.app.stubs.string"
                  android:value="foo"/>
             <meta-data android:name="android.app.stubs.boolean"
@@ -172,52 +180,36 @@
         <service android:name="android.app.stubs.LocalStoppedService"/>
 
         <service android:name="android.app.stubs.LocalForegroundService"
-             android:foregroundServiceType="camera|microphone"
+             android:foregroundServiceType="camera|microphone|specialUse"
              android:exported="true">
-            <intent-filter>
-                <action android:name="android.app.stubs.FOREGROUND_SERVICE"/>
-            </intent-filter>
+            <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE" android:value="cts" />
         </service>
 
         <service android:name="android.app.stubs.LocalPhoneCallService"
-             android:foregroundServiceType="microphone|phoneCall"
+             android:foregroundServiceType="microphone|phoneCall|specialUse"
              android:exported="true">
-            <intent-filter>
-                <action android:name="android.app.stubs.FOREGROUND_SERVICE" />
-            </intent-filter>
+            <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE" android:value="cts" />
         </service>
 
         <service android:name="android.app.stubs.LocalForegroundServiceLocation"
-             android:foregroundServiceType="location|camera|microphone"
+             android:foregroundServiceType="location|camera|microphone|specialUse"
              android:exported="true">
-            <intent-filter>
-                <action android:name="android.app.stubs.FOREGROUND_SERVICE_LOCATION"/>
-            </intent-filter>
+            <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE" android:value="cts" />
         </service>
 
         <service android:name="android.app.stubs.LocalForegroundServiceSticky"
-                 android:foregroundServiceType="location|camera|microphone"
+                 android:foregroundServiceType="location|camera|microphone|specialUse"
                  android:exported="true">
-            <intent-filter>
-                <action android:name="android.app.stubs.FOREGROUND_SERVICE"/>
-            </intent-filter>
+            <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE" android:value="cts" />
         </service>
 
         <service android:name="android.app.stubs.LocalGrantedService"
              android:permission="android.app.stubs.permission.TEST_GRANTED"
-             android:exported="true">
-            <intent-filter>
-                <action android:name="android.app.stubs.activity.SERVICE_LOCAL_GRANTED"/>
-            </intent-filter>
-        </service>
+             android:exported="true" />
 
         <service android:name="android.app.stubs.LocalDeniedService"
              android:permission="android.app.stubs.permission.TEST_DENIED"
-             android:exported="true">
-            <intent-filter>
-                <action android:name="android.app.stubs.activity.SERVICE_LOCAL_DENIED"/>
-            </intent-filter>
-        </service>
+             android:exported="true" />
 
         <service android:name="android.app.stubs.IsolatedService"
              android:isolatedProcess="true"
@@ -328,6 +320,7 @@
         </activity>
 
         <activity android:name="android.app.stubs.DialogStubActivity"
+             android:theme="@style/Theme_NoSwipeDismiss"
              android:label="DialogStubActivity"
              android:exported="true">
             <intent-filter>
@@ -357,6 +350,7 @@
 
         <activity android:name="android.app.stubs.ActivityManagerRecentTwoActivity"
              android:label="ActivityManagerRecentTwoActivity"
+             android:theme="@style/Theme_NoSwipeDismiss"
              android:allowTaskReparenting="true"
              android:taskAffinity="android.app.stubs.recentTwo"
              android:exported="true">
@@ -430,36 +424,8 @@
         <activity android:name="android.app.stubs.ToolbarActivity"
              android:theme="@android:style/Theme.Material.Light.NoActionBar"/>
 
-        <service android:name="android.app.stubs.LiveWallpaper"
-             android:icon="@drawable/robot"
-             android:label="@string/wallpaper_title"
-             android:permission="android.permission.BIND_WALLPAPER"
-             android:exported="true">
-            <intent-filter>
-                <action android:name="android.service.wallpaper.WallpaperService">
-                </action>
-            </intent-filter>
-            <meta-data android:name="android.service.wallpaper"
-                 android:resource="@xml/wallpaper">
-            </meta-data>
-        </service>
-
-        <service android:name="android.app.stubs.LiveWallpaperNoUnfoldTransition"
-             android:icon="@drawable/robot"
-             android:label="@string/wallpaper_title"
-             android:permission="android.permission.BIND_WALLPAPER"
-             android:exported="true">
-            <intent-filter>
-                <action android:name="android.service.wallpaper.WallpaperService">
-                </action>
-            </intent-filter>
-            <meta-data android:name="android.service.wallpaper"
-                 android:resource="@xml/wallpaper_no_default_device_state_change_transition">
-            </meta-data>
-        </service>
-
-        <service android:name="android.app.stubs.TestNotificationListener"
-             android:exported="true"
+        <service android:name="android.app.stubs.shared.TestNotificationListener"
+             android:exported="false"
              android:label="TestNotificationListener"
              android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
             <intent-filter>
@@ -467,7 +433,7 @@
             </intent-filter>
         </service>
 
-        <service android:name="android.app.stubs.TestNotificationAssistant"
+        <service android:name="android.app.stubs.shared.TestNotificationAssistant"
                  android:exported="true"
                  android:label="TestNotificationAssistant"
                  android:permission="android.permission.BIND_NOTIFICATION_ASSISTANT_SERVICE">
@@ -527,12 +493,15 @@
 
         <service android:name="android.app.stubs.BubblesTestService"
              android:label="BubblesTestsService"
-             android:exported="true">
+             android:exported="true"
+             android:foregroundServiceType="specialUse">
+            <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE" android:value="cts" />
         </service>
 
         <service android:name="android.app.stubs.LocalAlertService"/>
 
         <activity android:name=".SimpleActivity"
+             android:theme="@style/Theme_NoSwipeDismiss"
              android:excludeFromRecents="true"
              android:exported="true">
             <intent-filter>
@@ -558,6 +527,15 @@
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </activity>
+
+        <receiver android:name="android.app.stubs.HeartbeatReceiver"
+            android:enabled="true"
+            android:process=":hbact"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.app.stubs.HEARTBEAT_DONE"/>
+            </intent-filter>
+        </receiver>
 
         <service android:name=".HeartbeatService"
             android:process=":hbsvc"
@@ -588,6 +566,20 @@
             </intent-filter>
         </receiver>
 
+        <activity android:name="android.app.stubs.RemoteActivity"
+            android:process=":remote"
+            android:excludeFromRecents="true"
+            android:exported="true" />
+
+        <activity android:name=".DisplayEventActivity"
+            android:launchMode="singleInstance"
+            android:exported="true" />
+
+        <!-- (b/197936012) Remove startup provider due to test timeout issue -->
+        <provider
+            android:name="androidx.startup.InitializationProvider"
+            android:authorities="${applicationId}.androidx-startup"
+            tools:node="remove" />
     </application>
 
 </manifest>

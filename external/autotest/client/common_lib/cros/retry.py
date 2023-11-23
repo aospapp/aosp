@@ -1,10 +1,16 @@
+# Lint as: python2, python3
 # Copyright (c) 2012 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
 import logging
 import random
 import signal
+import six
 import sys
 import threading
 import time
@@ -253,7 +259,7 @@ def retry(ExceptionToCheck, timeout_min=1.0, delay_sec=3, raiselist=None,
             # Raise the cached exception with original backtrace.
             if exception_to_raise:
                 raise exception_to_raise('%s: %s' % (exc_info[0], exc_info[1]))
-            raise exc_info[0], exc_info[1], exc_info[2]
+            six.reraise(exc_info[0], exc_info[1], exc_info[2])
 
 
         return func_retry  # true decorator

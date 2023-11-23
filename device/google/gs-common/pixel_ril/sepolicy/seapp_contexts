@@ -1,0 +1,2 @@
+# RIL extension service
+user=_app isPrivApp=true name=com.google.android.rilextension domain=rilextensionservice_app levelFrom=all

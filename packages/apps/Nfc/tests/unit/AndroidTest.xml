@@ -13,7 +13,7 @@
      See the License for the specific language governing permissions and
      limitations under the License.
 -->
-<configuration description="Runs NfcNci Test Cases.">
+<configuration description="Runs NfcNci Unit Test Cases.">
     <option name="test-suite-tag" value="apct" />
     <option name="test-suite-tag" value="apct-instrumentation" />
         <target_preparer class="com.android.tradefed.targetprep.RootTargetPreparer">
@@ -21,14 +21,14 @@
     </target_preparer>
     <target_preparer class="com.android.tradefed.targetprep.suite.SuiteApkInstaller">
         <option name="cleanup-apks" value="true" />
-        <option name="test-file-name" value="NfcNciInstrumentationTests.apk" />
+        <option name="test-file-name" value="NfcNciUnitTests.apk" />
     </target_preparer>
 
-    <option name="test-tag" value="NfcNciInstrumentationTests" />
+    <option name="test-tag" value="NfcNciUnitTests" />
     <test class="com.android.tradefed.testtype.AndroidJUnitTest" >
         <option name="package" value="com.android.nfc.tests.unit" />
         <option name="runner" value="androidx.test.runner.AndroidJUnitRunner" />
         <option name="hidden-api-checks" value="false"/>
-        <option name="test-filter-dir" value="/data/data/com.android.nfc" />
+        <option name="test-filter-dir" value="/data/data/com.android.nfc.tests.unit" />
     </test>
 </configuration>

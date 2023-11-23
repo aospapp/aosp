@@ -23,3009 +23,7 @@ namespace sh
 using Resources = ShBuiltInResources;
 using TableBase = TSymbolTableBase;
 
-// Since some of the BuiltInId declarations are used outside of constexpr expressions, we need to
-// have these definitions without an initializer. C++17 should eventually remove the need for this.
-constexpr const TSymbolUniqueId BuiltInId::radians_Float1;
-constexpr const TSymbolUniqueId BuiltInId::radians_Float2;
-constexpr const TSymbolUniqueId BuiltInId::radians_Float3;
-constexpr const TSymbolUniqueId BuiltInId::radians_Float4;
-constexpr const TSymbolUniqueId BuiltInId::degrees_Float1;
-constexpr const TSymbolUniqueId BuiltInId::degrees_Float2;
-constexpr const TSymbolUniqueId BuiltInId::degrees_Float3;
-constexpr const TSymbolUniqueId BuiltInId::degrees_Float4;
-constexpr const TSymbolUniqueId BuiltInId::sin_Float1;
-constexpr const TSymbolUniqueId BuiltInId::sin_Float2;
-constexpr const TSymbolUniqueId BuiltInId::sin_Float3;
-constexpr const TSymbolUniqueId BuiltInId::sin_Float4;
-constexpr const TSymbolUniqueId BuiltInId::cos_Float1;
-constexpr const TSymbolUniqueId BuiltInId::cos_Float2;
-constexpr const TSymbolUniqueId BuiltInId::cos_Float3;
-constexpr const TSymbolUniqueId BuiltInId::cos_Float4;
-constexpr const TSymbolUniqueId BuiltInId::tan_Float1;
-constexpr const TSymbolUniqueId BuiltInId::tan_Float2;
-constexpr const TSymbolUniqueId BuiltInId::tan_Float3;
-constexpr const TSymbolUniqueId BuiltInId::tan_Float4;
-constexpr const TSymbolUniqueId BuiltInId::asin_Float1;
-constexpr const TSymbolUniqueId BuiltInId::asin_Float2;
-constexpr const TSymbolUniqueId BuiltInId::asin_Float3;
-constexpr const TSymbolUniqueId BuiltInId::asin_Float4;
-constexpr const TSymbolUniqueId BuiltInId::acos_Float1;
-constexpr const TSymbolUniqueId BuiltInId::acos_Float2;
-constexpr const TSymbolUniqueId BuiltInId::acos_Float3;
-constexpr const TSymbolUniqueId BuiltInId::acos_Float4;
-constexpr const TSymbolUniqueId BuiltInId::atan_Float1_Float1;
-constexpr const TSymbolUniqueId BuiltInId::atan_Float2_Float2;
-constexpr const TSymbolUniqueId BuiltInId::atan_Float3_Float3;
-constexpr const TSymbolUniqueId BuiltInId::atan_Float4_Float4;
-constexpr const TSymbolUniqueId BuiltInId::atan_Float1;
-constexpr const TSymbolUniqueId BuiltInId::atan_Float2;
-constexpr const TSymbolUniqueId BuiltInId::atan_Float3;
-constexpr const TSymbolUniqueId BuiltInId::atan_Float4;
-constexpr const TSymbolUniqueId BuiltInId::sinh_Float1;
-constexpr const TSymbolUniqueId BuiltInId::sinh_Float2;
-constexpr const TSymbolUniqueId BuiltInId::sinh_Float3;
-constexpr const TSymbolUniqueId BuiltInId::sinh_Float4;
-constexpr const TSymbolUniqueId BuiltInId::cosh_Float1;
-constexpr const TSymbolUniqueId BuiltInId::cosh_Float2;
-constexpr const TSymbolUniqueId BuiltInId::cosh_Float3;
-constexpr const TSymbolUniqueId BuiltInId::cosh_Float4;
-constexpr const TSymbolUniqueId BuiltInId::tanh_Float1;
-constexpr const TSymbolUniqueId BuiltInId::tanh_Float2;
-constexpr const TSymbolUniqueId BuiltInId::tanh_Float3;
-constexpr const TSymbolUniqueId BuiltInId::tanh_Float4;
-constexpr const TSymbolUniqueId BuiltInId::asinh_Float1;
-constexpr const TSymbolUniqueId BuiltInId::asinh_Float2;
-constexpr const TSymbolUniqueId BuiltInId::asinh_Float3;
-constexpr const TSymbolUniqueId BuiltInId::asinh_Float4;
-constexpr const TSymbolUniqueId BuiltInId::acosh_Float1;
-constexpr const TSymbolUniqueId BuiltInId::acosh_Float2;
-constexpr const TSymbolUniqueId BuiltInId::acosh_Float3;
-constexpr const TSymbolUniqueId BuiltInId::acosh_Float4;
-constexpr const TSymbolUniqueId BuiltInId::atanh_Float1;
-constexpr const TSymbolUniqueId BuiltInId::atanh_Float2;
-constexpr const TSymbolUniqueId BuiltInId::atanh_Float3;
-constexpr const TSymbolUniqueId BuiltInId::atanh_Float4;
-constexpr const TSymbolUniqueId BuiltInId::pow_Float1_Float1;
-constexpr const TSymbolUniqueId BuiltInId::pow_Float2_Float2;
-constexpr const TSymbolUniqueId BuiltInId::pow_Float3_Float3;
-constexpr const TSymbolUniqueId BuiltInId::pow_Float4_Float4;
-constexpr const TSymbolUniqueId BuiltInId::exp_Float1;
-constexpr const TSymbolUniqueId BuiltInId::exp_Float2;
-constexpr const TSymbolUniqueId BuiltInId::exp_Float3;
-constexpr const TSymbolUniqueId BuiltInId::exp_Float4;
-constexpr const TSymbolUniqueId BuiltInId::log_Float1;
-constexpr const TSymbolUniqueId BuiltInId::log_Float2;
-constexpr const TSymbolUniqueId BuiltInId::log_Float3;
-constexpr const TSymbolUniqueId BuiltInId::log_Float4;
-constexpr const TSymbolUniqueId BuiltInId::exp2_Float1;
-constexpr const TSymbolUniqueId BuiltInId::exp2_Float2;
-constexpr const TSymbolUniqueId BuiltInId::exp2_Float3;
-constexpr const TSymbolUniqueId BuiltInId::exp2_Float4;
-constexpr const TSymbolUniqueId BuiltInId::log2_Float1;
-constexpr const TSymbolUniqueId BuiltInId::log2_Float2;
-constexpr const TSymbolUniqueId BuiltInId::log2_Float3;
-constexpr const TSymbolUniqueId BuiltInId::log2_Float4;
-constexpr const TSymbolUniqueId BuiltInId::sqrt_Float1;
-constexpr const TSymbolUniqueId BuiltInId::sqrt_Float2;
-constexpr const TSymbolUniqueId BuiltInId::sqrt_Float3;
-constexpr const TSymbolUniqueId BuiltInId::sqrt_Float4;
-constexpr const TSymbolUniqueId BuiltInId::sqrt_Double1;
-constexpr const TSymbolUniqueId BuiltInId::sqrt_Double2;
-constexpr const TSymbolUniqueId BuiltInId::sqrt_Double3;
-constexpr const TSymbolUniqueId BuiltInId::sqrt_Double4;
-constexpr const TSymbolUniqueId BuiltInId::inversesqrt_Float1;
-constexpr const TSymbolUniqueId BuiltInId::inversesqrt_Float2;
-constexpr const TSymbolUniqueId BuiltInId::inversesqrt_Float3;
-constexpr const TSymbolUniqueId BuiltInId::inversesqrt_Float4;
-constexpr const TSymbolUniqueId BuiltInId::inversesqrt_Double1;
-constexpr const TSymbolUniqueId BuiltInId::inversesqrt_Double2;
-constexpr const TSymbolUniqueId BuiltInId::inversesqrt_Double3;
-constexpr const TSymbolUniqueId BuiltInId::inversesqrt_Double4;
-constexpr const TSymbolUniqueId BuiltInId::abs_Float1;
-constexpr const TSymbolUniqueId BuiltInId::abs_Float2;
-constexpr const TSymbolUniqueId BuiltInId::abs_Float3;
-constexpr const TSymbolUniqueId BuiltInId::abs_Float4;
-constexpr const TSymbolUniqueId BuiltInId::abs_Int1;
-constexpr const TSymbolUniqueId BuiltInId::abs_Int2;
-constexpr const TSymbolUniqueId BuiltInId::abs_Int3;
-constexpr const TSymbolUniqueId BuiltInId::abs_Int4;
-constexpr const TSymbolUniqueId BuiltInId::abs_Double1;
-constexpr const TSymbolUniqueId BuiltInId::abs_Double2;
-constexpr const TSymbolUniqueId BuiltInId::abs_Double3;
-constexpr const TSymbolUniqueId BuiltInId::abs_Double4;
-constexpr const TSymbolUniqueId BuiltInId::sign_Float1;
-constexpr const TSymbolUniqueId BuiltInId::sign_Float2;
-constexpr const TSymbolUniqueId BuiltInId::sign_Float3;
-constexpr const TSymbolUniqueId BuiltInId::sign_Float4;
-constexpr const TSymbolUniqueId BuiltInId::sign_Int1;
-constexpr const TSymbolUniqueId BuiltInId::sign_Int2;
-constexpr const TSymbolUniqueId BuiltInId::sign_Int3;
-constexpr const TSymbolUniqueId BuiltInId::sign_Int4;
-constexpr const TSymbolUniqueId BuiltInId::sign_Double1;
-constexpr const TSymbolUniqueId BuiltInId::sign_Double2;
-constexpr const TSymbolUniqueId BuiltInId::sign_Double3;
-constexpr const TSymbolUniqueId BuiltInId::sign_Double4;
-constexpr const TSymbolUniqueId BuiltInId::floor_Float1;
-constexpr const TSymbolUniqueId BuiltInId::floor_Float2;
-constexpr const TSymbolUniqueId BuiltInId::floor_Float3;
-constexpr const TSymbolUniqueId BuiltInId::floor_Float4;
-constexpr const TSymbolUniqueId BuiltInId::floor_Double1;
-constexpr const TSymbolUniqueId BuiltInId::floor_Double2;
-constexpr const TSymbolUniqueId BuiltInId::floor_Double3;
-constexpr const TSymbolUniqueId BuiltInId::floor_Double4;
-constexpr const TSymbolUniqueId BuiltInId::trunc_Float1;
-constexpr const TSymbolUniqueId BuiltInId::trunc_Float2;
-constexpr const TSymbolUniqueId BuiltInId::trunc_Float3;
-constexpr const TSymbolUniqueId BuiltInId::trunc_Float4;
-constexpr const TSymbolUniqueId BuiltInId::trunc_Double1;
-constexpr const TSymbolUniqueId BuiltInId::trunc_Double2;
-constexpr const TSymbolUniqueId BuiltInId::trunc_Double3;
-constexpr const TSymbolUniqueId BuiltInId::trunc_Double4;
-constexpr const TSymbolUniqueId BuiltInId::round_Float1;
-constexpr const TSymbolUniqueId BuiltInId::round_Float2;
-constexpr const TSymbolUniqueId BuiltInId::round_Float3;
-constexpr const TSymbolUniqueId BuiltInId::round_Float4;
-constexpr const TSymbolUniqueId BuiltInId::round_Double1;
-constexpr const TSymbolUniqueId BuiltInId::round_Double2;
-constexpr const TSymbolUniqueId BuiltInId::round_Double3;
-constexpr const TSymbolUniqueId BuiltInId::round_Double4;
-constexpr const TSymbolUniqueId BuiltInId::roundEven_Float1;
-constexpr const TSymbolUniqueId BuiltInId::roundEven_Float2;
-constexpr const TSymbolUniqueId BuiltInId::roundEven_Float3;
-constexpr const TSymbolUniqueId BuiltInId::roundEven_Float4;
-constexpr const TSymbolUniqueId BuiltInId::roundEven_Double1;
-constexpr const TSymbolUniqueId BuiltInId::roundEven_Double2;
-constexpr const TSymbolUniqueId BuiltInId::roundEven_Double3;
-constexpr const TSymbolUniqueId BuiltInId::roundEven_Double4;
-constexpr const TSymbolUniqueId BuiltInId::ceil_Float1;
-constexpr const TSymbolUniqueId BuiltInId::ceil_Float2;
-constexpr const TSymbolUniqueId BuiltInId::ceil_Float3;
-constexpr const TSymbolUniqueId BuiltInId::ceil_Float4;
-constexpr const TSymbolUniqueId BuiltInId::ceil_Double1;
-constexpr const TSymbolUniqueId BuiltInId::ceil_Double2;
-constexpr const TSymbolUniqueId BuiltInId::ceil_Double3;
-constexpr const TSymbolUniqueId BuiltInId::ceil_Double4;
-constexpr const TSymbolUniqueId BuiltInId::fract_Float1;
-constexpr const TSymbolUniqueId BuiltInId::fract_Float2;
-constexpr const TSymbolUniqueId BuiltInId::fract_Float3;
-constexpr const TSymbolUniqueId BuiltInId::fract_Float4;
-constexpr const TSymbolUniqueId BuiltInId::fract_Double1;
-constexpr const TSymbolUniqueId BuiltInId::fract_Double2;
-constexpr const TSymbolUniqueId BuiltInId::fract_Double3;
-constexpr const TSymbolUniqueId BuiltInId::fract_Double4;
-constexpr const TSymbolUniqueId BuiltInId::mod_Float1_Float1;
-constexpr const TSymbolUniqueId BuiltInId::mod_Float2_Float1;
-constexpr const TSymbolUniqueId BuiltInId::mod_Float3_Float1;
-constexpr const TSymbolUniqueId BuiltInId::mod_Float4_Float1;
-constexpr const TSymbolUniqueId BuiltInId::mod_Float2_Float2;
-constexpr const TSymbolUniqueId BuiltInId::mod_Float3_Float3;
-constexpr const TSymbolUniqueId BuiltInId::mod_Float4_Float4;
-constexpr const TSymbolUniqueId BuiltInId::mod_Double1_Double1;
-constexpr const TSymbolUniqueId BuiltInId::mod_Double2_Double1;
-constexpr const TSymbolUniqueId BuiltInId::mod_Double3_Double1;
-constexpr const TSymbolUniqueId BuiltInId::mod_Double4_Double1;
-constexpr const TSymbolUniqueId BuiltInId::mod_Double2_Double2;
-constexpr const TSymbolUniqueId BuiltInId::mod_Double3_Double3;
-constexpr const TSymbolUniqueId BuiltInId::mod_Double4_Double4;
-constexpr const TSymbolUniqueId BuiltInId::min_Float1_Float1;
-constexpr const TSymbolUniqueId BuiltInId::min_Float2_Float1;
-constexpr const TSymbolUniqueId BuiltInId::min_Float3_Float1;
-constexpr const TSymbolUniqueId BuiltInId::min_Float4_Float1;
-constexpr const TSymbolUniqueId BuiltInId::min_Float2_Float2;
-constexpr const TSymbolUniqueId BuiltInId::min_Float3_Float3;
-constexpr const TSymbolUniqueId BuiltInId::min_Float4_Float4;
-constexpr const TSymbolUniqueId BuiltInId::min_Double1_Double1;
-constexpr const TSymbolUniqueId BuiltInId::min_Double2_Double2;
-constexpr const TSymbolUniqueId BuiltInId::min_Double3_Double3;
-constexpr const TSymbolUniqueId BuiltInId::min_Double4_Double4;
-constexpr const TSymbolUniqueId BuiltInId::min_Double2_Double1;
-constexpr const TSymbolUniqueId BuiltInId::min_Double3_Double1;
-constexpr const TSymbolUniqueId BuiltInId::min_Double4_Double1;
-constexpr const TSymbolUniqueId BuiltInId::min_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::min_Int2_Int2;
-constexpr const TSymbolUniqueId BuiltInId::min_Int3_Int3;
-constexpr const TSymbolUniqueId BuiltInId::min_Int4_Int4;
-constexpr const TSymbolUniqueId BuiltInId::min_Int2_Int1;
-constexpr const TSymbolUniqueId BuiltInId::min_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::min_Int4_Int1;
-constexpr const TSymbolUniqueId BuiltInId::min_UInt1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::min_UInt2_UInt2;
-constexpr const TSymbolUniqueId BuiltInId::min_UInt3_UInt3;
-constexpr const TSymbolUniqueId BuiltInId::min_UInt4_UInt4;
-constexpr const TSymbolUniqueId BuiltInId::min_UInt2_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::min_UInt3_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::min_UInt4_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::max_Float1_Float1;
-constexpr const TSymbolUniqueId BuiltInId::max_Float2_Float1;
-constexpr const TSymbolUniqueId BuiltInId::max_Float3_Float1;
-constexpr const TSymbolUniqueId BuiltInId::max_Float4_Float1;
-constexpr const TSymbolUniqueId BuiltInId::max_Float2_Float2;
-constexpr const TSymbolUniqueId BuiltInId::max_Float3_Float3;
-constexpr const TSymbolUniqueId BuiltInId::max_Float4_Float4;
-constexpr const TSymbolUniqueId BuiltInId::max_Double1_Double1;
-constexpr const TSymbolUniqueId BuiltInId::max_Double2_Double2;
-constexpr const TSymbolUniqueId BuiltInId::max_Double3_Double3;
-constexpr const TSymbolUniqueId BuiltInId::max_Double4_Double4;
-constexpr const TSymbolUniqueId BuiltInId::max_Double2_Double1;
-constexpr const TSymbolUniqueId BuiltInId::max_Double3_Double1;
-constexpr const TSymbolUniqueId BuiltInId::max_Double4_Double1;
-constexpr const TSymbolUniqueId BuiltInId::max_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::max_Int2_Int2;
-constexpr const TSymbolUniqueId BuiltInId::max_Int3_Int3;
-constexpr const TSymbolUniqueId BuiltInId::max_Int4_Int4;
-constexpr const TSymbolUniqueId BuiltInId::max_Int2_Int1;
-constexpr const TSymbolUniqueId BuiltInId::max_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::max_Int4_Int1;
-constexpr const TSymbolUniqueId BuiltInId::max_UInt1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::max_UInt2_UInt2;
-constexpr const TSymbolUniqueId BuiltInId::max_UInt3_UInt3;
-constexpr const TSymbolUniqueId BuiltInId::max_UInt4_UInt4;
-constexpr const TSymbolUniqueId BuiltInId::max_UInt2_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::max_UInt3_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::max_UInt4_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::clamp_Float1_Float1_Float1;
-constexpr const TSymbolUniqueId BuiltInId::clamp_Float2_Float1_Float1;
-constexpr const TSymbolUniqueId BuiltInId::clamp_Float3_Float1_Float1;
-constexpr const TSymbolUniqueId BuiltInId::clamp_Float4_Float1_Float1;
-constexpr const TSymbolUniqueId BuiltInId::clamp_Float2_Float2_Float2;
-constexpr const TSymbolUniqueId BuiltInId::clamp_Float3_Float3_Float3;
-constexpr const TSymbolUniqueId BuiltInId::clamp_Float4_Float4_Float4;
-constexpr const TSymbolUniqueId BuiltInId::clamp_Double1_Double1_Double1;
-constexpr const TSymbolUniqueId BuiltInId::clamp_Double2_Double1_Double1;
-constexpr const TSymbolUniqueId BuiltInId::clamp_Double3_Double1_Double1;
-constexpr const TSymbolUniqueId BuiltInId::clamp_Double4_Double1_Double1;
-constexpr const TSymbolUniqueId BuiltInId::clamp_Double2_Double2_Double2;
-constexpr const TSymbolUniqueId BuiltInId::clamp_Double3_Double3_Double3;
-constexpr const TSymbolUniqueId BuiltInId::clamp_Double4_Double4_Double4;
-constexpr const TSymbolUniqueId BuiltInId::clamp_Int1_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::clamp_Int2_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::clamp_Int3_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::clamp_Int4_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::clamp_Int2_Int2_Int2;
-constexpr const TSymbolUniqueId BuiltInId::clamp_Int3_Int3_Int3;
-constexpr const TSymbolUniqueId BuiltInId::clamp_Int4_Int4_Int4;
-constexpr const TSymbolUniqueId BuiltInId::clamp_UInt1_UInt1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::clamp_UInt2_UInt1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::clamp_UInt3_UInt1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::clamp_UInt4_UInt1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::clamp_UInt2_UInt2_UInt2;
-constexpr const TSymbolUniqueId BuiltInId::clamp_UInt3_UInt3_UInt3;
-constexpr const TSymbolUniqueId BuiltInId::clamp_UInt4_UInt4_UInt4;
-constexpr const TSymbolUniqueId BuiltInId::mix_Float1_Float1_Float1;
-constexpr const TSymbolUniqueId BuiltInId::mix_Float2_Float2_Float1;
-constexpr const TSymbolUniqueId BuiltInId::mix_Float3_Float3_Float1;
-constexpr const TSymbolUniqueId BuiltInId::mix_Float4_Float4_Float1;
-constexpr const TSymbolUniqueId BuiltInId::mix_Float2_Float2_Float2;
-constexpr const TSymbolUniqueId BuiltInId::mix_Float3_Float3_Float3;
-constexpr const TSymbolUniqueId BuiltInId::mix_Float4_Float4_Float4;
-constexpr const TSymbolUniqueId BuiltInId::mix_Double1_Double1_Double1;
-constexpr const TSymbolUniqueId BuiltInId::mix_Double2_Double2_Double1;
-constexpr const TSymbolUniqueId BuiltInId::mix_Double3_Double3_Double1;
-constexpr const TSymbolUniqueId BuiltInId::mix_Double4_Double4_Double1;
-constexpr const TSymbolUniqueId BuiltInId::mix_Double2_Double2_Double2;
-constexpr const TSymbolUniqueId BuiltInId::mix_Double3_Double3_Double3;
-constexpr const TSymbolUniqueId BuiltInId::mix_Double4_Double4_Double4;
-constexpr const TSymbolUniqueId BuiltInId::mix_Float1_Float1_Bool1;
-constexpr const TSymbolUniqueId BuiltInId::mix_Float2_Float2_Bool2;
-constexpr const TSymbolUniqueId BuiltInId::mix_Float3_Float3_Bool3;
-constexpr const TSymbolUniqueId BuiltInId::mix_Float4_Float4_Bool4;
-constexpr const TSymbolUniqueId BuiltInId::mix_Double1_Double1_Bool1;
-constexpr const TSymbolUniqueId BuiltInId::mix_Double2_Double2_Bool2;
-constexpr const TSymbolUniqueId BuiltInId::mix_Double3_Double3_Bool3;
-constexpr const TSymbolUniqueId BuiltInId::mix_Double4_Double4_Bool4;
-constexpr const TSymbolUniqueId BuiltInId::mix_Int1_Int1_Bool1;
-constexpr const TSymbolUniqueId BuiltInId::mix_Int2_Int2_Bool2;
-constexpr const TSymbolUniqueId BuiltInId::mix_Int3_Int3_Bool3;
-constexpr const TSymbolUniqueId BuiltInId::mix_Int4_Int4_Bool4;
-constexpr const TSymbolUniqueId BuiltInId::mix_UInt1_UInt1_Bool1;
-constexpr const TSymbolUniqueId BuiltInId::mix_UInt2_UInt2_Bool2;
-constexpr const TSymbolUniqueId BuiltInId::mix_UInt3_UInt3_Bool3;
-constexpr const TSymbolUniqueId BuiltInId::mix_UInt4_UInt4_Bool4;
-constexpr const TSymbolUniqueId BuiltInId::mix_Bool1_Bool1_Bool1;
-constexpr const TSymbolUniqueId BuiltInId::mix_Bool2_Bool2_Bool2;
-constexpr const TSymbolUniqueId BuiltInId::mix_Bool3_Bool3_Bool3;
-constexpr const TSymbolUniqueId BuiltInId::mix_Bool4_Bool4_Bool4;
-constexpr const TSymbolUniqueId BuiltInId::step_Float1_Float1;
-constexpr const TSymbolUniqueId BuiltInId::step_Float2_Float2;
-constexpr const TSymbolUniqueId BuiltInId::step_Float3_Float3;
-constexpr const TSymbolUniqueId BuiltInId::step_Float4_Float4;
-constexpr const TSymbolUniqueId BuiltInId::step_Float1_Float2;
-constexpr const TSymbolUniqueId BuiltInId::step_Float1_Float3;
-constexpr const TSymbolUniqueId BuiltInId::step_Float1_Float4;
-constexpr const TSymbolUniqueId BuiltInId::step_Double1_Double1;
-constexpr const TSymbolUniqueId BuiltInId::step_Double2_Double2;
-constexpr const TSymbolUniqueId BuiltInId::step_Double3_Double3;
-constexpr const TSymbolUniqueId BuiltInId::step_Double4_Double4;
-constexpr const TSymbolUniqueId BuiltInId::step_Double1_Double2;
-constexpr const TSymbolUniqueId BuiltInId::step_Double1_Double3;
-constexpr const TSymbolUniqueId BuiltInId::step_Double1_Double4;
-constexpr const TSymbolUniqueId BuiltInId::smoothstep_Double1_Double1_Double1;
-constexpr const TSymbolUniqueId BuiltInId::smoothstep_Double2_Double2_Double2;
-constexpr const TSymbolUniqueId BuiltInId::smoothstep_Double3_Double3_Double3;
-constexpr const TSymbolUniqueId BuiltInId::smoothstep_Double4_Double4_Double4;
-constexpr const TSymbolUniqueId BuiltInId::smoothstep_Double1_Double1_Double2;
-constexpr const TSymbolUniqueId BuiltInId::smoothstep_Double1_Double1_Double3;
-constexpr const TSymbolUniqueId BuiltInId::smoothstep_Double1_Double1_Double4;
-constexpr const TSymbolUniqueId BuiltInId::smoothstep_Float1_Float1_Float1;
-constexpr const TSymbolUniqueId BuiltInId::smoothstep_Float2_Float2_Float2;
-constexpr const TSymbolUniqueId BuiltInId::smoothstep_Float3_Float3_Float3;
-constexpr const TSymbolUniqueId BuiltInId::smoothstep_Float4_Float4_Float4;
-constexpr const TSymbolUniqueId BuiltInId::smoothstep_Float1_Float1_Float2;
-constexpr const TSymbolUniqueId BuiltInId::smoothstep_Float1_Float1_Float3;
-constexpr const TSymbolUniqueId BuiltInId::smoothstep_Float1_Float1_Float4;
-constexpr const TSymbolUniqueId BuiltInId::modf_Float1_Float1;
-constexpr const TSymbolUniqueId BuiltInId::modf_Float2_Float2;
-constexpr const TSymbolUniqueId BuiltInId::modf_Float3_Float3;
-constexpr const TSymbolUniqueId BuiltInId::modf_Float4_Float4;
-constexpr const TSymbolUniqueId BuiltInId::modf_Double1_Double1;
-constexpr const TSymbolUniqueId BuiltInId::modf_Double2_Double2;
-constexpr const TSymbolUniqueId BuiltInId::modf_Double3_Double3;
-constexpr const TSymbolUniqueId BuiltInId::modf_Double4_Double4;
-constexpr const TSymbolUniqueId BuiltInId::isnan_Float1;
-constexpr const TSymbolUniqueId BuiltInId::isnan_Float2;
-constexpr const TSymbolUniqueId BuiltInId::isnan_Float3;
-constexpr const TSymbolUniqueId BuiltInId::isnan_Float4;
-constexpr const TSymbolUniqueId BuiltInId::isnan_Double1;
-constexpr const TSymbolUniqueId BuiltInId::isnan_Double2;
-constexpr const TSymbolUniqueId BuiltInId::isnan_Double3;
-constexpr const TSymbolUniqueId BuiltInId::isnan_Double4;
-constexpr const TSymbolUniqueId BuiltInId::isinf_Float1;
-constexpr const TSymbolUniqueId BuiltInId::isinf_Float2;
-constexpr const TSymbolUniqueId BuiltInId::isinf_Float3;
-constexpr const TSymbolUniqueId BuiltInId::isinf_Float4;
-constexpr const TSymbolUniqueId BuiltInId::isinf_Double1;
-constexpr const TSymbolUniqueId BuiltInId::isinf_Double2;
-constexpr const TSymbolUniqueId BuiltInId::isinf_Double3;
-constexpr const TSymbolUniqueId BuiltInId::isinf_Double4;
-constexpr const TSymbolUniqueId BuiltInId::floatBitsToInt_Float1;
-constexpr const TSymbolUniqueId BuiltInId::floatBitsToInt_Float2;
-constexpr const TSymbolUniqueId BuiltInId::floatBitsToInt_Float3;
-constexpr const TSymbolUniqueId BuiltInId::floatBitsToInt_Float4;
-constexpr const TSymbolUniqueId BuiltInId::floatBitsToUint_Float1;
-constexpr const TSymbolUniqueId BuiltInId::floatBitsToUint_Float2;
-constexpr const TSymbolUniqueId BuiltInId::floatBitsToUint_Float3;
-constexpr const TSymbolUniqueId BuiltInId::floatBitsToUint_Float4;
-constexpr const TSymbolUniqueId BuiltInId::intBitsToFloat_Int1;
-constexpr const TSymbolUniqueId BuiltInId::intBitsToFloat_Int2;
-constexpr const TSymbolUniqueId BuiltInId::intBitsToFloat_Int3;
-constexpr const TSymbolUniqueId BuiltInId::intBitsToFloat_Int4;
-constexpr const TSymbolUniqueId BuiltInId::uintBitsToFloat_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::uintBitsToFloat_UInt2;
-constexpr const TSymbolUniqueId BuiltInId::uintBitsToFloat_UInt3;
-constexpr const TSymbolUniqueId BuiltInId::uintBitsToFloat_UInt4;
-constexpr const TSymbolUniqueId BuiltInId::fma_Float1_Float1_Float1;
-constexpr const TSymbolUniqueId BuiltInId::fma_Float2_Float2_Float2;
-constexpr const TSymbolUniqueId BuiltInId::fma_Float3_Float3_Float3;
-constexpr const TSymbolUniqueId BuiltInId::fma_Float4_Float4_Float4;
-constexpr const TSymbolUniqueId BuiltInId::fmaExt_Float1_Float1_Float1;
-constexpr const TSymbolUniqueId BuiltInId::fmaExt_Float2_Float2_Float2;
-constexpr const TSymbolUniqueId BuiltInId::fmaExt_Float3_Float3_Float3;
-constexpr const TSymbolUniqueId BuiltInId::fmaExt_Float4_Float4_Float4;
-constexpr const TSymbolUniqueId BuiltInId::fma_Double1_Double1_Double1;
-constexpr const TSymbolUniqueId BuiltInId::fma_Double2_Double2_Double2;
-constexpr const TSymbolUniqueId BuiltInId::fma_Double3_Double3_Double3;
-constexpr const TSymbolUniqueId BuiltInId::fma_Double4_Double4_Double4;
-constexpr const TSymbolUniqueId BuiltInId::frexp_Float1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::frexp_Float2_Int2;
-constexpr const TSymbolUniqueId BuiltInId::frexp_Float3_Int3;
-constexpr const TSymbolUniqueId BuiltInId::frexp_Float4_Int4;
-constexpr const TSymbolUniqueId BuiltInId::frexp_Double1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::frexp_Double2_Int2;
-constexpr const TSymbolUniqueId BuiltInId::frexp_Double3_Int3;
-constexpr const TSymbolUniqueId BuiltInId::frexp_Double4_Int4;
-constexpr const TSymbolUniqueId BuiltInId::ldexp_Float1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::ldexp_Float2_Int2;
-constexpr const TSymbolUniqueId BuiltInId::ldexp_Float3_Int3;
-constexpr const TSymbolUniqueId BuiltInId::ldexp_Float4_Int4;
-constexpr const TSymbolUniqueId BuiltInId::ldexp_Double1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::ldexp_Double2_Int2;
-constexpr const TSymbolUniqueId BuiltInId::ldexp_Double3_Int3;
-constexpr const TSymbolUniqueId BuiltInId::ldexp_Double4_Int4;
-constexpr const TSymbolUniqueId BuiltInId::packSnorm2x16_Float2;
-constexpr const TSymbolUniqueId BuiltInId::packHalf2x16_Float2;
-constexpr const TSymbolUniqueId BuiltInId::unpackSnorm2x16_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::unpackHalf2x16_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::packUnorm2x16_Float2;
-constexpr const TSymbolUniqueId BuiltInId::unpackUnorm2x16_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::packUnorm4x8_Float4;
-constexpr const TSymbolUniqueId BuiltInId::packSnorm4x8_Float4;
-constexpr const TSymbolUniqueId BuiltInId::unpackUnorm4x8_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::unpackSnorm4x8_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::packDouble2x32_UInt2;
-constexpr const TSymbolUniqueId BuiltInId::unpackDouble2x32_Double1;
-constexpr const TSymbolUniqueId BuiltInId::length_Float1;
-constexpr const TSymbolUniqueId BuiltInId::length_Float2;
-constexpr const TSymbolUniqueId BuiltInId::length_Float3;
-constexpr const TSymbolUniqueId BuiltInId::length_Float4;
-constexpr const TSymbolUniqueId BuiltInId::length_Double1;
-constexpr const TSymbolUniqueId BuiltInId::length_Double2;
-constexpr const TSymbolUniqueId BuiltInId::length_Double3;
-constexpr const TSymbolUniqueId BuiltInId::length_Double4;
-constexpr const TSymbolUniqueId BuiltInId::distance_Float1_Float1;
-constexpr const TSymbolUniqueId BuiltInId::distance_Float2_Float2;
-constexpr const TSymbolUniqueId BuiltInId::distance_Float3_Float3;
-constexpr const TSymbolUniqueId BuiltInId::distance_Float4_Float4;
-constexpr const TSymbolUniqueId BuiltInId::distance_Double1_Double1;
-constexpr const TSymbolUniqueId BuiltInId::distance_Double2_Double2;
-constexpr const TSymbolUniqueId BuiltInId::distance_Double3_Double3;
-constexpr const TSymbolUniqueId BuiltInId::distance_Double4_Double4;
-constexpr const TSymbolUniqueId BuiltInId::dot_Float1_Float1;
-constexpr const TSymbolUniqueId BuiltInId::dot_Float2_Float2;
-constexpr const TSymbolUniqueId BuiltInId::dot_Float3_Float3;
-constexpr const TSymbolUniqueId BuiltInId::dot_Float4_Float4;
-constexpr const TSymbolUniqueId BuiltInId::dot_Double1_Double1;
-constexpr const TSymbolUniqueId BuiltInId::dot_Double2_Double2;
-constexpr const TSymbolUniqueId BuiltInId::dot_Double3_Double3;
-constexpr const TSymbolUniqueId BuiltInId::dot_Double4_Double4;
-constexpr const TSymbolUniqueId BuiltInId::cross_Float3_Float3;
-constexpr const TSymbolUniqueId BuiltInId::cross_Double3_Double3;
-constexpr const TSymbolUniqueId BuiltInId::normalize_Float1;
-constexpr const TSymbolUniqueId BuiltInId::normalize_Float2;
-constexpr const TSymbolUniqueId BuiltInId::normalize_Float3;
-constexpr const TSymbolUniqueId BuiltInId::normalize_Float4;
-constexpr const TSymbolUniqueId BuiltInId::normalize_Double1;
-constexpr const TSymbolUniqueId BuiltInId::normalize_Double2;
-constexpr const TSymbolUniqueId BuiltInId::normalize_Double3;
-constexpr const TSymbolUniqueId BuiltInId::normalize_Double4;
-constexpr const TSymbolUniqueId BuiltInId::faceforward_Float1_Float1_Float1;
-constexpr const TSymbolUniqueId BuiltInId::faceforward_Float2_Float2_Float2;
-constexpr const TSymbolUniqueId BuiltInId::faceforward_Float3_Float3_Float3;
-constexpr const TSymbolUniqueId BuiltInId::faceforward_Float4_Float4_Float4;
-constexpr const TSymbolUniqueId BuiltInId::faceforward_Double1_Double1_Double1;
-constexpr const TSymbolUniqueId BuiltInId::faceforward_Double2_Double2_Double2;
-constexpr const TSymbolUniqueId BuiltInId::faceforward_Double3_Double3_Double3;
-constexpr const TSymbolUniqueId BuiltInId::faceforward_Double4_Double4_Double4;
-constexpr const TSymbolUniqueId BuiltInId::reflect_Float1_Float1;
-constexpr const TSymbolUniqueId BuiltInId::reflect_Float2_Float2;
-constexpr const TSymbolUniqueId BuiltInId::reflect_Float3_Float3;
-constexpr const TSymbolUniqueId BuiltInId::reflect_Float4_Float4;
-constexpr const TSymbolUniqueId BuiltInId::reflect_Double1_Double1;
-constexpr const TSymbolUniqueId BuiltInId::reflect_Double2_Double2;
-constexpr const TSymbolUniqueId BuiltInId::reflect_Double3_Double3;
-constexpr const TSymbolUniqueId BuiltInId::reflect_Double4_Double4;
-constexpr const TSymbolUniqueId BuiltInId::refract_Float1_Float1_Float1;
-constexpr const TSymbolUniqueId BuiltInId::refract_Float2_Float2_Float1;
-constexpr const TSymbolUniqueId BuiltInId::refract_Float3_Float3_Float1;
-constexpr const TSymbolUniqueId BuiltInId::refract_Float4_Float4_Float1;
-constexpr const TSymbolUniqueId BuiltInId::refract_Double1_Double1_Float1;
-constexpr const TSymbolUniqueId BuiltInId::refract_Double2_Double2_Float1;
-constexpr const TSymbolUniqueId BuiltInId::refract_Double3_Double3_Float1;
-constexpr const TSymbolUniqueId BuiltInId::refract_Double4_Double4_Float1;
-constexpr const TSymbolUniqueId BuiltInId::ftransform;
-constexpr const TSymbolUniqueId BuiltInId::matrixCompMult_Float2x2_Float2x2;
-constexpr const TSymbolUniqueId BuiltInId::matrixCompMult_Float3x3_Float3x3;
-constexpr const TSymbolUniqueId BuiltInId::matrixCompMult_Float4x4_Float4x4;
-constexpr const TSymbolUniqueId BuiltInId::matrixCompMult_Float2x3_Float2x3;
-constexpr const TSymbolUniqueId BuiltInId::matrixCompMult_Float3x2_Float3x2;
-constexpr const TSymbolUniqueId BuiltInId::matrixCompMult_Float2x4_Float2x4;
-constexpr const TSymbolUniqueId BuiltInId::matrixCompMult_Float4x2_Float4x2;
-constexpr const TSymbolUniqueId BuiltInId::matrixCompMult_Float3x4_Float3x4;
-constexpr const TSymbolUniqueId BuiltInId::matrixCompMult_Float4x3_Float4x3;
-constexpr const TSymbolUniqueId BuiltInId::outerProduct_Float2_Float2;
-constexpr const TSymbolUniqueId BuiltInId::outerProduct_Float3_Float3;
-constexpr const TSymbolUniqueId BuiltInId::outerProduct_Float4_Float4;
-constexpr const TSymbolUniqueId BuiltInId::outerProduct_Float3_Float2;
-constexpr const TSymbolUniqueId BuiltInId::outerProduct_Float2_Float3;
-constexpr const TSymbolUniqueId BuiltInId::outerProduct_Float4_Float2;
-constexpr const TSymbolUniqueId BuiltInId::outerProduct_Float2_Float4;
-constexpr const TSymbolUniqueId BuiltInId::outerProduct_Float4_Float3;
-constexpr const TSymbolUniqueId BuiltInId::outerProduct_Float3_Float4;
-constexpr const TSymbolUniqueId BuiltInId::transpose_Float2x2;
-constexpr const TSymbolUniqueId BuiltInId::transpose_Float3x3;
-constexpr const TSymbolUniqueId BuiltInId::transpose_Float4x4;
-constexpr const TSymbolUniqueId BuiltInId::transpose_Float3x2;
-constexpr const TSymbolUniqueId BuiltInId::transpose_Float2x3;
-constexpr const TSymbolUniqueId BuiltInId::transpose_Float4x2;
-constexpr const TSymbolUniqueId BuiltInId::transpose_Float2x4;
-constexpr const TSymbolUniqueId BuiltInId::transpose_Float4x3;
-constexpr const TSymbolUniqueId BuiltInId::transpose_Float3x4;
-constexpr const TSymbolUniqueId BuiltInId::determinant_Float2x2;
-constexpr const TSymbolUniqueId BuiltInId::determinant_Float3x3;
-constexpr const TSymbolUniqueId BuiltInId::determinant_Float4x4;
-constexpr const TSymbolUniqueId BuiltInId::inverse_Float2x2;
-constexpr const TSymbolUniqueId BuiltInId::inverse_Float3x3;
-constexpr const TSymbolUniqueId BuiltInId::inverse_Float4x4;
-constexpr const TSymbolUniqueId BuiltInId::lessThan_Float2_Float2;
-constexpr const TSymbolUniqueId BuiltInId::lessThan_Float3_Float3;
-constexpr const TSymbolUniqueId BuiltInId::lessThan_Float4_Float4;
-constexpr const TSymbolUniqueId BuiltInId::lessThan_Int2_Int2;
-constexpr const TSymbolUniqueId BuiltInId::lessThan_Int3_Int3;
-constexpr const TSymbolUniqueId BuiltInId::lessThan_Int4_Int4;
-constexpr const TSymbolUniqueId BuiltInId::lessThan_UInt2_UInt2;
-constexpr const TSymbolUniqueId BuiltInId::lessThan_UInt3_UInt3;
-constexpr const TSymbolUniqueId BuiltInId::lessThan_UInt4_UInt4;
-constexpr const TSymbolUniqueId BuiltInId::lessThanEqual_Float2_Float2;
-constexpr const TSymbolUniqueId BuiltInId::lessThanEqual_Float3_Float3;
-constexpr const TSymbolUniqueId BuiltInId::lessThanEqual_Float4_Float4;
-constexpr const TSymbolUniqueId BuiltInId::lessThanEqual_Int2_Int2;
-constexpr const TSymbolUniqueId BuiltInId::lessThanEqual_Int3_Int3;
-constexpr const TSymbolUniqueId BuiltInId::lessThanEqual_Int4_Int4;
-constexpr const TSymbolUniqueId BuiltInId::lessThanEqual_UInt2_UInt2;
-constexpr const TSymbolUniqueId BuiltInId::lessThanEqual_UInt3_UInt3;
-constexpr const TSymbolUniqueId BuiltInId::lessThanEqual_UInt4_UInt4;
-constexpr const TSymbolUniqueId BuiltInId::greaterThan_Float2_Float2;
-constexpr const TSymbolUniqueId BuiltInId::greaterThan_Float3_Float3;
-constexpr const TSymbolUniqueId BuiltInId::greaterThan_Float4_Float4;
-constexpr const TSymbolUniqueId BuiltInId::greaterThan_Int2_Int2;
-constexpr const TSymbolUniqueId BuiltInId::greaterThan_Int3_Int3;
-constexpr const TSymbolUniqueId BuiltInId::greaterThan_Int4_Int4;
-constexpr const TSymbolUniqueId BuiltInId::greaterThan_UInt2_UInt2;
-constexpr const TSymbolUniqueId BuiltInId::greaterThan_UInt3_UInt3;
-constexpr const TSymbolUniqueId BuiltInId::greaterThan_UInt4_UInt4;
-constexpr const TSymbolUniqueId BuiltInId::greaterThanEqual_Float2_Float2;
-constexpr const TSymbolUniqueId BuiltInId::greaterThanEqual_Float3_Float3;
-constexpr const TSymbolUniqueId BuiltInId::greaterThanEqual_Float4_Float4;
-constexpr const TSymbolUniqueId BuiltInId::greaterThanEqual_Int2_Int2;
-constexpr const TSymbolUniqueId BuiltInId::greaterThanEqual_Int3_Int3;
-constexpr const TSymbolUniqueId BuiltInId::greaterThanEqual_Int4_Int4;
-constexpr const TSymbolUniqueId BuiltInId::greaterThanEqual_UInt2_UInt2;
-constexpr const TSymbolUniqueId BuiltInId::greaterThanEqual_UInt3_UInt3;
-constexpr const TSymbolUniqueId BuiltInId::greaterThanEqual_UInt4_UInt4;
-constexpr const TSymbolUniqueId BuiltInId::equal_Float2_Float2;
-constexpr const TSymbolUniqueId BuiltInId::equal_Float3_Float3;
-constexpr const TSymbolUniqueId BuiltInId::equal_Float4_Float4;
-constexpr const TSymbolUniqueId BuiltInId::equal_Int2_Int2;
-constexpr const TSymbolUniqueId BuiltInId::equal_Int3_Int3;
-constexpr const TSymbolUniqueId BuiltInId::equal_Int4_Int4;
-constexpr const TSymbolUniqueId BuiltInId::equal_UInt2_UInt2;
-constexpr const TSymbolUniqueId BuiltInId::equal_UInt3_UInt3;
-constexpr const TSymbolUniqueId BuiltInId::equal_UInt4_UInt4;
-constexpr const TSymbolUniqueId BuiltInId::equal_Bool2_Bool2;
-constexpr const TSymbolUniqueId BuiltInId::equal_Bool3_Bool3;
-constexpr const TSymbolUniqueId BuiltInId::equal_Bool4_Bool4;
-constexpr const TSymbolUniqueId BuiltInId::notEqual_Float2_Float2;
-constexpr const TSymbolUniqueId BuiltInId::notEqual_Float3_Float3;
-constexpr const TSymbolUniqueId BuiltInId::notEqual_Float4_Float4;
-constexpr const TSymbolUniqueId BuiltInId::notEqual_Int2_Int2;
-constexpr const TSymbolUniqueId BuiltInId::notEqual_Int3_Int3;
-constexpr const TSymbolUniqueId BuiltInId::notEqual_Int4_Int4;
-constexpr const TSymbolUniqueId BuiltInId::notEqual_UInt2_UInt2;
-constexpr const TSymbolUniqueId BuiltInId::notEqual_UInt3_UInt3;
-constexpr const TSymbolUniqueId BuiltInId::notEqual_UInt4_UInt4;
-constexpr const TSymbolUniqueId BuiltInId::notEqual_Bool2_Bool2;
-constexpr const TSymbolUniqueId BuiltInId::notEqual_Bool3_Bool3;
-constexpr const TSymbolUniqueId BuiltInId::notEqual_Bool4_Bool4;
-constexpr const TSymbolUniqueId BuiltInId::any_Bool2;
-constexpr const TSymbolUniqueId BuiltInId::any_Bool3;
-constexpr const TSymbolUniqueId BuiltInId::any_Bool4;
-constexpr const TSymbolUniqueId BuiltInId::all_Bool2;
-constexpr const TSymbolUniqueId BuiltInId::all_Bool3;
-constexpr const TSymbolUniqueId BuiltInId::all_Bool4;
-constexpr const TSymbolUniqueId BuiltInId::notFunc_Bool2;
-constexpr const TSymbolUniqueId BuiltInId::notFunc_Bool3;
-constexpr const TSymbolUniqueId BuiltInId::notFunc_Bool4;
-constexpr const TSymbolUniqueId BuiltInId::bitfieldExtract_Int1_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::bitfieldExtract_Int2_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::bitfieldExtract_Int3_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::bitfieldExtract_Int4_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::bitfieldExtract_UInt1_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::bitfieldExtract_UInt2_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::bitfieldExtract_UInt3_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::bitfieldExtract_UInt4_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::bitfieldInsert_Int1_Int1_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::bitfieldInsert_Int2_Int2_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::bitfieldInsert_Int3_Int3_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::bitfieldInsert_Int4_Int4_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::bitfieldInsert_UInt1_UInt1_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::bitfieldInsert_UInt2_UInt2_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::bitfieldInsert_UInt3_UInt3_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::bitfieldInsert_UInt4_UInt4_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::bitfieldReverse_Int1;
-constexpr const TSymbolUniqueId BuiltInId::bitfieldReverse_Int2;
-constexpr const TSymbolUniqueId BuiltInId::bitfieldReverse_Int3;
-constexpr const TSymbolUniqueId BuiltInId::bitfieldReverse_Int4;
-constexpr const TSymbolUniqueId BuiltInId::bitfieldReverse_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::bitfieldReverse_UInt2;
-constexpr const TSymbolUniqueId BuiltInId::bitfieldReverse_UInt3;
-constexpr const TSymbolUniqueId BuiltInId::bitfieldReverse_UInt4;
-constexpr const TSymbolUniqueId BuiltInId::bitCount_Int1;
-constexpr const TSymbolUniqueId BuiltInId::bitCount_Int2;
-constexpr const TSymbolUniqueId BuiltInId::bitCount_Int3;
-constexpr const TSymbolUniqueId BuiltInId::bitCount_Int4;
-constexpr const TSymbolUniqueId BuiltInId::bitCount_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::bitCount_UInt2;
-constexpr const TSymbolUniqueId BuiltInId::bitCount_UInt3;
-constexpr const TSymbolUniqueId BuiltInId::bitCount_UInt4;
-constexpr const TSymbolUniqueId BuiltInId::findLSB_Int1;
-constexpr const TSymbolUniqueId BuiltInId::findLSB_Int2;
-constexpr const TSymbolUniqueId BuiltInId::findLSB_Int3;
-constexpr const TSymbolUniqueId BuiltInId::findLSB_Int4;
-constexpr const TSymbolUniqueId BuiltInId::findLSB_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::findLSB_UInt2;
-constexpr const TSymbolUniqueId BuiltInId::findLSB_UInt3;
-constexpr const TSymbolUniqueId BuiltInId::findLSB_UInt4;
-constexpr const TSymbolUniqueId BuiltInId::findMSB_Int1;
-constexpr const TSymbolUniqueId BuiltInId::findMSB_Int2;
-constexpr const TSymbolUniqueId BuiltInId::findMSB_Int3;
-constexpr const TSymbolUniqueId BuiltInId::findMSB_Int4;
-constexpr const TSymbolUniqueId BuiltInId::findMSB_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::findMSB_UInt2;
-constexpr const TSymbolUniqueId BuiltInId::findMSB_UInt3;
-constexpr const TSymbolUniqueId BuiltInId::findMSB_UInt4;
-constexpr const TSymbolUniqueId BuiltInId::uaddCarry_UInt1_UInt1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::uaddCarry_UInt2_UInt2_UInt2;
-constexpr const TSymbolUniqueId BuiltInId::uaddCarry_UInt3_UInt3_UInt3;
-constexpr const TSymbolUniqueId BuiltInId::uaddCarry_UInt4_UInt4_UInt4;
-constexpr const TSymbolUniqueId BuiltInId::usubBorrow_UInt1_UInt1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::usubBorrow_UInt2_UInt2_UInt2;
-constexpr const TSymbolUniqueId BuiltInId::usubBorrow_UInt3_UInt3_UInt3;
-constexpr const TSymbolUniqueId BuiltInId::usubBorrow_UInt4_UInt4_UInt4;
-constexpr const TSymbolUniqueId BuiltInId::umulExtended_UInt1_UInt1_UInt1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::umulExtended_UInt2_UInt2_UInt2_UInt2;
-constexpr const TSymbolUniqueId BuiltInId::umulExtended_UInt3_UInt3_UInt3_UInt3;
-constexpr const TSymbolUniqueId BuiltInId::umulExtended_UInt4_UInt4_UInt4_UInt4;
-constexpr const TSymbolUniqueId BuiltInId::imulExtended_Int1_Int1_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imulExtended_Int2_Int2_Int2_Int2;
-constexpr const TSymbolUniqueId BuiltInId::imulExtended_Int3_Int3_Int3_Int3;
-constexpr const TSymbolUniqueId BuiltInId::imulExtended_Int4_Int4_Int4_Int4;
-constexpr const TSymbolUniqueId BuiltInId::texture2D_Sampler2D1_Float2;
-constexpr const TSymbolUniqueId BuiltInId::texture2DProj_Sampler2D1_Float3;
-constexpr const TSymbolUniqueId BuiltInId::texture2DProj_Sampler2D1_Float4;
-constexpr const TSymbolUniqueId BuiltInId::textureCube_SamplerCube1_Float3;
-constexpr const TSymbolUniqueId BuiltInId::texture1D_Sampler1D1_Float1;
-constexpr const TSymbolUniqueId BuiltInId::texture1DProj_Sampler1D1_Float2;
-constexpr const TSymbolUniqueId BuiltInId::texture1DProj_Sampler1D1_Float4;
-constexpr const TSymbolUniqueId BuiltInId::texture3D_Sampler3D1_Float3;
-constexpr const TSymbolUniqueId BuiltInId::texture3DProj_Sampler3D1_Float4;
-constexpr const TSymbolUniqueId BuiltInId::shadow1D_Sampler1DShadow1_Float3;
-constexpr const TSymbolUniqueId BuiltInId::shadow1DProj_Sampler1DShadow1_Float4;
-constexpr const TSymbolUniqueId BuiltInId::shadow2D_Sampler2DShadow1_Float3;
-constexpr const TSymbolUniqueId BuiltInId::shadow2DProj_Sampler2DShadow1_Float4;
-constexpr const TSymbolUniqueId BuiltInId::shadow2DEXT_Sampler2DShadow1_Float3;
-constexpr const TSymbolUniqueId BuiltInId::shadow2DProjEXT_Sampler2DShadow1_Float4;
-constexpr const TSymbolUniqueId BuiltInId::texture2D_SamplerExternalOES1_Float2;
-constexpr const TSymbolUniqueId BuiltInId::texture2DProj_SamplerExternalOES1_Float3;
-constexpr const TSymbolUniqueId BuiltInId::texture2DProj_SamplerExternalOES1_Float4;
-constexpr const TSymbolUniqueId BuiltInId::texture2DRect_Sampler2DRect1_Float2;
-constexpr const TSymbolUniqueId BuiltInId::texture2DRectProj_Sampler2DRect1_Float3;
-constexpr const TSymbolUniqueId BuiltInId::texture2DRectProj_Sampler2DRect1_Float4;
-constexpr const TSymbolUniqueId BuiltInId::texture2DGradEXT_Sampler2D1_Float2_Float2_Float2;
-constexpr const TSymbolUniqueId BuiltInId::texture2DProjGradEXT_Sampler2D1_Float3_Float2_Float2;
-constexpr const TSymbolUniqueId BuiltInId::texture2DProjGradEXT_Sampler2D1_Float4_Float2_Float2;
-constexpr const TSymbolUniqueId BuiltInId::textureCubeGradEXT_SamplerCube1_Float3_Float3_Float3;
-constexpr const TSymbolUniqueId BuiltInId::textureVideoWEBGL_SamplerVideoWEBGL1_Float2;
-constexpr const TSymbolUniqueId BuiltInId::texture2D_Sampler2D1_Float2_Float1;
-constexpr const TSymbolUniqueId BuiltInId::texture2DProj_Sampler2D1_Float3_Float1;
-constexpr const TSymbolUniqueId BuiltInId::texture2DProj_Sampler2D1_Float4_Float1;
-constexpr const TSymbolUniqueId BuiltInId::textureCube_SamplerCube1_Float3_Float1;
-constexpr const TSymbolUniqueId BuiltInId::texture3D_Sampler3D1_Float3_Float1;
-constexpr const TSymbolUniqueId BuiltInId::texture3DProj_Sampler3D1_Float4_Float1;
-constexpr const TSymbolUniqueId BuiltInId::texture1D_Sampler1D1_Float1_Float1;
-constexpr const TSymbolUniqueId BuiltInId::texture1DProj_Sampler1D1_Float2_Float1;
-constexpr const TSymbolUniqueId BuiltInId::texture1DProj_Sampler1D1_Float4_Float1;
-constexpr const TSymbolUniqueId BuiltInId::shadow1D_Sampler1DShadow1_Float3_Float1;
-constexpr const TSymbolUniqueId BuiltInId::shadow1DProj_Sampler1DShadow1_Float4_Float1;
-constexpr const TSymbolUniqueId BuiltInId::shadow2D_Sampler2DShadow1_Float3_Float1;
-constexpr const TSymbolUniqueId BuiltInId::shadow2DProj_Sampler2DShadow1_Float4_Float1;
-constexpr const TSymbolUniqueId BuiltInId::texture2DLod_Sampler2D1_Float2_Float1;
-constexpr const TSymbolUniqueId BuiltInId::texture2DProjLod_Sampler2D1_Float3_Float1;
-constexpr const TSymbolUniqueId BuiltInId::texture2DProjLod_Sampler2D1_Float4_Float1;
-constexpr const TSymbolUniqueId BuiltInId::textureCubeLod_SamplerCube1_Float3_Float1;
-constexpr const TSymbolUniqueId BuiltInId::texture1DLod_Sampler1D1_Float1_Float1;
-constexpr const TSymbolUniqueId BuiltInId::texture1DProjLod_Sampler1D1_Float2_Float1;
-constexpr const TSymbolUniqueId BuiltInId::texture1DProjLod_Sampler1D1_Float4_Float1;
-constexpr const TSymbolUniqueId BuiltInId::shadow1DLod_Sampler1DShadow1_Float3_Float1;
-constexpr const TSymbolUniqueId BuiltInId::shadow1DProjLod_Sampler1DShadow1_Float4_Float1;
-constexpr const TSymbolUniqueId BuiltInId::shadow2DLod_Sampler2DShadow1_Float3_Float1;
-constexpr const TSymbolUniqueId BuiltInId::shadow2DProjLod_Sampler2DShadow1_Float4_Float1;
-constexpr const TSymbolUniqueId BuiltInId::texture3DLod_Sampler3D1_Float3_Float1;
-constexpr const TSymbolUniqueId BuiltInId::texture3DProjLod_Sampler3D1_Float4_Float1;
-constexpr const TSymbolUniqueId BuiltInId::texture2DLodEXT_Sampler2D1_Float2_Float1;
-constexpr const TSymbolUniqueId BuiltInId::texture2DProjLodEXT_Sampler2D1_Float3_Float1;
-constexpr const TSymbolUniqueId BuiltInId::texture2DProjLodEXT_Sampler2D1_Float4_Float1;
-constexpr const TSymbolUniqueId BuiltInId::textureCubeLodEXT_SamplerCube1_Float3_Float1;
-constexpr const TSymbolUniqueId BuiltInId::texture_Sampler2D1_Float2;
-constexpr const TSymbolUniqueId BuiltInId::texture_ISampler2D1_Float2;
-constexpr const TSymbolUniqueId BuiltInId::texture_USampler2D1_Float2;
-constexpr const TSymbolUniqueId BuiltInId::texture_Sampler3D1_Float3;
-constexpr const TSymbolUniqueId BuiltInId::texture_ISampler3D1_Float3;
-constexpr const TSymbolUniqueId BuiltInId::texture_USampler3D1_Float3;
-constexpr const TSymbolUniqueId BuiltInId::texture_SamplerCube1_Float3;
-constexpr const TSymbolUniqueId BuiltInId::texture_ISamplerCube1_Float3;
-constexpr const TSymbolUniqueId BuiltInId::texture_USamplerCube1_Float3;
-constexpr const TSymbolUniqueId BuiltInId::texture_Sampler2DArray1_Float3;
-constexpr const TSymbolUniqueId BuiltInId::texture_ISampler2DArray1_Float3;
-constexpr const TSymbolUniqueId BuiltInId::texture_USampler2DArray1_Float3;
-constexpr const TSymbolUniqueId BuiltInId::texture_Sampler2DShadow1_Float3;
-constexpr const TSymbolUniqueId BuiltInId::texture_SamplerCubeShadow1_Float4;
-constexpr const TSymbolUniqueId BuiltInId::texture_Sampler2DArrayShadow1_Float4;
-constexpr const TSymbolUniqueId BuiltInId::texture_Sampler1D1_Float1;
-constexpr const TSymbolUniqueId BuiltInId::texture_ISampler1D1_Float1;
-constexpr const TSymbolUniqueId BuiltInId::texture_USampler1D1_Float1;
-constexpr const TSymbolUniqueId BuiltInId::texture_Sampler1DShadow1_Float3;
-constexpr const TSymbolUniqueId BuiltInId::texture_Sampler1DArray1_Float3;
-constexpr const TSymbolUniqueId BuiltInId::texture_ISampler1DArray1_Float3;
-constexpr const TSymbolUniqueId BuiltInId::texture_USampler1DArray1_Float3;
-constexpr const TSymbolUniqueId BuiltInId::texture_Sampler1DArrayShadow1_Float3;
-constexpr const TSymbolUniqueId BuiltInId::texture_Sampler2DRect1_Float2;
-constexpr const TSymbolUniqueId BuiltInId::texture_ISampler2DRect1_Float2;
-constexpr const TSymbolUniqueId BuiltInId::texture_USampler2DRect1_Float2;
-constexpr const TSymbolUniqueId BuiltInId::texture_Sampler2DRectShadow1_Float3;
-constexpr const TSymbolUniqueId BuiltInId::texture_SamplerCubeArray1_Float4;
-constexpr const TSymbolUniqueId BuiltInId::texture_ISamplerCubeArray1_Float4;
-constexpr const TSymbolUniqueId BuiltInId::texture_USamplerCubeArray1_Float4;
-constexpr const TSymbolUniqueId BuiltInId::texture_SamplerCubeArrayShadow1_Float4_Float1;
-constexpr const TSymbolUniqueId BuiltInId::textureExt_SamplerCubeArray1_Float4;
-constexpr const TSymbolUniqueId BuiltInId::textureExt_ISamplerCubeArray1_Float4;
-constexpr const TSymbolUniqueId BuiltInId::textureExt_USamplerCubeArray1_Float4;
-constexpr const TSymbolUniqueId BuiltInId::textureExt_SamplerCubeArrayShadow1_Float4_Float1;
-constexpr const TSymbolUniqueId BuiltInId::texture_SamplerExternalOES1_Float2;
-constexpr const TSymbolUniqueId BuiltInId::texture_SamplerExternal2DY2YEXT1_Float2;
-constexpr const TSymbolUniqueId BuiltInId::texture_SamplerVideoWEBGL1_Float2;
-constexpr const TSymbolUniqueId BuiltInId::textureProj_Sampler2D1_Float3;
-constexpr const TSymbolUniqueId BuiltInId::textureProj_ISampler2D1_Float3;
-constexpr const TSymbolUniqueId BuiltInId::textureProj_USampler2D1_Float3;
-constexpr const TSymbolUniqueId BuiltInId::textureProj_Sampler2D1_Float4;
-constexpr const TSymbolUniqueId BuiltInId::textureProj_ISampler2D1_Float4;
-constexpr const TSymbolUniqueId BuiltInId::textureProj_USampler2D1_Float4;
-constexpr const TSymbolUniqueId BuiltInId::textureProj_Sampler3D1_Float4;
-constexpr const TSymbolUniqueId BuiltInId::textureProj_ISampler3D1_Float4;
-constexpr const TSymbolUniqueId BuiltInId::textureProj_USampler3D1_Float4;
-constexpr const TSymbolUniqueId BuiltInId::textureProj_Sampler2DShadow1_Float4;
-constexpr const TSymbolUniqueId BuiltInId::textureProj_Sampler1D1_Float2;
-constexpr const TSymbolUniqueId BuiltInId::textureProj_ISampler1D1_Float2;
-constexpr const TSymbolUniqueId BuiltInId::textureProj_USampler1D1_Float2;
-constexpr const TSymbolUniqueId BuiltInId::textureProj_Sampler1D1_Float4;
-constexpr const TSymbolUniqueId BuiltInId::textureProj_ISampler1D1_Float4;
-constexpr const TSymbolUniqueId BuiltInId::textureProj_USampler1D1_Float4;
-constexpr const TSymbolUniqueId BuiltInId::textureProj_Sampler1DShadow1_Float4;
-constexpr const TSymbolUniqueId BuiltInId::textureProj_Sampler2DRect1_Float3;
-constexpr const TSymbolUniqueId BuiltInId::textureProj_ISampler2DRect1_Float3;
-constexpr const TSymbolUniqueId BuiltInId::textureProj_USampler2DRect1_Float3;
-constexpr const TSymbolUniqueId BuiltInId::textureProj_Sampler2DRect1_Float4;
-constexpr const TSymbolUniqueId BuiltInId::textureProj_ISampler2DRect1_Float4;
-constexpr const TSymbolUniqueId BuiltInId::textureProj_USampler2DRect1_Float4;
-constexpr const TSymbolUniqueId BuiltInId::textureProj_Sampler2DRectShadow1_Float4;
-constexpr const TSymbolUniqueId BuiltInId::textureProj_SamplerExternalOES1_Float3;
-constexpr const TSymbolUniqueId BuiltInId::textureProj_SamplerExternalOES1_Float4;
-constexpr const TSymbolUniqueId BuiltInId::textureProj_SamplerExternal2DY2YEXT1_Float3;
-constexpr const TSymbolUniqueId BuiltInId::textureProj_SamplerExternal2DY2YEXT1_Float4;
-constexpr const TSymbolUniqueId BuiltInId::textureLod_Sampler2D1_Float2_Float1;
-constexpr const TSymbolUniqueId BuiltInId::textureLod_ISampler2D1_Float2_Float1;
-constexpr const TSymbolUniqueId BuiltInId::textureLod_USampler2D1_Float2_Float1;
-constexpr const TSymbolUniqueId BuiltInId::textureLod_Sampler3D1_Float3_Float1;
-constexpr const TSymbolUniqueId BuiltInId::textureLod_ISampler3D1_Float3_Float1;
-constexpr const TSymbolUniqueId BuiltInId::textureLod_USampler3D1_Float3_Float1;
-constexpr const TSymbolUniqueId BuiltInId::textureLod_SamplerCube1_Float3_Float1;
-constexpr const TSymbolUniqueId BuiltInId::textureLod_ISamplerCube1_Float3_Float1;
-constexpr const TSymbolUniqueId BuiltInId::textureLod_USamplerCube1_Float3_Float1;
-constexpr const TSymbolUniqueId BuiltInId::textureLod_Sampler2DArray1_Float3_Float1;
-constexpr const TSymbolUniqueId BuiltInId::textureLod_ISampler2DArray1_Float3_Float1;
-constexpr const TSymbolUniqueId BuiltInId::textureLod_USampler2DArray1_Float3_Float1;
-constexpr const TSymbolUniqueId BuiltInId::textureLod_Sampler2DShadow1_Float3_Float1;
-constexpr const TSymbolUniqueId BuiltInId::textureLod_Sampler1D1_Float1_Float1;
-constexpr const TSymbolUniqueId BuiltInId::textureLod_ISampler1D1_Float1_Float1;
-constexpr const TSymbolUniqueId BuiltInId::textureLod_USampler1D1_Float1_Float1;
-constexpr const TSymbolUniqueId BuiltInId::textureLod_Sampler1DShadow1_Float3_Float1;
-constexpr const TSymbolUniqueId BuiltInId::textureLod_Sampler1DArray1_Float2_Float1;
-constexpr const TSymbolUniqueId BuiltInId::textureLod_ISampler1DArray1_Float2_Float1;
-constexpr const TSymbolUniqueId BuiltInId::textureLod_USampler1DArray1_Float2_Float1;
-constexpr const TSymbolUniqueId BuiltInId::textureLod_Sampler1DArrayShadow1_Float3_Float1;
-constexpr const TSymbolUniqueId BuiltInId::textureLod_SamplerCubeArray1_Float4_Float1;
-constexpr const TSymbolUniqueId BuiltInId::textureLod_ISamplerCubeArray1_Float4_Float1;
-constexpr const TSymbolUniqueId BuiltInId::textureLod_USamplerCubeArray1_Float4_Float1;
-constexpr const TSymbolUniqueId BuiltInId::textureLodExt_SamplerCubeArray1_Float4_Float1;
-constexpr const TSymbolUniqueId BuiltInId::textureLodExt_ISamplerCubeArray1_Float4_Float1;
-constexpr const TSymbolUniqueId BuiltInId::textureLodExt_USamplerCubeArray1_Float4_Float1;
-constexpr const TSymbolUniqueId BuiltInId::textureSize_Sampler2D1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::textureSize_ISampler2D1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::textureSize_USampler2D1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::textureSize_Sampler3D1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::textureSize_ISampler3D1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::textureSize_USampler3D1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::textureSize_SamplerCube1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::textureSize_ISamplerCube1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::textureSize_USamplerCube1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::textureSize_Sampler2DArray1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::textureSize_ISampler2DArray1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::textureSize_USampler2DArray1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::textureSize_Sampler2DShadow1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::textureSize_SamplerCubeShadow1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::textureSize_Sampler2DArrayShadow1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::textureSize_Sampler1D1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::textureSize_ISampler1D1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::textureSize_USampler1D1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::textureSize_Sampler1DShadow1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::textureSize_SamplerCubeArray1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::textureSize_ISamplerCubeArray1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::textureSize_USamplerCubeArray1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::textureSize_SamplerCubeArrayShadow1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::textureSizeExt_SamplerCubeArray1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::textureSizeExt_ISamplerCubeArray1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::textureSizeExt_USamplerCubeArray1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::textureSizeExt_SamplerCubeArrayShadow1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::textureSize_Sampler2DRect1;
-constexpr const TSymbolUniqueId BuiltInId::textureSize_ISampler2DRect1;
-constexpr const TSymbolUniqueId BuiltInId::textureSize_USampler2DRect1;
-constexpr const TSymbolUniqueId BuiltInId::textureSize_Sampler2DRectShadow1;
-constexpr const TSymbolUniqueId BuiltInId::textureSize_Sampler1DArray1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::textureSize_ISampler1DArray1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::textureSize_USampler1DArray1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::textureSize_Sampler1DArrayShadow1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::textureSize_SamplerBuffer1;
-constexpr const TSymbolUniqueId BuiltInId::textureSize_ISamplerBuffer1;
-constexpr const TSymbolUniqueId BuiltInId::textureSize_USamplerBuffer1;
-constexpr const TSymbolUniqueId BuiltInId::textureSizeExt_SamplerBuffer1;
-constexpr const TSymbolUniqueId BuiltInId::textureSizeExt_ISamplerBuffer1;
-constexpr const TSymbolUniqueId BuiltInId::textureSizeExt_USamplerBuffer1;
-constexpr const TSymbolUniqueId BuiltInId::textureSize_Sampler2DMS1;
-constexpr const TSymbolUniqueId BuiltInId::textureSize_ISampler2DMS1;
-constexpr const TSymbolUniqueId BuiltInId::textureSize_USampler2DMS1;
-constexpr const TSymbolUniqueId BuiltInId::textureSizeExt_Sampler2DMS1;
-constexpr const TSymbolUniqueId BuiltInId::textureSizeExt_ISampler2DMS1;
-constexpr const TSymbolUniqueId BuiltInId::textureSizeExt_USampler2DMS1;
-constexpr const TSymbolUniqueId BuiltInId::textureSize_Sampler2DMSArray1;
-constexpr const TSymbolUniqueId BuiltInId::textureSize_ISampler2DMSArray1;
-constexpr const TSymbolUniqueId BuiltInId::textureSize_USampler2DMSArray1;
-constexpr const TSymbolUniqueId BuiltInId::textureSizeExt_Sampler2DMSArray1;
-constexpr const TSymbolUniqueId BuiltInId::textureSizeExt_ISampler2DMSArray1;
-constexpr const TSymbolUniqueId BuiltInId::textureSizeExt_USampler2DMSArray1;
-constexpr const TSymbolUniqueId BuiltInId::textureSize_SamplerExternalOES1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::textureSize_SamplerExternal2DY2YEXT1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::textureProjLod_Sampler2D1_Float3_Float1;
-constexpr const TSymbolUniqueId BuiltInId::textureProjLod_ISampler2D1_Float3_Float1;
-constexpr const TSymbolUniqueId BuiltInId::textureProjLod_USampler2D1_Float3_Float1;
-constexpr const TSymbolUniqueId BuiltInId::textureProjLod_Sampler2D1_Float4_Float1;
-constexpr const TSymbolUniqueId BuiltInId::textureProjLod_ISampler2D1_Float4_Float1;
-constexpr const TSymbolUniqueId BuiltInId::textureProjLod_USampler2D1_Float4_Float1;
-constexpr const TSymbolUniqueId BuiltInId::textureProjLod_Sampler3D1_Float4_Float1;
-constexpr const TSymbolUniqueId BuiltInId::textureProjLod_ISampler3D1_Float4_Float1;
-constexpr const TSymbolUniqueId BuiltInId::textureProjLod_USampler3D1_Float4_Float1;
-constexpr const TSymbolUniqueId BuiltInId::textureProjLod_Sampler2DShadow1_Float4_Float1;
-constexpr const TSymbolUniqueId BuiltInId::textureProjLod_Sampler1D1_Float2_Float1;
-constexpr const TSymbolUniqueId BuiltInId::textureProjLod_ISampler1D1_Float2_Float1;
-constexpr const TSymbolUniqueId BuiltInId::textureProjLod_USampler1D1_Float2_Float1;
-constexpr const TSymbolUniqueId BuiltInId::textureProjLod_Sampler1D1_Float4_Float1;
-constexpr const TSymbolUniqueId BuiltInId::textureProjLod_ISampler1D1_Float4_Float1;
-constexpr const TSymbolUniqueId BuiltInId::textureProjLod_USampler1D1_Float4_Float1;
-constexpr const TSymbolUniqueId BuiltInId::textureProjLod_Sampler1DShadow1_Float4_Float1;
-constexpr const TSymbolUniqueId BuiltInId::texelFetch_Sampler2D1_Int2_Int1;
-constexpr const TSymbolUniqueId BuiltInId::texelFetch_ISampler2D1_Int2_Int1;
-constexpr const TSymbolUniqueId BuiltInId::texelFetch_USampler2D1_Int2_Int1;
-constexpr const TSymbolUniqueId BuiltInId::texelFetch_Sampler3D1_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::texelFetch_ISampler3D1_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::texelFetch_USampler3D1_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::texelFetch_Sampler2DArray1_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::texelFetch_ISampler2DArray1_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::texelFetch_USampler2DArray1_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::texelFetch_Sampler1D1_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::texelFetch_ISampler1D1_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::texelFetch_USampler1D1_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::texelFetch_Sampler2DRect1_Int2;
-constexpr const TSymbolUniqueId BuiltInId::texelFetch_ISampler2DRect1_Int2;
-constexpr const TSymbolUniqueId BuiltInId::texelFetch_USampler2DRect1_Int2;
-constexpr const TSymbolUniqueId BuiltInId::texelFetch_Sampler1DArray1_Int2_Int1;
-constexpr const TSymbolUniqueId BuiltInId::texelFetch_ISampler1DArray1_Int2_Int1;
-constexpr const TSymbolUniqueId BuiltInId::texelFetch_USampler1DArray1_Int2_Int1;
-constexpr const TSymbolUniqueId BuiltInId::texelFetch_SamplerBuffer1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::texelFetch_ISamplerBuffer1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::texelFetch_USamplerBuffer1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::texelFetchExt_SamplerBuffer1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::texelFetchExt_ISamplerBuffer1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::texelFetchExt_USamplerBuffer1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::texelFetch_Sampler2DMS1_Int2_Int1;
-constexpr const TSymbolUniqueId BuiltInId::texelFetch_ISampler2DMS1_Int2_Int1;
-constexpr const TSymbolUniqueId BuiltInId::texelFetch_USampler2DMS1_Int2_Int1;
-constexpr const TSymbolUniqueId BuiltInId::texelFetchExt_Sampler2DMS1_Int2_Int1;
-constexpr const TSymbolUniqueId BuiltInId::texelFetchExt_ISampler2DMS1_Int2_Int1;
-constexpr const TSymbolUniqueId BuiltInId::texelFetchExt_USampler2DMS1_Int2_Int1;
-constexpr const TSymbolUniqueId BuiltInId::texelFetch_Sampler2DMSArray1_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::texelFetch_ISampler2DMSArray1_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::texelFetch_USampler2DMSArray1_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::texelFetchExt_Sampler2DMSArray1_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::texelFetchExt_ISampler2DMSArray1_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::texelFetchExt_USampler2DMSArray1_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::texelFetch_SamplerExternalOES1_Int2_Int1;
-constexpr const TSymbolUniqueId BuiltInId::texelFetch_SamplerExternal2DY2YEXT1_Int2_Int1;
-constexpr const TSymbolUniqueId BuiltInId::textureGrad_Sampler2D1_Float2_Float2_Float2;
-constexpr const TSymbolUniqueId BuiltInId::textureGrad_ISampler2D1_Float2_Float2_Float2;
-constexpr const TSymbolUniqueId BuiltInId::textureGrad_USampler2D1_Float2_Float2_Float2;
-constexpr const TSymbolUniqueId BuiltInId::textureGrad_Sampler3D1_Float3_Float3_Float3;
-constexpr const TSymbolUniqueId BuiltInId::textureGrad_ISampler3D1_Float3_Float3_Float3;
-constexpr const TSymbolUniqueId BuiltInId::textureGrad_USampler3D1_Float3_Float3_Float3;
-constexpr const TSymbolUniqueId BuiltInId::textureGrad_SamplerCube1_Float3_Float3_Float3;
-constexpr const TSymbolUniqueId BuiltInId::textureGrad_ISamplerCube1_Float3_Float3_Float3;
-constexpr const TSymbolUniqueId BuiltInId::textureGrad_USamplerCube1_Float3_Float3_Float3;
-constexpr const TSymbolUniqueId BuiltInId::textureGrad_Sampler2D1_Float1_Float1_Float1;
-constexpr const TSymbolUniqueId BuiltInId::textureGrad_ISampler2D1_Float1_Float1_Float1;
-constexpr const TSymbolUniqueId BuiltInId::textureGrad_USampler2D1_Float1_Float1_Float1;
-constexpr const TSymbolUniqueId BuiltInId::textureGrad_Sampler2DRect1_Float2_Float2_Float2;
-constexpr const TSymbolUniqueId BuiltInId::textureGrad_ISampler2DRect1_Float2_Float2_Float2;
-constexpr const TSymbolUniqueId BuiltInId::textureGrad_USampler2DRect1_Float2_Float2_Float2;
-constexpr const TSymbolUniqueId BuiltInId::textureGrad_Sampler2DRectShadow1_Float3_Float2_Float2;
-constexpr const TSymbolUniqueId BuiltInId::textureGrad_Sampler2DShadow1_Float3_Float2_Float2;
-constexpr const TSymbolUniqueId BuiltInId::textureGrad_SamplerCubeShadow1_Float4_Float3_Float3;
-constexpr const TSymbolUniqueId BuiltInId::textureGrad_Sampler2DArray1_Float3_Float2_Float2;
-constexpr const TSymbolUniqueId BuiltInId::textureGrad_ISampler2DArray1_Float3_Float2_Float2;
-constexpr const TSymbolUniqueId BuiltInId::textureGrad_USampler2DArray1_Float3_Float2_Float2;
-constexpr const TSymbolUniqueId BuiltInId::textureGrad_Sampler2DArrayShadow1_Float4_Float2_Float2;
-constexpr const TSymbolUniqueId BuiltInId::textureGrad_Sampler1DShadow1_Float3_Float1_Float1;
-constexpr const TSymbolUniqueId BuiltInId::textureGrad_Sampler1DArray1_Float2_Float1_Float1;
-constexpr const TSymbolUniqueId BuiltInId::textureGrad_ISampler1DArray1_Float2_Float1_Float1;
-constexpr const TSymbolUniqueId BuiltInId::textureGrad_USampler1DArray1_Float2_Float1_Float1;
-constexpr const TSymbolUniqueId BuiltInId::textureGrad_Sampler1DArrayShadow1_Float3_Float1_Float1;
-constexpr const TSymbolUniqueId BuiltInId::textureGrad_SamplerCubeArray1_Float4_Float3_Float3;
-constexpr const TSymbolUniqueId BuiltInId::textureGrad_ISamplerCubeArray1_Float4_Float3_Float3;
-constexpr const TSymbolUniqueId BuiltInId::textureGrad_USamplerCubeArray1_Float4_Float3_Float3;
-constexpr const TSymbolUniqueId BuiltInId::textureGradExt_SamplerCubeArray1_Float4_Float3_Float3;
-constexpr const TSymbolUniqueId BuiltInId::textureGradExt_ISamplerCubeArray1_Float4_Float3_Float3;
-constexpr const TSymbolUniqueId BuiltInId::textureGradExt_USamplerCubeArray1_Float4_Float3_Float3;
-constexpr const TSymbolUniqueId BuiltInId::textureProjGrad_Sampler2D1_Float3_Float2_Float2;
-constexpr const TSymbolUniqueId BuiltInId::textureProjGrad_ISampler2D1_Float3_Float2_Float2;
-constexpr const TSymbolUniqueId BuiltInId::textureProjGrad_USampler2D1_Float3_Float2_Float2;
-constexpr const TSymbolUniqueId BuiltInId::textureProjGrad_Sampler2D1_Float4_Float2_Float2;
-constexpr const TSymbolUniqueId BuiltInId::textureProjGrad_ISampler2D1_Float4_Float2_Float2;
-constexpr const TSymbolUniqueId BuiltInId::textureProjGrad_USampler2D1_Float4_Float2_Float2;
-constexpr const TSymbolUniqueId BuiltInId::textureProjGrad_Sampler3D1_Float4_Float3_Float3;
-constexpr const TSymbolUniqueId BuiltInId::textureProjGrad_ISampler3D1_Float4_Float3_Float3;
-constexpr const TSymbolUniqueId BuiltInId::textureProjGrad_USampler3D1_Float4_Float3_Float3;
-constexpr const TSymbolUniqueId BuiltInId::textureProjGrad_Sampler2DShadow1_Float4_Float2_Float2;
-constexpr const TSymbolUniqueId BuiltInId::textureProjGrad_Sampler1D1_Float2_Float1_Float1;
-constexpr const TSymbolUniqueId BuiltInId::textureProjGrad_ISampler1D1_Float2_Float1_Float1;
-constexpr const TSymbolUniqueId BuiltInId::textureProjGrad_USampler1D1_Float2_Float1_Float1;
-constexpr const TSymbolUniqueId BuiltInId::textureProjGrad_Sampler1D1_Float4_Float1_Float1;
-constexpr const TSymbolUniqueId BuiltInId::textureProjGrad_ISampler1D1_Float4_Float1_Float1;
-constexpr const TSymbolUniqueId BuiltInId::textureProjGrad_USampler1D1_Float4_Float1_Float1;
-constexpr const TSymbolUniqueId BuiltInId::textureProjGrad_Sampler1DShadow1_Float4_Float1_Float1;
-constexpr const TSymbolUniqueId BuiltInId::textureProjGrad_Sampler2DRect1_Float3_Float2_Float2;
-constexpr const TSymbolUniqueId BuiltInId::textureProjGrad_ISampler2DRect1_Float3_Float2_Float2;
-constexpr const TSymbolUniqueId BuiltInId::textureProjGrad_USampler2DRect1_Float3_Float2_Float2;
-constexpr const TSymbolUniqueId BuiltInId::textureProjGrad_Sampler2DRect1_Float4_Float2_Float2;
-constexpr const TSymbolUniqueId BuiltInId::textureProjGrad_ISampler2DRect1_Float4_Float2_Float2;
-constexpr const TSymbolUniqueId BuiltInId::textureProjGrad_USampler2DRect1_Float4_Float2_Float2;
-constexpr const TSymbolUniqueId
-    BuiltInId::textureProjGrad_Sampler2DRectShadow1_Float4_Float2_Float2;
-constexpr const TSymbolUniqueId BuiltInId::textureQueryLevels_Sampler1D1;
-constexpr const TSymbolUniqueId BuiltInId::textureQueryLevels_ISampler1D1;
-constexpr const TSymbolUniqueId BuiltInId::textureQueryLevels_USampler1D1;
-constexpr const TSymbolUniqueId BuiltInId::textureQueryLevels_Sampler2D1;
-constexpr const TSymbolUniqueId BuiltInId::textureQueryLevels_ISampler2D1;
-constexpr const TSymbolUniqueId BuiltInId::textureQueryLevels_USampler2D1;
-constexpr const TSymbolUniqueId BuiltInId::textureQueryLevels_Sampler3D1;
-constexpr const TSymbolUniqueId BuiltInId::textureQueryLevels_ISampler3D1;
-constexpr const TSymbolUniqueId BuiltInId::textureQueryLevels_USampler3D1;
-constexpr const TSymbolUniqueId BuiltInId::textureQueryLevels_SamplerCube1;
-constexpr const TSymbolUniqueId BuiltInId::textureQueryLevels_ISamplerCube1;
-constexpr const TSymbolUniqueId BuiltInId::textureQueryLevels_USamplerCube1;
-constexpr const TSymbolUniqueId BuiltInId::textureQueryLevels_Sampler1DArray1;
-constexpr const TSymbolUniqueId BuiltInId::textureQueryLevels_ISampler1DArray1;
-constexpr const TSymbolUniqueId BuiltInId::textureQueryLevels_USampler1DArray1;
-constexpr const TSymbolUniqueId BuiltInId::textureQueryLevels_Sampler2DArray1;
-constexpr const TSymbolUniqueId BuiltInId::textureQueryLevels_ISampler2DArray1;
-constexpr const TSymbolUniqueId BuiltInId::textureQueryLevels_USampler2DArray1;
-constexpr const TSymbolUniqueId BuiltInId::textureQueryLevels_SamplerCubeArray1;
-constexpr const TSymbolUniqueId BuiltInId::textureQueryLevels_ISamplerCubeArray1;
-constexpr const TSymbolUniqueId BuiltInId::textureQueryLevels_USamplerCubeArray1;
-constexpr const TSymbolUniqueId BuiltInId::textureQueryLevels_Sampler1DShadow1;
-constexpr const TSymbolUniqueId BuiltInId::textureQueryLevels_Sampler2DShadow1;
-constexpr const TSymbolUniqueId BuiltInId::textureQueryLevels_SamplerCubeShadow1;
-constexpr const TSymbolUniqueId BuiltInId::textureQueryLevels_Sampler1DArrayShadow1;
-constexpr const TSymbolUniqueId BuiltInId::textureQueryLevels_Sampler2DArrayShadow1;
-constexpr const TSymbolUniqueId BuiltInId::textureQueryLevels_SamplerCubeArrayShadow1;
-constexpr const TSymbolUniqueId BuiltInId::textureSamples_Sampler2DMS1;
-constexpr const TSymbolUniqueId BuiltInId::textureSamples_ISampler2DMS1;
-constexpr const TSymbolUniqueId BuiltInId::textureSamples_USampler2DMS1;
-constexpr const TSymbolUniqueId BuiltInId::textureSamples_Sampler2DMSArray1;
-constexpr const TSymbolUniqueId BuiltInId::textureSamples_ISampler2DMSArray1;
-constexpr const TSymbolUniqueId BuiltInId::textureSamples_USampler2DMSArray1;
-constexpr const TSymbolUniqueId BuiltInId::texture_Sampler2D1_Float2_Float1;
-constexpr const TSymbolUniqueId BuiltInId::texture_ISampler2D1_Float2_Float1;
-constexpr const TSymbolUniqueId BuiltInId::texture_USampler2D1_Float2_Float1;
-constexpr const TSymbolUniqueId BuiltInId::texture_Sampler3D1_Float3_Float1;
-constexpr const TSymbolUniqueId BuiltInId::texture_ISampler3D1_Float3_Float1;
-constexpr const TSymbolUniqueId BuiltInId::texture_USampler3D1_Float3_Float1;
-constexpr const TSymbolUniqueId BuiltInId::texture_SamplerCube1_Float3_Float1;
-constexpr const TSymbolUniqueId BuiltInId::texture_ISamplerCube1_Float3_Float1;
-constexpr const TSymbolUniqueId BuiltInId::texture_USamplerCube1_Float3_Float1;
-constexpr const TSymbolUniqueId BuiltInId::texture_Sampler2DArray1_Float3_Float1;
-constexpr const TSymbolUniqueId BuiltInId::texture_ISampler2DArray1_Float3_Float1;
-constexpr const TSymbolUniqueId BuiltInId::texture_USampler2DArray1_Float3_Float1;
-constexpr const TSymbolUniqueId BuiltInId::textureProj_Sampler2D1_Float3_Float1;
-constexpr const TSymbolUniqueId BuiltInId::textureProj_ISampler2D1_Float3_Float1;
-constexpr const TSymbolUniqueId BuiltInId::textureProj_USampler2D1_Float3_Float1;
-constexpr const TSymbolUniqueId BuiltInId::textureProj_Sampler2D1_Float4_Float1;
-constexpr const TSymbolUniqueId BuiltInId::textureProj_ISampler2D1_Float4_Float1;
-constexpr const TSymbolUniqueId BuiltInId::textureProj_USampler2D1_Float4_Float1;
-constexpr const TSymbolUniqueId BuiltInId::textureProj_Sampler3D1_Float4_Float1;
-constexpr const TSymbolUniqueId BuiltInId::textureProj_ISampler3D1_Float4_Float1;
-constexpr const TSymbolUniqueId BuiltInId::textureProj_USampler3D1_Float4_Float1;
-constexpr const TSymbolUniqueId BuiltInId::texture_Sampler2DShadow1_Float3_Float1;
-constexpr const TSymbolUniqueId BuiltInId::texture_SamplerCubeShadow1_Float4_Float1;
-constexpr const TSymbolUniqueId BuiltInId::textureProj_Sampler2DShadow1_Float4_Float1;
-constexpr const TSymbolUniqueId BuiltInId::texture_Sampler1D1_Float1_Float1;
-constexpr const TSymbolUniqueId BuiltInId::texture_ISampler1D1_Float1_Float1;
-constexpr const TSymbolUniqueId BuiltInId::texture_USampler1D1_Float1_Float1;
-constexpr const TSymbolUniqueId BuiltInId::texture_Sampler1DShadow1_Float3_Float1;
-constexpr const TSymbolUniqueId BuiltInId::texture_Sampler1DArray1_Float3_Float1;
-constexpr const TSymbolUniqueId BuiltInId::texture_ISampler1DArray1_Float3_Float1;
-constexpr const TSymbolUniqueId BuiltInId::texture_USampler1DArray1_Float3_Float1;
-constexpr const TSymbolUniqueId BuiltInId::texture_Sampler1DArrayShadow1_Float3_Float1;
-constexpr const TSymbolUniqueId BuiltInId::texture_Sampler2DArrayShadow1_Float4_Float1;
-constexpr const TSymbolUniqueId BuiltInId::textureProj_Sampler1D1_Float2_Float1;
-constexpr const TSymbolUniqueId BuiltInId::textureProj_ISampler1D1_Float2_Float1;
-constexpr const TSymbolUniqueId BuiltInId::textureProj_USampler1D1_Float2_Float1;
-constexpr const TSymbolUniqueId BuiltInId::textureProj_Sampler1D1_Float4_Float1;
-constexpr const TSymbolUniqueId BuiltInId::textureProj_ISampler1D1_Float4_Float1;
-constexpr const TSymbolUniqueId BuiltInId::textureProj_USampler1D1_Float4_Float1;
-constexpr const TSymbolUniqueId BuiltInId::textureProj_Sampler1DShadow1_Float4_Float1;
-constexpr const TSymbolUniqueId BuiltInId::texture_SamplerCubeArray1_Float4_Float1;
-constexpr const TSymbolUniqueId BuiltInId::texture_ISamplerCubeArray1_Float4_Float1;
-constexpr const TSymbolUniqueId BuiltInId::texture_USamplerCubeArray1_Float4_Float1;
-constexpr const TSymbolUniqueId BuiltInId::textureExt_SamplerCubeArray1_Float4_Float1;
-constexpr const TSymbolUniqueId BuiltInId::textureExt_ISamplerCubeArray1_Float4_Float1;
-constexpr const TSymbolUniqueId BuiltInId::textureExt_USamplerCubeArray1_Float4_Float1;
-constexpr const TSymbolUniqueId BuiltInId::texture_SamplerExternalOES1_Float2_Float1;
-constexpr const TSymbolUniqueId BuiltInId::textureProj_SamplerExternalOES1_Float3_Float1;
-constexpr const TSymbolUniqueId BuiltInId::textureProj_SamplerExternalOES1_Float4_Float1;
-constexpr const TSymbolUniqueId BuiltInId::texture_SamplerExternal2DY2YEXT1_Float2_Float1;
-constexpr const TSymbolUniqueId BuiltInId::textureProj_SamplerExternal2DY2YEXT1_Float3_Float1;
-constexpr const TSymbolUniqueId BuiltInId::textureProj_SamplerExternal2DY2YEXT1_Float4_Float1;
-constexpr const TSymbolUniqueId BuiltInId::textureQueryLod_Sampler1D1_Float1;
-constexpr const TSymbolUniqueId BuiltInId::textureQueryLod_ISampler1D1_Float1;
-constexpr const TSymbolUniqueId BuiltInId::textureQueryLod_USampler1D1_Float1;
-constexpr const TSymbolUniqueId BuiltInId::textureQueryLod_Sampler2D1_Float2;
-constexpr const TSymbolUniqueId BuiltInId::textureQueryLod_ISampler2D1_Float2;
-constexpr const TSymbolUniqueId BuiltInId::textureQueryLod_USampler2D1_Float2;
-constexpr const TSymbolUniqueId BuiltInId::textureQueryLod_Sampler3D1_Float3;
-constexpr const TSymbolUniqueId BuiltInId::textureQueryLod_ISampler3D1_Float3;
-constexpr const TSymbolUniqueId BuiltInId::textureQueryLod_USampler3D1_Float3;
-constexpr const TSymbolUniqueId BuiltInId::textureQueryLod_SamplerCube1_Float3;
-constexpr const TSymbolUniqueId BuiltInId::textureQueryLod_ISamplerCube1_Float3;
-constexpr const TSymbolUniqueId BuiltInId::textureQueryLod_USamplerCube1_Float3;
-constexpr const TSymbolUniqueId BuiltInId::textureQueryLod_Sampler1DArray1_Float1;
-constexpr const TSymbolUniqueId BuiltInId::textureQueryLod_ISampler1DArray1_Float1;
-constexpr const TSymbolUniqueId BuiltInId::textureQueryLod_USampler1DArray1_Float1;
-constexpr const TSymbolUniqueId BuiltInId::textureQueryLod_Sampler2DArray1_Float2;
-constexpr const TSymbolUniqueId BuiltInId::textureQueryLod_ISampler2DArray1_Float2;
-constexpr const TSymbolUniqueId BuiltInId::textureQueryLod_USampler2DArray1_Float2;
-constexpr const TSymbolUniqueId BuiltInId::textureQueryLod_SamplerCubeArray1_Float3;
-constexpr const TSymbolUniqueId BuiltInId::textureQueryLod_ISamplerCubeArray1_Float3;
-constexpr const TSymbolUniqueId BuiltInId::textureQueryLod_USamplerCubeArray1_Float3;
-constexpr const TSymbolUniqueId BuiltInId::textureQueryLod_Sampler1DShadow1_Float1;
-constexpr const TSymbolUniqueId BuiltInId::textureQueryLod_Sampler2DShadow1_Float2;
-constexpr const TSymbolUniqueId BuiltInId::textureQueryLod_SamplerCubeShadow1_Float3;
-constexpr const TSymbolUniqueId BuiltInId::textureQueryLod_Sampler1DArrayShadow1_Float1;
-constexpr const TSymbolUniqueId BuiltInId::textureQueryLod_Sampler2DArrayShadow1_Float2;
-constexpr const TSymbolUniqueId BuiltInId::textureQueryLod_SamplerCubeArrayShadow1_Float3;
-constexpr const TSymbolUniqueId BuiltInId::textureOffset_Sampler2D1_Float2_Int2;
-constexpr const TSymbolUniqueId BuiltInId::textureOffset_ISampler2D1_Float2_Int2;
-constexpr const TSymbolUniqueId BuiltInId::textureOffset_USampler2D1_Float2_Int2;
-constexpr const TSymbolUniqueId BuiltInId::textureOffset_Sampler3D1_Float3_Int3;
-constexpr const TSymbolUniqueId BuiltInId::textureOffset_ISampler3D1_Float3_Int3;
-constexpr const TSymbolUniqueId BuiltInId::textureOffset_USampler3D1_Float3_Int3;
-constexpr const TSymbolUniqueId BuiltInId::textureOffset_Sampler2DShadow1_Float3_Int2;
-constexpr const TSymbolUniqueId BuiltInId::textureOffset_Sampler2DArray1_Float3_Int2;
-constexpr const TSymbolUniqueId BuiltInId::textureOffset_ISampler2DArray1_Float3_Int2;
-constexpr const TSymbolUniqueId BuiltInId::textureOffset_USampler2DArray1_Float3_Int2;
-constexpr const TSymbolUniqueId BuiltInId::textureOffset_Sampler1D1_Float1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::textureOffset_ISampler1D1_Float1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::textureOffset_USampler1D1_Float1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::textureOffset_Sampler2DRect1_Float2_Int2;
-constexpr const TSymbolUniqueId BuiltInId::textureOffset_ISampler2DRect1_Float2_Int2;
-constexpr const TSymbolUniqueId BuiltInId::textureOffset_USampler2DRect1_Float2_Int2;
-constexpr const TSymbolUniqueId BuiltInId::textureOffset_Sampler2DRectShadow1_Float3_Int2;
-constexpr const TSymbolUniqueId BuiltInId::textureOffset_Sampler1DShadow1_Float3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::textureOffset_Sampler1DArray1_Float2_Int1;
-constexpr const TSymbolUniqueId BuiltInId::textureOffset_ISampler1DArray1_Float2_Int1;
-constexpr const TSymbolUniqueId BuiltInId::textureOffset_USampler1DArray1_Float2_Int1;
-constexpr const TSymbolUniqueId BuiltInId::textureOffset_Sampler1DArrayShadow1_Float3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::textureOffset_Sampler2DArrayShadow1_Float4_Int2;
-constexpr const TSymbolUniqueId BuiltInId::textureProjOffset_Sampler2D1_Float3_Int2;
-constexpr const TSymbolUniqueId BuiltInId::textureProjOffset_ISampler2D1_Float3_Int2;
-constexpr const TSymbolUniqueId BuiltInId::textureProjOffset_USampler2D1_Float3_Int2;
-constexpr const TSymbolUniqueId BuiltInId::textureProjOffset_Sampler2D1_Float4_Int2;
-constexpr const TSymbolUniqueId BuiltInId::textureProjOffset_ISampler2D1_Float4_Int2;
-constexpr const TSymbolUniqueId BuiltInId::textureProjOffset_USampler2D1_Float4_Int2;
-constexpr const TSymbolUniqueId BuiltInId::textureProjOffset_Sampler3D1_Float4_Int3;
-constexpr const TSymbolUniqueId BuiltInId::textureProjOffset_ISampler3D1_Float4_Int3;
-constexpr const TSymbolUniqueId BuiltInId::textureProjOffset_USampler3D1_Float4_Int3;
-constexpr const TSymbolUniqueId BuiltInId::textureProjOffset_Sampler2DShadow1_Float4_Int2;
-constexpr const TSymbolUniqueId BuiltInId::textureProjOffset_Sampler1D1_Float2_Int1;
-constexpr const TSymbolUniqueId BuiltInId::textureProjOffset_ISampler1D1_Float2_Int1;
-constexpr const TSymbolUniqueId BuiltInId::textureProjOffset_USampler1D1_Float2_Int1;
-constexpr const TSymbolUniqueId BuiltInId::textureProjOffset_Sampler1D1_Float4_Int1;
-constexpr const TSymbolUniqueId BuiltInId::textureProjOffset_ISampler1D1_Float4_Int1;
-constexpr const TSymbolUniqueId BuiltInId::textureProjOffset_USampler1D1_Float4_Int1;
-constexpr const TSymbolUniqueId BuiltInId::textureProjOffset_Sampler2DRect1_Float3_Int2;
-constexpr const TSymbolUniqueId BuiltInId::textureProjOffset_ISampler2DRect1_Float3_Int2;
-constexpr const TSymbolUniqueId BuiltInId::textureProjOffset_USampler2DRect1_Float3_Int2;
-constexpr const TSymbolUniqueId BuiltInId::textureProjOffset_Sampler2DRect1_Float4_Int2;
-constexpr const TSymbolUniqueId BuiltInId::textureProjOffset_ISampler2DRect1_Float4_Int2;
-constexpr const TSymbolUniqueId BuiltInId::textureProjOffset_USampler2DRect1_Float4_Int2;
-constexpr const TSymbolUniqueId BuiltInId::textureProjOffset_Sampler2DRectShadow1_Float4_Int2;
-constexpr const TSymbolUniqueId BuiltInId::textureProjOffset_Sampler1DShadow1_Float4_Int1;
-constexpr const TSymbolUniqueId BuiltInId::textureLodOffset_Sampler2D1_Float2_Float1_Int2;
-constexpr const TSymbolUniqueId BuiltInId::textureLodOffset_ISampler2D1_Float2_Float1_Int2;
-constexpr const TSymbolUniqueId BuiltInId::textureLodOffset_USampler2D1_Float2_Float1_Int2;
-constexpr const TSymbolUniqueId BuiltInId::textureLodOffset_Sampler3D1_Float3_Float1_Int3;
-constexpr const TSymbolUniqueId BuiltInId::textureLodOffset_ISampler3D1_Float3_Float1_Int3;
-constexpr const TSymbolUniqueId BuiltInId::textureLodOffset_USampler3D1_Float3_Float1_Int3;
-constexpr const TSymbolUniqueId BuiltInId::textureLodOffset_Sampler2DShadow1_Float3_Float1_Int2;
-constexpr const TSymbolUniqueId BuiltInId::textureLodOffset_Sampler2DArray1_Float3_Float1_Int2;
-constexpr const TSymbolUniqueId BuiltInId::textureLodOffset_ISampler2DArray1_Float3_Float1_Int2;
-constexpr const TSymbolUniqueId BuiltInId::textureLodOffset_USampler2DArray1_Float3_Float1_Int2;
-constexpr const TSymbolUniqueId BuiltInId::textureLodOffset_Sampler1D1_Float1_Float1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::textureLodOffset_ISampler1D1_Float1_Float1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::textureLodOffset_USampler1D1_Float1_Float1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::textureLodOffset_Sampler1DShadow1_Float3_Float1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::textureLodOffset_Sampler1DArray1_Float2_Float1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::textureLodOffset_ISampler1DArray1_Float2_Float1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::textureLodOffset_USampler1DArray1_Float2_Float1_Int1;
-constexpr const TSymbolUniqueId
-    BuiltInId::textureLodOffset_Sampler1DArrayShadow1_Float3_Float1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::textureProjLodOffset_Sampler2D1_Float3_Float1_Int2;
-constexpr const TSymbolUniqueId BuiltInId::textureProjLodOffset_ISampler2D1_Float3_Float1_Int2;
-constexpr const TSymbolUniqueId BuiltInId::textureProjLodOffset_USampler2D1_Float3_Float1_Int2;
-constexpr const TSymbolUniqueId BuiltInId::textureProjLodOffset_Sampler2D1_Float4_Float1_Int2;
-constexpr const TSymbolUniqueId BuiltInId::textureProjLodOffset_ISampler2D1_Float4_Float1_Int2;
-constexpr const TSymbolUniqueId BuiltInId::textureProjLodOffset_USampler2D1_Float4_Float1_Int2;
-constexpr const TSymbolUniqueId BuiltInId::textureProjLodOffset_Sampler3D1_Float4_Float1_Int3;
-constexpr const TSymbolUniqueId BuiltInId::textureProjLodOffset_ISampler3D1_Float4_Float1_Int3;
-constexpr const TSymbolUniqueId BuiltInId::textureProjLodOffset_USampler3D1_Float4_Float1_Int3;
-constexpr const TSymbolUniqueId BuiltInId::textureProjLodOffset_Sampler2DShadow1_Float4_Float1_Int2;
-constexpr const TSymbolUniqueId BuiltInId::textureProjLodOffset_Sampler1D1_Float2_Float1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::textureProjLodOffset_ISampler1D1_Float2_Float1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::textureProjLodOffset_USampler1D1_Float2_Float1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::textureProjLodOffset_Sampler1D1_Float4_Float1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::textureProjLodOffset_ISampler1D1_Float4_Float1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::textureProjLodOffset_USampler1D1_Float4_Float1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::textureProjLodOffset_Sampler1DShadow1_Float4_Float1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::texelFetchOffset_Sampler2D1_Int2_Int1_Int2;
-constexpr const TSymbolUniqueId BuiltInId::texelFetchOffset_ISampler2D1_Int2_Int1_Int2;
-constexpr const TSymbolUniqueId BuiltInId::texelFetchOffset_USampler2D1_Int2_Int1_Int2;
-constexpr const TSymbolUniqueId BuiltInId::texelFetchOffset_Sampler3D1_Int3_Int1_Int3;
-constexpr const TSymbolUniqueId BuiltInId::texelFetchOffset_ISampler3D1_Int3_Int1_Int3;
-constexpr const TSymbolUniqueId BuiltInId::texelFetchOffset_USampler3D1_Int3_Int1_Int3;
-constexpr const TSymbolUniqueId BuiltInId::texelFetchOffset_Sampler2DArray1_Int3_Int1_Int2;
-constexpr const TSymbolUniqueId BuiltInId::texelFetchOffset_ISampler2DArray1_Int3_Int1_Int2;
-constexpr const TSymbolUniqueId BuiltInId::texelFetchOffset_USampler2DArray1_Int3_Int1_Int2;
-constexpr const TSymbolUniqueId BuiltInId::texelFetchOffset_Sampler1D1_Int1_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::texelFetchOffset_ISampler1D1_Int1_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::texelFetchOffset_USampler1D1_Int1_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::texelFetchOffset_Sampler2DRect1_Int2_Int2;
-constexpr const TSymbolUniqueId BuiltInId::texelFetchOffset_ISampler2DRect1_Int2_Int2;
-constexpr const TSymbolUniqueId BuiltInId::texelFetchOffset_USampler2DRect1_Int2_Int2;
-constexpr const TSymbolUniqueId BuiltInId::texelFetchOffset_Sampler1DArray1_Int2_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::texelFetchOffset_ISampler1DArray1_Int2_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::texelFetchOffset_USampler1DArray1_Int2_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::textureGradOffset_Sampler2D1_Float2_Float2_Float2_Int2;
-constexpr const TSymbolUniqueId BuiltInId::textureGradOffset_ISampler2D1_Float2_Float2_Float2_Int2;
-constexpr const TSymbolUniqueId BuiltInId::textureGradOffset_USampler2D1_Float2_Float2_Float2_Int2;
-constexpr const TSymbolUniqueId BuiltInId::textureGradOffset_Sampler3D1_Float3_Float3_Float3_Int3;
-constexpr const TSymbolUniqueId BuiltInId::textureGradOffset_ISampler3D1_Float3_Float3_Float3_Int3;
-constexpr const TSymbolUniqueId BuiltInId::textureGradOffset_USampler3D1_Float3_Float3_Float3_Int3;
-constexpr const TSymbolUniqueId
-    BuiltInId::textureGradOffset_Sampler2DShadow1_Float3_Float2_Float2_Int2;
-constexpr const TSymbolUniqueId
-    BuiltInId::textureGradOffset_Sampler2DArray1_Float3_Float2_Float2_Int2;
-constexpr const TSymbolUniqueId
-    BuiltInId::textureGradOffset_ISampler2DArray1_Float3_Float2_Float2_Int2;
-constexpr const TSymbolUniqueId
-    BuiltInId::textureGradOffset_USampler2DArray1_Float3_Float2_Float2_Int2;
-constexpr const TSymbolUniqueId
-    BuiltInId::textureGradOffset_Sampler2DArrayShadow1_Float4_Float2_Float2_Int2;
-constexpr const TSymbolUniqueId BuiltInId::textureGradOffset_Sampler1D1_Float1_Float1_Float1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::textureGradOffset_ISampler1D1_Float1_Float1_Float1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::textureGradOffset_USampler1D1_Float1_Float1_Float1_Int1;
-constexpr const TSymbolUniqueId
-    BuiltInId::textureGradOffset_Sampler2DRect1_Float2_Float2_Float2_Int2;
-constexpr const TSymbolUniqueId
-    BuiltInId::textureGradOffset_ISampler2DRect1_Float2_Float2_Float2_Int2;
-constexpr const TSymbolUniqueId
-    BuiltInId::textureGradOffset_USampler2DRect1_Float2_Float2_Float2_Int2;
-constexpr const TSymbolUniqueId
-    BuiltInId::textureGradOffset_Sampler2DRectShadow1_Float3_Float2_Float2_Int2;
-constexpr const TSymbolUniqueId
-    BuiltInId::textureGradOffset_Sampler1DShadow1_Float3_Float1_Float1_Int1;
-constexpr const TSymbolUniqueId
-    BuiltInId::textureGradOffset_Sampler1DArray1_Float2_Float1_Float1_Int1;
-constexpr const TSymbolUniqueId
-    BuiltInId::textureGradOffset_ISampler1DArray1_Float2_Float1_Float1_Int1;
-constexpr const TSymbolUniqueId
-    BuiltInId::textureGradOffset_USampler1DArray1_Float2_Float1_Float1_Int1;
-constexpr const TSymbolUniqueId
-    BuiltInId::textureGradOffset_Sampler1DArrayShadow1_Float3_Float1_Float1_Int1;
-constexpr const TSymbolUniqueId
-    BuiltInId::textureProjGradOffset_Sampler2D1_Float3_Float2_Float2_Int2;
-constexpr const TSymbolUniqueId
-    BuiltInId::textureProjGradOffset_ISampler2D1_Float3_Float2_Float2_Int2;
-constexpr const TSymbolUniqueId
-    BuiltInId::textureProjGradOffset_USampler2D1_Float3_Float2_Float2_Int2;
-constexpr const TSymbolUniqueId
-    BuiltInId::textureProjGradOffset_Sampler2D1_Float4_Float2_Float2_Int2;
-constexpr const TSymbolUniqueId
-    BuiltInId::textureProjGradOffset_ISampler2D1_Float4_Float2_Float2_Int2;
-constexpr const TSymbolUniqueId
-    BuiltInId::textureProjGradOffset_USampler2D1_Float4_Float2_Float2_Int2;
-constexpr const TSymbolUniqueId
-    BuiltInId::textureProjGradOffset_Sampler3D1_Float4_Float3_Float3_Int3;
-constexpr const TSymbolUniqueId
-    BuiltInId::textureProjGradOffset_ISampler3D1_Float4_Float3_Float3_Int3;
-constexpr const TSymbolUniqueId
-    BuiltInId::textureProjGradOffset_USampler3D1_Float4_Float3_Float3_Int3;
-constexpr const TSymbolUniqueId
-    BuiltInId::textureProjGradOffset_Sampler2DShadow1_Float4_Float2_Float2_Int2;
-constexpr const TSymbolUniqueId
-    BuiltInId::textureProjGradOffset_Sampler1D1_Float2_Float1_Float1_Int1;
-constexpr const TSymbolUniqueId
-    BuiltInId::textureProjGradOffset_ISampler1D1_Float2_Float1_Float1_Int1;
-constexpr const TSymbolUniqueId
-    BuiltInId::textureProjGradOffset_USampler1D1_Float2_Float1_Float1_Int1;
-constexpr const TSymbolUniqueId
-    BuiltInId::textureProjGradOffset_Sampler1D1_Float4_Float1_Float1_Int1;
-constexpr const TSymbolUniqueId
-    BuiltInId::textureProjGradOffset_ISampler1D1_Float4_Float1_Float1_Int1;
-constexpr const TSymbolUniqueId
-    BuiltInId::textureProjGradOffset_USampler1D1_Float4_Float1_Float1_Int1;
-constexpr const TSymbolUniqueId
-    BuiltInId::textureProjGradOffset_Sampler2DRect1_Float3_Float2_Float2_Int2;
-constexpr const TSymbolUniqueId
-    BuiltInId::textureProjGradOffset_ISampler2DRect1_Float3_Float2_Float2_Int2;
-constexpr const TSymbolUniqueId
-    BuiltInId::textureProjGradOffset_USampler2DRect1_Float3_Float2_Float2_Int2;
-constexpr const TSymbolUniqueId
-    BuiltInId::textureProjGradOffset_Sampler2DRect1_Float4_Float2_Float2_Int2;
-constexpr const TSymbolUniqueId
-    BuiltInId::textureProjGradOffset_ISampler2DRect1_Float4_Float2_Float2_Int2;
-constexpr const TSymbolUniqueId
-    BuiltInId::textureProjGradOffset_USampler2DRect1_Float4_Float2_Float2_Int2;
-constexpr const TSymbolUniqueId
-    BuiltInId::textureProjGradOffset_Sampler2DRectShadow1_Float4_Float2_Float2_Int2;
-constexpr const TSymbolUniqueId
-    BuiltInId::textureProjGradOffset_Sampler1DShadow1_Float4_Float1_Float1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::textureOffset_Sampler2D1_Float2_Int2_Float1;
-constexpr const TSymbolUniqueId BuiltInId::textureOffset_ISampler2D1_Float2_Int2_Float1;
-constexpr const TSymbolUniqueId BuiltInId::textureOffset_USampler2D1_Float2_Int2_Float1;
-constexpr const TSymbolUniqueId BuiltInId::textureOffset_Sampler3D1_Float3_Int3_Float1;
-constexpr const TSymbolUniqueId BuiltInId::textureOffset_ISampler3D1_Float3_Int3_Float1;
-constexpr const TSymbolUniqueId BuiltInId::textureOffset_USampler3D1_Float3_Int3_Float1;
-constexpr const TSymbolUniqueId BuiltInId::textureOffset_Sampler2DShadow1_Float3_Int2_Float1;
-constexpr const TSymbolUniqueId BuiltInId::textureOffset_Sampler2DArray1_Float3_Int2_Float1;
-constexpr const TSymbolUniqueId BuiltInId::textureOffset_ISampler2DArray1_Float3_Int2_Float1;
-constexpr const TSymbolUniqueId BuiltInId::textureOffset_USampler2DArray1_Float3_Int2_Float1;
-constexpr const TSymbolUniqueId BuiltInId::textureOffset_Sampler1D1_Float1_Int1_Float1;
-constexpr const TSymbolUniqueId BuiltInId::textureOffset_ISampler1D1_Float1_Int1_Float1;
-constexpr const TSymbolUniqueId BuiltInId::textureOffset_USampler1D1_Float1_Int1_Float1;
-constexpr const TSymbolUniqueId BuiltInId::textureOffset_Sampler1DShadow1_Float3_Int1_Float1;
-constexpr const TSymbolUniqueId BuiltInId::textureOffset_Sampler1DArray1_Float2_Int1_Float1;
-constexpr const TSymbolUniqueId BuiltInId::textureOffset_ISampler1DArray1_Float2_Int1_Float1;
-constexpr const TSymbolUniqueId BuiltInId::textureOffset_USampler1DArray1_Float2_Int1_Float1;
-constexpr const TSymbolUniqueId BuiltInId::textureOffset_Sampler1DArrayShadow1_Float3_Int1_Float1;
-constexpr const TSymbolUniqueId BuiltInId::textureProjOffset_Sampler2D1_Float3_Int2_Float1;
-constexpr const TSymbolUniqueId BuiltInId::textureProjOffset_ISampler2D1_Float3_Int2_Float1;
-constexpr const TSymbolUniqueId BuiltInId::textureProjOffset_USampler2D1_Float3_Int2_Float1;
-constexpr const TSymbolUniqueId BuiltInId::textureProjOffset_Sampler2D1_Float4_Int2_Float1;
-constexpr const TSymbolUniqueId BuiltInId::textureProjOffset_ISampler2D1_Float4_Int2_Float1;
-constexpr const TSymbolUniqueId BuiltInId::textureProjOffset_USampler2D1_Float4_Int2_Float1;
-constexpr const TSymbolUniqueId BuiltInId::textureProjOffset_Sampler3D1_Float4_Int3_Float1;
-constexpr const TSymbolUniqueId BuiltInId::textureProjOffset_ISampler3D1_Float4_Int3_Float1;
-constexpr const TSymbolUniqueId BuiltInId::textureProjOffset_USampler3D1_Float4_Int3_Float1;
-constexpr const TSymbolUniqueId BuiltInId::textureProjOffset_Sampler2DShadow1_Float4_Int2_Float1;
-constexpr const TSymbolUniqueId BuiltInId::textureProjOffset_Sampler1D1_Float2_Int1_Float1;
-constexpr const TSymbolUniqueId BuiltInId::textureProjOffset_ISampler1D1_Float2_Int1_Float1;
-constexpr const TSymbolUniqueId BuiltInId::textureProjOffset_USampler1D1_Float2_Int1_Float1;
-constexpr const TSymbolUniqueId BuiltInId::textureProjOffset_Sampler1D1_Float4_Int1_Float1;
-constexpr const TSymbolUniqueId BuiltInId::textureProjOffset_ISampler1D1_Float4_Int1_Float1;
-constexpr const TSymbolUniqueId BuiltInId::textureProjOffset_USampler1D1_Float4_Int1_Float1;
-constexpr const TSymbolUniqueId BuiltInId::textureProjOffset_Sampler1DShadow1_Float4_Int1_Float1;
-constexpr const TSymbolUniqueId BuiltInId::textureGather_Sampler2D1_Float2;
-constexpr const TSymbolUniqueId BuiltInId::textureGather_ISampler2D1_Float2;
-constexpr const TSymbolUniqueId BuiltInId::textureGather_USampler2D1_Float2;
-constexpr const TSymbolUniqueId BuiltInId::textureGather_Sampler2D1_Float2_Int1;
-constexpr const TSymbolUniqueId BuiltInId::textureGather_ISampler2D1_Float2_Int1;
-constexpr const TSymbolUniqueId BuiltInId::textureGather_USampler2D1_Float2_Int1;
-constexpr const TSymbolUniqueId BuiltInId::textureGather_Sampler2DArray1_Float3;
-constexpr const TSymbolUniqueId BuiltInId::textureGather_ISampler2DArray1_Float3;
-constexpr const TSymbolUniqueId BuiltInId::textureGather_USampler2DArray1_Float3;
-constexpr const TSymbolUniqueId BuiltInId::textureGather_Sampler2DArray1_Float3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::textureGather_ISampler2DArray1_Float3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::textureGather_USampler2DArray1_Float3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::textureGather_SamplerCube1_Float3;
-constexpr const TSymbolUniqueId BuiltInId::textureGather_ISamplerCube1_Float3;
-constexpr const TSymbolUniqueId BuiltInId::textureGather_USamplerCube1_Float3;
-constexpr const TSymbolUniqueId BuiltInId::textureGather_SamplerCube1_Float3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::textureGather_ISamplerCube1_Float3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::textureGather_USamplerCube1_Float3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::textureGather_SamplerCubeArray1_Float4;
-constexpr const TSymbolUniqueId BuiltInId::textureGather_ISamplerCubeArray1_Float4;
-constexpr const TSymbolUniqueId BuiltInId::textureGather_USamplerCubeArray1_Float4;
-constexpr const TSymbolUniqueId BuiltInId::textureGather_SamplerCubeArray1_Float4_Int1;
-constexpr const TSymbolUniqueId BuiltInId::textureGather_ISamplerCubeArray1_Float4_Int1;
-constexpr const TSymbolUniqueId BuiltInId::textureGather_USamplerCubeArray1_Float4_Int1;
-constexpr const TSymbolUniqueId BuiltInId::textureGather_SamplerCubeArrayShadow1_Float4_Float1;
-constexpr const TSymbolUniqueId BuiltInId::textureGatherExt_SamplerCubeArray1_Float4;
-constexpr const TSymbolUniqueId BuiltInId::textureGatherExt_ISamplerCubeArray1_Float4;
-constexpr const TSymbolUniqueId BuiltInId::textureGatherExt_USamplerCubeArray1_Float4;
-constexpr const TSymbolUniqueId BuiltInId::textureGatherExt_SamplerCubeArray1_Float4_Int1;
-constexpr const TSymbolUniqueId BuiltInId::textureGatherExt_ISamplerCubeArray1_Float4_Int1;
-constexpr const TSymbolUniqueId BuiltInId::textureGatherExt_USamplerCubeArray1_Float4_Int1;
-constexpr const TSymbolUniqueId BuiltInId::textureGatherExt_SamplerCubeArrayShadow1_Float4_Float1;
-constexpr const TSymbolUniqueId BuiltInId::textureGather_Sampler2DRect1_Float3;
-constexpr const TSymbolUniqueId BuiltInId::textureGather_ISampler2DRect1_Float3;
-constexpr const TSymbolUniqueId BuiltInId::textureGather_USampler2DRect1_Float3;
-constexpr const TSymbolUniqueId BuiltInId::textureGather_Sampler2DRect1_Float3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::textureGather_ISampler2DRect1_Float3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::textureGather_USampler2DRect1_Float3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::textureGather_Sampler2DRectShadow1_Float2_Float1;
-constexpr const TSymbolUniqueId BuiltInId::textureGather_Sampler2DShadow1_Float2;
-constexpr const TSymbolUniqueId BuiltInId::textureGather_Sampler2DShadow1_Float2_Float1;
-constexpr const TSymbolUniqueId BuiltInId::textureGather_Sampler2DArrayShadow1_Float3;
-constexpr const TSymbolUniqueId BuiltInId::textureGather_Sampler2DArrayShadow1_Float3_Float1;
-constexpr const TSymbolUniqueId BuiltInId::textureGather_SamplerCubeShadow1_Float3;
-constexpr const TSymbolUniqueId BuiltInId::textureGather_SamplerCubeShadow1_Float3_Float1;
-constexpr const TSymbolUniqueId BuiltInId::textureGatherOffset_Sampler2D1_Float2_Int2;
-constexpr const TSymbolUniqueId BuiltInId::textureGatherOffset_ISampler2D1_Float2_Int2;
-constexpr const TSymbolUniqueId BuiltInId::textureGatherOffset_USampler2D1_Float2_Int2;
-constexpr const TSymbolUniqueId BuiltInId::textureGatherOffset_Sampler2DArray1_Float3_Int2;
-constexpr const TSymbolUniqueId BuiltInId::textureGatherOffset_ISampler2DArray1_Float3_Int2;
-constexpr const TSymbolUniqueId BuiltInId::textureGatherOffset_USampler2DArray1_Float3_Int2;
-constexpr const TSymbolUniqueId BuiltInId::textureGatherOffset_Sampler2DShadow1_Float2_Float1_Int2;
-constexpr const TSymbolUniqueId
-    BuiltInId::textureGatherOffset_Sampler2DArrayShadow1_Float3_Float1_Int2;
-constexpr const TSymbolUniqueId BuiltInId::textureGatherOffset_Sampler2DRect1_Float2_Int2;
-constexpr const TSymbolUniqueId BuiltInId::textureGatherOffset_ISampler2DRect1_Float2_Int2;
-constexpr const TSymbolUniqueId BuiltInId::textureGatherOffset_USampler2DRect1_Float2_Int2;
-constexpr const TSymbolUniqueId
-    BuiltInId::textureGatherOffset_Sampler2DRectShadow1_Float2_Float1_Int2;
-constexpr const TSymbolUniqueId BuiltInId::textureGatherOffset_Sampler2D1_Float2_Int2_Int1;
-constexpr const TSymbolUniqueId BuiltInId::textureGatherOffset_ISampler2D1_Float2_Int2_Int1;
-constexpr const TSymbolUniqueId BuiltInId::textureGatherOffset_USampler2D1_Float2_Int2_Int1;
-constexpr const TSymbolUniqueId BuiltInId::textureGatherOffset_Sampler2DArray1_Float3_Int2_Int1;
-constexpr const TSymbolUniqueId BuiltInId::textureGatherOffset_ISampler2DArray1_Float3_Int2_Int1;
-constexpr const TSymbolUniqueId BuiltInId::textureGatherOffset_USampler2DArray1_Float3_Int2_Int1;
-constexpr const TSymbolUniqueId BuiltInId::textureGatherOffset_Sampler2DRect1_Float2_Int2_Int1;
-constexpr const TSymbolUniqueId BuiltInId::textureGatherOffset_ISampler2DRect1_Float2_Int2_Int1;
-constexpr const TSymbolUniqueId BuiltInId::textureGatherOffset_USampler2DRect1_Float2_Int2_Int1;
-constexpr const TSymbolUniqueId BuiltInId::textureGatherOffsets_Sampler2D1_Float2_4xInt2;
-constexpr const TSymbolUniqueId BuiltInId::textureGatherOffsets_ISampler2D1_Float2_4xInt2;
-constexpr const TSymbolUniqueId BuiltInId::textureGatherOffsets_USampler2D1_Float2_4xInt2;
-constexpr const TSymbolUniqueId BuiltInId::textureGatherOffsets_Sampler2DArray1_Float3_4xInt2;
-constexpr const TSymbolUniqueId BuiltInId::textureGatherOffsets_ISampler2DArray1_Float3_4xInt2;
-constexpr const TSymbolUniqueId BuiltInId::textureGatherOffsets_USampler2DArray1_Float3_4xInt2;
-constexpr const TSymbolUniqueId
-    BuiltInId::textureGatherOffsets_Sampler2DShadow1_Float2_Float1_4xInt2;
-constexpr const TSymbolUniqueId
-    BuiltInId::textureGatherOffsets_Sampler2DArrayShadow1_Float3_Float1_4xInt2;
-constexpr const TSymbolUniqueId BuiltInId::textureGatherOffsetsExt_Sampler2D1_Float2_4xInt2;
-constexpr const TSymbolUniqueId BuiltInId::textureGatherOffsetsExt_ISampler2D1_Float2_4xInt2;
-constexpr const TSymbolUniqueId BuiltInId::textureGatherOffsetsExt_USampler2D1_Float2_4xInt2;
-constexpr const TSymbolUniqueId BuiltInId::textureGatherOffsetsExt_Sampler2DArray1_Float3_4xInt2;
-constexpr const TSymbolUniqueId BuiltInId::textureGatherOffsetsExt_ISampler2DArray1_Float3_4xInt2;
-constexpr const TSymbolUniqueId BuiltInId::textureGatherOffsetsExt_USampler2DArray1_Float3_4xInt2;
-constexpr const TSymbolUniqueId
-    BuiltInId::textureGatherOffsetsExt_Sampler2DShadow1_Float2_Float1_4xInt2;
-constexpr const TSymbolUniqueId
-    BuiltInId::textureGatherOffsetsExt_Sampler2DArrayShadow1_Float3_Float1_4xInt2;
-constexpr const TSymbolUniqueId BuiltInId::textureGatherOffsets_Sampler2DRect1_Float2_4xInt2;
-constexpr const TSymbolUniqueId BuiltInId::textureGatherOffsets_ISampler2DRect1_Float2_4xInt2;
-constexpr const TSymbolUniqueId BuiltInId::textureGatherOffsets_USampler2DRect1_Float2_4xInt2;
-constexpr const TSymbolUniqueId
-    BuiltInId::textureGatherOffsets_Sampler2DRectShadow1_Float2_Float1_4xInt2;
-constexpr const TSymbolUniqueId BuiltInId::textureGatherOffsets_Sampler2D1_Float2_4xInt2_Int1;
-constexpr const TSymbolUniqueId BuiltInId::textureGatherOffsets_ISampler2D1_Float2_4xInt2_Int1;
-constexpr const TSymbolUniqueId BuiltInId::textureGatherOffsets_USampler2D1_Float2_4xInt2_Int1;
-constexpr const TSymbolUniqueId BuiltInId::textureGatherOffsets_Sampler2DArray1_Float3_4xInt2_Int1;
-constexpr const TSymbolUniqueId BuiltInId::textureGatherOffsets_ISampler2DArray1_Float3_4xInt2_Int1;
-constexpr const TSymbolUniqueId BuiltInId::textureGatherOffsets_USampler2DArray1_Float3_4xInt2_Int1;
-constexpr const TSymbolUniqueId BuiltInId::textureGatherOffsetsExt_Sampler2D1_Float2_4xInt2_Int1;
-constexpr const TSymbolUniqueId BuiltInId::textureGatherOffsetsExt_ISampler2D1_Float2_4xInt2_Int1;
-constexpr const TSymbolUniqueId BuiltInId::textureGatherOffsetsExt_USampler2D1_Float2_4xInt2_Int1;
-constexpr const TSymbolUniqueId
-    BuiltInId::textureGatherOffsetsExt_Sampler2DArray1_Float3_4xInt2_Int1;
-constexpr const TSymbolUniqueId
-    BuiltInId::textureGatherOffsetsExt_ISampler2DArray1_Float3_4xInt2_Int1;
-constexpr const TSymbolUniqueId
-    BuiltInId::textureGatherOffsetsExt_USampler2DArray1_Float3_4xInt2_Int1;
-constexpr const TSymbolUniqueId BuiltInId::textureGatherOffsets_Sampler2DRect1_Float2_4xInt2_Int1;
-constexpr const TSymbolUniqueId BuiltInId::textureGatherOffsets_ISampler2DRect1_Float2_4xInt2_Int1;
-constexpr const TSymbolUniqueId BuiltInId::textureGatherOffsets_USampler2DRect1_Float2_4xInt2_Int1;
-constexpr const TSymbolUniqueId BuiltInId::rgb_2_yuv_Float3_YuvCscStandardEXT1;
-constexpr const TSymbolUniqueId BuiltInId::yuv_2_rgb_Float3_YuvCscStandardEXT1;
-constexpr const TSymbolUniqueId BuiltInId::dFdxExt_Float1;
-constexpr const TSymbolUniqueId BuiltInId::dFdxExt_Float2;
-constexpr const TSymbolUniqueId BuiltInId::dFdxExt_Float3;
-constexpr const TSymbolUniqueId BuiltInId::dFdxExt_Float4;
-constexpr const TSymbolUniqueId BuiltInId::dFdyExt_Float1;
-constexpr const TSymbolUniqueId BuiltInId::dFdyExt_Float2;
-constexpr const TSymbolUniqueId BuiltInId::dFdyExt_Float3;
-constexpr const TSymbolUniqueId BuiltInId::dFdyExt_Float4;
-constexpr const TSymbolUniqueId BuiltInId::fwidthExt_Float1;
-constexpr const TSymbolUniqueId BuiltInId::fwidthExt_Float2;
-constexpr const TSymbolUniqueId BuiltInId::fwidthExt_Float3;
-constexpr const TSymbolUniqueId BuiltInId::fwidthExt_Float4;
-constexpr const TSymbolUniqueId BuiltInId::dFdx_Float1;
-constexpr const TSymbolUniqueId BuiltInId::dFdx_Float2;
-constexpr const TSymbolUniqueId BuiltInId::dFdx_Float3;
-constexpr const TSymbolUniqueId BuiltInId::dFdx_Float4;
-constexpr const TSymbolUniqueId BuiltInId::dFdy_Float1;
-constexpr const TSymbolUniqueId BuiltInId::dFdy_Float2;
-constexpr const TSymbolUniqueId BuiltInId::dFdy_Float3;
-constexpr const TSymbolUniqueId BuiltInId::dFdy_Float4;
-constexpr const TSymbolUniqueId BuiltInId::fwidth_Float1;
-constexpr const TSymbolUniqueId BuiltInId::fwidth_Float2;
-constexpr const TSymbolUniqueId BuiltInId::fwidth_Float3;
-constexpr const TSymbolUniqueId BuiltInId::fwidth_Float4;
-constexpr const TSymbolUniqueId BuiltInId::dFdxFine_Float1;
-constexpr const TSymbolUniqueId BuiltInId::dFdxFine_Float2;
-constexpr const TSymbolUniqueId BuiltInId::dFdxFine_Float3;
-constexpr const TSymbolUniqueId BuiltInId::dFdxFine_Float4;
-constexpr const TSymbolUniqueId BuiltInId::dFdyFine_Float1;
-constexpr const TSymbolUniqueId BuiltInId::dFdyFine_Float2;
-constexpr const TSymbolUniqueId BuiltInId::dFdyFine_Float3;
-constexpr const TSymbolUniqueId BuiltInId::dFdyFine_Float4;
-constexpr const TSymbolUniqueId BuiltInId::dFdxCoarse_Float1;
-constexpr const TSymbolUniqueId BuiltInId::dFdxCoarse_Float2;
-constexpr const TSymbolUniqueId BuiltInId::dFdxCoarse_Float3;
-constexpr const TSymbolUniqueId BuiltInId::dFdxCoarse_Float4;
-constexpr const TSymbolUniqueId BuiltInId::dFdyCoarse_Float1;
-constexpr const TSymbolUniqueId BuiltInId::dFdyCoarse_Float2;
-constexpr const TSymbolUniqueId BuiltInId::dFdyCoarse_Float3;
-constexpr const TSymbolUniqueId BuiltInId::dFdyCoarse_Float4;
-constexpr const TSymbolUniqueId BuiltInId::fwidthFine_Float1;
-constexpr const TSymbolUniqueId BuiltInId::fwidthFine_Float2;
-constexpr const TSymbolUniqueId BuiltInId::fwidthFine_Float3;
-constexpr const TSymbolUniqueId BuiltInId::fwidthFine_Float4;
-constexpr const TSymbolUniqueId BuiltInId::fwidthCoarse_Float1;
-constexpr const TSymbolUniqueId BuiltInId::fwidthCoarse_Float2;
-constexpr const TSymbolUniqueId BuiltInId::fwidthCoarse_Float3;
-constexpr const TSymbolUniqueId BuiltInId::fwidthCoarse_Float4;
-constexpr const TSymbolUniqueId BuiltInId::interpolateAtCentroid_Float1;
-constexpr const TSymbolUniqueId BuiltInId::interpolateAtCentroid_Float2;
-constexpr const TSymbolUniqueId BuiltInId::interpolateAtCentroid_Float3;
-constexpr const TSymbolUniqueId BuiltInId::interpolateAtCentroid_Float4;
-constexpr const TSymbolUniqueId BuiltInId::interpolateAtSample_Float1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::interpolateAtSample_Float2_Int1;
-constexpr const TSymbolUniqueId BuiltInId::interpolateAtSample_Float3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::interpolateAtSample_Float4_Int1;
-constexpr const TSymbolUniqueId BuiltInId::interpolateAtOffset_Float1_Float2;
-constexpr const TSymbolUniqueId BuiltInId::interpolateAtOffset_Float2_Float2;
-constexpr const TSymbolUniqueId BuiltInId::interpolateAtOffset_Float3_Float2;
-constexpr const TSymbolUniqueId BuiltInId::interpolateAtOffset_Float4_Float2;
-constexpr const TSymbolUniqueId BuiltInId::interpolateAtCentroidExt_Float1;
-constexpr const TSymbolUniqueId BuiltInId::interpolateAtCentroidExt_Float2;
-constexpr const TSymbolUniqueId BuiltInId::interpolateAtCentroidExt_Float3;
-constexpr const TSymbolUniqueId BuiltInId::interpolateAtCentroidExt_Float4;
-constexpr const TSymbolUniqueId BuiltInId::interpolateAtSampleExt_Float1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::interpolateAtSampleExt_Float2_Int1;
-constexpr const TSymbolUniqueId BuiltInId::interpolateAtSampleExt_Float3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::interpolateAtSampleExt_Float4_Int1;
-constexpr const TSymbolUniqueId BuiltInId::interpolateAtOffsetExt_Float1_Float2;
-constexpr const TSymbolUniqueId BuiltInId::interpolateAtOffsetExt_Float2_Float2;
-constexpr const TSymbolUniqueId BuiltInId::interpolateAtOffsetExt_Float3_Float2;
-constexpr const TSymbolUniqueId BuiltInId::interpolateAtOffsetExt_Float4_Float2;
-constexpr const TSymbolUniqueId BuiltInId::atomicCounter_AtomicCounter1;
-constexpr const TSymbolUniqueId BuiltInId::atomicCounterIncrement_AtomicCounter1;
-constexpr const TSymbolUniqueId BuiltInId::atomicCounterDecrement_AtomicCounter1;
-constexpr const TSymbolUniqueId BuiltInId::atomicCounterAdd_AtomicCounter1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::atomicCounterSubtract_AtomicCounter1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::atomicCounterMin_AtomicCounter1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::atomicCounterMax_AtomicCounter1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::atomicCounterAnd_AtomicCounter1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::atomicCounterOr_AtomicCounter1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::atomicCounterXor_AtomicCounter1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::atomicCounterExchange_AtomicCounter1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::atomicCounterCompSwap_AtomicCounter1_UInt1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::atomicAdd_UInt1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::atomicAdd_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::atomicMin_UInt1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::atomicMin_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::atomicMax_UInt1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::atomicMax_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::atomicAnd_UInt1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::atomicAnd_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::atomicOr_UInt1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::atomicOr_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::atomicXor_UInt1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::atomicXor_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::atomicExchange_UInt1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::atomicExchange_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::atomicCompSwap_UInt1_UInt1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::atomicCompSwap_Int1_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageSize_Image2D1;
-constexpr const TSymbolUniqueId BuiltInId::imageSize_IImage2D1;
-constexpr const TSymbolUniqueId BuiltInId::imageSize_UImage2D1;
-constexpr const TSymbolUniqueId BuiltInId::imageSize_Image3D1;
-constexpr const TSymbolUniqueId BuiltInId::imageSize_IImage3D1;
-constexpr const TSymbolUniqueId BuiltInId::imageSize_UImage3D1;
-constexpr const TSymbolUniqueId BuiltInId::imageSize_Image2DArray1;
-constexpr const TSymbolUniqueId BuiltInId::imageSize_IImage2DArray1;
-constexpr const TSymbolUniqueId BuiltInId::imageSize_UImage2DArray1;
-constexpr const TSymbolUniqueId BuiltInId::imageSize_ImageCube1;
-constexpr const TSymbolUniqueId BuiltInId::imageSize_IImageCube1;
-constexpr const TSymbolUniqueId BuiltInId::imageSize_UImageCube1;
-constexpr const TSymbolUniqueId BuiltInId::imageSize_ImageCubeArray1;
-constexpr const TSymbolUniqueId BuiltInId::imageSize_IImageCubeArray1;
-constexpr const TSymbolUniqueId BuiltInId::imageSize_UImageCubeArray1;
-constexpr const TSymbolUniqueId BuiltInId::imageSizeExt_ImageCubeArray1;
-constexpr const TSymbolUniqueId BuiltInId::imageSizeExt_IImageCubeArray1;
-constexpr const TSymbolUniqueId BuiltInId::imageSizeExt_UImageCubeArray1;
-constexpr const TSymbolUniqueId BuiltInId::imageSize_ImageBuffer1;
-constexpr const TSymbolUniqueId BuiltInId::imageSize_IImageBuffer1;
-constexpr const TSymbolUniqueId BuiltInId::imageSize_UImageBuffer1;
-constexpr const TSymbolUniqueId BuiltInId::imageSizeExt_ImageBuffer1;
-constexpr const TSymbolUniqueId BuiltInId::imageSizeExt_IImageBuffer1;
-constexpr const TSymbolUniqueId BuiltInId::imageSizeExt_UImageBuffer1;
-constexpr const TSymbolUniqueId BuiltInId::imageSize_Image1D1;
-constexpr const TSymbolUniqueId BuiltInId::imageSize_IImage1D1;
-constexpr const TSymbolUniqueId BuiltInId::imageSize_UImage1D1;
-constexpr const TSymbolUniqueId BuiltInId::imageSize_ImageRect1;
-constexpr const TSymbolUniqueId BuiltInId::imageSize_IImageRect1;
-constexpr const TSymbolUniqueId BuiltInId::imageSize_UImageRect1;
-constexpr const TSymbolUniqueId BuiltInId::imageSize_Image1DArray1;
-constexpr const TSymbolUniqueId BuiltInId::imageSize_IImage1DArray1;
-constexpr const TSymbolUniqueId BuiltInId::imageSize_UImage1DArray1;
-constexpr const TSymbolUniqueId BuiltInId::imageSize_Image2DMS1;
-constexpr const TSymbolUniqueId BuiltInId::imageSize_IImage2DMS1;
-constexpr const TSymbolUniqueId BuiltInId::imageSize_UImage2DMS1;
-constexpr const TSymbolUniqueId BuiltInId::imageSize_Image2DMSArray1;
-constexpr const TSymbolUniqueId BuiltInId::imageSize_IImage2DMSArray1;
-constexpr const TSymbolUniqueId BuiltInId::imageSize_UImage2DMSArray1;
-constexpr const TSymbolUniqueId BuiltInId::imageSamples_Image2DMS1;
-constexpr const TSymbolUniqueId BuiltInId::imageSamples_IImage2DMS1;
-constexpr const TSymbolUniqueId BuiltInId::imageSamples_UImage2DMS1;
-constexpr const TSymbolUniqueId BuiltInId::imageSamples_Image2DMSArray1;
-constexpr const TSymbolUniqueId BuiltInId::imageSamples_IImage2DMSArray1;
-constexpr const TSymbolUniqueId BuiltInId::imageSamples_UImage2DMSArray1;
-constexpr const TSymbolUniqueId BuiltInId::imageStore_Image2D1_Int2_Float4;
-constexpr const TSymbolUniqueId BuiltInId::imageStore_IImage2D1_Int2_Int4;
-constexpr const TSymbolUniqueId BuiltInId::imageStore_UImage2D1_Int2_UInt4;
-constexpr const TSymbolUniqueId BuiltInId::imageStore_Image3D1_Int3_Float4;
-constexpr const TSymbolUniqueId BuiltInId::imageStore_IImage3D1_Int3_Int4;
-constexpr const TSymbolUniqueId BuiltInId::imageStore_UImage3D1_Int3_UInt4;
-constexpr const TSymbolUniqueId BuiltInId::imageStore_Image2DArray1_Int3_Float4;
-constexpr const TSymbolUniqueId BuiltInId::imageStore_IImage2DArray1_Int3_Int4;
-constexpr const TSymbolUniqueId BuiltInId::imageStore_UImage2DArray1_Int3_UInt4;
-constexpr const TSymbolUniqueId BuiltInId::imageStore_ImageCube1_Int3_Float4;
-constexpr const TSymbolUniqueId BuiltInId::imageStore_IImageCube1_Int3_Int4;
-constexpr const TSymbolUniqueId BuiltInId::imageStore_UImageCube1_Int3_UInt4;
-constexpr const TSymbolUniqueId BuiltInId::imageStore_ImageCubeArray1_Int3_Float4;
-constexpr const TSymbolUniqueId BuiltInId::imageStore_IImageCubeArray1_Int3_Int4;
-constexpr const TSymbolUniqueId BuiltInId::imageStore_UImageCubeArray1_Int3_UInt4;
-constexpr const TSymbolUniqueId BuiltInId::imageStoreExt_ImageCubeArray1_Int3_Float4;
-constexpr const TSymbolUniqueId BuiltInId::imageStoreExt_IImageCubeArray1_Int3_Int4;
-constexpr const TSymbolUniqueId BuiltInId::imageStoreExt_UImageCubeArray1_Int3_UInt4;
-constexpr const TSymbolUniqueId BuiltInId::imageStore_ImageBuffer1_Int1_Float4;
-constexpr const TSymbolUniqueId BuiltInId::imageStore_IImageBuffer1_Int1_Int4;
-constexpr const TSymbolUniqueId BuiltInId::imageStore_UImageBuffer1_Int1_UInt4;
-constexpr const TSymbolUniqueId BuiltInId::imageStoreExt_ImageBuffer1_Int1_Float4;
-constexpr const TSymbolUniqueId BuiltInId::imageStoreExt_IImageBuffer1_Int1_Int4;
-constexpr const TSymbolUniqueId BuiltInId::imageStoreExt_UImageBuffer1_Int1_UInt4;
-constexpr const TSymbolUniqueId BuiltInId::imageStore_Image1D1_Int1_Float4;
-constexpr const TSymbolUniqueId BuiltInId::imageStore_IImage1D1_Int1_Int4;
-constexpr const TSymbolUniqueId BuiltInId::imageStore_UImage1D1_Int1_UInt4;
-constexpr const TSymbolUniqueId BuiltInId::imageStore_Image1DArray1_Int2_Float4;
-constexpr const TSymbolUniqueId BuiltInId::imageStore_IImage1DArray1_Int2_Int4;
-constexpr const TSymbolUniqueId BuiltInId::imageStore_UImage1DArray1_Int2_UInt4;
-constexpr const TSymbolUniqueId BuiltInId::imageStore_ImageRect1_Int2_Float4;
-constexpr const TSymbolUniqueId BuiltInId::imageStore_IImageRect1_Int2_Int4;
-constexpr const TSymbolUniqueId BuiltInId::imageStore_UImageRect1_Int2_UInt4;
-constexpr const TSymbolUniqueId BuiltInId::imageStore_Image2DMS1_Int2_Int1_Float4;
-constexpr const TSymbolUniqueId BuiltInId::imageStore_IImage2DMS1_Int2_Int1_Int4;
-constexpr const TSymbolUniqueId BuiltInId::imageStore_UImage2DMS1_Int2_Int1_UInt4;
-constexpr const TSymbolUniqueId BuiltInId::imageStore_Image2DMSArray1_Int3_Int1_Float4;
-constexpr const TSymbolUniqueId BuiltInId::imageStore_IImage2DMSArray1_Int3_Int1_Int4;
-constexpr const TSymbolUniqueId BuiltInId::imageStore_UImage2DMSArray1_Int3_Int1_UInt4;
-constexpr const TSymbolUniqueId BuiltInId::imageLoad_Image2D1_Int2;
-constexpr const TSymbolUniqueId BuiltInId::imageLoad_IImage2D1_Int2;
-constexpr const TSymbolUniqueId BuiltInId::imageLoad_UImage2D1_Int2;
-constexpr const TSymbolUniqueId BuiltInId::imageLoad_Image3D1_Int3;
-constexpr const TSymbolUniqueId BuiltInId::imageLoad_IImage3D1_Int3;
-constexpr const TSymbolUniqueId BuiltInId::imageLoad_UImage3D1_Int3;
-constexpr const TSymbolUniqueId BuiltInId::imageLoad_Image2DArray1_Int3;
-constexpr const TSymbolUniqueId BuiltInId::imageLoad_IImage2DArray1_Int3;
-constexpr const TSymbolUniqueId BuiltInId::imageLoad_UImage2DArray1_Int3;
-constexpr const TSymbolUniqueId BuiltInId::imageLoad_ImageCube1_Int3;
-constexpr const TSymbolUniqueId BuiltInId::imageLoad_IImageCube1_Int3;
-constexpr const TSymbolUniqueId BuiltInId::imageLoad_UImageCube1_Int3;
-constexpr const TSymbolUniqueId BuiltInId::imageLoad_ImageCubeArray1_Int3;
-constexpr const TSymbolUniqueId BuiltInId::imageLoad_IImageCubeArray1_Int3;
-constexpr const TSymbolUniqueId BuiltInId::imageLoad_UImageCubeArray1_Int3;
-constexpr const TSymbolUniqueId BuiltInId::imageLoadExt_ImageCubeArray1_Int3;
-constexpr const TSymbolUniqueId BuiltInId::imageLoadExt_IImageCubeArray1_Int3;
-constexpr const TSymbolUniqueId BuiltInId::imageLoadExt_UImageCubeArray1_Int3;
-constexpr const TSymbolUniqueId BuiltInId::imageLoad_ImageBuffer1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageLoad_IImageBuffer1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageLoad_UImageBuffer1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageLoadExt_ImageBuffer1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageLoadExt_IImageBuffer1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageLoadExt_UImageBuffer1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageLoad_Image1D1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageLoad_IImage1D1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageLoad_UImage1D1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageLoad_Image1DArray1_Int2;
-constexpr const TSymbolUniqueId BuiltInId::imageLoad_IImage1DArray1_Int2;
-constexpr const TSymbolUniqueId BuiltInId::imageLoad_UImage1DArray1_Int2;
-constexpr const TSymbolUniqueId BuiltInId::imageLoad_ImageRect1_Int2;
-constexpr const TSymbolUniqueId BuiltInId::imageLoad_IImageRect1_Int2;
-constexpr const TSymbolUniqueId BuiltInId::imageLoad_UImageRect1_Int2;
-constexpr const TSymbolUniqueId BuiltInId::imageLoad_Image2DMS1_Int2_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageLoad_IImage2DMS1_Int2_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageLoad_UImage2DMS1_Int2_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageLoad_Image2DMSArray1_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageLoad_IImage2DMSArray1_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageLoad_UImage2DMSArray1_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAdd_Image2D1_Int2_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAdd_IImage2D1_Int2_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAdd_UImage2D1_Int2_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAdd_Image3D1_Int3_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAdd_IImage3D1_Int3_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAdd_UImage3D1_Int3_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAdd_ImageCube1_Int3_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAdd_IImageCube1_Int3_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAdd_UImageCube1_Int3_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAdd_ImageBuffer1_Int1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAdd_IImageBuffer1_Int1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAdd_UImageBuffer1_Int1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAdd_Image2DArray1_Int3_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAdd_IImage2DArray1_Int3_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAdd_UImage2DArray1_Int3_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAdd_ImageCubeArray1_Int3_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAdd_IImageCubeArray1_Int3_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAdd_UImageCubeArray1_Int3_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAdd_Image1D1_Int1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAdd_IImage1D1_Int1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAdd_UImage1D1_Int1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAdd_Image1DArray1_Int2_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAdd_IImage1DArray1_Int2_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAdd_UImage1DArray1_Int2_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAdd_ImageRect1_Int2_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAdd_IImageRect1_Int2_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAdd_UImageRect1_Int2_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAdd_Image2DMS1_Int2_Int1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAdd_IImage2DMS1_Int2_Int1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAdd_UImage2DMS1_Int2_Int1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAdd_Image2DMSArray1_Int3_Int1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAdd_IImage2DMSArray1_Int3_Int1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAdd_UImage2DMSArray1_Int3_Int1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAdd_Image2D1_Int2_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAdd_IImage2D1_Int2_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAdd_UImage2D1_Int2_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAdd_Image3D1_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAdd_IImage3D1_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAdd_UImage3D1_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAdd_ImageCube1_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAdd_IImageCube1_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAdd_UImageCube1_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAdd_ImageBuffer1_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAdd_IImageBuffer1_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAdd_UImageBuffer1_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAdd_Image2DArray1_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAdd_IImage2DArray1_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAdd_UImage2DArray1_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAdd_ImageCubeArray1_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAdd_IImageCubeArray1_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAdd_UImageCubeArray1_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAdd_Image1D1_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAdd_IImage1D1_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAdd_UImage1D1_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAdd_Image1DArray1_Int2_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAdd_IImage1DArray1_Int2_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAdd_UImage1DArray1_Int2_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAdd_ImageRect1_Int2_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAdd_IImageRect1_Int2_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAdd_UImageRect1_Int2_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAdd_Image2DMS1_Int2_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAdd_IImage2DMS1_Int2_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAdd_UImage2DMS1_Int2_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAdd_Image2DMSArray1_Int3_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAdd_IImage2DMSArray1_Int3_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAdd_UImage2DMSArray1_Int3_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMin_Image2D1_Int2_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMin_IImage2D1_Int2_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMin_UImage2D1_Int2_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMin_Image3D1_Int3_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMin_IImage3D1_Int3_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMin_UImage3D1_Int3_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMin_ImageCube1_Int3_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMin_IImageCube1_Int3_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMin_UImageCube1_Int3_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMin_ImageBuffer1_Int1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMin_IImageBuffer1_Int1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMin_UImageBuffer1_Int1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMin_Image2DArray1_Int3_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMin_IImage2DArray1_Int3_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMin_UImage2DArray1_Int3_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMin_ImageCubeArray1_Int3_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMin_IImageCubeArray1_Int3_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMin_UImageCubeArray1_Int3_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMin_Image1D1_Int1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMin_IImage1D1_Int1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMin_UImage1D1_Int1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMin_Image1DArray1_Int2_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMin_IImage1DArray1_Int2_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMin_UImage1DArray1_Int2_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMin_ImageRect1_Int2_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMin_IImageRect1_Int2_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMin_UImageRect1_Int2_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMin_Image2DMS1_Int2_Int1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMin_IImage2DMS1_Int2_Int1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMin_UImage2DMS1_Int2_Int1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMin_Image2DMSArray1_Int3_Int1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMin_IImage2DMSArray1_Int3_Int1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMin_UImage2DMSArray1_Int3_Int1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMin_Image2D1_Int2_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMin_IImage2D1_Int2_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMin_UImage2D1_Int2_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMin_Image3D1_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMin_IImage3D1_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMin_UImage3D1_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMin_ImageCube1_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMin_IImageCube1_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMin_UImageCube1_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMin_ImageBuffer1_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMin_IImageBuffer1_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMin_UImageBuffer1_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMin_Image2DArray1_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMin_IImage2DArray1_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMin_UImage2DArray1_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMin_ImageCubeArray1_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMin_IImageCubeArray1_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMin_UImageCubeArray1_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMin_Image1D1_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMin_IImage1D1_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMin_UImage1D1_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMin_Image1DArray1_Int2_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMin_IImage1DArray1_Int2_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMin_UImage1DArray1_Int2_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMin_ImageRect1_Int2_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMin_IImageRect1_Int2_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMin_UImageRect1_Int2_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMin_Image2DMS1_Int2_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMin_IImage2DMS1_Int2_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMin_UImage2DMS1_Int2_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMin_Image2DMSArray1_Int3_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMin_IImage2DMSArray1_Int3_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMin_UImage2DMSArray1_Int3_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMax_Image2D1_Int2_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMax_IImage2D1_Int2_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMax_UImage2D1_Int2_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMax_Image3D1_Int3_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMax_IImage3D1_Int3_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMax_UImage3D1_Int3_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMax_ImageCube1_Int3_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMax_IImageCube1_Int3_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMax_UImageCube1_Int3_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMax_ImageBuffer1_Int1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMax_IImageBuffer1_Int1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMax_UImageBuffer1_Int1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMax_Image2DArray1_Int3_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMax_IImage2DArray1_Int3_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMax_UImage2DArray1_Int3_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMax_ImageCubeArray1_Int3_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMax_IImageCubeArray1_Int3_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMax_UImageCubeArray1_Int3_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMax_Image1D1_Int1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMax_IImage1D1_Int1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMax_UImage1D1_Int1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMax_Image1DArray1_Int2_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMax_IImage1DArray1_Int2_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMax_UImage1DArray1_Int2_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMax_ImageRect1_Int2_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMax_IImageRect1_Int2_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMax_UImageRect1_Int2_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMax_Image2DMS1_Int2_Int1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMax_IImage2DMS1_Int2_Int1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMax_UImage2DMS1_Int2_Int1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMax_Image2DMSArray1_Int3_Int1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMax_IImage2DMSArray1_Int3_Int1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMax_UImage2DMSArray1_Int3_Int1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMax_Image2D1_Int2_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMax_IImage2D1_Int2_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMax_UImage2D1_Int2_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMax_Image3D1_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMax_IImage3D1_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMax_UImage3D1_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMax_ImageCube1_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMax_IImageCube1_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMax_UImageCube1_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMax_ImageBuffer1_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMax_IImageBuffer1_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMax_UImageBuffer1_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMax_Image2DArray1_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMax_IImage2DArray1_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMax_UImage2DArray1_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMax_ImageCubeArray1_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMax_IImageCubeArray1_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMax_UImageCubeArray1_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMax_Image1D1_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMax_IImage1D1_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMax_UImage1D1_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMax_Image1DArray1_Int2_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMax_IImage1DArray1_Int2_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMax_UImage1DArray1_Int2_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMax_ImageRect1_Int2_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMax_IImageRect1_Int2_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMax_UImageRect1_Int2_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMax_Image2DMS1_Int2_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMax_IImage2DMS1_Int2_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMax_UImage2DMS1_Int2_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMax_Image2DMSArray1_Int3_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMax_IImage2DMSArray1_Int3_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMax_UImage2DMSArray1_Int3_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAnd_Image2D1_Int2_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAnd_IImage2D1_Int2_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAnd_UImage2D1_Int2_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAnd_Image3D1_Int3_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAnd_IImage3D1_Int3_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAnd_UImage3D1_Int3_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAnd_ImageCube1_Int3_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAnd_IImageCube1_Int3_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAnd_UImageCube1_Int3_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAnd_ImageBuffer1_Int1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAnd_IImageBuffer1_Int1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAnd_UImageBuffer1_Int1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAnd_Image2DArray1_Int3_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAnd_IImage2DArray1_Int3_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAnd_UImage2DArray1_Int3_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAnd_ImageCubeArray1_Int3_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAnd_IImageCubeArray1_Int3_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAnd_UImageCubeArray1_Int3_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAnd_Image1D1_Int1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAnd_IImage1D1_Int1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAnd_UImage1D1_Int1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAnd_Image1DArray1_Int2_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAnd_IImage1DArray1_Int2_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAnd_UImage1DArray1_Int2_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAnd_ImageRect1_Int2_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAnd_IImageRect1_Int2_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAnd_UImageRect1_Int2_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAnd_Image2DMS1_Int2_Int1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAnd_IImage2DMS1_Int2_Int1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAnd_UImage2DMS1_Int2_Int1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAnd_Image2DMSArray1_Int3_Int1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAnd_IImage2DMSArray1_Int3_Int1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAnd_UImage2DMSArray1_Int3_Int1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAnd_Image2D1_Int2_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAnd_IImage2D1_Int2_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAnd_UImage2D1_Int2_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAnd_Image3D1_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAnd_IImage3D1_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAnd_UImage3D1_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAnd_ImageCube1_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAnd_IImageCube1_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAnd_UImageCube1_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAnd_ImageBuffer1_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAnd_IImageBuffer1_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAnd_UImageBuffer1_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAnd_Image2DArray1_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAnd_IImage2DArray1_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAnd_UImage2DArray1_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAnd_ImageCubeArray1_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAnd_IImageCubeArray1_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAnd_UImageCubeArray1_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAnd_Image1D1_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAnd_IImage1D1_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAnd_UImage1D1_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAnd_Image1DArray1_Int2_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAnd_IImage1DArray1_Int2_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAnd_UImage1DArray1_Int2_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAnd_ImageRect1_Int2_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAnd_IImageRect1_Int2_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAnd_UImageRect1_Int2_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAnd_Image2DMS1_Int2_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAnd_IImage2DMS1_Int2_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAnd_UImage2DMS1_Int2_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAnd_Image2DMSArray1_Int3_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAnd_IImage2DMSArray1_Int3_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAnd_UImage2DMSArray1_Int3_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicOr_Image2D1_Int2_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicOr_IImage2D1_Int2_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicOr_UImage2D1_Int2_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicOr_Image3D1_Int3_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicOr_IImage3D1_Int3_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicOr_UImage3D1_Int3_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicOr_ImageCube1_Int3_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicOr_IImageCube1_Int3_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicOr_UImageCube1_Int3_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicOr_ImageBuffer1_Int1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicOr_IImageBuffer1_Int1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicOr_UImageBuffer1_Int1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicOr_Image2DArray1_Int3_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicOr_IImage2DArray1_Int3_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicOr_UImage2DArray1_Int3_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicOr_ImageCubeArray1_Int3_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicOr_IImageCubeArray1_Int3_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicOr_UImageCubeArray1_Int3_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicOr_Image1D1_Int1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicOr_IImage1D1_Int1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicOr_UImage1D1_Int1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicOr_Image1DArray1_Int2_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicOr_IImage1DArray1_Int2_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicOr_UImage1DArray1_Int2_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicOr_ImageRect1_Int2_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicOr_IImageRect1_Int2_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicOr_UImageRect1_Int2_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicOr_Image2DMS1_Int2_Int1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicOr_IImage2DMS1_Int2_Int1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicOr_UImage2DMS1_Int2_Int1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicOr_Image2DMSArray1_Int3_Int1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicOr_IImage2DMSArray1_Int3_Int1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicOr_UImage2DMSArray1_Int3_Int1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicOr_Image2D1_Int2_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicOr_IImage2D1_Int2_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicOr_UImage2D1_Int2_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicOr_Image3D1_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicOr_IImage3D1_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicOr_UImage3D1_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicOr_ImageCube1_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicOr_IImageCube1_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicOr_UImageCube1_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicOr_ImageBuffer1_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicOr_IImageBuffer1_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicOr_UImageBuffer1_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicOr_Image2DArray1_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicOr_IImage2DArray1_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicOr_UImage2DArray1_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicOr_ImageCubeArray1_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicOr_IImageCubeArray1_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicOr_UImageCubeArray1_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicOr_Image1D1_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicOr_IImage1D1_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicOr_UImage1D1_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicOr_Image1DArray1_Int2_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicOr_IImage1DArray1_Int2_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicOr_UImage1DArray1_Int2_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicOr_ImageRect1_Int2_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicOr_IImageRect1_Int2_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicOr_UImageRect1_Int2_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicOr_Image2DMS1_Int2_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicOr_IImage2DMS1_Int2_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicOr_UImage2DMS1_Int2_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicOr_Image2DMSArray1_Int3_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicOr_IImage2DMSArray1_Int3_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicOr_UImage2DMSArray1_Int3_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicXor_Image2D1_Int2_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicXor_IImage2D1_Int2_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicXor_UImage2D1_Int2_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicXor_Image3D1_Int3_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicXor_IImage3D1_Int3_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicXor_UImage3D1_Int3_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicXor_ImageCube1_Int3_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicXor_IImageCube1_Int3_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicXor_UImageCube1_Int3_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicXor_ImageBuffer1_Int1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicXor_IImageBuffer1_Int1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicXor_UImageBuffer1_Int1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicXor_Image2DArray1_Int3_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicXor_IImage2DArray1_Int3_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicXor_UImage2DArray1_Int3_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicXor_ImageCubeArray1_Int3_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicXor_IImageCubeArray1_Int3_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicXor_UImageCubeArray1_Int3_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicXor_Image1D1_Int1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicXor_IImage1D1_Int1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicXor_UImage1D1_Int1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicXor_Image1DArray1_Int2_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicXor_IImage1DArray1_Int2_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicXor_UImage1DArray1_Int2_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicXor_ImageRect1_Int2_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicXor_IImageRect1_Int2_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicXor_UImageRect1_Int2_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicXor_Image2DMS1_Int2_Int1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicXor_IImage2DMS1_Int2_Int1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicXor_UImage2DMS1_Int2_Int1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicXor_Image2DMSArray1_Int3_Int1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicXor_IImage2DMSArray1_Int3_Int1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicXor_UImage2DMSArray1_Int3_Int1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicXor_Image2D1_Int2_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicXor_IImage2D1_Int2_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicXor_UImage2D1_Int2_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicXor_Image3D1_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicXor_IImage3D1_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicXor_UImage3D1_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicXor_ImageCube1_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicXor_IImageCube1_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicXor_UImageCube1_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicXor_ImageBuffer1_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicXor_IImageBuffer1_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicXor_UImageBuffer1_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicXor_Image2DArray1_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicXor_IImage2DArray1_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicXor_UImage2DArray1_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicXor_ImageCubeArray1_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicXor_IImageCubeArray1_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicXor_UImageCubeArray1_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicXor_Image1D1_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicXor_IImage1D1_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicXor_UImage1D1_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicXor_Image1DArray1_Int2_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicXor_IImage1DArray1_Int2_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicXor_UImage1DArray1_Int2_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicXor_ImageRect1_Int2_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicXor_IImageRect1_Int2_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicXor_UImageRect1_Int2_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicXor_Image2DMS1_Int2_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicXor_IImage2DMS1_Int2_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicXor_UImage2DMS1_Int2_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicXor_Image2DMSArray1_Int3_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicXor_IImage2DMSArray1_Int3_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicXor_UImage2DMSArray1_Int3_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchange_Image2D1_Int2_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchange_IImage2D1_Int2_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchange_UImage2D1_Int2_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchange_Image3D1_Int3_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchange_IImage3D1_Int3_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchange_UImage3D1_Int3_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchange_ImageCube1_Int3_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchange_IImageCube1_Int3_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchange_UImageCube1_Int3_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchange_ImageBuffer1_Int1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchange_IImageBuffer1_Int1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchange_UImageBuffer1_Int1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchange_Image2DArray1_Int3_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchange_IImage2DArray1_Int3_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchange_UImage2DArray1_Int3_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchange_ImageCubeArray1_Int3_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchange_IImageCubeArray1_Int3_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchange_UImageCubeArray1_Int3_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchange_Image1D1_Int1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchange_IImage1D1_Int1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchange_UImage1D1_Int1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchange_Image1DArray1_Int2_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchange_IImage1DArray1_Int2_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchange_UImage1DArray1_Int2_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchange_ImageRect1_Int2_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchange_IImageRect1_Int2_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchange_UImageRect1_Int2_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchange_Image2DMS1_Int2_Int1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchange_IImage2DMS1_Int2_Int1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchange_UImage2DMS1_Int2_Int1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchange_Image2DMSArray1_Int3_Int1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchange_IImage2DMSArray1_Int3_Int1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchange_UImage2DMSArray1_Int3_Int1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchange_Image2D1_Int2_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchange_IImage2D1_Int2_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchange_UImage2D1_Int2_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchange_Image3D1_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchange_IImage3D1_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchange_UImage3D1_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchange_ImageCube1_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchange_IImageCube1_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchange_UImageCube1_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchange_ImageBuffer1_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchange_IImageBuffer1_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchange_UImageBuffer1_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchange_Image2DArray1_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchange_IImage2DArray1_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchange_UImage2DArray1_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchange_ImageCubeArray1_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchange_IImageCubeArray1_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchange_UImageCubeArray1_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchange_Image1D1_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchange_IImage1D1_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchange_UImage1D1_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchange_Image1DArray1_Int2_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchange_IImage1DArray1_Int2_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchange_UImage1DArray1_Int2_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchange_ImageRect1_Int2_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchange_IImageRect1_Int2_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchange_UImageRect1_Int2_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchange_Image2DMS1_Int2_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchange_IImage2DMS1_Int2_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchange_UImage2DMS1_Int2_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchange_Image2DMSArray1_Int3_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchange_IImage2DMSArray1_Int3_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchange_UImage2DMSArray1_Int3_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchange_Image2D1_Int2_Float1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchange_IImage2D1_Int2_Float1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchange_UImage2D1_Int2_Float1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchange_Image3D1_Int3_Float1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchange_IImage3D1_Int3_Float1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchange_UImage3D1_Int3_Float1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchange_ImageCube1_Int3_Float1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchange_IImageCube1_Int3_Float1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchange_UImageCube1_Int3_Float1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchange_ImageBuffer1_Int1_Float1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchange_IImageBuffer1_Int1_Float1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchange_UImageBuffer1_Int1_Float1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchange_Image2DArray1_Int3_Float1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchange_IImage2DArray1_Int3_Float1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchange_UImage2DArray1_Int3_Float1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchange_ImageCubeArray1_Int3_Float1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchange_IImageCubeArray1_Int3_Float1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchange_UImageCubeArray1_Int3_Float1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchange_Image1D1_Int1_Float1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchange_IImage1D1_Int1_Float1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchange_UImage1D1_Int1_Float1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchange_Image1DArray1_Int2_Float1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchange_IImage1DArray1_Int2_Float1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchange_UImage1DArray1_Int2_Float1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchange_ImageRect1_Int2_Float1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchange_IImageRect1_Int2_Float1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchange_UImageRect1_Int2_Float1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchange_Image2DMS1_Int2_Int1_Float1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchange_IImage2DMS1_Int2_Int1_Float1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchange_UImage2DMS1_Int2_Int1_Float1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchange_Image2DMSArray1_Int3_Int1_Float1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchange_IImage2DMSArray1_Int3_Int1_Float1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchange_UImage2DMSArray1_Int3_Int1_Float1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicCompSwap_Image2D1_Int2_UInt1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicCompSwap_IImage2D1_Int2_UInt1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicCompSwap_UImage2D1_Int2_UInt1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicCompSwap_Image3D1_Int3_UInt1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicCompSwap_IImage3D1_Int3_UInt1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicCompSwap_UImage3D1_Int3_UInt1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicCompSwap_ImageCube1_Int3_UInt1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicCompSwap_IImageCube1_Int3_UInt1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicCompSwap_UImageCube1_Int3_UInt1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicCompSwap_ImageBuffer1_Int1_UInt1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicCompSwap_IImageBuffer1_Int1_UInt1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicCompSwap_UImageBuffer1_Int1_UInt1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicCompSwap_Image2DArray1_Int3_UInt1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicCompSwap_IImage2DArray1_Int3_UInt1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicCompSwap_UImage2DArray1_Int3_UInt1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicCompSwap_ImageCubeArray1_Int3_UInt1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicCompSwap_IImageCubeArray1_Int3_UInt1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicCompSwap_UImageCubeArray1_Int3_UInt1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicCompSwap_Image1D1_Int1_UInt1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicCompSwap_IImage1D1_Int1_UInt1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicCompSwap_UImage1D1_Int1_UInt1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicCompSwap_Image1DArray1_Int2_UInt1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicCompSwap_IImage1DArray1_Int2_UInt1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicCompSwap_UImage1DArray1_Int2_UInt1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicCompSwap_ImageRect1_Int2_UInt1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicCompSwap_IImageRect1_Int2_UInt1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicCompSwap_UImageRect1_Int2_UInt1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicCompSwap_Image2DMS1_Int2_Int1_UInt1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicCompSwap_IImage2DMS1_Int2_Int1_UInt1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicCompSwap_UImage2DMS1_Int2_Int1_UInt1_UInt1;
-constexpr const TSymbolUniqueId
-    BuiltInId::imageAtomicCompSwap_Image2DMSArray1_Int3_Int1_UInt1_UInt1;
-constexpr const TSymbolUniqueId
-    BuiltInId::imageAtomicCompSwap_IImage2DMSArray1_Int3_Int1_UInt1_UInt1;
-constexpr const TSymbolUniqueId
-    BuiltInId::imageAtomicCompSwap_UImage2DMSArray1_Int3_Int1_UInt1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicCompSwap_Image2D1_Int2_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicCompSwap_IImage2D1_Int2_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicCompSwap_UImage2D1_Int2_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicCompSwap_Image3D1_Int3_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicCompSwap_IImage3D1_Int3_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicCompSwap_UImage3D1_Int3_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicCompSwap_ImageCube1_Int3_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicCompSwap_IImageCube1_Int3_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicCompSwap_UImageCube1_Int3_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicCompSwap_ImageBuffer1_Int1_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicCompSwap_IImageBuffer1_Int1_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicCompSwap_UImageBuffer1_Int1_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicCompSwap_Image2DArray1_Int3_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicCompSwap_IImage2DArray1_Int3_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicCompSwap_UImage2DArray1_Int3_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicCompSwap_ImageCubeArray1_Int3_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicCompSwap_IImageCubeArray1_Int3_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicCompSwap_UImageCubeArray1_Int3_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicCompSwap_Image1D1_Int1_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicCompSwap_IImage1D1_Int1_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicCompSwap_UImage1D1_Int1_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicCompSwap_Image1DArray1_Int2_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicCompSwap_IImage1DArray1_Int2_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicCompSwap_UImage1DArray1_Int2_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicCompSwap_ImageRect1_Int2_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicCompSwap_IImageRect1_Int2_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicCompSwap_UImageRect1_Int2_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicCompSwap_Image2DMS1_Int2_Int1_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicCompSwap_IImage2DMS1_Int2_Int1_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicCompSwap_UImage2DMS1_Int2_Int1_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicCompSwap_Image2DMSArray1_Int3_Int1_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicCompSwap_IImage2DMSArray1_Int3_Int1_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicCompSwap_UImage2DMSArray1_Int3_Int1_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAddExt_Image2D1_Int2_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAddExt_IImage2D1_Int2_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAddExt_UImage2D1_Int2_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAddExt_Image3D1_Int3_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAddExt_IImage3D1_Int3_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAddExt_UImage3D1_Int3_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAddExt_ImageCube1_Int3_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAddExt_IImageCube1_Int3_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAddExt_UImageCube1_Int3_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAddExt_ImageBuffer1_Int1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAddExt_IImageBuffer1_Int1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAddExt_UImageBuffer1_Int1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAddExt_Image2DArray1_Int3_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAddExt_IImage2DArray1_Int3_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAddExt_UImage2DArray1_Int3_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAddExt_ImageCubeArray1_Int3_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAddExt_IImageCubeArray1_Int3_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAddExt_UImageCubeArray1_Int3_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAddExt_Image1D1_Int1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAddExt_IImage1D1_Int1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAddExt_UImage1D1_Int1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAddExt_Image1DArray1_Int2_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAddExt_IImage1DArray1_Int2_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAddExt_UImage1DArray1_Int2_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAddExt_ImageRect1_Int2_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAddExt_IImageRect1_Int2_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAddExt_UImageRect1_Int2_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAddExt_Image2DMS1_Int2_Int1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAddExt_IImage2DMS1_Int2_Int1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAddExt_UImage2DMS1_Int2_Int1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAddExt_Image2DMSArray1_Int3_Int1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAddExt_IImage2DMSArray1_Int3_Int1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAddExt_UImage2DMSArray1_Int3_Int1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAddExt_Image2D1_Int2_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAddExt_IImage2D1_Int2_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAddExt_UImage2D1_Int2_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAddExt_Image3D1_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAddExt_IImage3D1_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAddExt_UImage3D1_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAddExt_ImageCube1_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAddExt_IImageCube1_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAddExt_UImageCube1_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAddExt_ImageBuffer1_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAddExt_IImageBuffer1_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAddExt_UImageBuffer1_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAddExt_Image2DArray1_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAddExt_IImage2DArray1_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAddExt_UImage2DArray1_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAddExt_ImageCubeArray1_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAddExt_IImageCubeArray1_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAddExt_UImageCubeArray1_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAddExt_Image1D1_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAddExt_IImage1D1_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAddExt_UImage1D1_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAddExt_Image1DArray1_Int2_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAddExt_IImage1DArray1_Int2_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAddExt_UImage1DArray1_Int2_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAddExt_ImageRect1_Int2_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAddExt_IImageRect1_Int2_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAddExt_UImageRect1_Int2_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAddExt_Image2DMS1_Int2_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAddExt_IImage2DMS1_Int2_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAddExt_UImage2DMS1_Int2_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAddExt_Image2DMSArray1_Int3_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAddExt_IImage2DMSArray1_Int3_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAddExt_UImage2DMSArray1_Int3_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMinExt_Image2D1_Int2_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMinExt_IImage2D1_Int2_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMinExt_UImage2D1_Int2_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMinExt_Image3D1_Int3_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMinExt_IImage3D1_Int3_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMinExt_UImage3D1_Int3_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMinExt_ImageCube1_Int3_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMinExt_IImageCube1_Int3_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMinExt_UImageCube1_Int3_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMinExt_ImageBuffer1_Int1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMinExt_IImageBuffer1_Int1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMinExt_UImageBuffer1_Int1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMinExt_Image2DArray1_Int3_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMinExt_IImage2DArray1_Int3_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMinExt_UImage2DArray1_Int3_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMinExt_ImageCubeArray1_Int3_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMinExt_IImageCubeArray1_Int3_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMinExt_UImageCubeArray1_Int3_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMinExt_Image1D1_Int1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMinExt_IImage1D1_Int1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMinExt_UImage1D1_Int1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMinExt_Image1DArray1_Int2_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMinExt_IImage1DArray1_Int2_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMinExt_UImage1DArray1_Int2_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMinExt_ImageRect1_Int2_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMinExt_IImageRect1_Int2_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMinExt_UImageRect1_Int2_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMinExt_Image2DMS1_Int2_Int1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMinExt_IImage2DMS1_Int2_Int1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMinExt_UImage2DMS1_Int2_Int1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMinExt_Image2DMSArray1_Int3_Int1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMinExt_IImage2DMSArray1_Int3_Int1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMinExt_UImage2DMSArray1_Int3_Int1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMinExt_Image2D1_Int2_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMinExt_IImage2D1_Int2_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMinExt_UImage2D1_Int2_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMinExt_Image3D1_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMinExt_IImage3D1_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMinExt_UImage3D1_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMinExt_ImageCube1_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMinExt_IImageCube1_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMinExt_UImageCube1_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMinExt_ImageBuffer1_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMinExt_IImageBuffer1_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMinExt_UImageBuffer1_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMinExt_Image2DArray1_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMinExt_IImage2DArray1_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMinExt_UImage2DArray1_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMinExt_ImageCubeArray1_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMinExt_IImageCubeArray1_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMinExt_UImageCubeArray1_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMinExt_Image1D1_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMinExt_IImage1D1_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMinExt_UImage1D1_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMinExt_Image1DArray1_Int2_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMinExt_IImage1DArray1_Int2_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMinExt_UImage1DArray1_Int2_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMinExt_ImageRect1_Int2_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMinExt_IImageRect1_Int2_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMinExt_UImageRect1_Int2_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMinExt_Image2DMS1_Int2_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMinExt_IImage2DMS1_Int2_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMinExt_UImage2DMS1_Int2_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMinExt_Image2DMSArray1_Int3_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMinExt_IImage2DMSArray1_Int3_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMinExt_UImage2DMSArray1_Int3_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMaxExt_Image2D1_Int2_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMaxExt_IImage2D1_Int2_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMaxExt_UImage2D1_Int2_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMaxExt_Image3D1_Int3_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMaxExt_IImage3D1_Int3_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMaxExt_UImage3D1_Int3_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMaxExt_ImageCube1_Int3_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMaxExt_IImageCube1_Int3_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMaxExt_UImageCube1_Int3_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMaxExt_ImageBuffer1_Int1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMaxExt_IImageBuffer1_Int1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMaxExt_UImageBuffer1_Int1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMaxExt_Image2DArray1_Int3_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMaxExt_IImage2DArray1_Int3_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMaxExt_UImage2DArray1_Int3_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMaxExt_ImageCubeArray1_Int3_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMaxExt_IImageCubeArray1_Int3_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMaxExt_UImageCubeArray1_Int3_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMaxExt_Image1D1_Int1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMaxExt_IImage1D1_Int1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMaxExt_UImage1D1_Int1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMaxExt_Image1DArray1_Int2_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMaxExt_IImage1DArray1_Int2_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMaxExt_UImage1DArray1_Int2_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMaxExt_ImageRect1_Int2_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMaxExt_IImageRect1_Int2_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMaxExt_UImageRect1_Int2_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMaxExt_Image2DMS1_Int2_Int1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMaxExt_IImage2DMS1_Int2_Int1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMaxExt_UImage2DMS1_Int2_Int1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMaxExt_Image2DMSArray1_Int3_Int1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMaxExt_IImage2DMSArray1_Int3_Int1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMaxExt_UImage2DMSArray1_Int3_Int1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMaxExt_Image2D1_Int2_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMaxExt_IImage2D1_Int2_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMaxExt_UImage2D1_Int2_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMaxExt_Image3D1_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMaxExt_IImage3D1_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMaxExt_UImage3D1_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMaxExt_ImageCube1_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMaxExt_IImageCube1_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMaxExt_UImageCube1_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMaxExt_ImageBuffer1_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMaxExt_IImageBuffer1_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMaxExt_UImageBuffer1_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMaxExt_Image2DArray1_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMaxExt_IImage2DArray1_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMaxExt_UImage2DArray1_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMaxExt_ImageCubeArray1_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMaxExt_IImageCubeArray1_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMaxExt_UImageCubeArray1_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMaxExt_Image1D1_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMaxExt_IImage1D1_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMaxExt_UImage1D1_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMaxExt_Image1DArray1_Int2_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMaxExt_IImage1DArray1_Int2_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMaxExt_UImage1DArray1_Int2_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMaxExt_ImageRect1_Int2_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMaxExt_IImageRect1_Int2_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMaxExt_UImageRect1_Int2_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMaxExt_Image2DMS1_Int2_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMaxExt_IImage2DMS1_Int2_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMaxExt_UImage2DMS1_Int2_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMaxExt_Image2DMSArray1_Int3_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMaxExt_IImage2DMSArray1_Int3_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicMaxExt_UImage2DMSArray1_Int3_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAndExt_Image2D1_Int2_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAndExt_IImage2D1_Int2_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAndExt_UImage2D1_Int2_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAndExt_Image3D1_Int3_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAndExt_IImage3D1_Int3_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAndExt_UImage3D1_Int3_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAndExt_ImageCube1_Int3_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAndExt_IImageCube1_Int3_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAndExt_UImageCube1_Int3_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAndExt_ImageBuffer1_Int1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAndExt_IImageBuffer1_Int1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAndExt_UImageBuffer1_Int1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAndExt_Image2DArray1_Int3_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAndExt_IImage2DArray1_Int3_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAndExt_UImage2DArray1_Int3_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAndExt_ImageCubeArray1_Int3_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAndExt_IImageCubeArray1_Int3_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAndExt_UImageCubeArray1_Int3_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAndExt_Image1D1_Int1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAndExt_IImage1D1_Int1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAndExt_UImage1D1_Int1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAndExt_Image1DArray1_Int2_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAndExt_IImage1DArray1_Int2_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAndExt_UImage1DArray1_Int2_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAndExt_ImageRect1_Int2_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAndExt_IImageRect1_Int2_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAndExt_UImageRect1_Int2_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAndExt_Image2DMS1_Int2_Int1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAndExt_IImage2DMS1_Int2_Int1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAndExt_UImage2DMS1_Int2_Int1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAndExt_Image2DMSArray1_Int3_Int1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAndExt_IImage2DMSArray1_Int3_Int1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAndExt_UImage2DMSArray1_Int3_Int1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAndExt_Image2D1_Int2_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAndExt_IImage2D1_Int2_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAndExt_UImage2D1_Int2_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAndExt_Image3D1_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAndExt_IImage3D1_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAndExt_UImage3D1_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAndExt_ImageCube1_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAndExt_IImageCube1_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAndExt_UImageCube1_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAndExt_ImageBuffer1_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAndExt_IImageBuffer1_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAndExt_UImageBuffer1_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAndExt_Image2DArray1_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAndExt_IImage2DArray1_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAndExt_UImage2DArray1_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAndExt_ImageCubeArray1_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAndExt_IImageCubeArray1_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAndExt_UImageCubeArray1_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAndExt_Image1D1_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAndExt_IImage1D1_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAndExt_UImage1D1_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAndExt_Image1DArray1_Int2_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAndExt_IImage1DArray1_Int2_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAndExt_UImage1DArray1_Int2_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAndExt_ImageRect1_Int2_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAndExt_IImageRect1_Int2_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAndExt_UImageRect1_Int2_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAndExt_Image2DMS1_Int2_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAndExt_IImage2DMS1_Int2_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAndExt_UImage2DMS1_Int2_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAndExt_Image2DMSArray1_Int3_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAndExt_IImage2DMSArray1_Int3_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicAndExt_UImage2DMSArray1_Int3_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicOrExt_Image2D1_Int2_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicOrExt_IImage2D1_Int2_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicOrExt_UImage2D1_Int2_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicOrExt_Image3D1_Int3_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicOrExt_IImage3D1_Int3_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicOrExt_UImage3D1_Int3_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicOrExt_ImageCube1_Int3_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicOrExt_IImageCube1_Int3_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicOrExt_UImageCube1_Int3_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicOrExt_ImageBuffer1_Int1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicOrExt_IImageBuffer1_Int1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicOrExt_UImageBuffer1_Int1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicOrExt_Image2DArray1_Int3_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicOrExt_IImage2DArray1_Int3_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicOrExt_UImage2DArray1_Int3_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicOrExt_ImageCubeArray1_Int3_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicOrExt_IImageCubeArray1_Int3_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicOrExt_UImageCubeArray1_Int3_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicOrExt_Image1D1_Int1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicOrExt_IImage1D1_Int1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicOrExt_UImage1D1_Int1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicOrExt_Image1DArray1_Int2_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicOrExt_IImage1DArray1_Int2_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicOrExt_UImage1DArray1_Int2_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicOrExt_ImageRect1_Int2_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicOrExt_IImageRect1_Int2_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicOrExt_UImageRect1_Int2_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicOrExt_Image2DMS1_Int2_Int1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicOrExt_IImage2DMS1_Int2_Int1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicOrExt_UImage2DMS1_Int2_Int1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicOrExt_Image2DMSArray1_Int3_Int1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicOrExt_IImage2DMSArray1_Int3_Int1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicOrExt_UImage2DMSArray1_Int3_Int1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicOrExt_Image2D1_Int2_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicOrExt_IImage2D1_Int2_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicOrExt_UImage2D1_Int2_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicOrExt_Image3D1_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicOrExt_IImage3D1_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicOrExt_UImage3D1_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicOrExt_ImageCube1_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicOrExt_IImageCube1_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicOrExt_UImageCube1_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicOrExt_ImageBuffer1_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicOrExt_IImageBuffer1_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicOrExt_UImageBuffer1_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicOrExt_Image2DArray1_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicOrExt_IImage2DArray1_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicOrExt_UImage2DArray1_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicOrExt_ImageCubeArray1_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicOrExt_IImageCubeArray1_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicOrExt_UImageCubeArray1_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicOrExt_Image1D1_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicOrExt_IImage1D1_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicOrExt_UImage1D1_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicOrExt_Image1DArray1_Int2_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicOrExt_IImage1DArray1_Int2_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicOrExt_UImage1DArray1_Int2_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicOrExt_ImageRect1_Int2_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicOrExt_IImageRect1_Int2_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicOrExt_UImageRect1_Int2_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicOrExt_Image2DMS1_Int2_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicOrExt_IImage2DMS1_Int2_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicOrExt_UImage2DMS1_Int2_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicOrExt_Image2DMSArray1_Int3_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicOrExt_IImage2DMSArray1_Int3_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicOrExt_UImage2DMSArray1_Int3_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicXorExt_Image2D1_Int2_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicXorExt_IImage2D1_Int2_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicXorExt_UImage2D1_Int2_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicXorExt_Image3D1_Int3_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicXorExt_IImage3D1_Int3_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicXorExt_UImage3D1_Int3_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicXorExt_ImageCube1_Int3_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicXorExt_IImageCube1_Int3_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicXorExt_UImageCube1_Int3_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicXorExt_ImageBuffer1_Int1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicXorExt_IImageBuffer1_Int1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicXorExt_UImageBuffer1_Int1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicXorExt_Image2DArray1_Int3_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicXorExt_IImage2DArray1_Int3_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicXorExt_UImage2DArray1_Int3_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicXorExt_ImageCubeArray1_Int3_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicXorExt_IImageCubeArray1_Int3_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicXorExt_UImageCubeArray1_Int3_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicXorExt_Image1D1_Int1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicXorExt_IImage1D1_Int1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicXorExt_UImage1D1_Int1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicXorExt_Image1DArray1_Int2_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicXorExt_IImage1DArray1_Int2_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicXorExt_UImage1DArray1_Int2_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicXorExt_ImageRect1_Int2_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicXorExt_IImageRect1_Int2_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicXorExt_UImageRect1_Int2_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicXorExt_Image2DMS1_Int2_Int1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicXorExt_IImage2DMS1_Int2_Int1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicXorExt_UImage2DMS1_Int2_Int1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicXorExt_Image2DMSArray1_Int3_Int1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicXorExt_IImage2DMSArray1_Int3_Int1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicXorExt_UImage2DMSArray1_Int3_Int1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicXorExt_Image2D1_Int2_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicXorExt_IImage2D1_Int2_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicXorExt_UImage2D1_Int2_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicXorExt_Image3D1_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicXorExt_IImage3D1_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicXorExt_UImage3D1_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicXorExt_ImageCube1_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicXorExt_IImageCube1_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicXorExt_UImageCube1_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicXorExt_ImageBuffer1_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicXorExt_IImageBuffer1_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicXorExt_UImageBuffer1_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicXorExt_Image2DArray1_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicXorExt_IImage2DArray1_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicXorExt_UImage2DArray1_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicXorExt_ImageCubeArray1_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicXorExt_IImageCubeArray1_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicXorExt_UImageCubeArray1_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicXorExt_Image1D1_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicXorExt_IImage1D1_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicXorExt_UImage1D1_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicXorExt_Image1DArray1_Int2_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicXorExt_IImage1DArray1_Int2_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicXorExt_UImage1DArray1_Int2_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicXorExt_ImageRect1_Int2_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicXorExt_IImageRect1_Int2_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicXorExt_UImageRect1_Int2_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicXorExt_Image2DMS1_Int2_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicXorExt_IImage2DMS1_Int2_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicXorExt_UImage2DMS1_Int2_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicXorExt_Image2DMSArray1_Int3_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicXorExt_IImage2DMSArray1_Int3_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicXorExt_UImage2DMSArray1_Int3_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchangeExt_Image2D1_Int2_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchangeExt_IImage2D1_Int2_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchangeExt_UImage2D1_Int2_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchangeExt_Image3D1_Int3_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchangeExt_IImage3D1_Int3_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchangeExt_UImage3D1_Int3_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchangeExt_ImageCube1_Int3_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchangeExt_IImageCube1_Int3_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchangeExt_UImageCube1_Int3_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchangeExt_ImageBuffer1_Int1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchangeExt_IImageBuffer1_Int1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchangeExt_UImageBuffer1_Int1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchangeExt_Image2DArray1_Int3_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchangeExt_IImage2DArray1_Int3_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchangeExt_UImage2DArray1_Int3_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchangeExt_ImageCubeArray1_Int3_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchangeExt_IImageCubeArray1_Int3_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchangeExt_UImageCubeArray1_Int3_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchangeExt_Image1D1_Int1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchangeExt_IImage1D1_Int1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchangeExt_UImage1D1_Int1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchangeExt_Image1DArray1_Int2_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchangeExt_IImage1DArray1_Int2_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchangeExt_UImage1DArray1_Int2_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchangeExt_ImageRect1_Int2_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchangeExt_IImageRect1_Int2_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchangeExt_UImageRect1_Int2_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchangeExt_Image2DMS1_Int2_Int1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchangeExt_IImage2DMS1_Int2_Int1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchangeExt_UImage2DMS1_Int2_Int1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchangeExt_Image2DMSArray1_Int3_Int1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchangeExt_IImage2DMSArray1_Int3_Int1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchangeExt_UImage2DMSArray1_Int3_Int1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchangeExt_Image2D1_Int2_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchangeExt_IImage2D1_Int2_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchangeExt_UImage2D1_Int2_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchangeExt_Image3D1_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchangeExt_IImage3D1_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchangeExt_UImage3D1_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchangeExt_ImageCube1_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchangeExt_IImageCube1_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchangeExt_UImageCube1_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchangeExt_ImageBuffer1_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchangeExt_IImageBuffer1_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchangeExt_UImageBuffer1_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchangeExt_Image2DArray1_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchangeExt_IImage2DArray1_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchangeExt_UImage2DArray1_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchangeExt_ImageCubeArray1_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchangeExt_IImageCubeArray1_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchangeExt_UImageCubeArray1_Int3_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchangeExt_Image1D1_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchangeExt_IImage1D1_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchangeExt_UImage1D1_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchangeExt_Image1DArray1_Int2_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchangeExt_IImage1DArray1_Int2_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchangeExt_UImage1DArray1_Int2_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchangeExt_ImageRect1_Int2_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchangeExt_IImageRect1_Int2_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchangeExt_UImageRect1_Int2_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchangeExt_Image2DMS1_Int2_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchangeExt_IImage2DMS1_Int2_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchangeExt_UImage2DMS1_Int2_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchangeExt_Image2DMSArray1_Int3_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchangeExt_IImage2DMSArray1_Int3_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchangeExt_UImage2DMSArray1_Int3_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchangeExt_Image2D1_Int2_Float1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchangeExt_IImage2D1_Int2_Float1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchangeExt_UImage2D1_Int2_Float1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchangeExt_Image3D1_Int3_Float1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchangeExt_IImage3D1_Int3_Float1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchangeExt_UImage3D1_Int3_Float1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchangeExt_ImageCube1_Int3_Float1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchangeExt_IImageCube1_Int3_Float1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchangeExt_UImageCube1_Int3_Float1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchangeExt_ImageBuffer1_Int1_Float1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchangeExt_IImageBuffer1_Int1_Float1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchangeExt_UImageBuffer1_Int1_Float1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchangeExt_Image2DArray1_Int3_Float1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchangeExt_IImage2DArray1_Int3_Float1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchangeExt_UImage2DArray1_Int3_Float1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchangeExt_ImageCubeArray1_Int3_Float1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchangeExt_IImageCubeArray1_Int3_Float1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchangeExt_UImageCubeArray1_Int3_Float1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchangeExt_Image1D1_Int1_Float1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchangeExt_IImage1D1_Int1_Float1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchangeExt_UImage1D1_Int1_Float1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchangeExt_Image1DArray1_Int2_Float1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchangeExt_IImage1DArray1_Int2_Float1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchangeExt_UImage1DArray1_Int2_Float1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchangeExt_ImageRect1_Int2_Float1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchangeExt_IImageRect1_Int2_Float1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchangeExt_UImageRect1_Int2_Float1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchangeExt_Image2DMS1_Int2_Int1_Float1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchangeExt_IImage2DMS1_Int2_Int1_Float1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchangeExt_UImage2DMS1_Int2_Int1_Float1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchangeExt_Image2DMSArray1_Int3_Int1_Float1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchangeExt_IImage2DMSArray1_Int3_Int1_Float1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicExchangeExt_UImage2DMSArray1_Int3_Int1_Float1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicCompSwapExt_Image2D1_Int2_UInt1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicCompSwapExt_IImage2D1_Int2_UInt1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicCompSwapExt_UImage2D1_Int2_UInt1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicCompSwapExt_Image3D1_Int3_UInt1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicCompSwapExt_IImage3D1_Int3_UInt1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicCompSwapExt_UImage3D1_Int3_UInt1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicCompSwapExt_ImageCube1_Int3_UInt1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicCompSwapExt_IImageCube1_Int3_UInt1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicCompSwapExt_UImageCube1_Int3_UInt1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicCompSwapExt_ImageBuffer1_Int1_UInt1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicCompSwapExt_IImageBuffer1_Int1_UInt1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicCompSwapExt_UImageBuffer1_Int1_UInt1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicCompSwapExt_Image2DArray1_Int3_UInt1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicCompSwapExt_IImage2DArray1_Int3_UInt1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicCompSwapExt_UImage2DArray1_Int3_UInt1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicCompSwapExt_ImageCubeArray1_Int3_UInt1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicCompSwapExt_IImageCubeArray1_Int3_UInt1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicCompSwapExt_UImageCubeArray1_Int3_UInt1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicCompSwapExt_Image1D1_Int1_UInt1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicCompSwapExt_IImage1D1_Int1_UInt1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicCompSwapExt_UImage1D1_Int1_UInt1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicCompSwapExt_Image1DArray1_Int2_UInt1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicCompSwapExt_IImage1DArray1_Int2_UInt1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicCompSwapExt_UImage1DArray1_Int2_UInt1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicCompSwapExt_ImageRect1_Int2_UInt1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicCompSwapExt_IImageRect1_Int2_UInt1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicCompSwapExt_UImageRect1_Int2_UInt1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicCompSwapExt_Image2DMS1_Int2_Int1_UInt1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicCompSwapExt_IImage2DMS1_Int2_Int1_UInt1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicCompSwapExt_UImage2DMS1_Int2_Int1_UInt1_UInt1;
-constexpr const TSymbolUniqueId
-    BuiltInId::imageAtomicCompSwapExt_Image2DMSArray1_Int3_Int1_UInt1_UInt1;
-constexpr const TSymbolUniqueId
-    BuiltInId::imageAtomicCompSwapExt_IImage2DMSArray1_Int3_Int1_UInt1_UInt1;
-constexpr const TSymbolUniqueId
-    BuiltInId::imageAtomicCompSwapExt_UImage2DMSArray1_Int3_Int1_UInt1_UInt1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicCompSwapExt_Image2D1_Int2_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicCompSwapExt_IImage2D1_Int2_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicCompSwapExt_UImage2D1_Int2_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicCompSwapExt_Image3D1_Int3_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicCompSwapExt_IImage3D1_Int3_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicCompSwapExt_UImage3D1_Int3_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicCompSwapExt_ImageCube1_Int3_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicCompSwapExt_IImageCube1_Int3_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicCompSwapExt_UImageCube1_Int3_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicCompSwapExt_ImageBuffer1_Int1_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicCompSwapExt_IImageBuffer1_Int1_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicCompSwapExt_UImageBuffer1_Int1_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicCompSwapExt_Image2DArray1_Int3_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicCompSwapExt_IImage2DArray1_Int3_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicCompSwapExt_UImage2DArray1_Int3_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicCompSwapExt_ImageCubeArray1_Int3_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicCompSwapExt_IImageCubeArray1_Int3_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicCompSwapExt_UImageCubeArray1_Int3_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicCompSwapExt_Image1D1_Int1_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicCompSwapExt_IImage1D1_Int1_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicCompSwapExt_UImage1D1_Int1_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicCompSwapExt_Image1DArray1_Int2_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicCompSwapExt_IImage1DArray1_Int2_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicCompSwapExt_UImage1DArray1_Int2_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicCompSwapExt_ImageRect1_Int2_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicCompSwapExt_IImageRect1_Int2_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicCompSwapExt_UImageRect1_Int2_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicCompSwapExt_Image2DMS1_Int2_Int1_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicCompSwapExt_IImage2DMS1_Int2_Int1_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::imageAtomicCompSwapExt_UImage2DMS1_Int2_Int1_Int1_Int1;
-constexpr const TSymbolUniqueId
-    BuiltInId::imageAtomicCompSwapExt_Image2DMSArray1_Int3_Int1_Int1_Int1;
-constexpr const TSymbolUniqueId
-    BuiltInId::imageAtomicCompSwapExt_IImage2DMSArray1_Int3_Int1_Int1_Int1;
-constexpr const TSymbolUniqueId
-    BuiltInId::imageAtomicCompSwapExt_UImage2DMSArray1_Int3_Int1_Int1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::noise1_Float1;
-constexpr const TSymbolUniqueId BuiltInId::noise1_Float2;
-constexpr const TSymbolUniqueId BuiltInId::noise1_Float3;
-constexpr const TSymbolUniqueId BuiltInId::noise1_Float4;
-constexpr const TSymbolUniqueId BuiltInId::noise2_Float1;
-constexpr const TSymbolUniqueId BuiltInId::noise2_Float2;
-constexpr const TSymbolUniqueId BuiltInId::noise2_Float3;
-constexpr const TSymbolUniqueId BuiltInId::noise2_Float4;
-constexpr const TSymbolUniqueId BuiltInId::noise3_Float1;
-constexpr const TSymbolUniqueId BuiltInId::noise3_Float2;
-constexpr const TSymbolUniqueId BuiltInId::noise3_Float3;
-constexpr const TSymbolUniqueId BuiltInId::noise3_Float4;
-constexpr const TSymbolUniqueId BuiltInId::noise4_Float1;
-constexpr const TSymbolUniqueId BuiltInId::noise4_Float2;
-constexpr const TSymbolUniqueId BuiltInId::noise4_Float3;
-constexpr const TSymbolUniqueId BuiltInId::noise4_Float4;
-constexpr const TSymbolUniqueId BuiltInId::memoryBarrier;
-constexpr const TSymbolUniqueId BuiltInId::memoryBarrierAtomicCounter;
-constexpr const TSymbolUniqueId BuiltInId::memoryBarrierBuffer;
-constexpr const TSymbolUniqueId BuiltInId::memoryBarrierImage;
-constexpr const TSymbolUniqueId BuiltInId::barrier;
-constexpr const TSymbolUniqueId BuiltInId::memoryBarrierShared;
-constexpr const TSymbolUniqueId BuiltInId::groupMemoryBarrier;
-constexpr const TSymbolUniqueId BuiltInId::barrierTCS;
-constexpr const TSymbolUniqueId BuiltInId::barrierTCSES3_2;
-constexpr const TSymbolUniqueId BuiltInId::EmitVertex;
-constexpr const TSymbolUniqueId BuiltInId::EmitVertexES3_2;
-constexpr const TSymbolUniqueId BuiltInId::EndPrimitive;
-constexpr const TSymbolUniqueId BuiltInId::EndPrimitiveES3_2;
-constexpr const TSymbolUniqueId BuiltInId::EmitStreamVertex_Int1;
-constexpr const TSymbolUniqueId BuiltInId::EndStreamPrimitive_Int1;
-constexpr const TSymbolUniqueId BuiltInId::subpassLoad_SubpassInput1;
-constexpr const TSymbolUniqueId BuiltInId::subpassLoad_ISubpassInput1;
-constexpr const TSymbolUniqueId BuiltInId::subpassLoad_USubpassInput1;
-constexpr const TSymbolUniqueId BuiltInId::subpassLoad_SubpassInputMS1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::subpassLoad_ISubpassInputMS1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::subpassLoad_USubpassInputMS1_Int1;
-constexpr const TSymbolUniqueId BuiltInId::anyInvocation_Bool1;
-constexpr const TSymbolUniqueId BuiltInId::allInvocations_Bool1;
-constexpr const TSymbolUniqueId BuiltInId::allInvocationsEqual_Bool1;
-constexpr const TSymbolUniqueId BuiltInId::gl_DepthRangeParameters;
-constexpr const TSymbolUniqueId BuiltInId::gl_DepthRange;
-constexpr const TSymbolUniqueId BuiltInId::gl_NumSamples;
-constexpr const TSymbolUniqueId BuiltInId::gl_NumSamplesES3_2;
-constexpr const TSymbolUniqueId BuiltInId::gl_MaxVertexAttribs;
-constexpr const TSymbolUniqueId BuiltInId::gl_MaxVertexUniformVectors;
-constexpr const TSymbolUniqueId BuiltInId::gl_MaxVertexTextureImageUnits;
-constexpr const TSymbolUniqueId BuiltInId::gl_MaxCombinedTextureImageUnits;
-constexpr const TSymbolUniqueId BuiltInId::gl_MaxTextureImageUnits;
-constexpr const TSymbolUniqueId BuiltInId::gl_MaxFragmentUniformVectors;
-constexpr const TSymbolUniqueId BuiltInId::gl_MaxVaryingVectors;
-constexpr const TSymbolUniqueId BuiltInId::gl_MaxDrawBuffers;
-constexpr const TSymbolUniqueId BuiltInId::gl_MaxDualSourceDrawBuffersEXT;
-constexpr const TSymbolUniqueId BuiltInId::gl_MaxVertexOutputVectors;
-constexpr const TSymbolUniqueId BuiltInId::gl_MaxFragmentInputVectors;
-constexpr const TSymbolUniqueId BuiltInId::gl_MinProgramTexelOffset;
-constexpr const TSymbolUniqueId BuiltInId::gl_MaxProgramTexelOffset;
-constexpr const TSymbolUniqueId BuiltInId::gl_MaxImageUnits;
-constexpr const TSymbolUniqueId BuiltInId::gl_MaxVertexImageUniforms;
-constexpr const TSymbolUniqueId BuiltInId::gl_MaxFragmentImageUniforms;
-constexpr const TSymbolUniqueId BuiltInId::gl_MaxComputeImageUniforms;
-constexpr const TSymbolUniqueId BuiltInId::gl_MaxCombinedImageUniforms;
-constexpr const TSymbolUniqueId BuiltInId::gl_MaxCombinedShaderOutputResources;
-constexpr const TSymbolUniqueId BuiltInId::gl_MaxComputeWorkGroupCount;
-constexpr const TSymbolUniqueId BuiltInId::gl_MaxComputeWorkGroupSize;
-constexpr const TSymbolUniqueId BuiltInId::gl_MaxComputeUniformComponents;
-constexpr const TSymbolUniqueId BuiltInId::gl_MaxComputeTextureImageUnits;
-constexpr const TSymbolUniqueId BuiltInId::gl_MaxComputeAtomicCounters;
-constexpr const TSymbolUniqueId BuiltInId::gl_MaxComputeAtomicCounterBuffers;
-constexpr const TSymbolUniqueId BuiltInId::gl_MaxVertexAtomicCounters;
-constexpr const TSymbolUniqueId BuiltInId::gl_MaxFragmentAtomicCounters;
-constexpr const TSymbolUniqueId BuiltInId::gl_MaxCombinedAtomicCounters;
-constexpr const TSymbolUniqueId BuiltInId::gl_MaxAtomicCounterBindings;
-constexpr const TSymbolUniqueId BuiltInId::gl_MaxVertexAtomicCounterBuffers;
-constexpr const TSymbolUniqueId BuiltInId::gl_MaxFragmentAtomicCounterBuffers;
-constexpr const TSymbolUniqueId BuiltInId::gl_MaxCombinedAtomicCounterBuffers;
-constexpr const TSymbolUniqueId BuiltInId::gl_MaxAtomicCounterBufferSize;
-constexpr const TSymbolUniqueId BuiltInId::gl_MaxGeometryInputComponents;
-constexpr const TSymbolUniqueId BuiltInId::gl_MaxGeometryInputComponentsES3_2;
-constexpr const TSymbolUniqueId BuiltInId::gl_MaxGeometryOutputComponents;
-constexpr const TSymbolUniqueId BuiltInId::gl_MaxGeometryOutputComponentsES3_2;
-constexpr const TSymbolUniqueId BuiltInId::gl_MaxGeometryImageUniforms;
-constexpr const TSymbolUniqueId BuiltInId::gl_MaxGeometryImageUniformsES3_2;
-constexpr const TSymbolUniqueId BuiltInId::gl_MaxGeometryTextureImageUnits;
-constexpr const TSymbolUniqueId BuiltInId::gl_MaxGeometryTextureImageUnitsES3_2;
-constexpr const TSymbolUniqueId BuiltInId::gl_MaxGeometryOutputVertices;
-constexpr const TSymbolUniqueId BuiltInId::gl_MaxGeometryOutputVerticesES3_2;
-constexpr const TSymbolUniqueId BuiltInId::gl_MaxGeometryTotalOutputComponents;
-constexpr const TSymbolUniqueId BuiltInId::gl_MaxGeometryTotalOutputComponentsES3_2;
-constexpr const TSymbolUniqueId BuiltInId::gl_MaxGeometryUniformComponents;
-constexpr const TSymbolUniqueId BuiltInId::gl_MaxGeometryUniformComponentsES3_2;
-constexpr const TSymbolUniqueId BuiltInId::gl_MaxGeometryAtomicCounters;
-constexpr const TSymbolUniqueId BuiltInId::gl_MaxGeometryAtomicCountersES3_2;
-constexpr const TSymbolUniqueId BuiltInId::gl_MaxGeometryAtomicCounterBuffers;
-constexpr const TSymbolUniqueId BuiltInId::gl_MaxGeometryAtomicCounterBuffersES3_2;
-constexpr const TSymbolUniqueId BuiltInId::gl_MaxTessControlInputComponents;
-constexpr const TSymbolUniqueId BuiltInId::gl_MaxTessControlInputComponentsES3_2;
-constexpr const TSymbolUniqueId BuiltInId::gl_MaxTessControlOutputComponents;
-constexpr const TSymbolUniqueId BuiltInId::gl_MaxTessControlOutputComponentsES3_2;
-constexpr const TSymbolUniqueId BuiltInId::gl_MaxTessControlTextureImageUnits;
-constexpr const TSymbolUniqueId BuiltInId::gl_MaxTessControlTextureImageUnitsES3_2;
-constexpr const TSymbolUniqueId BuiltInId::gl_MaxTessControlUniformComponents;
-constexpr const TSymbolUniqueId BuiltInId::gl_MaxTessControlUniformComponentsES3_2;
-constexpr const TSymbolUniqueId BuiltInId::gl_MaxTessControlTotalOutputComponents;
-constexpr const TSymbolUniqueId BuiltInId::gl_MaxTessControlTotalOutputComponentsES3_2;
-constexpr const TSymbolUniqueId BuiltInId::gl_MaxTessControlImageUniforms;
-constexpr const TSymbolUniqueId BuiltInId::gl_MaxTessControlImageUniformsES3_2;
-constexpr const TSymbolUniqueId BuiltInId::gl_MaxTessControlAtomicCounters;
-constexpr const TSymbolUniqueId BuiltInId::gl_MaxTessControlAtomicCountersES3_2;
-constexpr const TSymbolUniqueId BuiltInId::gl_MaxTessControlAtomicCounterBuffers;
-constexpr const TSymbolUniqueId BuiltInId::gl_MaxTessControlAtomicCounterBuffersES3_2;
-constexpr const TSymbolUniqueId BuiltInId::gl_MaxTessPatchComponents;
-constexpr const TSymbolUniqueId BuiltInId::gl_MaxTessPatchComponentsES3_2;
-constexpr const TSymbolUniqueId BuiltInId::gl_MaxPatchVertices;
-constexpr const TSymbolUniqueId BuiltInId::gl_MaxPatchVerticesES3_2;
-constexpr const TSymbolUniqueId BuiltInId::gl_MaxTessGenLevel;
-constexpr const TSymbolUniqueId BuiltInId::gl_MaxTessGenLevelES3_2;
-constexpr const TSymbolUniqueId BuiltInId::gl_MaxTessEvaluationInputComponents;
-constexpr const TSymbolUniqueId BuiltInId::gl_MaxTessEvaluationInputComponentsES3_2;
-constexpr const TSymbolUniqueId BuiltInId::gl_MaxTessEvaluationOutputComponents;
-constexpr const TSymbolUniqueId BuiltInId::gl_MaxTessEvaluationOutputComponentsES3_2;
-constexpr const TSymbolUniqueId BuiltInId::gl_MaxTessEvaluationTextureImageUnits;
-constexpr const TSymbolUniqueId BuiltInId::gl_MaxTessEvaluationTextureImageUnitsES3_2;
-constexpr const TSymbolUniqueId BuiltInId::gl_MaxTessEvaluationUniformComponents;
-constexpr const TSymbolUniqueId BuiltInId::gl_MaxTessEvaluationUniformComponentsES3_2;
-constexpr const TSymbolUniqueId BuiltInId::gl_MaxTessEvaluationImageUniforms;
-constexpr const TSymbolUniqueId BuiltInId::gl_MaxTessEvaluationImageUniformsES3_2;
-constexpr const TSymbolUniqueId BuiltInId::gl_MaxTessEvaluationAtomicCounters;
-constexpr const TSymbolUniqueId BuiltInId::gl_MaxTessEvaluationAtomicCountersES3_2;
-constexpr const TSymbolUniqueId BuiltInId::gl_MaxTessEvaluationAtomicCounterBuffers;
-constexpr const TSymbolUniqueId BuiltInId::gl_MaxTessEvaluationAtomicCounterBuffersES3_2;
-constexpr const TSymbolUniqueId BuiltInId::gl_MaxSamples;
-constexpr const TSymbolUniqueId BuiltInId::gl_MaxSamplesES3_2;
-constexpr const TSymbolUniqueId BuiltInId::gl_MaxClipDistancesAPPLE;
-constexpr const TSymbolUniqueId BuiltInId::gl_MaxCullDistancesEXT;
-constexpr const TSymbolUniqueId BuiltInId::gl_MaxCombinedClipAndCullDistancesEXT;
-constexpr const TSymbolUniqueId BuiltInId::gl_FragCoord;
-constexpr const TSymbolUniqueId BuiltInId::gl_FrontFacing;
-constexpr const TSymbolUniqueId BuiltInId::gl_PointCoord;
-constexpr const TSymbolUniqueId BuiltInId::gl_FragColor;
-constexpr const TSymbolUniqueId BuiltInId::gl_FragData;
-constexpr const TSymbolUniqueId BuiltInId::gl_FragDepth;
-constexpr const TSymbolUniqueId BuiltInId::gl_HelperInvocation;
-constexpr const TSymbolUniqueId BuiltInId::gl_FragCoord300;
-constexpr const TSymbolUniqueId BuiltInId::gl_SecondaryFragColorEXT;
-constexpr const TSymbolUniqueId BuiltInId::gl_SecondaryFragDataEXT;
-constexpr const TSymbolUniqueId BuiltInId::gl_FragDepthEXT;
-constexpr const TSymbolUniqueId BuiltInId::gl_LastFragData;
-constexpr const TSymbolUniqueId BuiltInId::gl_LastFragColor;
-constexpr const TSymbolUniqueId BuiltInId::gl_LastFragDataNV;
-constexpr const TSymbolUniqueId BuiltInId::gl_LastFragColorARM;
-constexpr const TSymbolUniqueId BuiltInId::gl_PrimitiveID;
-constexpr const TSymbolUniqueId BuiltInId::gl_PrimitiveIDES3_2;
-constexpr const TSymbolUniqueId BuiltInId::gl_Layer;
-constexpr const TSymbolUniqueId BuiltInId::gl_LayerES3_2;
-constexpr const TSymbolUniqueId BuiltInId::gl_SampleID;
-constexpr const TSymbolUniqueId BuiltInId::gl_SampleIDES3_2;
-constexpr const TSymbolUniqueId BuiltInId::gl_SamplePosition;
-constexpr const TSymbolUniqueId BuiltInId::gl_SamplePositionES3_2;
-constexpr const TSymbolUniqueId BuiltInId::gl_SampleMaskIn;
-constexpr const TSymbolUniqueId BuiltInId::gl_SampleMaskInES3_2;
-constexpr const TSymbolUniqueId BuiltInId::gl_SampleMask;
-constexpr const TSymbolUniqueId BuiltInId::gl_SampleMaskES3_2;
-constexpr const TSymbolUniqueId BuiltInId::gl_CullDistance;
-constexpr const TSymbolUniqueId BuiltInId::gl_ClipDistance;
-constexpr const TSymbolUniqueId BuiltInId::gl_Position;
-constexpr const TSymbolUniqueId BuiltInId::gl_PointSize;
-constexpr const TSymbolUniqueId BuiltInId::gl_InstanceID;
-constexpr const TSymbolUniqueId BuiltInId::gl_InstanceIndex;
-constexpr const TSymbolUniqueId BuiltInId::gl_VertexID;
-constexpr const TSymbolUniqueId BuiltInId::gl_VertexIndex;
-constexpr const TSymbolUniqueId BuiltInId::gl_ViewportIndex;
-constexpr const TSymbolUniqueId BuiltInId::gl_LayerVS;
-constexpr const TSymbolUniqueId BuiltInId::gl_PointSize300;
-constexpr const TSymbolUniqueId BuiltInId::gl_DrawID;
-constexpr const TSymbolUniqueId BuiltInId::gl_BaseVertex;
-constexpr const TSymbolUniqueId BuiltInId::gl_BaseInstance;
-constexpr const TSymbolUniqueId BuiltInId::angle_BaseVertex;
-constexpr const TSymbolUniqueId BuiltInId::angle_BaseInstance;
-constexpr const TSymbolUniqueId BuiltInId::gl_ClipDistanceAPPLE;
-constexpr const TSymbolUniqueId BuiltInId::gl_CullDistanceEXT;
-constexpr const TSymbolUniqueId BuiltInId::gl_NumWorkGroups;
-constexpr const TSymbolUniqueId BuiltInId::gl_WorkGroupSize;
-constexpr const TSymbolUniqueId BuiltInId::gl_WorkGroupID;
-constexpr const TSymbolUniqueId BuiltInId::gl_LocalInvocationID;
-constexpr const TSymbolUniqueId BuiltInId::gl_GlobalInvocationID;
-constexpr const TSymbolUniqueId BuiltInId::gl_LocalInvocationIndex;
-constexpr const TSymbolUniqueId BuiltInId::gl_PrimitiveIDIn;
-constexpr const TSymbolUniqueId BuiltInId::gl_PrimitiveIDInES3_2;
-constexpr const TSymbolUniqueId BuiltInId::gl_InvocationID;
-constexpr const TSymbolUniqueId BuiltInId::gl_InvocationIDES3_2;
-constexpr const TSymbolUniqueId BuiltInId::gl_PrimitiveIDGS;
-constexpr const TSymbolUniqueId BuiltInId::gl_PrimitiveIDGSES3_2;
-constexpr const TSymbolUniqueId BuiltInId::gl_LayerGS;
-constexpr const TSymbolUniqueId BuiltInId::gl_LayerGSES3_2;
-constexpr const TSymbolUniqueId BuiltInId::gl_PerVertex;
-constexpr const TSymbolUniqueId BuiltInId::gl_PerVertexES3_2;
-constexpr const TSymbolUniqueId BuiltInId::gl_in;
-constexpr const TSymbolUniqueId BuiltInId::gl_inES3_2;
-constexpr const TSymbolUniqueId BuiltInId::gl_PerVertexOutBlock;
-constexpr const TSymbolUniqueId BuiltInId::gl_PerVertexOutBlockES3_2;
-constexpr const TSymbolUniqueId BuiltInId::gl_PositionGS;
-constexpr const TSymbolUniqueId BuiltInId::gl_PositionGSES3_2;
-constexpr const TSymbolUniqueId BuiltInId::gl_PatchVerticesInTCS;
-constexpr const TSymbolUniqueId BuiltInId::gl_PatchVerticesInTCSES3_2;
-constexpr const TSymbolUniqueId BuiltInId::gl_InvocationIDTCS;
-constexpr const TSymbolUniqueId BuiltInId::gl_InvocationIDTCSES3_2;
-constexpr const TSymbolUniqueId BuiltInId::gl_PrimitiveIDTCS;
-constexpr const TSymbolUniqueId BuiltInId::gl_PrimitiveIDTCSES3_2;
-constexpr const TSymbolUniqueId BuiltInId::gl_TessLevelOuterTCS;
-constexpr const TSymbolUniqueId BuiltInId::gl_TessLevelOuterTCSES3_2;
-constexpr const TSymbolUniqueId BuiltInId::gl_TessLevelInnerTCS;
-constexpr const TSymbolUniqueId BuiltInId::gl_TessLevelInnerTCSES3_2;
-constexpr const TSymbolUniqueId BuiltInId::gl_PerVertexTCS;
-constexpr const TSymbolUniqueId BuiltInId::gl_PerVertexTCSES3_2;
-constexpr const TSymbolUniqueId BuiltInId::gl_inTCS;
-constexpr const TSymbolUniqueId BuiltInId::gl_inTCSES3_2;
-constexpr const TSymbolUniqueId BuiltInId::gl_outTCS;
-constexpr const TSymbolUniqueId BuiltInId::gl_outTCSES3_2;
-constexpr const TSymbolUniqueId BuiltInId::gl_BoundingBoxTCS;
-constexpr const TSymbolUniqueId BuiltInId::gl_BoundingBoxTCSES3_2;
-constexpr const TSymbolUniqueId BuiltInId::gl_PerVertexOutTcsBlock;
-constexpr const TSymbolUniqueId BuiltInId::gl_PerVertexOutTcsBlockES3_2;
-constexpr const TSymbolUniqueId BuiltInId::gl_PositionTCS;
-constexpr const TSymbolUniqueId BuiltInId::gl_PositionTCSES3_2;
-constexpr const TSymbolUniqueId BuiltInId::gl_BoundingBoxEXTTCS;
-constexpr const TSymbolUniqueId BuiltInId::gl_BoundingBoxEXTTCSES3_2;
-constexpr const TSymbolUniqueId BuiltInId::gl_BoundingBoxOESTCS;
-constexpr const TSymbolUniqueId BuiltInId::gl_BoundingBoxOESTCSES3_2;
-constexpr const TSymbolUniqueId BuiltInId::gl_PatchVerticesInTES;
-constexpr const TSymbolUniqueId BuiltInId::gl_PatchVerticesInTESES3_2;
-constexpr const TSymbolUniqueId BuiltInId::gl_PrimitiveIDTES;
-constexpr const TSymbolUniqueId BuiltInId::gl_PrimitiveIDTESES3_2;
-constexpr const TSymbolUniqueId BuiltInId::gl_TessCoord;
-constexpr const TSymbolUniqueId BuiltInId::gl_TessLevelOuterTES;
-constexpr const TSymbolUniqueId BuiltInId::gl_TessLevelOuterTESES3_2;
-constexpr const TSymbolUniqueId BuiltInId::gl_TessLevelInnerTES;
-constexpr const TSymbolUniqueId BuiltInId::gl_TessLevelInnerTESES3_2;
-constexpr const TSymbolUniqueId BuiltInId::gl_PerVertexTES;
-constexpr const TSymbolUniqueId BuiltInId::gl_PerVertexTESES3_2;
-constexpr const TSymbolUniqueId BuiltInId::gl_inTES;
-constexpr const TSymbolUniqueId BuiltInId::gl_inTESES3_2;
-constexpr const TSymbolUniqueId BuiltInId::gl_outTES;
-constexpr const TSymbolUniqueId BuiltInId::gl_outTESES3_2;
-constexpr const TSymbolUniqueId BuiltInId::gl_PerVertexOutTesBlock;
-constexpr const TSymbolUniqueId BuiltInId::gl_PerVertexOutTesBlockES3_2;
-constexpr const TSymbolUniqueId BuiltInId::gl_PositionTES;
-constexpr const TSymbolUniqueId BuiltInId::gl_PositionTESES3_2;
-constexpr const TSymbolUniqueId BuiltInId::gl_ViewID_OVR;
-
-const int TSymbolTable::kLastBuiltInId = 3071;
+const int TSymbolTable::kLastBuiltInId = 3091;
 
 namespace BuiltInName
 {
@@ -3074,6 +72,10 @@ constexpr const ImmutableString atomicXor("atomicXor");
 constexpr const ImmutableString barrier("barrier");
 constexpr const ImmutableString barrierTCS("barrier");
 constexpr const ImmutableString barrierTCSES3_2("barrier");
+constexpr const ImmutableString beginFragmentShaderOrderingINTEL(
+    "beginFragmentShaderOrderingINTEL");
+constexpr const ImmutableString beginInvocationInterlockARB("beginInvocationInterlockARB");
+constexpr const ImmutableString beginInvocationInterlockNV("beginInvocationInterlockNV");
 constexpr const ImmutableString bitCount("bitCount");
 constexpr const ImmutableString bitfieldExtract("bitfieldExtract");
 constexpr const ImmutableString bitfieldInsert("bitfieldInsert");
@@ -3096,6 +98,8 @@ constexpr const ImmutableString determinant("determinant");
 constexpr const ImmutableString diff("diff");
 constexpr const ImmutableString distance("distance");
 constexpr const ImmutableString dot("dot");
+constexpr const ImmutableString endInvocationInterlockARB("endInvocationInterlockARB");
+constexpr const ImmutableString endInvocationInterlockNV("endInvocationInterlockNV");
 constexpr const ImmutableString equal("equal");
 constexpr const ImmutableString exp("exp");
 constexpr const ImmutableString exp2("exp2");
@@ -3316,6 +320,7 @@ constexpr const ImmutableString noise4("noise4");
 constexpr const ImmutableString normalize("normalize");
 constexpr const ImmutableString notEqual("notEqual");
 constexpr const ImmutableString notFunc("not");
+constexpr const ImmutableString numSamples("numSamples");
 constexpr const ImmutableString outerProduct("outerProduct");
 constexpr const ImmutableString packDouble2x32("packDouble2x32");
 constexpr const ImmutableString packHalf2x16("packHalf2x16");
@@ -3323,6 +328,8 @@ constexpr const ImmutableString packSnorm2x16("packSnorm2x16");
 constexpr const ImmutableString packSnorm4x8("packSnorm4x8");
 constexpr const ImmutableString packUnorm2x16("packUnorm2x16");
 constexpr const ImmutableString packUnorm4x8("packUnorm4x8");
+constexpr const ImmutableString pixelLocalLoadANGLE("pixelLocalLoadANGLE");
+constexpr const ImmutableString pixelLocalStoreANGLE("pixelLocalStoreANGLE");
 constexpr const ImmutableString pow("pow");
 constexpr const ImmutableString radians("radians");
 constexpr const ImmutableString reflect("reflect");
@@ -3330,6 +337,8 @@ constexpr const ImmutableString refract("refract");
 constexpr const ImmutableString rgb_2_yuv("rgb_2_yuv");
 constexpr const ImmutableString round("round");
 constexpr const ImmutableString roundEven("roundEven");
+constexpr const ImmutableString samplePosition("samplePosition");
+constexpr const ImmutableString saturate("saturate");
 constexpr const ImmutableString shadow1D("shadow1D");
 constexpr const ImmutableString shadow1DLod("shadow1DLod");
 constexpr const ImmutableString shadow1DProj("shadow1DProj");
@@ -3544,28 +553,28 @@ constexpr const TVariable kgl_Layer(BuiltInId::gl_Layer,
                                     SymbolType::BuiltIn,
                                     std::array<TExtension, 2u>{{TExtension::EXT_geometry_shader,
                                                                 TExtension::OES_geometry_shader}},
-                                    StaticType::Get<EbtInt, EbpHigh, EvqLayer, 1, 1>());
+                                    StaticType::Get<EbtInt, EbpHigh, EvqLayerIn, 1, 1>());
 constexpr const TVariable kgl_LayerES3_2(BuiltInId::gl_LayerES3_2,
                                          BuiltInName::gl_Layer,
                                          SymbolType::BuiltIn,
                                          std::array<TExtension, 1u>{{TExtension::UNDEFINED}},
-                                         StaticType::Get<EbtInt, EbpHigh, EvqLayer, 1, 1>());
+                                         StaticType::Get<EbtInt, EbpHigh, EvqLayerIn, 1, 1>());
 constexpr const TVariable kgl_LayerGS(BuiltInId::gl_LayerGS,
                                       BuiltInName::gl_Layer,
                                       SymbolType::BuiltIn,
                                       std::array<TExtension, 2u>{{TExtension::EXT_geometry_shader,
                                                                   TExtension::OES_geometry_shader}},
-                                      StaticType::Get<EbtInt, EbpHigh, EvqLayer, 1, 1>());
+                                      StaticType::Get<EbtInt, EbpHigh, EvqLayerOut, 1, 1>());
 constexpr const TVariable kgl_LayerGSES3_2(BuiltInId::gl_LayerGSES3_2,
                                            BuiltInName::gl_Layer,
                                            SymbolType::BuiltIn,
                                            std::array<TExtension, 1u>{{TExtension::UNDEFINED}},
-                                           StaticType::Get<EbtInt, EbpHigh, EvqLayer, 1, 1>());
+                                           StaticType::Get<EbtInt, EbpHigh, EvqLayerOut, 1, 1>());
 constexpr const TVariable kgl_LayerVS(BuiltInId::gl_LayerVS,
                                       BuiltInName::gl_Layer,
                                       SymbolType::BuiltIn,
                                       std::array<TExtension, 1u>{{TExtension::UNDEFINED}},
-                                      StaticType::Get<EbtInt, EbpHigh, EvqLayer, 1, 1>());
+                                      StaticType::Get<EbtInt, EbpHigh, EvqLayerOut, 1, 1>());
 constexpr const TVariable kgl_LocalInvocationID(
     BuiltInId::gl_LocalInvocationID,
     BuiltInName::gl_LocalInvocationID,
@@ -4223,37 +1232,55 @@ constexpr const TVariable kpt01f(BuiltInId::pt01f,
                                  SymbolType::BuiltIn,
                                  std::array<TExtension, 1u>{{TExtension::UNDEFINED}},
                                  StaticType::Get<EbtUImageBuffer, EbpUndefined, EvqGlobal, 1, 1>());
-constexpr const TVariable kpt01g(BuiltInId::pt01g,
-                                 BuiltInName::_empty,
-                                 SymbolType::BuiltIn,
-                                 std::array<TExtension, 1u>{{TExtension::UNDEFINED}},
-                                 StaticType::Get<EbtSubpassInput, EbpUndefined, EvqGlobal, 1, 1>());
+constexpr const TVariable kpt01g(
+    BuiltInId::pt01g,
+    BuiltInName::_empty,
+    SymbolType::BuiltIn,
+    std::array<TExtension, 1u>{{TExtension::UNDEFINED}},
+    StaticType::Get<EbtPixelLocalANGLE, EbpUndefined, EvqGlobal, 1, 1>());
 constexpr const TVariable kpt01h(
     BuiltInId::pt01h,
     BuiltInName::_empty,
     SymbolType::BuiltIn,
     std::array<TExtension, 1u>{{TExtension::UNDEFINED}},
-    StaticType::Get<EbtISubpassInput, EbpUndefined, EvqGlobal, 1, 1>());
+    StaticType::Get<EbtIPixelLocalANGLE, EbpUndefined, EvqGlobal, 1, 1>());
 constexpr const TVariable kpt01i(
     BuiltInId::pt01i,
     BuiltInName::_empty,
     SymbolType::BuiltIn,
     std::array<TExtension, 1u>{{TExtension::UNDEFINED}},
-    StaticType::Get<EbtUSubpassInput, EbpUndefined, EvqGlobal, 1, 1>());
-constexpr const TVariable kpt01j(
-    BuiltInId::pt01j,
-    BuiltInName::_empty,
-    SymbolType::BuiltIn,
-    std::array<TExtension, 1u>{{TExtension::UNDEFINED}},
-    StaticType::Get<EbtSubpassInputMS, EbpUndefined, EvqGlobal, 1, 1>());
+    StaticType::Get<EbtUPixelLocalANGLE, EbpUndefined, EvqGlobal, 1, 1>());
+constexpr const TVariable kpt01j(BuiltInId::pt01j,
+                                 BuiltInName::_empty,
+                                 SymbolType::BuiltIn,
+                                 std::array<TExtension, 1u>{{TExtension::UNDEFINED}},
+                                 StaticType::Get<EbtSubpassInput, EbpUndefined, EvqGlobal, 1, 1>());
 constexpr const TVariable kpt01k(
     BuiltInId::pt01k,
     BuiltInName::_empty,
     SymbolType::BuiltIn,
     std::array<TExtension, 1u>{{TExtension::UNDEFINED}},
-    StaticType::Get<EbtISubpassInputMS, EbpUndefined, EvqGlobal, 1, 1>());
+    StaticType::Get<EbtISubpassInput, EbpUndefined, EvqGlobal, 1, 1>());
 constexpr const TVariable kpt01l(
     BuiltInId::pt01l,
+    BuiltInName::_empty,
+    SymbolType::BuiltIn,
+    std::array<TExtension, 1u>{{TExtension::UNDEFINED}},
+    StaticType::Get<EbtUSubpassInput, EbpUndefined, EvqGlobal, 1, 1>());
+constexpr const TVariable kpt01m(
+    BuiltInId::pt01m,
+    BuiltInName::_empty,
+    SymbolType::BuiltIn,
+    std::array<TExtension, 1u>{{TExtension::UNDEFINED}},
+    StaticType::Get<EbtSubpassInputMS, EbpUndefined, EvqGlobal, 1, 1>());
+constexpr const TVariable kpt01n(
+    BuiltInId::pt01n,
+    BuiltInName::_empty,
+    SymbolType::BuiltIn,
+    std::array<TExtension, 1u>{{TExtension::UNDEFINED}},
+    StaticType::Get<EbtISubpassInputMS, EbpUndefined, EvqGlobal, 1, 1>());
+constexpr const TVariable kpt01o(
+    BuiltInId::pt01o,
     BuiltInName::_empty,
     SymbolType::BuiltIn,
     std::array<TExtension, 1u>{{TExtension::UNDEFINED}},
@@ -4818,46 +1845,46 @@ constexpr const TVariable *p00C_o_00D[2] = {&BuiltInVariable::kpt00C, &BuiltInVa
 constexpr const TVariable *p00D00D00D00D[4] = {&BuiltInVariable::kpt00D, &BuiltInVariable::kpt00D,
                                                &BuiltInVariable::kpt00D, &BuiltInVariable::kpt00D};
 constexpr const TVariable *p00D00D00F[3]    = {&BuiltInVariable::kpt00D, &BuiltInVariable::kpt00D,
-                                            &BuiltInVariable::kpt00F};
+                                               &BuiltInVariable::kpt00F};
 constexpr const TVariable *p00D00D_o_00D_o_00D[4] = {
     &BuiltInVariable::kpt00D, &BuiltInVariable::kpt00D, &BuiltInVariable::kpt_o_00D,
     &BuiltInVariable::kpt_o_00D};
 constexpr const TVariable *p00E00D00D[3]    = {&BuiltInVariable::kpt00E, &BuiltInVariable::kpt00D,
-                                            &BuiltInVariable::kpt00D};
+                                               &BuiltInVariable::kpt00D};
 constexpr const TVariable *p00E00E00D00D[4] = {&BuiltInVariable::kpt00E, &BuiltInVariable::kpt00E,
                                                &BuiltInVariable::kpt00D, &BuiltInVariable::kpt00D};
 constexpr const TVariable *p00E00E00E[3]    = {&BuiltInVariable::kpt00E, &BuiltInVariable::kpt00E,
-                                            &BuiltInVariable::kpt00E};
+                                               &BuiltInVariable::kpt00E};
 constexpr const TVariable *p00E00E00F[3]    = {&BuiltInVariable::kpt00E, &BuiltInVariable::kpt00E,
-                                            &BuiltInVariable::kpt00F};
+                                               &BuiltInVariable::kpt00F};
 constexpr const TVariable *p00E00E_o_00E_o_00E[4] = {
     &BuiltInVariable::kpt00E, &BuiltInVariable::kpt00E, &BuiltInVariable::kpt_o_00E,
     &BuiltInVariable::kpt_o_00E};
 constexpr const TVariable *p00F00F00F[3]    = {&BuiltInVariable::kpt00F, &BuiltInVariable::kpt00F,
-                                            &BuiltInVariable::kpt00F};
+                                               &BuiltInVariable::kpt00F};
 constexpr const TVariable *p00G00E00E[3]    = {&BuiltInVariable::kpt00G, &BuiltInVariable::kpt00E,
-                                            &BuiltInVariable::kpt00E};
+                                               &BuiltInVariable::kpt00E};
 constexpr const TVariable *p00I00B00B00B[4] = {&BuiltInVariable::kpt00I, &BuiltInVariable::kpt00B,
                                                &BuiltInVariable::kpt00B, &BuiltInVariable::kpt00B};
 constexpr const TVariable *p00I00D[2]       = {&BuiltInVariable::kpt00I, &BuiltInVariable::kpt00D};
 constexpr const TVariable *p00I10B00B10D[4] = {&BuiltInVariable::kpt00I, &BuiltInVariable::kpt10B,
                                                &BuiltInVariable::kpt00B, &BuiltInVariable::kpt10D};
 constexpr const TVariable *p00I10B00D[3]    = {&BuiltInVariable::kpt00I, &BuiltInVariable::kpt10B,
-                                            &BuiltInVariable::kpt00D};
+                                               &BuiltInVariable::kpt00D};
 constexpr const TVariable *p00I10B10B10B10D[5] = {
     &BuiltInVariable::kpt00I, &BuiltInVariable::kpt10B, &BuiltInVariable::kpt10B,
     &BuiltInVariable::kpt10B, &BuiltInVariable::kpt10D};
 constexpr const TVariable *p00I10B10D00B[4]   = {&BuiltInVariable::kpt00I, &BuiltInVariable::kpt10B,
-                                               &BuiltInVariable::kpt10D, &BuiltInVariable::kpt00B};
+                                                 &BuiltInVariable::kpt10D, &BuiltInVariable::kpt00B};
 constexpr const TVariable *p00I10B10D00D[4]   = {&BuiltInVariable::kpt00I, &BuiltInVariable::kpt10B,
-                                               &BuiltInVariable::kpt10D, &BuiltInVariable::kpt00D};
+                                                 &BuiltInVariable::kpt10D, &BuiltInVariable::kpt00D};
 constexpr const TVariable *p00I10B10Dx400D[4] = {&BuiltInVariable::kpt00I, &BuiltInVariable::kpt10B,
                                                  &BuiltInVariable::kpt10Dx4,
                                                  &BuiltInVariable::kpt00D};
 constexpr const TVariable *p00I10D00D10D[4]   = {&BuiltInVariable::kpt00I, &BuiltInVariable::kpt10D,
-                                               &BuiltInVariable::kpt00D, &BuiltInVariable::kpt10D};
+                                                 &BuiltInVariable::kpt00D, &BuiltInVariable::kpt10D};
 constexpr const TVariable *p00I20B00B10D[4]   = {&BuiltInVariable::kpt00I, &BuiltInVariable::kpt20B,
-                                               &BuiltInVariable::kpt00B, &BuiltInVariable::kpt10D};
+                                                 &BuiltInVariable::kpt00B, &BuiltInVariable::kpt10D};
 constexpr const TVariable *p00I20B10B10B10D[5] = {
     &BuiltInVariable::kpt00I, &BuiltInVariable::kpt20B, &BuiltInVariable::kpt10B,
     &BuiltInVariable::kpt10B, &BuiltInVariable::kpt10D};
@@ -4889,9 +1916,9 @@ constexpr const TVariable *p00J30B20D00B[4] = {&BuiltInVariable::kpt00J, &BuiltI
                                                &BuiltInVariable::kpt20D, &BuiltInVariable::kpt00B};
 constexpr const TVariable *p00K00D[2]       = {&BuiltInVariable::kpt00K, &BuiltInVariable::kpt00D};
 constexpr const TVariable *p00K20B00B[3]    = {&BuiltInVariable::kpt00K, &BuiltInVariable::kpt20B,
-                                            &BuiltInVariable::kpt00B};
+                                               &BuiltInVariable::kpt00B};
 constexpr const TVariable *p00K20B00D[3]    = {&BuiltInVariable::kpt00K, &BuiltInVariable::kpt20B,
-                                            &BuiltInVariable::kpt00D};
+                                               &BuiltInVariable::kpt00D};
 constexpr const TVariable *p00K20B20B20B[4] = {&BuiltInVariable::kpt00K, &BuiltInVariable::kpt20B,
                                                &BuiltInVariable::kpt20B, &BuiltInVariable::kpt20B};
 constexpr const TVariable *p00L00D[2]       = {&BuiltInVariable::kpt00L, &BuiltInVariable::kpt00D};
@@ -4899,19 +1926,19 @@ constexpr const TVariable *p00L10B[2]       = {&BuiltInVariable::kpt00L, &BuiltI
 constexpr const TVariable *p00L20B00B10D[4] = {&BuiltInVariable::kpt00L, &BuiltInVariable::kpt20B,
                                                &BuiltInVariable::kpt00B, &BuiltInVariable::kpt10D};
 constexpr const TVariable *p00L20B00D[3]    = {&BuiltInVariable::kpt00L, &BuiltInVariable::kpt20B,
-                                            &BuiltInVariable::kpt00D};
+                                               &BuiltInVariable::kpt00D};
 constexpr const TVariable *p00L20B10B10B10D[5] = {
     &BuiltInVariable::kpt00L, &BuiltInVariable::kpt20B, &BuiltInVariable::kpt10B,
     &BuiltInVariable::kpt10B, &BuiltInVariable::kpt10D};
 constexpr const TVariable *p00L20B10D00B[4]   = {&BuiltInVariable::kpt00L, &BuiltInVariable::kpt20B,
-                                               &BuiltInVariable::kpt10D, &BuiltInVariable::kpt00B};
+                                                 &BuiltInVariable::kpt10D, &BuiltInVariable::kpt00B};
 constexpr const TVariable *p00L20B10D00D[4]   = {&BuiltInVariable::kpt00L, &BuiltInVariable::kpt20B,
-                                               &BuiltInVariable::kpt10D, &BuiltInVariable::kpt00D};
+                                                 &BuiltInVariable::kpt10D, &BuiltInVariable::kpt00D};
 constexpr const TVariable *p00L20B10Dx400D[4] = {&BuiltInVariable::kpt00L, &BuiltInVariable::kpt20B,
                                                  &BuiltInVariable::kpt10Dx4,
                                                  &BuiltInVariable::kpt00D};
 constexpr const TVariable *p00L20D00D10D[4]   = {&BuiltInVariable::kpt00L, &BuiltInVariable::kpt20D,
-                                               &BuiltInVariable::kpt00D, &BuiltInVariable::kpt10D};
+                                                 &BuiltInVariable::kpt00D, &BuiltInVariable::kpt10D};
 constexpr const TVariable *p00M00D[2]    = {&BuiltInVariable::kpt00M, &BuiltInVariable::kpt00D};
 constexpr const TVariable *p00M10B00B[3] = {&BuiltInVariable::kpt00M, &BuiltInVariable::kpt10B,
                                             &BuiltInVariable::kpt00B};
@@ -4934,14 +1961,14 @@ constexpr const TVariable *p00O10B10B10B10D[5] = {
     &BuiltInVariable::kpt00O, &BuiltInVariable::kpt10B, &BuiltInVariable::kpt10B,
     &BuiltInVariable::kpt10B, &BuiltInVariable::kpt10D};
 constexpr const TVariable *p00O10B10D00D[4]   = {&BuiltInVariable::kpt00O, &BuiltInVariable::kpt10B,
-                                               &BuiltInVariable::kpt10D, &BuiltInVariable::kpt00D};
+                                                 &BuiltInVariable::kpt10D, &BuiltInVariable::kpt00D};
 constexpr const TVariable *p00O10B10Dx400D[4] = {&BuiltInVariable::kpt00O, &BuiltInVariable::kpt10B,
                                                  &BuiltInVariable::kpt10Dx4,
                                                  &BuiltInVariable::kpt00D};
 constexpr const TVariable *p00O10D10D[3]      = {&BuiltInVariable::kpt00O, &BuiltInVariable::kpt10D,
-                                            &BuiltInVariable::kpt10D};
+                                                 &BuiltInVariable::kpt10D};
 constexpr const TVariable *p00O20B00D[3]      = {&BuiltInVariable::kpt00O, &BuiltInVariable::kpt20B,
-                                            &BuiltInVariable::kpt00D};
+                                                 &BuiltInVariable::kpt00D};
 constexpr const TVariable *p00O20B10B10B10D[5] = {
     &BuiltInVariable::kpt00O, &BuiltInVariable::kpt20B, &BuiltInVariable::kpt10B,
     &BuiltInVariable::kpt10B, &BuiltInVariable::kpt10D};
@@ -4951,32 +1978,32 @@ constexpr const TVariable *p00O30B10B10B10D[5] = {
     &BuiltInVariable::kpt00O, &BuiltInVariable::kpt30B, &BuiltInVariable::kpt10B,
     &BuiltInVariable::kpt10B, &BuiltInVariable::kpt10D};
 constexpr const TVariable *p00O30B10D[3]    = {&BuiltInVariable::kpt00O, &BuiltInVariable::kpt30B,
-                                            &BuiltInVariable::kpt10D};
+                                               &BuiltInVariable::kpt10D};
 constexpr const TVariable *p00P10D00D[3]    = {&BuiltInVariable::kpt00P, &BuiltInVariable::kpt10D,
-                                            &BuiltInVariable::kpt00D};
+                                               &BuiltInVariable::kpt00D};
 constexpr const TVariable *p00Q20D00D[3]    = {&BuiltInVariable::kpt00Q, &BuiltInVariable::kpt20D,
-                                            &BuiltInVariable::kpt00D};
+                                               &BuiltInVariable::kpt00D};
 constexpr const TVariable *p00R00B00B00B[4] = {&BuiltInVariable::kpt00R, &BuiltInVariable::kpt00B,
                                                &BuiltInVariable::kpt00B, &BuiltInVariable::kpt00B};
 constexpr const TVariable *p00R00D[2]       = {&BuiltInVariable::kpt00R, &BuiltInVariable::kpt00D};
 constexpr const TVariable *p00R10B00B10D[4] = {&BuiltInVariable::kpt00R, &BuiltInVariable::kpt10B,
                                                &BuiltInVariable::kpt00B, &BuiltInVariable::kpt10D};
 constexpr const TVariable *p00R10B00D[3]    = {&BuiltInVariable::kpt00R, &BuiltInVariable::kpt10B,
-                                            &BuiltInVariable::kpt00D};
+                                               &BuiltInVariable::kpt00D};
 constexpr const TVariable *p00R10B10B10B10D[5] = {
     &BuiltInVariable::kpt00R, &BuiltInVariable::kpt10B, &BuiltInVariable::kpt10B,
     &BuiltInVariable::kpt10B, &BuiltInVariable::kpt10D};
 constexpr const TVariable *p00R10B10D00B[4]   = {&BuiltInVariable::kpt00R, &BuiltInVariable::kpt10B,
-                                               &BuiltInVariable::kpt10D, &BuiltInVariable::kpt00B};
+                                                 &BuiltInVariable::kpt10D, &BuiltInVariable::kpt00B};
 constexpr const TVariable *p00R10B10D00D[4]   = {&BuiltInVariable::kpt00R, &BuiltInVariable::kpt10B,
-                                               &BuiltInVariable::kpt10D, &BuiltInVariable::kpt00D};
+                                                 &BuiltInVariable::kpt10D, &BuiltInVariable::kpt00D};
 constexpr const TVariable *p00R10B10Dx400D[4] = {&BuiltInVariable::kpt00R, &BuiltInVariable::kpt10B,
                                                  &BuiltInVariable::kpt10Dx4,
                                                  &BuiltInVariable::kpt00D};
 constexpr const TVariable *p00R10D00D10D[4]   = {&BuiltInVariable::kpt00R, &BuiltInVariable::kpt10D,
-                                               &BuiltInVariable::kpt00D, &BuiltInVariable::kpt10D};
+                                                 &BuiltInVariable::kpt00D, &BuiltInVariable::kpt10D};
 constexpr const TVariable *p00R20B00B10D[4]   = {&BuiltInVariable::kpt00R, &BuiltInVariable::kpt20B,
-                                               &BuiltInVariable::kpt00B, &BuiltInVariable::kpt10D};
+                                                 &BuiltInVariable::kpt00B, &BuiltInVariable::kpt10D};
 constexpr const TVariable *p00R20B10B10B10D[5] = {
     &BuiltInVariable::kpt00R, &BuiltInVariable::kpt20B, &BuiltInVariable::kpt10B,
     &BuiltInVariable::kpt10B, &BuiltInVariable::kpt10D};
@@ -5008,9 +2035,9 @@ constexpr const TVariable *p00S30B20D00B[4] = {&BuiltInVariable::kpt00S, &BuiltI
                                                &BuiltInVariable::kpt20D, &BuiltInVariable::kpt00B};
 constexpr const TVariable *p00T00D[2]       = {&BuiltInVariable::kpt00T, &BuiltInVariable::kpt00D};
 constexpr const TVariable *p00T20B00B[3]    = {&BuiltInVariable::kpt00T, &BuiltInVariable::kpt20B,
-                                            &BuiltInVariable::kpt00B};
+                                               &BuiltInVariable::kpt00B};
 constexpr const TVariable *p00T20B00D[3]    = {&BuiltInVariable::kpt00T, &BuiltInVariable::kpt20B,
-                                            &BuiltInVariable::kpt00D};
+                                               &BuiltInVariable::kpt00D};
 constexpr const TVariable *p00T20B20B20B[4] = {&BuiltInVariable::kpt00T, &BuiltInVariable::kpt20B,
                                                &BuiltInVariable::kpt20B, &BuiltInVariable::kpt20B};
 constexpr const TVariable *p00U00D[2]       = {&BuiltInVariable::kpt00U, &BuiltInVariable::kpt00D};
@@ -5018,44 +2045,44 @@ constexpr const TVariable *p00U10B[2]       = {&BuiltInVariable::kpt00U, &BuiltI
 constexpr const TVariable *p00U20B00B10D[4] = {&BuiltInVariable::kpt00U, &BuiltInVariable::kpt20B,
                                                &BuiltInVariable::kpt00B, &BuiltInVariable::kpt10D};
 constexpr const TVariable *p00U20B00D[3]    = {&BuiltInVariable::kpt00U, &BuiltInVariable::kpt20B,
-                                            &BuiltInVariable::kpt00D};
+                                               &BuiltInVariable::kpt00D};
 constexpr const TVariable *p00U20B10B10B10D[5] = {
     &BuiltInVariable::kpt00U, &BuiltInVariable::kpt20B, &BuiltInVariable::kpt10B,
     &BuiltInVariable::kpt10B, &BuiltInVariable::kpt10D};
 constexpr const TVariable *p00U20B10D00B[4]   = {&BuiltInVariable::kpt00U, &BuiltInVariable::kpt20B,
-                                               &BuiltInVariable::kpt10D, &BuiltInVariable::kpt00B};
+                                                 &BuiltInVariable::kpt10D, &BuiltInVariable::kpt00B};
 constexpr const TVariable *p00U20B10D00D[4]   = {&BuiltInVariable::kpt00U, &BuiltInVariable::kpt20B,
-                                               &BuiltInVariable::kpt10D, &BuiltInVariable::kpt00D};
+                                                 &BuiltInVariable::kpt10D, &BuiltInVariable::kpt00D};
 constexpr const TVariable *p00U20B10Dx400D[4] = {&BuiltInVariable::kpt00U, &BuiltInVariable::kpt20B,
                                                  &BuiltInVariable::kpt10Dx4,
                                                  &BuiltInVariable::kpt00D};
 constexpr const TVariable *p00U20D00D10D[4]   = {&BuiltInVariable::kpt00U, &BuiltInVariable::kpt20D,
-                                               &BuiltInVariable::kpt00D, &BuiltInVariable::kpt10D};
+                                                 &BuiltInVariable::kpt00D, &BuiltInVariable::kpt10D};
 constexpr const TVariable *p00V10D00D[3]      = {&BuiltInVariable::kpt00V, &BuiltInVariable::kpt10D,
-                                            &BuiltInVariable::kpt00D};
+                                                 &BuiltInVariable::kpt00D};
 constexpr const TVariable *p00W20D00D[3]      = {&BuiltInVariable::kpt00W, &BuiltInVariable::kpt20D,
-                                            &BuiltInVariable::kpt00D};
+                                                 &BuiltInVariable::kpt00D};
 constexpr const TVariable *p00X00B00B00B[4]   = {&BuiltInVariable::kpt00X, &BuiltInVariable::kpt00B,
-                                               &BuiltInVariable::kpt00B, &BuiltInVariable::kpt00B};
+                                                 &BuiltInVariable::kpt00B, &BuiltInVariable::kpt00B};
 constexpr const TVariable *p00X00D[2]       = {&BuiltInVariable::kpt00X, &BuiltInVariable::kpt00D};
 constexpr const TVariable *p00X10B00B10D[4] = {&BuiltInVariable::kpt00X, &BuiltInVariable::kpt10B,
                                                &BuiltInVariable::kpt00B, &BuiltInVariable::kpt10D};
 constexpr const TVariable *p00X10B00D[3]    = {&BuiltInVariable::kpt00X, &BuiltInVariable::kpt10B,
-                                            &BuiltInVariable::kpt00D};
+                                               &BuiltInVariable::kpt00D};
 constexpr const TVariable *p00X10B10B10B10D[5] = {
     &BuiltInVariable::kpt00X, &BuiltInVariable::kpt10B, &BuiltInVariable::kpt10B,
     &BuiltInVariable::kpt10B, &BuiltInVariable::kpt10D};
 constexpr const TVariable *p00X10B10D00B[4]   = {&BuiltInVariable::kpt00X, &BuiltInVariable::kpt10B,
-                                               &BuiltInVariable::kpt10D, &BuiltInVariable::kpt00B};
+                                                 &BuiltInVariable::kpt10D, &BuiltInVariable::kpt00B};
 constexpr const TVariable *p00X10B10D00D[4]   = {&BuiltInVariable::kpt00X, &BuiltInVariable::kpt10B,
-                                               &BuiltInVariable::kpt10D, &BuiltInVariable::kpt00D};
+                                                 &BuiltInVariable::kpt10D, &BuiltInVariable::kpt00D};
 constexpr const TVariable *p00X10B10Dx400D[4] = {&BuiltInVariable::kpt00X, &BuiltInVariable::kpt10B,
                                                  &BuiltInVariable::kpt10Dx4,
                                                  &BuiltInVariable::kpt00D};
 constexpr const TVariable *p00X10D00D10D[4]   = {&BuiltInVariable::kpt00X, &BuiltInVariable::kpt10D,
-                                               &BuiltInVariable::kpt00D, &BuiltInVariable::kpt10D};
+                                                 &BuiltInVariable::kpt00D, &BuiltInVariable::kpt10D};
 constexpr const TVariable *p00X20B00B10D[4]   = {&BuiltInVariable::kpt00X, &BuiltInVariable::kpt20B,
-                                               &BuiltInVariable::kpt00B, &BuiltInVariable::kpt10D};
+                                                 &BuiltInVariable::kpt00B, &BuiltInVariable::kpt10D};
 constexpr const TVariable *p00X20B10B10B10D[5] = {
     &BuiltInVariable::kpt00X, &BuiltInVariable::kpt20B, &BuiltInVariable::kpt10B,
     &BuiltInVariable::kpt10B, &BuiltInVariable::kpt10D};
@@ -5087,9 +2114,9 @@ constexpr const TVariable *p00Y30B20D00B[4] = {&BuiltInVariable::kpt00Y, &BuiltI
                                                &BuiltInVariable::kpt20D, &BuiltInVariable::kpt00B};
 constexpr const TVariable *p00Z00D[2]       = {&BuiltInVariable::kpt00Z, &BuiltInVariable::kpt00D};
 constexpr const TVariable *p00Z20B00B[3]    = {&BuiltInVariable::kpt00Z, &BuiltInVariable::kpt20B,
-                                            &BuiltInVariable::kpt00B};
+                                               &BuiltInVariable::kpt00B};
 constexpr const TVariable *p00Z20B00D[3]    = {&BuiltInVariable::kpt00Z, &BuiltInVariable::kpt20B,
-                                            &BuiltInVariable::kpt00D};
+                                               &BuiltInVariable::kpt00D};
 constexpr const TVariable *p00Z20B20B20B[4] = {&BuiltInVariable::kpt00Z, &BuiltInVariable::kpt20B,
                                                &BuiltInVariable::kpt20B, &BuiltInVariable::kpt20B};
 constexpr const TVariable *p00a00D[2]       = {&BuiltInVariable::kpt00a, &BuiltInVariable::kpt00D};
@@ -5097,29 +2124,29 @@ constexpr const TVariable *p00a10B[2]       = {&BuiltInVariable::kpt00a, &BuiltI
 constexpr const TVariable *p00a20B00B10D[4] = {&BuiltInVariable::kpt00a, &BuiltInVariable::kpt20B,
                                                &BuiltInVariable::kpt00B, &BuiltInVariable::kpt10D};
 constexpr const TVariable *p00a20B00D[3]    = {&BuiltInVariable::kpt00a, &BuiltInVariable::kpt20B,
-                                            &BuiltInVariable::kpt00D};
+                                               &BuiltInVariable::kpt00D};
 constexpr const TVariable *p00a20B10B10B10D[5] = {
     &BuiltInVariable::kpt00a, &BuiltInVariable::kpt20B, &BuiltInVariable::kpt10B,
     &BuiltInVariable::kpt10B, &BuiltInVariable::kpt10D};
 constexpr const TVariable *p00a20B10D00B[4]   = {&BuiltInVariable::kpt00a, &BuiltInVariable::kpt20B,
-                                               &BuiltInVariable::kpt10D, &BuiltInVariable::kpt00B};
+                                                 &BuiltInVariable::kpt10D, &BuiltInVariable::kpt00B};
 constexpr const TVariable *p00a20B10D00D[4]   = {&BuiltInVariable::kpt00a, &BuiltInVariable::kpt20B,
-                                               &BuiltInVariable::kpt10D, &BuiltInVariable::kpt00D};
+                                                 &BuiltInVariable::kpt10D, &BuiltInVariable::kpt00D};
 constexpr const TVariable *p00a20B10Dx400D[4] = {&BuiltInVariable::kpt00a, &BuiltInVariable::kpt20B,
                                                  &BuiltInVariable::kpt10Dx4,
                                                  &BuiltInVariable::kpt00D};
 constexpr const TVariable *p00a20D00D10D[4]   = {&BuiltInVariable::kpt00a, &BuiltInVariable::kpt20D,
-                                               &BuiltInVariable::kpt00D, &BuiltInVariable::kpt10D};
+                                                 &BuiltInVariable::kpt00D, &BuiltInVariable::kpt10D};
 constexpr const TVariable *p00b10D00D[3]      = {&BuiltInVariable::kpt00b, &BuiltInVariable::kpt10D,
-                                            &BuiltInVariable::kpt00D};
+                                                 &BuiltInVariable::kpt00D};
 constexpr const TVariable *p00c20D00D[3]      = {&BuiltInVariable::kpt00c, &BuiltInVariable::kpt20D,
-                                            &BuiltInVariable::kpt00D};
+                                                 &BuiltInVariable::kpt00D};
 constexpr const TVariable *p00d00D[2] = {&BuiltInVariable::kpt00d, &BuiltInVariable::kpt00D};
 constexpr const TVariable *p00d10B00B10Dx4[4] = {&BuiltInVariable::kpt00d, &BuiltInVariable::kpt10B,
                                                  &BuiltInVariable::kpt00B,
                                                  &BuiltInVariable::kpt10Dx4};
 constexpr const TVariable *p00d20B00B10D[4]   = {&BuiltInVariable::kpt00d, &BuiltInVariable::kpt20B,
-                                               &BuiltInVariable::kpt00B, &BuiltInVariable::kpt10D};
+                                                 &BuiltInVariable::kpt00B, &BuiltInVariable::kpt10D};
 constexpr const TVariable *p00d20B10B10B10D[5] = {
     &BuiltInVariable::kpt00d, &BuiltInVariable::kpt20B, &BuiltInVariable::kpt10B,
     &BuiltInVariable::kpt10B, &BuiltInVariable::kpt10D};
@@ -5134,9 +2161,9 @@ constexpr const TVariable *p00d30B10D00B[4] = {&BuiltInVariable::kpt00d, &BuiltI
                                                &BuiltInVariable::kpt10D, &BuiltInVariable::kpt00B};
 constexpr const TVariable *p00e00D[2]       = {&BuiltInVariable::kpt00e, &BuiltInVariable::kpt00D};
 constexpr const TVariable *p00e20B00B[3]    = {&BuiltInVariable::kpt00e, &BuiltInVariable::kpt20B,
-                                            &BuiltInVariable::kpt00B};
+                                               &BuiltInVariable::kpt00B};
 constexpr const TVariable *p00e30B00B[3]    = {&BuiltInVariable::kpt00e, &BuiltInVariable::kpt30B,
-                                            &BuiltInVariable::kpt00B};
+                                               &BuiltInVariable::kpt00B};
 constexpr const TVariable *p00e30B20B20B[4] = {&BuiltInVariable::kpt00e, &BuiltInVariable::kpt30B,
                                                &BuiltInVariable::kpt20B, &BuiltInVariable::kpt20B};
 constexpr const TVariable *p00f00D[2]       = {&BuiltInVariable::kpt00f, &BuiltInVariable::kpt00D};
@@ -5145,7 +2172,7 @@ constexpr const TVariable *p00f20B00B10Dx4[4] = {&BuiltInVariable::kpt00f, &Buil
                                                  &BuiltInVariable::kpt00B,
                                                  &BuiltInVariable::kpt10Dx4};
 constexpr const TVariable *p00f30B00B[3]      = {&BuiltInVariable::kpt00f, &BuiltInVariable::kpt30B,
-                                            &BuiltInVariable::kpt00B};
+                                                 &BuiltInVariable::kpt00B};
 constexpr const TVariable *p00f30B10B10B10D[5] = {
     &BuiltInVariable::kpt00f, &BuiltInVariable::kpt30B, &BuiltInVariable::kpt10B,
     &BuiltInVariable::kpt10B, &BuiltInVariable::kpt10D};
@@ -5186,7 +2213,7 @@ constexpr const TVariable *p00h10B00D00B[4] = {&BuiltInVariable::kpt00h, &BuiltI
 constexpr const TVariable *p00h10D00D00D[4] = {&BuiltInVariable::kpt00h, &BuiltInVariable::kpt10D,
                                                &BuiltInVariable::kpt00D, &BuiltInVariable::kpt00D};
 constexpr const TVariable *p00h20B00B[3]    = {&BuiltInVariable::kpt00h, &BuiltInVariable::kpt20B,
-                                            &BuiltInVariable::kpt00B};
+                                               &BuiltInVariable::kpt00B};
 constexpr const TVariable *p00i00B[2]       = {&BuiltInVariable::kpt00i, &BuiltInVariable::kpt00B};
 constexpr const TVariable *p00i00D[2]       = {&BuiltInVariable::kpt00i, &BuiltInVariable::kpt00D};
 constexpr const TVariable *p00i20B00B00B00D[5] = {
@@ -5200,15 +2227,15 @@ constexpr const TVariable *p00j00D[2]       = {&BuiltInVariable::kpt00j, &BuiltI
 constexpr const TVariable *p00k00D[2]       = {&BuiltInVariable::kpt00k, &BuiltInVariable::kpt00D};
 constexpr const TVariable *p00k20B[2]       = {&BuiltInVariable::kpt00k, &BuiltInVariable::kpt20B};
 constexpr const TVariable *p00k30B00B[3]    = {&BuiltInVariable::kpt00k, &BuiltInVariable::kpt30B,
-                                            &BuiltInVariable::kpt00B};
+                                               &BuiltInVariable::kpt00B};
 constexpr const TVariable *p00k30B00D[3]    = {&BuiltInVariable::kpt00k, &BuiltInVariable::kpt30B,
-                                            &BuiltInVariable::kpt00D};
+                                               &BuiltInVariable::kpt00D};
 constexpr const TVariable *p00k30B20B20B[4] = {&BuiltInVariable::kpt00k, &BuiltInVariable::kpt30B,
                                                &BuiltInVariable::kpt20B, &BuiltInVariable::kpt20B};
 constexpr const TVariable *p00l00D[2]       = {&BuiltInVariable::kpt00l, &BuiltInVariable::kpt00D};
 constexpr const TVariable *p00l20B[2]       = {&BuiltInVariable::kpt00l, &BuiltInVariable::kpt20B};
 constexpr const TVariable *p00l30B00B[3]    = {&BuiltInVariable::kpt00l, &BuiltInVariable::kpt30B,
-                                            &BuiltInVariable::kpt00B};
+                                               &BuiltInVariable::kpt00B};
 constexpr const TVariable *p00m00B[2]       = {&BuiltInVariable::kpt00m, &BuiltInVariable::kpt00B};
 constexpr const TVariable *p00m00D[2]       = {&BuiltInVariable::kpt00m, &BuiltInVariable::kpt00D};
 constexpr const TVariable *p00m20B00B00B00D[5] = {
@@ -5222,9 +2249,9 @@ constexpr const TVariable *p00m30B00B00B00D[5] = {
     &BuiltInVariable::kpt00m, &BuiltInVariable::kpt30B, &BuiltInVariable::kpt00B,
     &BuiltInVariable::kpt00B, &BuiltInVariable::kpt00D};
 constexpr const TVariable *p00m30B00B00D[4]   = {&BuiltInVariable::kpt00m, &BuiltInVariable::kpt30B,
-                                               &BuiltInVariable::kpt00B, &BuiltInVariable::kpt00D};
+                                                 &BuiltInVariable::kpt00B, &BuiltInVariable::kpt00D};
 constexpr const TVariable *p00m30B00D00B[4]   = {&BuiltInVariable::kpt00m, &BuiltInVariable::kpt30B,
-                                               &BuiltInVariable::kpt00D, &BuiltInVariable::kpt00B};
+                                                 &BuiltInVariable::kpt00D, &BuiltInVariable::kpt00B};
 constexpr const TVariable *p00n10B00B10Dx4[4] = {&BuiltInVariable::kpt00n, &BuiltInVariable::kpt10B,
                                                  &BuiltInVariable::kpt00B,
                                                  &BuiltInVariable::kpt10Dx4};
@@ -5273,19 +2300,19 @@ constexpr const TVariable *p00p10B00D00B[4] = {&BuiltInVariable::kpt00p, &BuiltI
 constexpr const TVariable *p00p10D00D00D[4] = {&BuiltInVariable::kpt00p, &BuiltInVariable::kpt10D,
                                                &BuiltInVariable::kpt00D, &BuiltInVariable::kpt00D};
 constexpr const TVariable *p00p20B00B[3]    = {&BuiltInVariable::kpt00p, &BuiltInVariable::kpt20B,
-                                            &BuiltInVariable::kpt00B};
+                                               &BuiltInVariable::kpt00B};
 constexpr const TVariable *p00q10B10B10B10D[5] = {
     &BuiltInVariable::kpt00q, &BuiltInVariable::kpt10B, &BuiltInVariable::kpt10B,
     &BuiltInVariable::kpt10B, &BuiltInVariable::kpt10D};
 constexpr const TVariable *p00q10B10D00D[4]   = {&BuiltInVariable::kpt00q, &BuiltInVariable::kpt10B,
-                                               &BuiltInVariable::kpt10D, &BuiltInVariable::kpt00D};
+                                                 &BuiltInVariable::kpt10D, &BuiltInVariable::kpt00D};
 constexpr const TVariable *p00q10B10Dx400D[4] = {&BuiltInVariable::kpt00q, &BuiltInVariable::kpt10B,
                                                  &BuiltInVariable::kpt10Dx4,
                                                  &BuiltInVariable::kpt00D};
 constexpr const TVariable *p00q10D10D[3]      = {&BuiltInVariable::kpt00q, &BuiltInVariable::kpt10D,
-                                            &BuiltInVariable::kpt10D};
+                                                 &BuiltInVariable::kpt10D};
 constexpr const TVariable *p00q20B00D[3]      = {&BuiltInVariable::kpt00q, &BuiltInVariable::kpt20B,
-                                            &BuiltInVariable::kpt00D};
+                                                 &BuiltInVariable::kpt00D};
 constexpr const TVariable *p00q20B10B10B10D[5] = {
     &BuiltInVariable::kpt00q, &BuiltInVariable::kpt20B, &BuiltInVariable::kpt10B,
     &BuiltInVariable::kpt10B, &BuiltInVariable::kpt10D};
@@ -5295,14 +2322,14 @@ constexpr const TVariable *p00q30B10B10B10D[5] = {
     &BuiltInVariable::kpt00q, &BuiltInVariable::kpt30B, &BuiltInVariable::kpt10B,
     &BuiltInVariable::kpt10B, &BuiltInVariable::kpt10D};
 constexpr const TVariable *p00q30B10D[3]    = {&BuiltInVariable::kpt00q, &BuiltInVariable::kpt30B,
-                                            &BuiltInVariable::kpt10D};
+                                               &BuiltInVariable::kpt10D};
 constexpr const TVariable *p00r00D[2]       = {&BuiltInVariable::kpt00r, &BuiltInVariable::kpt00D};
 constexpr const TVariable *p00s00D[2]       = {&BuiltInVariable::kpt00s, &BuiltInVariable::kpt00D};
 constexpr const TVariable *p00s20B[2]       = {&BuiltInVariable::kpt00s, &BuiltInVariable::kpt20B};
 constexpr const TVariable *p00s30B00B[3]    = {&BuiltInVariable::kpt00s, &BuiltInVariable::kpt30B,
-                                            &BuiltInVariable::kpt00B};
+                                               &BuiltInVariable::kpt00B};
 constexpr const TVariable *p00s30B00D[3]    = {&BuiltInVariable::kpt00s, &BuiltInVariable::kpt30B,
-                                            &BuiltInVariable::kpt00D};
+                                               &BuiltInVariable::kpt00D};
 constexpr const TVariable *p00s30B20B20B[4] = {&BuiltInVariable::kpt00s, &BuiltInVariable::kpt30B,
                                                &BuiltInVariable::kpt20B, &BuiltInVariable::kpt20B};
 constexpr const TVariable *p00t00B00B00B00D[5] = {
@@ -5340,19 +2367,19 @@ constexpr const TVariable *p00u10B00D00B[4] = {&BuiltInVariable::kpt00u, &BuiltI
 constexpr const TVariable *p00u10D00D00D[4] = {&BuiltInVariable::kpt00u, &BuiltInVariable::kpt10D,
                                                &BuiltInVariable::kpt00D, &BuiltInVariable::kpt00D};
 constexpr const TVariable *p00u20B00B[3]    = {&BuiltInVariable::kpt00u, &BuiltInVariable::kpt20B,
-                                            &BuiltInVariable::kpt00B};
+                                               &BuiltInVariable::kpt00B};
 constexpr const TVariable *p00v10B10B10B10D[5] = {
     &BuiltInVariable::kpt00v, &BuiltInVariable::kpt10B, &BuiltInVariable::kpt10B,
     &BuiltInVariable::kpt10B, &BuiltInVariable::kpt10D};
 constexpr const TVariable *p00v10B10D00D[4]   = {&BuiltInVariable::kpt00v, &BuiltInVariable::kpt10B,
-                                               &BuiltInVariable::kpt10D, &BuiltInVariable::kpt00D};
+                                                 &BuiltInVariable::kpt10D, &BuiltInVariable::kpt00D};
 constexpr const TVariable *p00v10B10Dx400D[4] = {&BuiltInVariable::kpt00v, &BuiltInVariable::kpt10B,
                                                  &BuiltInVariable::kpt10Dx4,
                                                  &BuiltInVariable::kpt00D};
 constexpr const TVariable *p00v10D10D[3]      = {&BuiltInVariable::kpt00v, &BuiltInVariable::kpt10D,
-                                            &BuiltInVariable::kpt10D};
+                                                 &BuiltInVariable::kpt10D};
 constexpr const TVariable *p00v20B00D[3]      = {&BuiltInVariable::kpt00v, &BuiltInVariable::kpt20B,
-                                            &BuiltInVariable::kpt00D};
+                                                 &BuiltInVariable::kpt00D};
 constexpr const TVariable *p00v20B10B10B10D[5] = {
     &BuiltInVariable::kpt00v, &BuiltInVariable::kpt20B, &BuiltInVariable::kpt10B,
     &BuiltInVariable::kpt10B, &BuiltInVariable::kpt10D};
@@ -5362,65 +2389,65 @@ constexpr const TVariable *p00v30B10B10B10D[5] = {
     &BuiltInVariable::kpt00v, &BuiltInVariable::kpt30B, &BuiltInVariable::kpt10B,
     &BuiltInVariable::kpt10B, &BuiltInVariable::kpt10D};
 constexpr const TVariable *p00v30B10D[3]    = {&BuiltInVariable::kpt00v, &BuiltInVariable::kpt30B,
-                                            &BuiltInVariable::kpt10D};
+                                               &BuiltInVariable::kpt10D};
 constexpr const TVariable *p00w00D[2]       = {&BuiltInVariable::kpt00w, &BuiltInVariable::kpt00D};
 constexpr const TVariable *p00x00D[2]       = {&BuiltInVariable::kpt00x, &BuiltInVariable::kpt00D};
 constexpr const TVariable *p00x20B[2]       = {&BuiltInVariable::kpt00x, &BuiltInVariable::kpt20B};
 constexpr const TVariable *p00x30B00B[3]    = {&BuiltInVariable::kpt00x, &BuiltInVariable::kpt30B,
-                                            &BuiltInVariable::kpt00B};
+                                               &BuiltInVariable::kpt00B};
 constexpr const TVariable *p00x30B00D[3]    = {&BuiltInVariable::kpt00x, &BuiltInVariable::kpt30B,
-                                            &BuiltInVariable::kpt00D};
+                                               &BuiltInVariable::kpt00D};
 constexpr const TVariable *p00x30B20B20B[4] = {&BuiltInVariable::kpt00x, &BuiltInVariable::kpt30B,
                                                &BuiltInVariable::kpt20B, &BuiltInVariable::kpt20B};
 constexpr const TVariable *p00y10B[2]       = {&BuiltInVariable::kpt00y, &BuiltInVariable::kpt10B};
 constexpr const TVariable *p00z10D00B[3]    = {&BuiltInVariable::kpt00z, &BuiltInVariable::kpt10D,
-                                            &BuiltInVariable::kpt00B};
+                                               &BuiltInVariable::kpt00B};
 constexpr const TVariable *p00z10D00D00D[4] = {&BuiltInVariable::kpt00z, &BuiltInVariable::kpt10D,
                                                &BuiltInVariable::kpt00D, &BuiltInVariable::kpt00D};
 constexpr const TVariable *p00z10D00E00E[4] = {&BuiltInVariable::kpt00z, &BuiltInVariable::kpt10D,
                                                &BuiltInVariable::kpt00E, &BuiltInVariable::kpt00E};
 constexpr const TVariable *p00z10D30B[3]    = {&BuiltInVariable::kpt00z, &BuiltInVariable::kpt10D,
-                                            &BuiltInVariable::kpt30B};
+                                               &BuiltInVariable::kpt30B};
 constexpr const TVariable *p01A20D00B[3]    = {&BuiltInVariable::kpt01A, &BuiltInVariable::kpt20D,
-                                            &BuiltInVariable::kpt00B};
+                                               &BuiltInVariable::kpt00B};
 constexpr const TVariable *p01A20D00D00D[4] = {&BuiltInVariable::kpt01A, &BuiltInVariable::kpt20D,
                                                &BuiltInVariable::kpt00D, &BuiltInVariable::kpt00D};
 constexpr const TVariable *p01A20D00E00E[4] = {&BuiltInVariable::kpt01A, &BuiltInVariable::kpt20D,
                                                &BuiltInVariable::kpt00E, &BuiltInVariable::kpt00E};
 constexpr const TVariable *p01A20D30B[3]    = {&BuiltInVariable::kpt01A, &BuiltInVariable::kpt20D,
-                                            &BuiltInVariable::kpt30B};
+                                               &BuiltInVariable::kpt30B};
 constexpr const TVariable *p01B20D00B[3]    = {&BuiltInVariable::kpt01B, &BuiltInVariable::kpt20D,
-                                            &BuiltInVariable::kpt00B};
+                                               &BuiltInVariable::kpt00B};
 constexpr const TVariable *p01B20D00D00D[4] = {&BuiltInVariable::kpt01B, &BuiltInVariable::kpt20D,
                                                &BuiltInVariable::kpt00D, &BuiltInVariable::kpt00D};
 constexpr const TVariable *p01B20D00E00E[4] = {&BuiltInVariable::kpt01B, &BuiltInVariable::kpt20D,
                                                &BuiltInVariable::kpt00E, &BuiltInVariable::kpt00E};
 constexpr const TVariable *p01B20D30B[3]    = {&BuiltInVariable::kpt01B, &BuiltInVariable::kpt20D,
-                                            &BuiltInVariable::kpt30B};
+                                               &BuiltInVariable::kpt30B};
 constexpr const TVariable *p01C20D00B[3]    = {&BuiltInVariable::kpt01C, &BuiltInVariable::kpt20D,
-                                            &BuiltInVariable::kpt00B};
+                                               &BuiltInVariable::kpt00B};
 constexpr const TVariable *p01C20D00D00D[4] = {&BuiltInVariable::kpt01C, &BuiltInVariable::kpt20D,
                                                &BuiltInVariable::kpt00D, &BuiltInVariable::kpt00D};
 constexpr const TVariable *p01C20D00E00E[4] = {&BuiltInVariable::kpt01C, &BuiltInVariable::kpt20D,
                                                &BuiltInVariable::kpt00E, &BuiltInVariable::kpt00E};
 constexpr const TVariable *p01C20D30B[3]    = {&BuiltInVariable::kpt01C, &BuiltInVariable::kpt20D,
-                                            &BuiltInVariable::kpt30B};
+                                               &BuiltInVariable::kpt30B};
 constexpr const TVariable *p01D00D00B[3]    = {&BuiltInVariable::kpt01D, &BuiltInVariable::kpt00D,
-                                            &BuiltInVariable::kpt00B};
+                                               &BuiltInVariable::kpt00B};
 constexpr const TVariable *p01D00D00D00D[4] = {&BuiltInVariable::kpt01D, &BuiltInVariable::kpt00D,
                                                &BuiltInVariable::kpt00D, &BuiltInVariable::kpt00D};
 constexpr const TVariable *p01D00D00E00E[4] = {&BuiltInVariable::kpt01D, &BuiltInVariable::kpt00D,
                                                &BuiltInVariable::kpt00E, &BuiltInVariable::kpt00E};
 constexpr const TVariable *p01D00D30B[3]    = {&BuiltInVariable::kpt01D, &BuiltInVariable::kpt00D,
-                                            &BuiltInVariable::kpt30B};
+                                               &BuiltInVariable::kpt30B};
 constexpr const TVariable *p01E10D00B[3]    = {&BuiltInVariable::kpt01E, &BuiltInVariable::kpt10D,
-                                            &BuiltInVariable::kpt00B};
+                                               &BuiltInVariable::kpt00B};
 constexpr const TVariable *p01E10D00D00D[4] = {&BuiltInVariable::kpt01E, &BuiltInVariable::kpt10D,
                                                &BuiltInVariable::kpt00D, &BuiltInVariable::kpt00D};
 constexpr const TVariable *p01E10D00E00E[4] = {&BuiltInVariable::kpt01E, &BuiltInVariable::kpt10D,
                                                &BuiltInVariable::kpt00E, &BuiltInVariable::kpt00E};
 constexpr const TVariable *p01E10D30B[3]    = {&BuiltInVariable::kpt01E, &BuiltInVariable::kpt10D,
-                                            &BuiltInVariable::kpt30B};
+                                               &BuiltInVariable::kpt30B};
 constexpr const TVariable *p01F10D00D00B[4] = {&BuiltInVariable::kpt01F, &BuiltInVariable::kpt10D,
                                                &BuiltInVariable::kpt00D, &BuiltInVariable::kpt00B};
 constexpr const TVariable *p01F10D00D00D00D[5] = {
@@ -5442,77 +2469,77 @@ constexpr const TVariable *p01G20D00D00E00E[5] = {
 constexpr const TVariable *p01G20D00D30B[4] = {&BuiltInVariable::kpt01G, &BuiltInVariable::kpt20D,
                                                &BuiltInVariable::kpt00D, &BuiltInVariable::kpt30B};
 constexpr const TVariable *p01H20D00B[3]    = {&BuiltInVariable::kpt01H, &BuiltInVariable::kpt20D,
-                                            &BuiltInVariable::kpt00B};
+                                               &BuiltInVariable::kpt00B};
 constexpr const TVariable *p01H20D00D00D[4] = {&BuiltInVariable::kpt01H, &BuiltInVariable::kpt20D,
                                                &BuiltInVariable::kpt00D, &BuiltInVariable::kpt00D};
 constexpr const TVariable *p01H20D00E00E[4] = {&BuiltInVariable::kpt01H, &BuiltInVariable::kpt20D,
                                                &BuiltInVariable::kpt00E, &BuiltInVariable::kpt00E};
 constexpr const TVariable *p01H20D30B[3]    = {&BuiltInVariable::kpt01H, &BuiltInVariable::kpt20D,
-                                            &BuiltInVariable::kpt30B};
+                                               &BuiltInVariable::kpt30B};
 constexpr const TVariable *p01I10D00B[3]    = {&BuiltInVariable::kpt01I, &BuiltInVariable::kpt10D,
-                                            &BuiltInVariable::kpt00B};
+                                               &BuiltInVariable::kpt00B};
 constexpr const TVariable *p01I10D00D00D[4] = {&BuiltInVariable::kpt01I, &BuiltInVariable::kpt10D,
                                                &BuiltInVariable::kpt00D, &BuiltInVariable::kpt00D};
 constexpr const TVariable *p01I10D00E00E[4] = {&BuiltInVariable::kpt01I, &BuiltInVariable::kpt10D,
                                                &BuiltInVariable::kpt00E, &BuiltInVariable::kpt00E};
 constexpr const TVariable *p01I10D30B[3]    = {&BuiltInVariable::kpt01I, &BuiltInVariable::kpt10D,
-                                            &BuiltInVariable::kpt30B};
+                                               &BuiltInVariable::kpt30B};
 constexpr const TVariable *p01J00D00B[3]    = {&BuiltInVariable::kpt01J, &BuiltInVariable::kpt00D,
-                                            &BuiltInVariable::kpt00B};
+                                               &BuiltInVariable::kpt00B};
 constexpr const TVariable *p01J00D00D00D[4] = {&BuiltInVariable::kpt01J, &BuiltInVariable::kpt00D,
                                                &BuiltInVariable::kpt00D, &BuiltInVariable::kpt00D};
 constexpr const TVariable *p01J00D00E00E[4] = {&BuiltInVariable::kpt01J, &BuiltInVariable::kpt00D,
                                                &BuiltInVariable::kpt00E, &BuiltInVariable::kpt00E};
 constexpr const TVariable *p01J00D30B[3]    = {&BuiltInVariable::kpt01J, &BuiltInVariable::kpt00D,
-                                            &BuiltInVariable::kpt30B};
+                                               &BuiltInVariable::kpt30B};
 constexpr const TVariable *p01K10D00B[3]    = {&BuiltInVariable::kpt01K, &BuiltInVariable::kpt10D,
-                                            &BuiltInVariable::kpt00B};
+                                               &BuiltInVariable::kpt00B};
 constexpr const TVariable *p01K10D00D00D[4] = {&BuiltInVariable::kpt01K, &BuiltInVariable::kpt10D,
                                                &BuiltInVariable::kpt00D, &BuiltInVariable::kpt00D};
 constexpr const TVariable *p01K10D00E00E[4] = {&BuiltInVariable::kpt01K, &BuiltInVariable::kpt10D,
                                                &BuiltInVariable::kpt00E, &BuiltInVariable::kpt00E};
 constexpr const TVariable *p01K10D30D[3]    = {&BuiltInVariable::kpt01K, &BuiltInVariable::kpt10D,
-                                            &BuiltInVariable::kpt30D};
+                                               &BuiltInVariable::kpt30D};
 constexpr const TVariable *p01L20D00B[3]    = {&BuiltInVariable::kpt01L, &BuiltInVariable::kpt20D,
-                                            &BuiltInVariable::kpt00B};
+                                               &BuiltInVariable::kpt00B};
 constexpr const TVariable *p01L20D00D00D[4] = {&BuiltInVariable::kpt01L, &BuiltInVariable::kpt20D,
                                                &BuiltInVariable::kpt00D, &BuiltInVariable::kpt00D};
 constexpr const TVariable *p01L20D00E00E[4] = {&BuiltInVariable::kpt01L, &BuiltInVariable::kpt20D,
                                                &BuiltInVariable::kpt00E, &BuiltInVariable::kpt00E};
 constexpr const TVariable *p01L20D30D[3]    = {&BuiltInVariable::kpt01L, &BuiltInVariable::kpt20D,
-                                            &BuiltInVariable::kpt30D};
+                                               &BuiltInVariable::kpt30D};
 constexpr const TVariable *p01M20D00B[3]    = {&BuiltInVariable::kpt01M, &BuiltInVariable::kpt20D,
-                                            &BuiltInVariable::kpt00B};
+                                               &BuiltInVariable::kpt00B};
 constexpr const TVariable *p01M20D00D00D[4] = {&BuiltInVariable::kpt01M, &BuiltInVariable::kpt20D,
                                                &BuiltInVariable::kpt00D, &BuiltInVariable::kpt00D};
 constexpr const TVariable *p01M20D00E00E[4] = {&BuiltInVariable::kpt01M, &BuiltInVariable::kpt20D,
                                                &BuiltInVariable::kpt00E, &BuiltInVariable::kpt00E};
 constexpr const TVariable *p01M20D30D[3]    = {&BuiltInVariable::kpt01M, &BuiltInVariable::kpt20D,
-                                            &BuiltInVariable::kpt30D};
+                                               &BuiltInVariable::kpt30D};
 constexpr const TVariable *p01N20D00B[3]    = {&BuiltInVariable::kpt01N, &BuiltInVariable::kpt20D,
-                                            &BuiltInVariable::kpt00B};
+                                               &BuiltInVariable::kpt00B};
 constexpr const TVariable *p01N20D00D00D[4] = {&BuiltInVariable::kpt01N, &BuiltInVariable::kpt20D,
                                                &BuiltInVariable::kpt00D, &BuiltInVariable::kpt00D};
 constexpr const TVariable *p01N20D00E00E[4] = {&BuiltInVariable::kpt01N, &BuiltInVariable::kpt20D,
                                                &BuiltInVariable::kpt00E, &BuiltInVariable::kpt00E};
 constexpr const TVariable *p01N20D30D[3]    = {&BuiltInVariable::kpt01N, &BuiltInVariable::kpt20D,
-                                            &BuiltInVariable::kpt30D};
+                                               &BuiltInVariable::kpt30D};
 constexpr const TVariable *p01O00D00B[3]    = {&BuiltInVariable::kpt01O, &BuiltInVariable::kpt00D,
-                                            &BuiltInVariable::kpt00B};
+                                               &BuiltInVariable::kpt00B};
 constexpr const TVariable *p01O00D00D00D[4] = {&BuiltInVariable::kpt01O, &BuiltInVariable::kpt00D,
                                                &BuiltInVariable::kpt00D, &BuiltInVariable::kpt00D};
 constexpr const TVariable *p01O00D00E00E[4] = {&BuiltInVariable::kpt01O, &BuiltInVariable::kpt00D,
                                                &BuiltInVariable::kpt00E, &BuiltInVariable::kpt00E};
 constexpr const TVariable *p01O00D30D[3]    = {&BuiltInVariable::kpt01O, &BuiltInVariable::kpt00D,
-                                            &BuiltInVariable::kpt30D};
+                                               &BuiltInVariable::kpt30D};
 constexpr const TVariable *p01P10D00B[3]    = {&BuiltInVariable::kpt01P, &BuiltInVariable::kpt10D,
-                                            &BuiltInVariable::kpt00B};
+                                               &BuiltInVariable::kpt00B};
 constexpr const TVariable *p01P10D00D00D[4] = {&BuiltInVariable::kpt01P, &BuiltInVariable::kpt10D,
                                                &BuiltInVariable::kpt00D, &BuiltInVariable::kpt00D};
 constexpr const TVariable *p01P10D00E00E[4] = {&BuiltInVariable::kpt01P, &BuiltInVariable::kpt10D,
                                                &BuiltInVariable::kpt00E, &BuiltInVariable::kpt00E};
 constexpr const TVariable *p01P10D30D[3]    = {&BuiltInVariable::kpt01P, &BuiltInVariable::kpt10D,
-                                            &BuiltInVariable::kpt30D};
+                                               &BuiltInVariable::kpt30D};
 constexpr const TVariable *p01Q10D00D00B[4] = {&BuiltInVariable::kpt01Q, &BuiltInVariable::kpt10D,
                                                &BuiltInVariable::kpt00D, &BuiltInVariable::kpt00B};
 constexpr const TVariable *p01Q10D00D00D00D[5] = {
@@ -5534,77 +2561,77 @@ constexpr const TVariable *p01R20D00D00E00E[5] = {
 constexpr const TVariable *p01R20D00D30D[4] = {&BuiltInVariable::kpt01R, &BuiltInVariable::kpt20D,
                                                &BuiltInVariable::kpt00D, &BuiltInVariable::kpt30D};
 constexpr const TVariable *p01S20D00B[3]    = {&BuiltInVariable::kpt01S, &BuiltInVariable::kpt20D,
-                                            &BuiltInVariable::kpt00B};
+                                               &BuiltInVariable::kpt00B};
 constexpr const TVariable *p01S20D00D00D[4] = {&BuiltInVariable::kpt01S, &BuiltInVariable::kpt20D,
                                                &BuiltInVariable::kpt00D, &BuiltInVariable::kpt00D};
 constexpr const TVariable *p01S20D00E00E[4] = {&BuiltInVariable::kpt01S, &BuiltInVariable::kpt20D,
                                                &BuiltInVariable::kpt00E, &BuiltInVariable::kpt00E};
 constexpr const TVariable *p01S20D30D[3]    = {&BuiltInVariable::kpt01S, &BuiltInVariable::kpt20D,
-                                            &BuiltInVariable::kpt30D};
+                                               &BuiltInVariable::kpt30D};
 constexpr const TVariable *p01T10D00B[3]    = {&BuiltInVariable::kpt01T, &BuiltInVariable::kpt10D,
-                                            &BuiltInVariable::kpt00B};
+                                               &BuiltInVariable::kpt00B};
 constexpr const TVariable *p01T10D00D00D[4] = {&BuiltInVariable::kpt01T, &BuiltInVariable::kpt10D,
                                                &BuiltInVariable::kpt00D, &BuiltInVariable::kpt00D};
 constexpr const TVariable *p01T10D00E00E[4] = {&BuiltInVariable::kpt01T, &BuiltInVariable::kpt10D,
                                                &BuiltInVariable::kpt00E, &BuiltInVariable::kpt00E};
 constexpr const TVariable *p01T10D30D[3]    = {&BuiltInVariable::kpt01T, &BuiltInVariable::kpt10D,
-                                            &BuiltInVariable::kpt30D};
+                                               &BuiltInVariable::kpt30D};
 constexpr const TVariable *p01U00D00B[3]    = {&BuiltInVariable::kpt01U, &BuiltInVariable::kpt00D,
-                                            &BuiltInVariable::kpt00B};
+                                               &BuiltInVariable::kpt00B};
 constexpr const TVariable *p01U00D00D00D[4] = {&BuiltInVariable::kpt01U, &BuiltInVariable::kpt00D,
                                                &BuiltInVariable::kpt00D, &BuiltInVariable::kpt00D};
 constexpr const TVariable *p01U00D00E00E[4] = {&BuiltInVariable::kpt01U, &BuiltInVariable::kpt00D,
                                                &BuiltInVariable::kpt00E, &BuiltInVariable::kpt00E};
 constexpr const TVariable *p01U00D30D[3]    = {&BuiltInVariable::kpt01U, &BuiltInVariable::kpt00D,
-                                            &BuiltInVariable::kpt30D};
+                                               &BuiltInVariable::kpt30D};
 constexpr const TVariable *p01V10D00B[3]    = {&BuiltInVariable::kpt01V, &BuiltInVariable::kpt10D,
-                                            &BuiltInVariable::kpt00B};
+                                               &BuiltInVariable::kpt00B};
 constexpr const TVariable *p01V10D00D00D[4] = {&BuiltInVariable::kpt01V, &BuiltInVariable::kpt10D,
                                                &BuiltInVariable::kpt00D, &BuiltInVariable::kpt00D};
 constexpr const TVariable *p01V10D00E00E[4] = {&BuiltInVariable::kpt01V, &BuiltInVariable::kpt10D,
                                                &BuiltInVariable::kpt00E, &BuiltInVariable::kpt00E};
 constexpr const TVariable *p01V10D30E[3]    = {&BuiltInVariable::kpt01V, &BuiltInVariable::kpt10D,
-                                            &BuiltInVariable::kpt30E};
+                                               &BuiltInVariable::kpt30E};
 constexpr const TVariable *p01W20D00B[3]    = {&BuiltInVariable::kpt01W, &BuiltInVariable::kpt20D,
-                                            &BuiltInVariable::kpt00B};
+                                               &BuiltInVariable::kpt00B};
 constexpr const TVariable *p01W20D00D00D[4] = {&BuiltInVariable::kpt01W, &BuiltInVariable::kpt20D,
                                                &BuiltInVariable::kpt00D, &BuiltInVariable::kpt00D};
 constexpr const TVariable *p01W20D00E00E[4] = {&BuiltInVariable::kpt01W, &BuiltInVariable::kpt20D,
                                                &BuiltInVariable::kpt00E, &BuiltInVariable::kpt00E};
 constexpr const TVariable *p01W20D30E[3]    = {&BuiltInVariable::kpt01W, &BuiltInVariable::kpt20D,
-                                            &BuiltInVariable::kpt30E};
+                                               &BuiltInVariable::kpt30E};
 constexpr const TVariable *p01X20D00B[3]    = {&BuiltInVariable::kpt01X, &BuiltInVariable::kpt20D,
-                                            &BuiltInVariable::kpt00B};
+                                               &BuiltInVariable::kpt00B};
 constexpr const TVariable *p01X20D00D00D[4] = {&BuiltInVariable::kpt01X, &BuiltInVariable::kpt20D,
                                                &BuiltInVariable::kpt00D, &BuiltInVariable::kpt00D};
 constexpr const TVariable *p01X20D00E00E[4] = {&BuiltInVariable::kpt01X, &BuiltInVariable::kpt20D,
                                                &BuiltInVariable::kpt00E, &BuiltInVariable::kpt00E};
 constexpr const TVariable *p01X20D30E[3]    = {&BuiltInVariable::kpt01X, &BuiltInVariable::kpt20D,
-                                            &BuiltInVariable::kpt30E};
+                                               &BuiltInVariable::kpt30E};
 constexpr const TVariable *p01Y20D00B[3]    = {&BuiltInVariable::kpt01Y, &BuiltInVariable::kpt20D,
-                                            &BuiltInVariable::kpt00B};
+                                               &BuiltInVariable::kpt00B};
 constexpr const TVariable *p01Y20D00D00D[4] = {&BuiltInVariable::kpt01Y, &BuiltInVariable::kpt20D,
                                                &BuiltInVariable::kpt00D, &BuiltInVariable::kpt00D};
 constexpr const TVariable *p01Y20D00E00E[4] = {&BuiltInVariable::kpt01Y, &BuiltInVariable::kpt20D,
                                                &BuiltInVariable::kpt00E, &BuiltInVariable::kpt00E};
 constexpr const TVariable *p01Y20D30E[3]    = {&BuiltInVariable::kpt01Y, &BuiltInVariable::kpt20D,
-                                            &BuiltInVariable::kpt30E};
+                                               &BuiltInVariable::kpt30E};
 constexpr const TVariable *p01Z00D00B[3]    = {&BuiltInVariable::kpt01Z, &BuiltInVariable::kpt00D,
-                                            &BuiltInVariable::kpt00B};
+                                               &BuiltInVariable::kpt00B};
 constexpr const TVariable *p01Z00D00D00D[4] = {&BuiltInVariable::kpt01Z, &BuiltInVariable::kpt00D,
                                                &BuiltInVariable::kpt00D, &BuiltInVariable::kpt00D};
 constexpr const TVariable *p01Z00D00E00E[4] = {&BuiltInVariable::kpt01Z, &BuiltInVariable::kpt00D,
                                                &BuiltInVariable::kpt00E, &BuiltInVariable::kpt00E};
 constexpr const TVariable *p01Z00D30E[3]    = {&BuiltInVariable::kpt01Z, &BuiltInVariable::kpt00D,
-                                            &BuiltInVariable::kpt30E};
+                                               &BuiltInVariable::kpt30E};
 constexpr const TVariable *p01a10D00B[3]    = {&BuiltInVariable::kpt01a, &BuiltInVariable::kpt10D,
-                                            &BuiltInVariable::kpt00B};
+                                               &BuiltInVariable::kpt00B};
 constexpr const TVariable *p01a10D00D00D[4] = {&BuiltInVariable::kpt01a, &BuiltInVariable::kpt10D,
                                                &BuiltInVariable::kpt00D, &BuiltInVariable::kpt00D};
 constexpr const TVariable *p01a10D00E00E[4] = {&BuiltInVariable::kpt01a, &BuiltInVariable::kpt10D,
                                                &BuiltInVariable::kpt00E, &BuiltInVariable::kpt00E};
 constexpr const TVariable *p01a10D30E[3]    = {&BuiltInVariable::kpt01a, &BuiltInVariable::kpt10D,
-                                            &BuiltInVariable::kpt30E};
+                                               &BuiltInVariable::kpt30E};
 constexpr const TVariable *p01b10D00D00B[4] = {&BuiltInVariable::kpt01b, &BuiltInVariable::kpt10D,
                                                &BuiltInVariable::kpt00D, &BuiltInVariable::kpt00B};
 constexpr const TVariable *p01b10D00D00D00D[5] = {
@@ -5626,44 +2653,47 @@ constexpr const TVariable *p01c20D00D00E00E[5] = {
 constexpr const TVariable *p01c20D00D30E[4] = {&BuiltInVariable::kpt01c, &BuiltInVariable::kpt20D,
                                                &BuiltInVariable::kpt00D, &BuiltInVariable::kpt30E};
 constexpr const TVariable *p01d20D00B[3]    = {&BuiltInVariable::kpt01d, &BuiltInVariable::kpt20D,
-                                            &BuiltInVariable::kpt00B};
+                                               &BuiltInVariable::kpt00B};
 constexpr const TVariable *p01d20D00D00D[4] = {&BuiltInVariable::kpt01d, &BuiltInVariable::kpt20D,
                                                &BuiltInVariable::kpt00D, &BuiltInVariable::kpt00D};
 constexpr const TVariable *p01d20D00E00E[4] = {&BuiltInVariable::kpt01d, &BuiltInVariable::kpt20D,
                                                &BuiltInVariable::kpt00E, &BuiltInVariable::kpt00E};
 constexpr const TVariable *p01d20D30E[3]    = {&BuiltInVariable::kpt01d, &BuiltInVariable::kpt20D,
-                                            &BuiltInVariable::kpt30E};
+                                               &BuiltInVariable::kpt30E};
 constexpr const TVariable *p01e10D00B[3]    = {&BuiltInVariable::kpt01e, &BuiltInVariable::kpt10D,
-                                            &BuiltInVariable::kpt00B};
+                                               &BuiltInVariable::kpt00B};
 constexpr const TVariable *p01e10D00D00D[4] = {&BuiltInVariable::kpt01e, &BuiltInVariable::kpt10D,
                                                &BuiltInVariable::kpt00D, &BuiltInVariable::kpt00D};
 constexpr const TVariable *p01e10D00E00E[4] = {&BuiltInVariable::kpt01e, &BuiltInVariable::kpt10D,
                                                &BuiltInVariable::kpt00E, &BuiltInVariable::kpt00E};
 constexpr const TVariable *p01e10D30E[3]    = {&BuiltInVariable::kpt01e, &BuiltInVariable::kpt10D,
-                                            &BuiltInVariable::kpt30E};
+                                               &BuiltInVariable::kpt30E};
 constexpr const TVariable *p01f00D00B[3]    = {&BuiltInVariable::kpt01f, &BuiltInVariable::kpt00D,
-                                            &BuiltInVariable::kpt00B};
+                                               &BuiltInVariable::kpt00B};
 constexpr const TVariable *p01f00D00D00D[4] = {&BuiltInVariable::kpt01f, &BuiltInVariable::kpt00D,
                                                &BuiltInVariable::kpt00D, &BuiltInVariable::kpt00D};
 constexpr const TVariable *p01f00D00E00E[4] = {&BuiltInVariable::kpt01f, &BuiltInVariable::kpt00D,
                                                &BuiltInVariable::kpt00E, &BuiltInVariable::kpt00E};
 constexpr const TVariable *p01f00D30E[3]    = {&BuiltInVariable::kpt01f, &BuiltInVariable::kpt00D,
-                                            &BuiltInVariable::kpt30E};
-constexpr const TVariable *p01g[1]          = {&BuiltInVariable::kpt01g};
-constexpr const TVariable *p01h[1]          = {&BuiltInVariable::kpt01h};
-constexpr const TVariable *p01i[1]          = {&BuiltInVariable::kpt01i};
-constexpr const TVariable *p01j00D[2]       = {&BuiltInVariable::kpt01j, &BuiltInVariable::kpt00D};
-constexpr const TVariable *p01k00D[2]       = {&BuiltInVariable::kpt01k, &BuiltInVariable::kpt00D};
-constexpr const TVariable *p01l00D[2]       = {&BuiltInVariable::kpt01l, &BuiltInVariable::kpt00D};
+                                               &BuiltInVariable::kpt30E};
+constexpr const TVariable *p01g30B[2]       = {&BuiltInVariable::kpt01g, &BuiltInVariable::kpt30B};
+constexpr const TVariable *p01h30D[2]       = {&BuiltInVariable::kpt01h, &BuiltInVariable::kpt30D};
+constexpr const TVariable *p01i30E[2]       = {&BuiltInVariable::kpt01i, &BuiltInVariable::kpt30E};
+constexpr const TVariable *p01j[1]          = {&BuiltInVariable::kpt01j};
+constexpr const TVariable *p01k[1]          = {&BuiltInVariable::kpt01k};
+constexpr const TVariable *p01l[1]          = {&BuiltInVariable::kpt01l};
+constexpr const TVariable *p01m00D[2]       = {&BuiltInVariable::kpt01m, &BuiltInVariable::kpt00D};
+constexpr const TVariable *p01n00D[2]       = {&BuiltInVariable::kpt01n, &BuiltInVariable::kpt00D};
+constexpr const TVariable *p01o00D[2]       = {&BuiltInVariable::kpt01o, &BuiltInVariable::kpt00D};
 constexpr const TVariable *p10B00B00B[3]    = {&BuiltInVariable::kpt10B, &BuiltInVariable::kpt00B,
-                                            &BuiltInVariable::kpt00B};
+                                               &BuiltInVariable::kpt00B};
 constexpr const TVariable *p10B00D[2]       = {&BuiltInVariable::kpt10B, &BuiltInVariable::kpt00D};
 constexpr const TVariable *p10B10B00B[3]    = {&BuiltInVariable::kpt10B, &BuiltInVariable::kpt10B,
-                                            &BuiltInVariable::kpt00B};
+                                               &BuiltInVariable::kpt00B};
 constexpr const TVariable *p10B10B10B[3]    = {&BuiltInVariable::kpt10B, &BuiltInVariable::kpt10B,
-                                            &BuiltInVariable::kpt10B};
+                                               &BuiltInVariable::kpt10B};
 constexpr const TVariable *p10B10B10F[3]    = {&BuiltInVariable::kpt10B, &BuiltInVariable::kpt10B,
-                                            &BuiltInVariable::kpt10F};
+                                               &BuiltInVariable::kpt10F};
 constexpr const TVariable *p10B10D[2]       = {&BuiltInVariable::kpt10B, &BuiltInVariable::kpt10D};
 constexpr const TVariable *p10B20B[2]       = {&BuiltInVariable::kpt10B, &BuiltInVariable::kpt20B};
 constexpr const TVariable *p10B30B[2]       = {&BuiltInVariable::kpt10B, &BuiltInVariable::kpt30B};
@@ -5687,22 +2717,22 @@ constexpr const TVariable *p10D00D00D[3] = {&BuiltInVariable::kpt10D, &BuiltInVa
 constexpr const TVariable *p10D10D00D00D[4] = {&BuiltInVariable::kpt10D, &BuiltInVariable::kpt10D,
                                                &BuiltInVariable::kpt00D, &BuiltInVariable::kpt00D};
 constexpr const TVariable *p10D10D10D[3]    = {&BuiltInVariable::kpt10D, &BuiltInVariable::kpt10D,
-                                            &BuiltInVariable::kpt10D};
+                                               &BuiltInVariable::kpt10D};
 constexpr const TVariable *p10D10D10F[3]    = {&BuiltInVariable::kpt10D, &BuiltInVariable::kpt10D,
-                                            &BuiltInVariable::kpt10F};
+                                               &BuiltInVariable::kpt10F};
 constexpr const TVariable *p10D10D_o_10D_o_10D[4] = {
     &BuiltInVariable::kpt10D, &BuiltInVariable::kpt10D, &BuiltInVariable::kpt_o_10D,
     &BuiltInVariable::kpt_o_10D};
 constexpr const TVariable *p10E00D00D[3]    = {&BuiltInVariable::kpt10E, &BuiltInVariable::kpt00D,
-                                            &BuiltInVariable::kpt00D};
+                                               &BuiltInVariable::kpt00D};
 constexpr const TVariable *p10E00E00E[3]    = {&BuiltInVariable::kpt10E, &BuiltInVariable::kpt00E,
-                                            &BuiltInVariable::kpt00E};
+                                               &BuiltInVariable::kpt00E};
 constexpr const TVariable *p10E10E00D00D[4] = {&BuiltInVariable::kpt10E, &BuiltInVariable::kpt10E,
                                                &BuiltInVariable::kpt00D, &BuiltInVariable::kpt00D};
 constexpr const TVariable *p10E10E10E[3]    = {&BuiltInVariable::kpt10E, &BuiltInVariable::kpt10E,
-                                            &BuiltInVariable::kpt10E};
+                                               &BuiltInVariable::kpt10E};
 constexpr const TVariable *p10E10E10F[3]    = {&BuiltInVariable::kpt10E, &BuiltInVariable::kpt10E,
-                                            &BuiltInVariable::kpt10F};
+                                               &BuiltInVariable::kpt10F};
 constexpr const TVariable *p10E10E_o_10E_o_10E[4] = {
     &BuiltInVariable::kpt10E, &BuiltInVariable::kpt10E, &BuiltInVariable::kpt_o_10E,
     &BuiltInVariable::kpt_o_10E};
@@ -5741,22 +2771,22 @@ constexpr const TVariable *p20D00D00D[3] = {&BuiltInVariable::kpt20D, &BuiltInVa
 constexpr const TVariable *p20D20D00D00D[4] = {&BuiltInVariable::kpt20D, &BuiltInVariable::kpt20D,
                                                &BuiltInVariable::kpt00D, &BuiltInVariable::kpt00D};
 constexpr const TVariable *p20D20D20D[3]    = {&BuiltInVariable::kpt20D, &BuiltInVariable::kpt20D,
-                                            &BuiltInVariable::kpt20D};
+                                               &BuiltInVariable::kpt20D};
 constexpr const TVariable *p20D20D20F[3]    = {&BuiltInVariable::kpt20D, &BuiltInVariable::kpt20D,
-                                            &BuiltInVariable::kpt20F};
+                                               &BuiltInVariable::kpt20F};
 constexpr const TVariable *p20D20D_o_20D_o_20D[4] = {
     &BuiltInVariable::kpt20D, &BuiltInVariable::kpt20D, &BuiltInVariable::kpt_o_20D,
     &BuiltInVariable::kpt_o_20D};
 constexpr const TVariable *p20E00D00D[3]    = {&BuiltInVariable::kpt20E, &BuiltInVariable::kpt00D,
-                                            &BuiltInVariable::kpt00D};
+                                               &BuiltInVariable::kpt00D};
 constexpr const TVariable *p20E00E00E[3]    = {&BuiltInVariable::kpt20E, &BuiltInVariable::kpt00E,
-                                            &BuiltInVariable::kpt00E};
+                                               &BuiltInVariable::kpt00E};
 constexpr const TVariable *p20E20E00D00D[4] = {&BuiltInVariable::kpt20E, &BuiltInVariable::kpt20E,
                                                &BuiltInVariable::kpt00D, &BuiltInVariable::kpt00D};
 constexpr const TVariable *p20E20E20E[3]    = {&BuiltInVariable::kpt20E, &BuiltInVariable::kpt20E,
-                                            &BuiltInVariable::kpt20E};
+                                               &BuiltInVariable::kpt20E};
 constexpr const TVariable *p20E20E20F[3]    = {&BuiltInVariable::kpt20E, &BuiltInVariable::kpt20E,
-                                            &BuiltInVariable::kpt20F};
+                                               &BuiltInVariable::kpt20F};
 constexpr const TVariable *p20E20E_o_20E_o_20E[4] = {
     &BuiltInVariable::kpt20E, &BuiltInVariable::kpt20E, &BuiltInVariable::kpt_o_20E,
     &BuiltInVariable::kpt_o_20E};
@@ -5794,27 +2824,27 @@ constexpr const TVariable *p30D00D00D[3] = {&BuiltInVariable::kpt30D, &BuiltInVa
 constexpr const TVariable *p30D30D00D00D[4] = {&BuiltInVariable::kpt30D, &BuiltInVariable::kpt30D,
                                                &BuiltInVariable::kpt00D, &BuiltInVariable::kpt00D};
 constexpr const TVariable *p30D30D30D[3]    = {&BuiltInVariable::kpt30D, &BuiltInVariable::kpt30D,
-                                            &BuiltInVariable::kpt30D};
+                                               &BuiltInVariable::kpt30D};
 constexpr const TVariable *p30D30D30F[3]    = {&BuiltInVariable::kpt30D, &BuiltInVariable::kpt30D,
-                                            &BuiltInVariable::kpt30F};
+                                               &BuiltInVariable::kpt30F};
 constexpr const TVariable *p30D30D_o_30D_o_30D[4] = {
     &BuiltInVariable::kpt30D, &BuiltInVariable::kpt30D, &BuiltInVariable::kpt_o_30D,
     &BuiltInVariable::kpt_o_30D};
 constexpr const TVariable *p30E00D00D[3]    = {&BuiltInVariable::kpt30E, &BuiltInVariable::kpt00D,
-                                            &BuiltInVariable::kpt00D};
+                                               &BuiltInVariable::kpt00D};
 constexpr const TVariable *p30E00E00E[3]    = {&BuiltInVariable::kpt30E, &BuiltInVariable::kpt00E,
-                                            &BuiltInVariable::kpt00E};
+                                               &BuiltInVariable::kpt00E};
 constexpr const TVariable *p30E30E00D00D[4] = {&BuiltInVariable::kpt30E, &BuiltInVariable::kpt30E,
                                                &BuiltInVariable::kpt00D, &BuiltInVariable::kpt00D};
 constexpr const TVariable *p30E30E30E[3]    = {&BuiltInVariable::kpt30E, &BuiltInVariable::kpt30E,
-                                            &BuiltInVariable::kpt30E};
+                                               &BuiltInVariable::kpt30E};
 constexpr const TVariable *p30E30E30F[3]    = {&BuiltInVariable::kpt30E, &BuiltInVariable::kpt30E,
-                                            &BuiltInVariable::kpt30F};
+                                               &BuiltInVariable::kpt30F};
 constexpr const TVariable *p30E30E_o_30E_o_30E[4] = {
     &BuiltInVariable::kpt30E, &BuiltInVariable::kpt30E, &BuiltInVariable::kpt_o_30E,
     &BuiltInVariable::kpt_o_30E};
 constexpr const TVariable *p30F30F30F[3]     = {&BuiltInVariable::kpt30F, &BuiltInVariable::kpt30F,
-                                            &BuiltInVariable::kpt30F};
+                                                &BuiltInVariable::kpt30F};
 constexpr const TVariable *p50B50B[2]        = {&BuiltInVariable::kpt50B, &BuiltInVariable::kpt50B};
 constexpr const TVariable *p60B60B[2]        = {&BuiltInVariable::kpt60B, &BuiltInVariable::kpt60B};
 constexpr const TVariable *p70B70B[2]        = {&BuiltInVariable::kpt70B, &BuiltInVariable::kpt70B};
@@ -29511,6 +26541,105 @@ constexpr const TFunction imageAtomicCompSwapExt_01c20D00D00D00D(
     StaticType::Get<EbtInt, EbpUndefined, EvqGlobal, 1, 1>(),
     EOpImageAtomicCompSwap,
     false);
+constexpr const TFunction pixelLocalLoadANGLE_01g(
+    BuiltInId::pixelLocalLoadANGLE_PixelLocalANGLE1,
+    BuiltInName::pixelLocalLoadANGLE,
+    std::array<TExtension, 1u>{{TExtension::ANGLE_shader_pixel_local_storage}},
+    BuiltInParameters::p01g30B,
+    1,
+    StaticType::Get<EbtFloat, EbpUndefined, EvqGlobal, 4, 1>(),
+    EOpPixelLocalLoadANGLE,
+    false);
+constexpr const TFunction pixelLocalLoadANGLE_01h(
+    BuiltInId::pixelLocalLoadANGLE_IPixelLocalANGLE1,
+    BuiltInName::pixelLocalLoadANGLE,
+    std::array<TExtension, 1u>{{TExtension::ANGLE_shader_pixel_local_storage}},
+    BuiltInParameters::p01h30D,
+    1,
+    StaticType::Get<EbtInt, EbpUndefined, EvqGlobal, 4, 1>(),
+    EOpPixelLocalLoadANGLE,
+    false);
+constexpr const TFunction pixelLocalLoadANGLE_01i(
+    BuiltInId::pixelLocalLoadANGLE_UPixelLocalANGLE1,
+    BuiltInName::pixelLocalLoadANGLE,
+    std::array<TExtension, 1u>{{TExtension::ANGLE_shader_pixel_local_storage}},
+    BuiltInParameters::p01i30E,
+    1,
+    StaticType::Get<EbtUInt, EbpUndefined, EvqGlobal, 4, 1>(),
+    EOpPixelLocalLoadANGLE,
+    false);
+constexpr const TFunction pixelLocalStoreANGLE_01g30B(
+    BuiltInId::pixelLocalStoreANGLE_PixelLocalANGLE1_Float4,
+    BuiltInName::pixelLocalStoreANGLE,
+    std::array<TExtension, 1u>{{TExtension::ANGLE_shader_pixel_local_storage}},
+    BuiltInParameters::p01g30B,
+    2,
+    StaticType::Get<EbtVoid, EbpUndefined, EvqGlobal, 1, 1>(),
+    EOpPixelLocalStoreANGLE,
+    false);
+constexpr const TFunction pixelLocalStoreANGLE_01h30D(
+    BuiltInId::pixelLocalStoreANGLE_IPixelLocalANGLE1_Int4,
+    BuiltInName::pixelLocalStoreANGLE,
+    std::array<TExtension, 1u>{{TExtension::ANGLE_shader_pixel_local_storage}},
+    BuiltInParameters::p01h30D,
+    2,
+    StaticType::Get<EbtVoid, EbpUndefined, EvqGlobal, 1, 1>(),
+    EOpPixelLocalStoreANGLE,
+    false);
+constexpr const TFunction pixelLocalStoreANGLE_01i30E(
+    BuiltInId::pixelLocalStoreANGLE_UPixelLocalANGLE1_UInt4,
+    BuiltInName::pixelLocalStoreANGLE,
+    std::array<TExtension, 1u>{{TExtension::ANGLE_shader_pixel_local_storage}},
+    BuiltInParameters::p01i30E,
+    2,
+    StaticType::Get<EbtVoid, EbpUndefined, EvqGlobal, 1, 1>(),
+    EOpPixelLocalStoreANGLE,
+    false);
+constexpr const TFunction beginInvocationInterlockNV_(
+    BuiltInId::beginInvocationInterlockNV,
+    BuiltInName::beginInvocationInterlockNV,
+    std::array<TExtension, 1u>{{TExtension::UNDEFINED}},
+    BuiltInParameters::empty,
+    0,
+    StaticType::Get<EbtVoid, EbpUndefined, EvqGlobal, 1, 1>(),
+    EOpBeginInvocationInterlockNV,
+    false);
+constexpr const TFunction endInvocationInterlockNV_(
+    BuiltInId::endInvocationInterlockNV,
+    BuiltInName::endInvocationInterlockNV,
+    std::array<TExtension, 1u>{{TExtension::UNDEFINED}},
+    BuiltInParameters::empty,
+    0,
+    StaticType::Get<EbtVoid, EbpUndefined, EvqGlobal, 1, 1>(),
+    EOpEndInvocationInterlockNV,
+    false);
+constexpr const TFunction beginFragmentShaderOrderingINTEL_(
+    BuiltInId::beginFragmentShaderOrderingINTEL,
+    BuiltInName::beginFragmentShaderOrderingINTEL,
+    std::array<TExtension, 1u>{{TExtension::UNDEFINED}},
+    BuiltInParameters::empty,
+    0,
+    StaticType::Get<EbtVoid, EbpUndefined, EvqGlobal, 1, 1>(),
+    EOpBeginFragmentShaderOrderingINTEL,
+    false);
+constexpr const TFunction beginInvocationInterlockARB_(
+    BuiltInId::beginInvocationInterlockARB,
+    BuiltInName::beginInvocationInterlockARB,
+    std::array<TExtension, 1u>{{TExtension::UNDEFINED}},
+    BuiltInParameters::empty,
+    0,
+    StaticType::Get<EbtVoid, EbpUndefined, EvqGlobal, 1, 1>(),
+    EOpBeginInvocationInterlockARB,
+    false);
+constexpr const TFunction endInvocationInterlockARB_(
+    BuiltInId::endInvocationInterlockARB,
+    BuiltInName::endInvocationInterlockARB,
+    std::array<TExtension, 1u>{{TExtension::UNDEFINED}},
+    BuiltInParameters::empty,
+    0,
+    StaticType::Get<EbtVoid, EbpUndefined, EvqGlobal, 1, 1>(),
+    EOpEndInvocationInterlockARB,
+    false);
 constexpr const TFunction noise1_00B(BuiltInId::noise1_Float1,
                                      BuiltInName::noise1,
                                      std::array<TExtension, 1u>{{TExtension::UNDEFINED}},
@@ -29772,54 +26901,54 @@ constexpr const TFunction EndStreamPrimitive_00D(
     StaticType::Get<EbtVoid, EbpUndefined, EvqGlobal, 1, 1>(),
     EOpEndStreamPrimitive,
     false);
-constexpr const TFunction subpassLoad_01g(
+constexpr const TFunction subpassLoad_01j(
     BuiltInId::subpassLoad_SubpassInput1,
     BuiltInName::subpassLoad,
     std::array<TExtension, 1u>{{TExtension::UNDEFINED}},
-    BuiltInParameters::p01g,
+    BuiltInParameters::p01j,
     1,
     StaticType::Get<EbtFloat, EbpUndefined, EvqGlobal, 4, 1>(),
     EOpSubpassLoad,
     false);
-constexpr const TFunction subpassLoad_01h(BuiltInId::subpassLoad_ISubpassInput1,
+constexpr const TFunction subpassLoad_01k(BuiltInId::subpassLoad_ISubpassInput1,
                                           BuiltInName::subpassLoad,
                                           std::array<TExtension, 1u>{{TExtension::UNDEFINED}},
-                                          BuiltInParameters::p01h,
+                                          BuiltInParameters::p01k,
                                           1,
                                           StaticType::Get<EbtInt, EbpUndefined, EvqGlobal, 4, 1>(),
                                           EOpSubpassLoad,
                                           false);
-constexpr const TFunction subpassLoad_01i(BuiltInId::subpassLoad_USubpassInput1,
+constexpr const TFunction subpassLoad_01l(BuiltInId::subpassLoad_USubpassInput1,
                                           BuiltInName::subpassLoad,
                                           std::array<TExtension, 1u>{{TExtension::UNDEFINED}},
-                                          BuiltInParameters::p01i,
+                                          BuiltInParameters::p01l,
                                           1,
                                           StaticType::Get<EbtUInt, EbpUndefined, EvqGlobal, 4, 1>(),
                                           EOpSubpassLoad,
                                           false);
-constexpr const TFunction subpassLoad_01j00D(
+constexpr const TFunction subpassLoad_01m00D(
     BuiltInId::subpassLoad_SubpassInputMS1_Int1,
     BuiltInName::subpassLoad,
     std::array<TExtension, 1u>{{TExtension::UNDEFINED}},
-    BuiltInParameters::p01j00D,
+    BuiltInParameters::p01m00D,
     2,
     StaticType::Get<EbtFloat, EbpUndefined, EvqGlobal, 4, 1>(),
     EOpSubpassLoad,
     false);
-constexpr const TFunction subpassLoad_01k00D(
+constexpr const TFunction subpassLoad_01n00D(
     BuiltInId::subpassLoad_ISubpassInputMS1_Int1,
     BuiltInName::subpassLoad,
     std::array<TExtension, 1u>{{TExtension::UNDEFINED}},
-    BuiltInParameters::p01k00D,
+    BuiltInParameters::p01n00D,
     2,
     StaticType::Get<EbtInt, EbpUndefined, EvqGlobal, 4, 1>(),
     EOpSubpassLoad,
     false);
-constexpr const TFunction subpassLoad_01l00D(
+constexpr const TFunction subpassLoad_01o00D(
     BuiltInId::subpassLoad_USubpassInputMS1_Int1,
     BuiltInName::subpassLoad,
     std::array<TExtension, 1u>{{TExtension::UNDEFINED}},
-    BuiltInParameters::p01l00D,
+    BuiltInParameters::p01o00D,
     2,
     StaticType::Get<EbtUInt, EbpUndefined, EvqGlobal, 4, 1>(),
     EOpSubpassLoad,
@@ -29851,6 +26980,55 @@ constexpr const TFunction allInvocationsEqual_00F(
     StaticType::Get<EbtBool, EbpUndefined, EvqGlobal, 1, 1>(),
     EOpAllInvocationsEqual,
     false);
+constexpr const TFunction numSamples_(BuiltInId::numSamples,
+                                      BuiltInName::numSamples,
+                                      std::array<TExtension, 1u>{{TExtension::UNDEFINED}},
+                                      BuiltInParameters::empty,
+                                      0,
+                                      StaticType::Get<EbtUInt, EbpUndefined, EvqGlobal, 1, 1>(),
+                                      EOpNumSamples,
+                                      false);
+constexpr const TFunction samplePosition_00E(
+    BuiltInId::samplePosition_UInt1,
+    BuiltInName::samplePosition,
+    std::array<TExtension, 1u>{{TExtension::UNDEFINED}},
+    BuiltInParameters::p00E00D00D,
+    1,
+    StaticType::Get<EbtFloat, EbpUndefined, EvqGlobal, 2, 1>(),
+    EOpSamplePosition,
+    false);
+constexpr const TFunction saturate_00B(BuiltInId::saturate_Float1,
+                                       BuiltInName::saturate,
+                                       std::array<TExtension, 1u>{{TExtension::UNDEFINED}},
+                                       BuiltInParameters::p00B00B00B,
+                                       1,
+                                       StaticType::Get<EbtFloat, EbpUndefined, EvqGlobal, 1, 1>(),
+                                       EOpSaturate,
+                                       false);
+constexpr const TFunction saturate_10B(BuiltInId::saturate_Float2,
+                                       BuiltInName::saturate,
+                                       std::array<TExtension, 1u>{{TExtension::UNDEFINED}},
+                                       BuiltInParameters::p10B00B00B,
+                                       1,
+                                       StaticType::Get<EbtFloat, EbpUndefined, EvqGlobal, 2, 1>(),
+                                       EOpSaturate,
+                                       false);
+constexpr const TFunction saturate_20B(BuiltInId::saturate_Float3,
+                                       BuiltInName::saturate,
+                                       std::array<TExtension, 1u>{{TExtension::UNDEFINED}},
+                                       BuiltInParameters::p20B00B00B,
+                                       1,
+                                       StaticType::Get<EbtFloat, EbpUndefined, EvqGlobal, 3, 1>(),
+                                       EOpSaturate,
+                                       false);
+constexpr const TFunction saturate_30B(BuiltInId::saturate_Float4,
+                                       BuiltInName::saturate,
+                                       std::array<TExtension, 1u>{{TExtension::UNDEFINED}},
+                                       BuiltInParameters::p30B00B00B,
+                                       1,
+                                       StaticType::Get<EbtFloat, EbpUndefined, EvqGlobal, 4, 1>(),
+                                       EOpSaturate,
+                                       false);
 
 }  // namespace Func
 
@@ -34758,6 +31936,27 @@ constexpr SymbolRule kRules[] = {
     Rule::Get<Spec::GLSL, 420, Shader::ALL, 0>(&imageAtomicCompSwap_01c20D00D00D00D),
     Rule::Get<Spec::ESSL, 310, Shader::ALL, EXT_INDEX(OES_shader_image_atomic)>(
         &imageAtomicCompSwapExt_01c20D00D00D00D),
+    Rule::Get<Spec::ESSL, 300, Shader::ALL, EXT_INDEX(ANGLE_shader_pixel_local_storage)>(
+        &pixelLocalLoadANGLE_01g),
+    Rule::Get<Spec::ESSL, 300, Shader::ALL, EXT_INDEX(ANGLE_shader_pixel_local_storage)>(
+        &pixelLocalLoadANGLE_01h),
+    Rule::Get<Spec::ESSL, 300, Shader::ALL, EXT_INDEX(ANGLE_shader_pixel_local_storage)>(
+        &pixelLocalLoadANGLE_01i),
+    Rule::Get<Spec::ESSL, 300, Shader::ALL, EXT_INDEX(ANGLE_shader_pixel_local_storage)>(
+        &pixelLocalStoreANGLE_01g30B),
+    Rule::Get<Spec::ESSL, 300, Shader::ALL, EXT_INDEX(ANGLE_shader_pixel_local_storage)>(
+        &pixelLocalStoreANGLE_01h30D),
+    Rule::Get<Spec::ESSL, 300, Shader::ALL, EXT_INDEX(ANGLE_shader_pixel_local_storage)>(
+        &pixelLocalStoreANGLE_01i30E),
+    Rule::Get<Spec::ESSL, kESSLInternalBackendBuiltIns, Shader::ALL, 0>(
+        &beginInvocationInterlockNV_),
+    Rule::Get<Spec::ESSL, kESSLInternalBackendBuiltIns, Shader::ALL, 0>(&endInvocationInterlockNV_),
+    Rule::Get<Spec::ESSL, kESSLInternalBackendBuiltIns, Shader::ALL, 0>(
+        &beginFragmentShaderOrderingINTEL_),
+    Rule::Get<Spec::ESSL, kESSLInternalBackendBuiltIns, Shader::ALL, 0>(
+        &beginInvocationInterlockARB_),
+    Rule::Get<Spec::ESSL, kESSLInternalBackendBuiltIns, Shader::ALL, 0>(
+        &endInvocationInterlockARB_),
     Rule::Get<Spec::GLSL, 0, Shader::ALL, 0>(&noise1_00B),
     Rule::Get<Spec::GLSL, 0, Shader::ALL, 0>(&noise1_10B),
     Rule::Get<Spec::GLSL, 0, Shader::ALL, 0>(&noise1_20B),
@@ -34801,21 +32000,27 @@ constexpr SymbolRule kRules[] = {
     Rule::Get<Spec::ESSL, 310, Shader::GEOMETRY, EXT_INDEX(OES_geometry_shader)>(&EndPrimitive_),
     Rule::Get<Spec::GLSL, 400, Shader::GEOMETRY, 0>(&EmitStreamVertex_00D),
     Rule::Get<Spec::GLSL, 400, Shader::GEOMETRY, 0>(&EndStreamPrimitive_00D),
-    Rule::Get<Spec::ESSL, kESSLVulkanOnly, Shader::ALL, 0>(&subpassLoad_01g),
-    Rule::Get<Spec::GLSL, 460, Shader::ALL, 0>(&subpassLoad_01g),
-    Rule::Get<Spec::ESSL, kESSLVulkanOnly, Shader::ALL, 0>(&subpassLoad_01h),
-    Rule::Get<Spec::GLSL, 460, Shader::ALL, 0>(&subpassLoad_01h),
-    Rule::Get<Spec::ESSL, kESSLVulkanOnly, Shader::ALL, 0>(&subpassLoad_01i),
-    Rule::Get<Spec::GLSL, 460, Shader::ALL, 0>(&subpassLoad_01i),
-    Rule::Get<Spec::ESSL, kESSLVulkanOnly, Shader::ALL, 0>(&subpassLoad_01j00D),
-    Rule::Get<Spec::GLSL, 460, Shader::ALL, 0>(&subpassLoad_01j00D),
-    Rule::Get<Spec::ESSL, kESSLVulkanOnly, Shader::ALL, 0>(&subpassLoad_01k00D),
-    Rule::Get<Spec::GLSL, 460, Shader::ALL, 0>(&subpassLoad_01k00D),
-    Rule::Get<Spec::ESSL, kESSLVulkanOnly, Shader::ALL, 0>(&subpassLoad_01l00D),
-    Rule::Get<Spec::GLSL, 460, Shader::ALL, 0>(&subpassLoad_01l00D),
+    Rule::Get<Spec::ESSL, kESSLInternalBackendBuiltIns, Shader::ALL, 0>(&subpassLoad_01j),
+    Rule::Get<Spec::GLSL, 460, Shader::ALL, 0>(&subpassLoad_01j),
+    Rule::Get<Spec::ESSL, kESSLInternalBackendBuiltIns, Shader::ALL, 0>(&subpassLoad_01k),
+    Rule::Get<Spec::GLSL, 460, Shader::ALL, 0>(&subpassLoad_01k),
+    Rule::Get<Spec::ESSL, kESSLInternalBackendBuiltIns, Shader::ALL, 0>(&subpassLoad_01l),
+    Rule::Get<Spec::GLSL, 460, Shader::ALL, 0>(&subpassLoad_01l),
+    Rule::Get<Spec::ESSL, kESSLInternalBackendBuiltIns, Shader::ALL, 0>(&subpassLoad_01m00D),
+    Rule::Get<Spec::GLSL, 460, Shader::ALL, 0>(&subpassLoad_01m00D),
+    Rule::Get<Spec::ESSL, kESSLInternalBackendBuiltIns, Shader::ALL, 0>(&subpassLoad_01n00D),
+    Rule::Get<Spec::GLSL, 460, Shader::ALL, 0>(&subpassLoad_01n00D),
+    Rule::Get<Spec::ESSL, kESSLInternalBackendBuiltIns, Shader::ALL, 0>(&subpassLoad_01o00D),
+    Rule::Get<Spec::GLSL, 460, Shader::ALL, 0>(&subpassLoad_01o00D),
     Rule::Get<Spec::GLSL, 460, Shader::ALL, 0>(&anyInvocation_00F),
     Rule::Get<Spec::GLSL, 460, Shader::ALL, 0>(&allInvocations_00F),
     Rule::Get<Spec::GLSL, 460, Shader::ALL, 0>(&allInvocationsEqual_00F),
+    Rule::Get<Spec::ESSL, kESSLInternalBackendBuiltIns, Shader::ALL, 0>(&numSamples_),
+    Rule::Get<Spec::ESSL, kESSLInternalBackendBuiltIns, Shader::ALL, 0>(&samplePosition_00E),
+    Rule::Get<Spec::ESSL, kESSLInternalBackendBuiltIns, Shader::ALL, 0>(&saturate_00B),
+    Rule::Get<Spec::ESSL, kESSLInternalBackendBuiltIns, Shader::ALL, 0>(&saturate_10B),
+    Rule::Get<Spec::ESSL, kESSLInternalBackendBuiltIns, Shader::ALL, 0>(&saturate_20B),
+    Rule::Get<Spec::ESSL, kESSLInternalBackendBuiltIns, Shader::ALL, 0>(&saturate_30B),
     Rule::Get<Spec::ESSL, 0, Shader::ALL, 0>(&TableBase::m_gl_DepthRangeParameters),
     Rule::Get<Spec::GLSL, 0, Shader::ALL, 0>(&TableBase::m_gl_DepthRangeParameters),
     Rule::Get<Spec::ESSL, 0, Shader::ALL, 0>(&TableBase::m_gl_DepthRange),
@@ -35045,9 +32250,17 @@ constexpr SymbolRule kRules[] = {
     Rule::Get<Spec::ESSL, 0, Shader::ALL, EXT_INDEX(APPLE_clip_distance)>(
         &TableBase::m_gl_MaxClipDistancesAPPLE),
     Rule::Get<Spec::ESSL, 300, Shader::ALL, EXT_INDEX(EXT_clip_cull_distance)>(
-        &TableBase::m_gl_MaxCullDistancesEXT),
+        &TableBase::m_gl_MaxClipDistances),
+    Rule::Get<Spec::ESSL, 300, Shader::ALL, EXT_INDEX(ANGLE_clip_cull_distance)>(
+        &TableBase::m_gl_MaxClipDistances),
     Rule::Get<Spec::ESSL, 300, Shader::ALL, EXT_INDEX(EXT_clip_cull_distance)>(
-        &TableBase::m_gl_MaxCombinedClipAndCullDistancesEXT),
+        &TableBase::m_gl_MaxCullDistances),
+    Rule::Get<Spec::ESSL, 300, Shader::ALL, EXT_INDEX(ANGLE_clip_cull_distance)>(
+        &TableBase::m_gl_MaxCullDistances),
+    Rule::Get<Spec::ESSL, 300, Shader::ALL, EXT_INDEX(EXT_clip_cull_distance)>(
+        &TableBase::m_gl_MaxCombinedClipAndCullDistances),
+    Rule::Get<Spec::ESSL, 300, Shader::ALL, EXT_INDEX(ANGLE_clip_cull_distance)>(
+        &TableBase::m_gl_MaxCombinedClipAndCullDistances),
     Rule::Get<Spec::ESSL, 100, Shader::FRAGMENT, 0>(&BuiltInVariable::kgl_FragCoord),
     Rule::Get<Spec::GLSL, 0, Shader::FRAGMENT, 0>(&BuiltInVariable::kgl_FragCoord),
     Rule::Get<Spec::ESSL, 300, Shader::FRAGMENT, 0>(&BuiltInVariable::kgl_FragCoord300),
@@ -35080,7 +32293,7 @@ constexpr SymbolRule kRules[] = {
         &TableBase::m_gl_LastFragDataNV),
     Rule::Get<Spec::ESSL, 100, Shader::FRAGMENT, EXT_INDEX(NV_shader_framebuffer_fetch)>(
         &BuiltInVariable::kgl_LastFragColor),
-    Rule::Get<Spec::ESSL, 100, Shader::FRAGMENT, EXT_INDEX(ARM_shader_framebuffer_fetch)>(
+    Rule::Get<Spec::ESSL, 0, Shader::FRAGMENT, EXT_INDEX(ARM_shader_framebuffer_fetch)>(
         &BuiltInVariable::kgl_LastFragColorARM),
     Rule::Get<Spec::ESSL, 320, Shader::FRAGMENT, 0>(&BuiltInVariable::kgl_PrimitiveIDES3_2),
     Rule::Get<Spec::GLSL, 0, Shader::FRAGMENT, 0>(&BuiltInVariable::kgl_PrimitiveIDES3_2),
@@ -35134,14 +32347,6 @@ constexpr SymbolRule kRules[] = {
     Rule::Get<Spec::GLSL, 0, Shader::FRAGMENT, 0>(&TableBase::m_gl_SampleMaskES3_2),
     Rule::Get<Spec::ESSL, 300, Shader::FRAGMENT, EXT_INDEX(OES_sample_variables)>(
         &TableBase::m_gl_SampleMask),
-    Rule::Get<Spec::ESSL, 300, Shader::FRAGMENT, EXT_INDEX(EXT_clip_cull_distance)>(
-        &TableBase::m_gl_CullDistance),
-    Rule::Get<Spec::ESSL, 300, Shader::VERTEX, EXT_INDEX(EXT_clip_cull_distance)>(
-        &TableBase::m_gl_CullDistanceEXT),
-    Rule::Get<Spec::ESSL, 300, Shader::FRAGMENT, EXT_INDEX(EXT_clip_cull_distance)>(
-        &TableBase::m_gl_ClipDistance),
-    Rule::Get<Spec::ESSL, 0, Shader::VERTEX, EXT_INDEX(APPLE_clip_distance)>(
-        &TableBase::m_gl_ClipDistanceAPPLE),
     Rule::Get<Spec::ESSL, 0, Shader::VERTEX, 0>(&BuiltInVariable::kgl_Position),
     Rule::Get<Spec::GLSL, 0, Shader::VERTEX, 0>(&BuiltInVariable::kgl_Position),
     Rule::Get<Spec::ESSL, 320, Shader::GEOMETRY_EXT, 0>(&TableBase::m_gl_PositionGSES3_2),
@@ -35188,6 +32393,12 @@ constexpr SymbolRule kRules[] = {
               Shader::VERTEX,
               EXT_INDEX(ANGLE_base_vertex_base_instance_shader_builtin)>(
         &BuiltInVariable::kangle_BaseInstance),
+    Rule::Get<Spec::ESSL, 0, Shader::VERTEX, EXT_INDEX(APPLE_clip_distance)>(
+        &TableBase::m_gl_ClipDistanceAPPLE),
+    Rule::Get<Spec::ESSL, 300, Shader::NOT_COMPUTE, EXT_INDEX(EXT_clip_cull_distance)>(
+        &TableBase::m_gl_ClipDistance),
+    Rule::Get<Spec::ESSL, 300, Shader::NOT_COMPUTE, EXT_INDEX(ANGLE_clip_cull_distance)>(
+        &TableBase::m_gl_ClipDistance),
     Rule::Get<Spec::ESSL, 310, Shader::COMPUTE, 0>(&BuiltInVariable::kgl_NumWorkGroups),
     Rule::Get<Spec::GLSL, 0, Shader::COMPUTE, 0>(&BuiltInVariable::kgl_NumWorkGroups),
     Rule::Get<Spec::ESSL, 310, Shader::COMPUTE, 0>(&BuiltInVariable::kgl_WorkGroupSize),
@@ -35305,7 +32516,11 @@ constexpr SymbolRule kRules[] = {
     Rule::Get<Spec::ESSL, 310, Shader::TESS_EVALUATION_EXT, 0>(&BuiltInVariable::kgl_TessCoord),
     Rule::Get<Spec::GLSL, 0, Shader::TESS_EVALUATION_EXT, 0>(&BuiltInVariable::kgl_TessCoord),
     Rule::Get<Spec::ESSL, 300, Shader::NOT_COMPUTE, EXT_INDEX(OVR_multiview)>(
-        &BuiltInVariable::kgl_ViewID_OVR)};
+        &BuiltInVariable::kgl_ViewID_OVR),
+    Rule::Get<Spec::ESSL, 300, Shader::NOT_COMPUTE, EXT_INDEX(EXT_clip_cull_distance)>(
+        &TableBase::m_gl_CullDistance),
+    Rule::Get<Spec::ESSL, 300, Shader::NOT_COMPUTE, EXT_INDEX(ANGLE_clip_cull_distance)>(
+        &TableBase::m_gl_CullDistance)};
 
 // Flat array of all mangled names.
 constexpr const char *kMangledNames[] = {"radians(00B",
@@ -37336,6 +34551,17 @@ constexpr const char *kMangledNames[] = {"radians(00B",
                                          "imageAtomicCompSwap(01G20D00D00D00D",
                                          "imageAtomicCompSwap(01R20D00D00D00D",
                                          "imageAtomicCompSwap(01c20D00D00D00D",
+                                         "pixelLocalLoadANGLE(01g",
+                                         "pixelLocalLoadANGLE(01h",
+                                         "pixelLocalLoadANGLE(01i",
+                                         "pixelLocalStoreANGLE(01g30B",
+                                         "pixelLocalStoreANGLE(01h30D",
+                                         "pixelLocalStoreANGLE(01i30E",
+                                         "beginInvocationInterlockNV(",
+                                         "endInvocationInterlockNV(",
+                                         "beginFragmentShaderOrderingINTEL(",
+                                         "beginInvocationInterlockARB(",
+                                         "endInvocationInterlockARB(",
                                          "noise1(00B",
                                          "noise1(10B",
                                          "noise1(20B",
@@ -37363,15 +34589,21 @@ constexpr const char *kMangledNames[] = {"radians(00B",
                                          "EndPrimitive(",
                                          "EmitStreamVertex(00D",
                                          "EndStreamPrimitive(00D",
-                                         "subpassLoad(01g",
-                                         "subpassLoad(01h",
-                                         "subpassLoad(01i",
-                                         "subpassLoad(01j00D",
-                                         "subpassLoad(01k00D",
-                                         "subpassLoad(01l00D",
+                                         "subpassLoad(01j",
+                                         "subpassLoad(01k",
+                                         "subpassLoad(01l",
+                                         "subpassLoad(01m00D",
+                                         "subpassLoad(01n00D",
+                                         "subpassLoad(01o00D",
                                          "anyInvocation(00F",
                                          "allInvocations(00F",
                                          "allInvocationsEqual(00F",
+                                         "numSamples(",
+                                         "samplePosition(00E",
+                                         "saturate(00B",
+                                         "saturate(10B",
+                                         "saturate(20B",
+                                         "saturate(30B",
                                          "gl_DepthRangeParameters",
                                          "gl_DepthRange",
                                          "gl_NumSamples",
@@ -37458,8 +34690,6 @@ constexpr const char *kMangledNames[] = {"radians(00B",
                                          "gl_SamplePosition",
                                          "gl_SampleMaskIn",
                                          "gl_SampleMask",
-                                         "gl_CullDistance",
-                                         "gl_ClipDistance",
                                          "gl_Position",
                                          "gl_PointSize",
                                          "gl_InstanceID",
@@ -37472,6 +34702,7 @@ constexpr const char *kMangledNames[] = {"radians(00B",
                                          "gl_BaseInstance",
                                          "angle_BaseVertex",
                                          "angle_BaseInstance",
+                                         "gl_ClipDistance",
                                          "gl_NumWorkGroups",
                                          "gl_WorkGroupSize",
                                          "gl_WorkGroupID",
@@ -37490,7 +34721,8 @@ constexpr const char *kMangledNames[] = {"radians(00B",
                                          "gl_BoundingBoxEXT",
                                          "gl_BoundingBoxOES",
                                          "gl_TessCoord",
-                                         "gl_ViewID_OVR"};
+                                         "gl_ViewID_OVR",
+                                         "gl_CullDistance"};
 
 // Flat array of offsets from a symbol into the rules table.
 constexpr uint16_t kMangledOffsets[] = {
@@ -39522,161 +36754,178 @@ constexpr uint16_t kMangledOffsets[] = {
     4187,  // imageAtomicCompSwap_01G20D00D00D00D
     4190,  // imageAtomicCompSwap_01R20D00D00D00D
     4193,  // imageAtomicCompSwap_01c20D00D00D00D
-    4196,  // noise1_00B
-    4197,  // noise1_10B
-    4198,  // noise1_20B
-    4199,  // noise1_30B
-    4200,  // noise2_00B
-    4201,  // noise2_10B
-    4202,  // noise2_20B
-    4203,  // noise2_30B
-    4204,  // noise3_00B
-    4205,  // noise3_10B
-    4206,  // noise3_20B
-    4207,  // noise3_30B
-    4208,  // noise4_00B
-    4209,  // noise4_10B
-    4210,  // noise4_20B
-    4211,  // noise4_30B
-    4212,  // memoryBarrier_
-    4214,  // memoryBarrierAtomicCounter_
-    4216,  // memoryBarrierBuffer_
-    4218,  // memoryBarrierImage_
-    4220,  // barrier_
-    4224,  // memoryBarrierShared_
-    4226,  // groupMemoryBarrier_
-    4228,  // EmitVertex_
-    4232,  // EndPrimitive_
-    4236,  // EmitStreamVertex_00D
-    4237,  // EndStreamPrimitive_00D
-    4238,  // subpassLoad_01g
-    4240,  // subpassLoad_01h
-    4242,  // subpassLoad_01i
-    4244,  // subpassLoad_01j00D
-    4246,  // subpassLoad_01k00D
-    4248,  // subpassLoad_01l00D
-    4250,  // anyInvocation_00F
-    4251,  // allInvocations_00F
-    4252,  // allInvocationsEqual_00F
-    4253,  // gl_DepthRangeParameters
-    4255,  // gl_DepthRange
-    4257,  // gl_NumSamples
-    4260,  // gl_MaxVertexAttribs
-    4262,  // gl_MaxVertexUniformVectors
-    4264,  // gl_MaxVertexTextureImageUnits
-    4266,  // gl_MaxCombinedTextureImageUnits
-    4268,  // gl_MaxTextureImageUnits
-    4270,  // gl_MaxFragmentUniformVectors
-    4272,  // gl_MaxVaryingVectors
-    4274,  // gl_MaxDrawBuffers
-    4276,  // gl_MaxDualSourceDrawBuffersEXT
-    4277,  // gl_MaxVertexOutputVectors
-    4279,  // gl_MaxFragmentInputVectors
-    4281,  // gl_MinProgramTexelOffset
-    4283,  // gl_MaxProgramTexelOffset
-    4285,  // gl_MaxImageUnits
-    4287,  // gl_MaxVertexImageUniforms
-    4289,  // gl_MaxFragmentImageUniforms
-    4291,  // gl_MaxComputeImageUniforms
-    4293,  // gl_MaxCombinedImageUniforms
-    4295,  // gl_MaxCombinedShaderOutputResources
-    4297,  // gl_MaxComputeWorkGroupCount
-    4299,  // gl_MaxComputeWorkGroupSize
-    4301,  // gl_MaxComputeUniformComponents
-    4303,  // gl_MaxComputeTextureImageUnits
-    4305,  // gl_MaxComputeAtomicCounters
-    4307,  // gl_MaxComputeAtomicCounterBuffers
-    4309,  // gl_MaxVertexAtomicCounters
-    4311,  // gl_MaxFragmentAtomicCounters
-    4313,  // gl_MaxCombinedAtomicCounters
-    4315,  // gl_MaxAtomicCounterBindings
-    4317,  // gl_MaxVertexAtomicCounterBuffers
-    4319,  // gl_MaxFragmentAtomicCounterBuffers
-    4321,  // gl_MaxCombinedAtomicCounterBuffers
-    4323,  // gl_MaxAtomicCounterBufferSize
-    4325,  // gl_MaxGeometryInputComponents
-    4329,  // gl_MaxGeometryOutputComponents
-    4333,  // gl_MaxGeometryImageUniforms
-    4337,  // gl_MaxGeometryTextureImageUnits
-    4341,  // gl_MaxGeometryOutputVertices
-    4345,  // gl_MaxGeometryTotalOutputComponents
-    4349,  // gl_MaxGeometryUniformComponents
-    4353,  // gl_MaxGeometryAtomicCounters
-    4357,  // gl_MaxGeometryAtomicCounterBuffers
-    4361,  // gl_MaxTessControlInputComponents
-    4364,  // gl_MaxTessControlOutputComponents
-    4367,  // gl_MaxTessControlTextureImageUnits
-    4370,  // gl_MaxTessControlUniformComponents
-    4373,  // gl_MaxTessControlTotalOutputComponents
-    4376,  // gl_MaxTessControlImageUniforms
-    4379,  // gl_MaxTessControlAtomicCounters
-    4382,  // gl_MaxTessControlAtomicCounterBuffers
-    4385,  // gl_MaxTessPatchComponents
-    4388,  // gl_MaxPatchVertices
-    4391,  // gl_MaxTessGenLevel
-    4394,  // gl_MaxTessEvaluationInputComponents
-    4397,  // gl_MaxTessEvaluationOutputComponents
-    4400,  // gl_MaxTessEvaluationTextureImageUnits
-    4403,  // gl_MaxTessEvaluationUniformComponents
-    4406,  // gl_MaxTessEvaluationImageUniforms
-    4409,  // gl_MaxTessEvaluationAtomicCounters
-    4412,  // gl_MaxTessEvaluationAtomicCounterBuffers
-    4415,  // gl_MaxSamples
-    4418,  // gl_MaxClipDistances
-    4419,  // gl_MaxCullDistances
-    4420,  // gl_MaxCombinedClipAndCullDistances
-    4421,  // gl_FragCoord
-    4425,  // gl_FrontFacing
-    4427,  // gl_PointCoord
-    4429,  // gl_FragColor
-    4431,  // gl_FragData
-    4433,  // gl_FragDepth
-    4435,  // gl_HelperInvocation
-    4437,  // gl_SecondaryFragColorEXT
-    4438,  // gl_SecondaryFragDataEXT
-    4439,  // gl_FragDepthEXT
-    4440,  // gl_LastFragData
-    4443,  // gl_LastFragColor
-    4444,  // gl_LastFragColorARM
-    4445,  // gl_PrimitiveID
-    4459,  // gl_Layer
-    4467,  // gl_SampleID
-    4470,  // gl_SamplePosition
-    4473,  // gl_SampleMaskIn
-    4476,  // gl_SampleMask
-    4479,  // gl_CullDistance
-    4481,  // gl_ClipDistance
-    4483,  // gl_Position
-    4495,  // gl_PointSize
-    4499,  // gl_InstanceID
-    4501,  // Empty
-    4501,  // gl_VertexID
-    4503,  // Empty
-    4503,  // Empty
-    4503,  // gl_DrawID
-    4504,  // gl_BaseVertex
-    4505,  // gl_BaseInstance
-    4506,  // angle_BaseVertex
-    4507,  // angle_BaseInstance
-    4508,  // gl_NumWorkGroups
-    4510,  // gl_WorkGroupSize
-    4512,  // gl_WorkGroupID
-    4514,  // gl_LocalInvocationID
-    4516,  // gl_GlobalInvocationID
-    4518,  // gl_LocalInvocationIndex
-    4520,  // gl_PrimitiveIDIn
-    4524,  // gl_InvocationID
-    4531,  // gl_PerVertex
-    4541,  // gl_in
-    4551,  // gl_PatchVerticesIn
-    4557,  // gl_TessLevelOuter
-    4563,  // gl_TessLevelInner
-    4569,  // gl_out
-    4575,  // gl_BoundingBox
-    4578,  // gl_BoundingBoxEXT
-    4581,  // gl_BoundingBoxOES
-    4584,  // gl_TessCoord
-    4586,  // gl_ViewID_OVR
+    4196,  // pixelLocalLoadANGLE_01g
+    4197,  // pixelLocalLoadANGLE_01h
+    4198,  // pixelLocalLoadANGLE_01i
+    4199,  // pixelLocalStoreANGLE_01g30B
+    4200,  // pixelLocalStoreANGLE_01h30D
+    4201,  // pixelLocalStoreANGLE_01i30E
+    4202,  // beginInvocationInterlockNV_
+    4203,  // endInvocationInterlockNV_
+    4204,  // beginFragmentShaderOrderingINTEL_
+    4205,  // beginInvocationInterlockARB_
+    4206,  // endInvocationInterlockARB_
+    4207,  // noise1_00B
+    4208,  // noise1_10B
+    4209,  // noise1_20B
+    4210,  // noise1_30B
+    4211,  // noise2_00B
+    4212,  // noise2_10B
+    4213,  // noise2_20B
+    4214,  // noise2_30B
+    4215,  // noise3_00B
+    4216,  // noise3_10B
+    4217,  // noise3_20B
+    4218,  // noise3_30B
+    4219,  // noise4_00B
+    4220,  // noise4_10B
+    4221,  // noise4_20B
+    4222,  // noise4_30B
+    4223,  // memoryBarrier_
+    4225,  // memoryBarrierAtomicCounter_
+    4227,  // memoryBarrierBuffer_
+    4229,  // memoryBarrierImage_
+    4231,  // barrier_
+    4235,  // memoryBarrierShared_
+    4237,  // groupMemoryBarrier_
+    4239,  // EmitVertex_
+    4243,  // EndPrimitive_
+    4247,  // EmitStreamVertex_00D
+    4248,  // EndStreamPrimitive_00D
+    4249,  // subpassLoad_01j
+    4251,  // subpassLoad_01k
+    4253,  // subpassLoad_01l
+    4255,  // subpassLoad_01m00D
+    4257,  // subpassLoad_01n00D
+    4259,  // subpassLoad_01o00D
+    4261,  // anyInvocation_00F
+    4262,  // allInvocations_00F
+    4263,  // allInvocationsEqual_00F
+    4264,  // numSamples_
+    4265,  // samplePosition_00E
+    4266,  // saturate_00B
+    4267,  // saturate_10B
+    4268,  // saturate_20B
+    4269,  // saturate_30B
+    4270,  // gl_DepthRangeParameters
+    4272,  // gl_DepthRange
+    4274,  // gl_NumSamples
+    4277,  // gl_MaxVertexAttribs
+    4279,  // gl_MaxVertexUniformVectors
+    4281,  // gl_MaxVertexTextureImageUnits
+    4283,  // gl_MaxCombinedTextureImageUnits
+    4285,  // gl_MaxTextureImageUnits
+    4287,  // gl_MaxFragmentUniformVectors
+    4289,  // gl_MaxVaryingVectors
+    4291,  // gl_MaxDrawBuffers
+    4293,  // gl_MaxDualSourceDrawBuffersEXT
+    4294,  // gl_MaxVertexOutputVectors
+    4296,  // gl_MaxFragmentInputVectors
+    4298,  // gl_MinProgramTexelOffset
+    4300,  // gl_MaxProgramTexelOffset
+    4302,  // gl_MaxImageUnits
+    4304,  // gl_MaxVertexImageUniforms
+    4306,  // gl_MaxFragmentImageUniforms
+    4308,  // gl_MaxComputeImageUniforms
+    4310,  // gl_MaxCombinedImageUniforms
+    4312,  // gl_MaxCombinedShaderOutputResources
+    4314,  // gl_MaxComputeWorkGroupCount
+    4316,  // gl_MaxComputeWorkGroupSize
+    4318,  // gl_MaxComputeUniformComponents
+    4320,  // gl_MaxComputeTextureImageUnits
+    4322,  // gl_MaxComputeAtomicCounters
+    4324,  // gl_MaxComputeAtomicCounterBuffers
+    4326,  // gl_MaxVertexAtomicCounters
+    4328,  // gl_MaxFragmentAtomicCounters
+    4330,  // gl_MaxCombinedAtomicCounters
+    4332,  // gl_MaxAtomicCounterBindings
+    4334,  // gl_MaxVertexAtomicCounterBuffers
+    4336,  // gl_MaxFragmentAtomicCounterBuffers
+    4338,  // gl_MaxCombinedAtomicCounterBuffers
+    4340,  // gl_MaxAtomicCounterBufferSize
+    4342,  // gl_MaxGeometryInputComponents
+    4346,  // gl_MaxGeometryOutputComponents
+    4350,  // gl_MaxGeometryImageUniforms
+    4354,  // gl_MaxGeometryTextureImageUnits
+    4358,  // gl_MaxGeometryOutputVertices
+    4362,  // gl_MaxGeometryTotalOutputComponents
+    4366,  // gl_MaxGeometryUniformComponents
+    4370,  // gl_MaxGeometryAtomicCounters
+    4374,  // gl_MaxGeometryAtomicCounterBuffers
+    4378,  // gl_MaxTessControlInputComponents
+    4381,  // gl_MaxTessControlOutputComponents
+    4384,  // gl_MaxTessControlTextureImageUnits
+    4387,  // gl_MaxTessControlUniformComponents
+    4390,  // gl_MaxTessControlTotalOutputComponents
+    4393,  // gl_MaxTessControlImageUniforms
+    4396,  // gl_MaxTessControlAtomicCounters
+    4399,  // gl_MaxTessControlAtomicCounterBuffers
+    4402,  // gl_MaxTessPatchComponents
+    4405,  // gl_MaxPatchVertices
+    4408,  // gl_MaxTessGenLevel
+    4411,  // gl_MaxTessEvaluationInputComponents
+    4414,  // gl_MaxTessEvaluationOutputComponents
+    4417,  // gl_MaxTessEvaluationTextureImageUnits
+    4420,  // gl_MaxTessEvaluationUniformComponents
+    4423,  // gl_MaxTessEvaluationImageUniforms
+    4426,  // gl_MaxTessEvaluationAtomicCounters
+    4429,  // gl_MaxTessEvaluationAtomicCounterBuffers
+    4432,  // gl_MaxSamples
+    4435,  // gl_MaxClipDistances
+    4438,  // gl_MaxCullDistances
+    4440,  // gl_MaxCombinedClipAndCullDistances
+    4442,  // gl_FragCoord
+    4446,  // gl_FrontFacing
+    4448,  // gl_PointCoord
+    4450,  // gl_FragColor
+    4452,  // gl_FragData
+    4454,  // gl_FragDepth
+    4456,  // gl_HelperInvocation
+    4458,  // gl_SecondaryFragColorEXT
+    4459,  // gl_SecondaryFragDataEXT
+    4460,  // gl_FragDepthEXT
+    4461,  // gl_LastFragData
+    4464,  // gl_LastFragColor
+    4465,  // gl_LastFragColorARM
+    4466,  // gl_PrimitiveID
+    4480,  // gl_Layer
+    4488,  // gl_SampleID
+    4491,  // gl_SamplePosition
+    4494,  // gl_SampleMaskIn
+    4497,  // gl_SampleMask
+    4500,  // gl_Position
+    4512,  // gl_PointSize
+    4516,  // gl_InstanceID
+    4518,  // Empty
+    4518,  // gl_VertexID
+    4520,  // Empty
+    4520,  // Empty
+    4520,  // gl_DrawID
+    4521,  // gl_BaseVertex
+    4522,  // gl_BaseInstance
+    4523,  // angle_BaseVertex
+    4524,  // angle_BaseInstance
+    4525,  // gl_ClipDistance
+    4528,  // gl_NumWorkGroups
+    4530,  // gl_WorkGroupSize
+    4532,  // gl_WorkGroupID
+    4534,  // gl_LocalInvocationID
+    4536,  // gl_GlobalInvocationID
+    4538,  // gl_LocalInvocationIndex
+    4540,  // gl_PrimitiveIDIn
+    4544,  // gl_InvocationID
+    4551,  // gl_PerVertex
+    4561,  // gl_in
+    4571,  // gl_PatchVerticesIn
+    4577,  // gl_TessLevelOuter
+    4583,  // gl_TessLevelInner
+    4589,  // gl_out
+    4595,  // gl_BoundingBox
+    4598,  // gl_BoundingBoxEXT
+    4601,  // gl_BoundingBoxOES
+    4604,  // gl_TessCoord
+    4606,  // gl_ViewID_OVR
+    4607,  // gl_CullDistance
 };
 
 using Ext = TExtension;
@@ -40009,6 +37258,20 @@ constexpr UnmangledEntry unmangled[] = {
      Ext::UNDEFINED, 310, -1, Shader::ALL},
     {"imageAtomicCompSwap", std::array<TExtension, 1>{{Ext::OES_shader_image_atomic}},
      Ext::UNDEFINED, 310, -1, Shader::ALL},
+    {"pixelLocalLoadANGLE", std::array<TExtension, 1>{{Ext::ANGLE_shader_pixel_local_storage}},
+     Ext::UNDEFINED, 300, -1, Shader::ALL},
+    {"pixelLocalStoreANGLE", std::array<TExtension, 1>{{Ext::ANGLE_shader_pixel_local_storage}},
+     Ext::UNDEFINED, 300, -1, Shader::ALL},
+    {"beginInvocationInterlockNV", std::array<TExtension, 1>{{Ext::UNDEFINED}}, Ext::UNDEFINED,
+     kESSLInternalBackendBuiltIns, -1, Shader::ALL},
+    {"endInvocationInterlockNV", std::array<TExtension, 1>{{Ext::UNDEFINED}}, Ext::UNDEFINED,
+     kESSLInternalBackendBuiltIns, -1, Shader::ALL},
+    {"beginFragmentShaderOrderingINTEL", std::array<TExtension, 1>{{Ext::UNDEFINED}},
+     Ext::UNDEFINED, kESSLInternalBackendBuiltIns, -1, Shader::ALL},
+    {"beginInvocationInterlockARB", std::array<TExtension, 1>{{Ext::UNDEFINED}}, Ext::UNDEFINED,
+     kESSLInternalBackendBuiltIns, -1, Shader::ALL},
+    {"endInvocationInterlockARB", std::array<TExtension, 1>{{Ext::UNDEFINED}}, Ext::UNDEFINED,
+     kESSLInternalBackendBuiltIns, -1, Shader::ALL},
     {"noise1", std::array<TExtension, 1>{{Ext::UNDEFINED}}, Ext::UNDEFINED, -1, 0, Shader::ALL},
     {"noise2", std::array<TExtension, 1>{{Ext::UNDEFINED}}, Ext::UNDEFINED, -1, 0, Shader::ALL},
     {"noise3", std::array<TExtension, 1>{{Ext::UNDEFINED}}, Ext::UNDEFINED, -1, 0, Shader::ALL},
@@ -40035,14 +37298,20 @@ constexpr UnmangledEntry unmangled[] = {
      Shader::GEOMETRY},
     {"EndStreamPrimitive", std::array<TExtension, 1>{{Ext::UNDEFINED}}, Ext::UNDEFINED, -1, 400,
      Shader::GEOMETRY},
-    {"subpassLoad", std::array<TExtension, 1>{{Ext::UNDEFINED}}, Ext::UNDEFINED, kESSLVulkanOnly,
-     460, Shader::ALL},
+    {"subpassLoad", std::array<TExtension, 1>{{Ext::UNDEFINED}}, Ext::UNDEFINED,
+     kESSLInternalBackendBuiltIns, 460, Shader::ALL},
     {"anyInvocation", std::array<TExtension, 1>{{Ext::UNDEFINED}}, Ext::UNDEFINED, -1, 460,
      Shader::ALL},
     {"allInvocations", std::array<TExtension, 1>{{Ext::UNDEFINED}}, Ext::UNDEFINED, -1, 460,
      Shader::ALL},
     {"allInvocationsEqual", std::array<TExtension, 1>{{Ext::UNDEFINED}}, Ext::UNDEFINED, -1, 460,
-     Shader::ALL}};
+     Shader::ALL},
+    {"numSamples", std::array<TExtension, 1>{{Ext::UNDEFINED}}, Ext::UNDEFINED,
+     kESSLInternalBackendBuiltIns, -1, Shader::ALL},
+    {"samplePosition", std::array<TExtension, 1>{{Ext::UNDEFINED}}, Ext::UNDEFINED,
+     kESSLInternalBackendBuiltIns, -1, Shader::ALL},
+    {"saturate", std::array<TExtension, 1>{{Ext::UNDEFINED}}, Ext::UNDEFINED,
+     kESSLInternalBackendBuiltIns, -1, Shader::ALL}};
 
 }  // namespace BuiltInArray
 
@@ -40980,24 +38249,36 @@ void TSymbolTable::initializeBuiltInVariables(sh::GLenum shaderType,
         unionArray[0].setIConst(resources.MaxClipDistances);
         static_cast<TVariable *>(m_gl_MaxClipDistancesAPPLE)->shareConstPointer(unionArray);
     }
-    m_gl_MaxCullDistancesEXT = new TVariable(
-        BuiltInId::gl_MaxCullDistancesEXT, BuiltInName::gl_MaxCullDistances, SymbolType::BuiltIn,
-        std::array<TExtension, 1u>{{TExtension::EXT_clip_cull_distance}},
+    m_gl_MaxClipDistances = new TVariable(
+        BuiltInId::gl_MaxClipDistances, BuiltInName::gl_MaxClipDistances, SymbolType::BuiltIn,
+        std::array<TExtension, 2u>{
+            {TExtension::EXT_clip_cull_distance, TExtension::ANGLE_clip_cull_distance}},
+        StaticType::Get<EbtInt, EbpMedium, EvqConst, 1, 1>());
+    {
+        TConstantUnion *unionArray = new TConstantUnion[1];
+        unionArray[0].setIConst(resources.MaxClipDistances);
+        static_cast<TVariable *>(m_gl_MaxClipDistances)->shareConstPointer(unionArray);
+    }
+    m_gl_MaxCullDistances = new TVariable(
+        BuiltInId::gl_MaxCullDistances, BuiltInName::gl_MaxCullDistances, SymbolType::BuiltIn,
+        std::array<TExtension, 2u>{
+            {TExtension::EXT_clip_cull_distance, TExtension::ANGLE_clip_cull_distance}},
         StaticType::Get<EbtInt, EbpMedium, EvqConst, 1, 1>());
     {
         TConstantUnion *unionArray = new TConstantUnion[1];
         unionArray[0].setIConst(resources.MaxCullDistances);
-        static_cast<TVariable *>(m_gl_MaxCullDistancesEXT)->shareConstPointer(unionArray);
+        static_cast<TVariable *>(m_gl_MaxCullDistances)->shareConstPointer(unionArray);
     }
-    m_gl_MaxCombinedClipAndCullDistancesEXT =
-        new TVariable(BuiltInId::gl_MaxCombinedClipAndCullDistancesEXT,
+    m_gl_MaxCombinedClipAndCullDistances =
+        new TVariable(BuiltInId::gl_MaxCombinedClipAndCullDistances,
                       BuiltInName::gl_MaxCombinedClipAndCullDistances, SymbolType::BuiltIn,
-                      std::array<TExtension, 1u>{{TExtension::EXT_clip_cull_distance}},
+                      std::array<TExtension, 2u>{{TExtension::EXT_clip_cull_distance,
+                                                  TExtension::ANGLE_clip_cull_distance}},
                       StaticType::Get<EbtInt, EbpMedium, EvqConst, 1, 1>());
     {
         TConstantUnion *unionArray = new TConstantUnion[1];
         unionArray[0].setIConst(resources.MaxCombinedClipAndCullDistances);
-        static_cast<TVariable *>(m_gl_MaxCombinedClipAndCullDistancesEXT)
+        static_cast<TVariable *>(m_gl_MaxCombinedClipAndCullDistances)
             ->shareConstPointer(unionArray);
     }
     TType *type_gl_FragData = new TType(EbtFloat, EbpMedium, EvqFragData, 4);
@@ -41066,30 +38347,12 @@ void TSymbolTable::initializeBuiltInVariables(sh::GLenum shaderType,
     m_gl_SampleMaskES3_2 = new TVariable(
         BuiltInId::gl_SampleMaskES3_2, BuiltInName::gl_SampleMask, SymbolType::BuiltIn,
         std::array<TExtension, 1u>{{TExtension::UNDEFINED}}, type_gl_SampleMaskES3_2);
-    TType *type_gl_CullDistance = new TType(EbtFloat, EbpHigh, EvqCullDistance, 1);
-    type_gl_CullDistance->makeArray(resources.MaxCullDistances);
-    type_gl_CullDistance->realize();
-    m_gl_CullDistance = new TVariable(
-        BuiltInId::gl_CullDistance, BuiltInName::gl_CullDistance, SymbolType::BuiltIn,
-        std::array<TExtension, 1u>{{TExtension::EXT_clip_cull_distance}}, type_gl_CullDistance);
-    TType *type_gl_ClipDistance = new TType(EbtFloat, EbpHigh, EvqClipDistance, 1);
-    type_gl_ClipDistance->makeArray(resources.MaxClipDistances);
-    type_gl_ClipDistance->realize();
-    m_gl_ClipDistance = new TVariable(
-        BuiltInId::gl_ClipDistance, BuiltInName::gl_ClipDistance, SymbolType::BuiltIn,
-        std::array<TExtension, 1u>{{TExtension::EXT_clip_cull_distance}}, type_gl_ClipDistance);
     TType *type_gl_ClipDistanceAPPLE = new TType(EbtFloat, EbpHigh, EvqClipDistance, 1);
     type_gl_ClipDistanceAPPLE->makeArray(resources.MaxClipDistances);
     type_gl_ClipDistanceAPPLE->realize();
     m_gl_ClipDistanceAPPLE = new TVariable(
         BuiltInId::gl_ClipDistanceAPPLE, BuiltInName::gl_ClipDistance, SymbolType::BuiltIn,
         std::array<TExtension, 1u>{{TExtension::APPLE_clip_distance}}, type_gl_ClipDistanceAPPLE);
-    TType *type_gl_CullDistanceEXT = new TType(EbtFloat, EbpHigh, EvqCullDistance, 1);
-    type_gl_CullDistanceEXT->makeArray(resources.MaxCullDistances);
-    type_gl_CullDistanceEXT->realize();
-    m_gl_CullDistanceEXT = new TVariable(
-        BuiltInId::gl_CullDistanceEXT, BuiltInName::gl_CullDistance, SymbolType::BuiltIn,
-        std::array<TExtension, 1u>{{TExtension::EXT_clip_cull_distance}}, type_gl_CullDistanceEXT);
     TFieldList *fields_gl_PerVertex = new TFieldList();
     fields_gl_PerVertex->push_back(new TField(new TType(EbtFloat, EbpHigh, EvqPosition, 4, 1),
                                               BuiltInName::gl_Position, zeroSourceLoc,
@@ -41377,13 +38640,29 @@ void TSymbolTable::initializeBuiltInVariables(sh::GLenum shaderType,
     m_gl_PositionTESES3_2 = new TVariable(
         BuiltInId::gl_PositionTESES3_2, BuiltInName::gl_Position, SymbolType::BuiltIn,
         std::array<TExtension, 1u>{{TExtension::UNDEFINED}}, type_gl_PositionTESES3_2);
+    TType *type_gl_ClipDistance = new TType(EbtFloat, EbpHigh, EvqClipDistance, 1);
+    type_gl_ClipDistance->makeArray(resources.MaxClipDistances);
+    type_gl_ClipDistance->realize();
+    m_gl_ClipDistance =
+        new TVariable(BuiltInId::gl_ClipDistance, BuiltInName::gl_ClipDistance, SymbolType::BuiltIn,
+                      std::array<TExtension, 2u>{{TExtension::EXT_clip_cull_distance,
+                                                  TExtension::ANGLE_clip_cull_distance}},
+                      type_gl_ClipDistance);
+    TType *type_gl_CullDistance = new TType(EbtFloat, EbpHigh, EvqCullDistance, 1);
+    type_gl_CullDistance->makeArray(resources.MaxCullDistances);
+    type_gl_CullDistance->realize();
+    m_gl_CullDistance =
+        new TVariable(BuiltInId::gl_CullDistance, BuiltInName::gl_CullDistance, SymbolType::BuiltIn,
+                      std::array<TExtension, 2u>{{TExtension::EXT_clip_cull_distance,
+                                                  TExtension::ANGLE_clip_cull_distance}},
+                      type_gl_CullDistance);
 }
 
 namespace
 {
 uint16_t GetNextRuleIndex(uint32_t nameHash)
 {
-    if (nameHash == 2183 - 1)
+    if (nameHash == 2200 - 1)
         return ArraySize(BuiltInArray::kRules);
     return BuiltInArray::kMangledOffsets[nameHash + 1];
 }
@@ -41395,7 +38674,7 @@ const TSymbol *TSymbolTable::findBuiltIn(const ImmutableString &name, int shader
         return nullptr;
 
     uint32_t nameHash = name.mangledNameHash();
-    if (nameHash >= 2183)
+    if (nameHash >= 2200)
         return nullptr;
 
     const char *actualName = BuiltInArray::kMangledNames[nameHash];
@@ -41413,11 +38692,11 @@ bool TSymbolTable::isUnmangledBuiltInName(const ImmutableString &name,
                                           int shaderVersion,
                                           const TExtensionBehavior &extensions) const
 {
-    if (name.length() > 26)
+    if (name.length() > 32)
         return false;
 
     uint32_t nameHash = name.unmangledNameHash();
-    if (nameHash >= 210)
+    if (nameHash >= 220)
         return false;
 
     return BuiltInArray::unmangled[nameHash].matches(name, mShaderSpec, shaderVersion, mShaderType,

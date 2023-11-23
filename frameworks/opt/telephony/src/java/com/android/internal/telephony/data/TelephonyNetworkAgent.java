@@ -22,10 +22,10 @@ import android.annotation.Nullable;
 import android.net.KeepalivePacketData;
 import android.net.NetworkAgent;
 import android.net.NetworkAgentConfig;
+import android.net.NetworkCapabilities;
 import android.net.NetworkProvider;
 import android.net.NetworkScore;
 import android.net.QosFilter;
-import android.net.QosSessionAttributes;
 import android.net.Uri;
 import android.os.Looper;
 import android.util.ArraySet;
@@ -46,10 +46,12 @@ import java.util.concurrent.Executor;
  * for telephony to propagate network related information to the connectivity service. It always
  * has an associated parent {@link DataNetwork}.
  */
-public class TelephonyNetworkAgent extends NetworkAgent implements NotifyQosSessionInterface {
+public class TelephonyNetworkAgent extends NetworkAgent {
     private final String mLogTag;
-    private final Phone mPhone;
     private final LocalLog mLocalLog = new LocalLog(128);
+
+    /** Max unregister network agent delay. */
+    private static final int NETWORK_AGENT_TEARDOWN_DELAY_MS = 5_000;
 
     /** The parent data network. */
     private final @NonNull DataNetwork mDataNetwork;
@@ -153,18 +155,25 @@ public class TelephonyNetworkAgent extends NetworkAgent implements NotifyQosSess
             @NonNull NetworkAgentConfig config, @NonNull NetworkProvider provider,
             @NonNull TelephonyNetworkAgentCallback callback) {
         super(phone.getContext(), looper, "TelephonyNetworkAgent",
-                dataNetwork.getNetworkCapabilities(), dataNetwork.getLinkProperties(), score,
+                // Connectivity service does not allow an agent created in suspended state.
+                // Always create the network agent with NOT_SUSPENDED and immediately update the
+                // suspended state afterwards.
+                new NetworkCapabilities.Builder(dataNetwork.getNetworkCapabilities())
+                        .addCapability(NetworkCapabilities.NET_CAPABILITY_NOT_SUSPENDED)
+                        .build(),
+                dataNetwork.getLinkProperties(), score,
                 config, provider);
         register();
         mDataNetwork = dataNetwork;
         mNetworkAgentConfig = config;
         mTelephonyNetworkAgentCallbacks.add(callback);
-        mPhone = phone;
         mId = getNetwork().getNetId();
         mLogTag = "TNA-" + mId;
 
         log("TelephonyNetworkAgent created, nc="
-                + dataNetwork.getNetworkCapabilities() + ", score=" + score);
+                + new NetworkCapabilities.Builder(dataNetwork.getNetworkCapabilities())
+                .addCapability(NetworkCapabilities.NET_CAPABILITY_NOT_SUSPENDED)
+                .build() + ", score=" + score);
     }
 
     /**
@@ -289,46 +298,16 @@ public class TelephonyNetworkAgent extends NetworkAgent implements NotifyQosSess
     }
 
     /**
-     * Sends the attributes of Qos Session back to the Application. This method is create for
-     * Mockito to mock since
-     * {@link NetworkAgent#sendQosSessionAvailable(int, int, QosSessionAttributes)} is
-     * {@code final} that can't be mocked.
-     *
-     * @param qosCallbackId the callback id that the session belongs to.
-     * @param sessionId the unique session id across all Qos Sessions.
-     * @param attributes the attributes of the Qos Session.
-     */
-    @Override
-    public void notifyQosSessionAvailable(final int qosCallbackId, final int sessionId,
-            @NonNull final QosSessionAttributes attributes) {
-        super.sendQosSessionAvailable(qosCallbackId, sessionId, attributes);
-    }
-
-    /**
-     * Sends event that the Qos Session was lost. This method is create for Mockito to mock
-     * since {@link NetworkAgent#sendQosSessionLost(int, int, int)} is {@code final} that can't be
-     * mocked..
-     *
-     * @param qosCallbackId the callback id that the session belongs to.
-     * @param sessionId the unique session id across all Qos Sessions.
-     * @param qosSessionType the session type {@code QosSession#QosSessionType}.
-     */
-    @Override
-    public void notifyQosSessionLost(final int qosCallbackId,
-            final int sessionId, final int qosSessionType) {
-        super.sendQosSessionLost(qosCallbackId, sessionId, qosSessionType);
-    }
-
-    /**
      * Abandon the network agent. This is used for telephony to re-create the network agent when
-     * immutable capabilities got changed, where telephony calls {@link NetworkAgent#unregister()}
-     * and then create another network agent with new capabilities. Abandon this network agent
-     * allowing it ignore the subsequent {@link #onNetworkUnwanted()} invocation caused by
-     * {@link NetworkAgent#unregister()}.
+     * immutable capabilities got changed, where telephony calls
+     * {@link NetworkAgent#unregisterAfterReplacement} and then create another network agent with
+     * new capabilities. Abandon this network agent allowing it ignore the subsequent
+     * {@link #onNetworkUnwanted()} invocation caused by
+     * {@link NetworkAgent#unregisterAfterReplacement}.
      */
     public void abandon() {
         mAbandoned = true;
-        unregister();
+        unregisterAfterReplacement(NETWORK_AGENT_TEARDOWN_DELAY_MS);
     }
 
     /**

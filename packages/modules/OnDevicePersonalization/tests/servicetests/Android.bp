@@ -17,25 +17,54 @@ package {
 }
 
 android_test {
-    name: "OnDevicePersonalizationManagerServicesTests",
+    name: "OnDevicePersonalizationManagingServicesTests",
     srcs: [
         "src/**/*.java",
-        ":framework-ondevicepersonalization-aidl",
+        "src/**/*.kt",
         ":ondevicepersonalization-sources",
+        ":ondevicepersonalization-fbs",
+        ":chronicle-sources",
     ],
     libs: [
         "android.test.base",
         "android.test.runner",
+        "framework-annotations-lib",
+        "framework-configinfrastructure",
+        "framework-connectivity.stubs.module_lib",
+        "kotlin-annotations",
         "truth-prebuilt",
+        "framework-ondevicepersonalization.impl",
     ],
     static_libs: [
         "androidx.test.ext.junit",
         "androidx.test.ext.truth",
         "androidx.test.rules",
+        "mockito-target-extended-minus-junit4",
+        "kotlin-stdlib",
+        "kotlin-test",
+        "kotlinx-coroutines-android",
+        "mobile_data_downloader_lib",
+        "modules-utils-build",
+        "ondevicepersonalization-protos",
+        "ondevicepersonalization-plugin-lib",
+        "apache-velocity-engine-core",
+        "flatbuffers-java",
+        "owasp-java-encoder",
     ],
+    sdk_version: "module_current",
     target_sdk_version: "current",
     min_sdk_version: "Tiramisu",
+    compile_multilib: "both",
+    certificate: "platform",
     test_suites: [
         "general-tests",
+        "mts-ondevicepersonalization",
+    ],
+    manifest: "AndroidManifest.xml",
+    test_config: "AndroidTest.xml",
+    // mockito-target-inline dependency
+    jni_libs: [
+        "libdexmakerjvmtiagent",
+        "libstaticjvmtiagent",
     ],
 }

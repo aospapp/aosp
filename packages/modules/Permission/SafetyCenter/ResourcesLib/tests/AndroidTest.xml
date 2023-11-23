@@ -20,10 +20,12 @@
     <option name="test-suite-tag" value="apct" />
     <option name="test-suite-tag" value="apct-instrumentation" />
     <option name="test-tag" value="SafetyCenterConfigTests" />
-    <object type="module_controller" class="com.android.tradefed.testtype.suite.module.Sdk30ModuleController" />
+    <object type="module_controller" class="com.android.tradefed.testtype.suite.module.Sdk33ModuleController" />
+
+    <option name="config-descriptor:metadata" key="parameter" value="no_foldable_states" />
 
     <!-- Install test and resources -->
-    <target_preparer class="com.android.tradefed.targetprep.TestAppInstallSetup">
+    <target_preparer class="com.android.tradefed.targetprep.suite.SuiteApkInstaller">
         <option name="test-file-name" value="SafetyCenterResourcesLibTests.apk" />
         <option name="test-file-name" value="SafetyCenterResourcesLibTestResources.apk" />
         <option name="cleanup-apks" value="true" />

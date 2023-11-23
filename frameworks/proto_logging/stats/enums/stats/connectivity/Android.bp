@@ -41,3 +41,39 @@ java_library_static {
     sdk_version: "system_current",
     min_sdk_version: "30",
 }
+
+java_library_static {
+    name: "ConnectivityServiceprotos",
+    proto: {
+        type: "lite",
+    },
+    srcs: [
+        "connectivity_service.proto",
+    ],
+    apex_available: [
+        "com.android.tethering",
+    ],
+    sdk_version: "system_current",
+    min_sdk_version: "30",
+}
+
+filegroup {
+    name: "tethering_proto",
+    srcs: [
+        "tethering.proto",
+    ],
+}
+
+filegroup {
+    name: "network_stack_proto",
+    srcs: [
+        "network_stack.proto",
+    ],
+}
+
+filegroup {
+    name: "connectivity_service_proto",
+    srcs: [
+        "connectivity_service.proto",
+    ],
+}

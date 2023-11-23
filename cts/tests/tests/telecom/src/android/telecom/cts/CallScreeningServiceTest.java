@@ -18,10 +18,8 @@ package android.telecom.cts;
 
 import static android.telecom.cts.TestUtils.shouldTestTelecom;
 
-import android.content.ContentResolver;
-import android.telecom.cts.MockCallScreeningService.CallScreeningServiceCallbacks;
-
 import android.content.ComponentName;
+import android.content.ContentResolver;
 import android.content.Context;
 import android.net.Uri;
 import android.os.Bundle;
@@ -31,6 +29,7 @@ import android.telecom.Connection;
 import android.telecom.PhoneAccount;
 import android.telecom.PhoneAccountHandle;
 import android.telecom.TelecomManager;
+import android.telecom.cts.MockCallScreeningService.CallScreeningServiceCallbacks;
 import android.test.InstrumentationTestCase;
 import android.text.TextUtils;
 
@@ -214,6 +213,14 @@ public class CallScreeningServiceTest extends InstrumentationTestCase {
                         .setSkipCallLog(true)
                         .setSkipNotification(true)
                         .build();
+
+                assertTrue(response.getDisallowCall());
+                assertTrue(response.getRejectCall());
+                assertFalse(response.getSilenceCall());
+                assertTrue(response.getSkipCallLog());
+                assertTrue(response.getSkipNotification());
+                assertEquals(-1 /* initial value */, response.getCallComposerAttachmentsToShow());
+
                 getService().respondToCall(callDetails, response);
                 lock.release();
             }
@@ -223,11 +230,17 @@ public class CallScreeningServiceTest extends InstrumentationTestCase {
     private void setupConnectionService() throws Exception {
         mConnectionService = new MockConnectionService();
         CtsConnectionService.setUp(mConnectionService);
-
-        mTelecomManager.registerPhoneAccount(TEST_PHONE_ACCOUNT);
-        TestUtils.enablePhoneAccount(getInstrumentation(), TEST_PHONE_ACCOUNT_HANDLE);
-        // Wait till the adb commands have executed and account is enabled in Telecom database.
-        assertPhoneAccountEnabled(TEST_PHONE_ACCOUNT_HANDLE);
+        try {
+            mTelecomManager.registerPhoneAccount(TEST_PHONE_ACCOUNT);
+            TestUtils.enablePhoneAccount(getInstrumentation(), TEST_PHONE_ACCOUNT_HANDLE);
+            // Wait till the adb commands have executed and account is enabled in Telecom database.
+            assertPhoneAccountEnabled(TEST_PHONE_ACCOUNT_HANDLE);
+        } catch (Exception e) {
+            // Don't leak a set-up CtsConnectionService if registration fails, since its static
+            // state breaks following tests and hides the original culprit.
+            CtsConnectionService.tearDown();
+            throw e;
+        }
     }
 
     private void assertPhoneAccountEnabled(final PhoneAccountHandle handle) {

@@ -130,7 +130,7 @@ public class Storage {
             Location location, int orientation, ExifInterface exif, byte[] data, int width,
             int height, String mimeType) throws IOException {
 
-        if (data.length >= 0) {
+        if (data.length > 0) {
             Bitmap bitmap = BitmapFactory.decodeByteArray(data, 0, data.length);
             return addImageToMediaStore(resolver, title, date, location, orientation, data.length,
                     bitmap, width, height, mimeType, exif);

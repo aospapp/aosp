@@ -16,6 +16,7 @@ limitations under the License.
 #include "tensorflow_lite_support/cc/text/tokenizers/regex_tokenizer.h"
 
 #include <iostream>
+#include <regex>
 
 #include "absl/strings/str_cat.h"
 #include "absl/strings/substitute.h"
@@ -40,10 +41,6 @@ void buildIndexTokenMap(
 
 }  // namespace
 
-// RE2::FindAndConsume requires the delim_re_ to have a matching group in order
-// to capture the matched delimiter length. Surround the regex with a
-// parenthesis to create a matching group, it's fine if the regex is already
-// surrounded by parenthesis.
 RegexTokenizer::RegexTokenizer(const std::string& regex_pattern,
                                const std::string& path_to_vocab)
     : delim_re_{absl::Substitute("($0)", regex_pattern)},
@@ -61,29 +58,22 @@ RegexTokenizer::RegexTokenizer(const std::string& regex_pattern,
 }
 
 TokenizerResult RegexTokenizer::Tokenize(const std::string& input) {
-  absl::string_view leftover(input.data());
-  absl::string_view last_end = leftover;
-
   TokenizerResult result;
 
   // Keep looking for split points until we have reached the end of the input.
-  absl::string_view extracted_delim_token;
-  while (RE2::FindAndConsume(&leftover, delim_re_, &extracted_delim_token)) {
-    absl::string_view token(last_end.data(),
-                            extracted_delim_token.data() - last_end.data());
-    bool has_non_empty_token = token.length() > 0;
-
-    last_end = leftover;
-
-    // Mark the end of the previous token, only if there was something.
-    if (has_non_empty_token) {
-      result.subwords.push_back(std::string(token));
+  // TODO (ag/17748161): Using smatch here introduces inefficient string copying; optimize if necessary.
+  std::string leftover = input;
+  std::smatch token;
+  while(std::regex_search(leftover, token, delim_re_)) {
+    if (token.length() > 0) {
+        result.subwords.push_back(token.prefix().str());
     }
+    leftover = token.suffix().str();
   }
 
   // Close the last token.
   if (!leftover.empty()) {
-    result.subwords.push_back(std::string(leftover));
+    result.subwords.push_back(leftover);
   }
 
   return result;

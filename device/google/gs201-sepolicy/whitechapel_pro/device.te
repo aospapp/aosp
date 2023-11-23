@@ -1,0 +1,30 @@
+type sda_block_device, dev_type;
+type devinfo_block_device, dev_type;
+type modem_block_device, dev_type;
+type custom_ab_block_device, dev_type;
+type persist_block_device, dev_type;
+type efs_block_device, dev_type;
+type modem_userdata_block_device, dev_type;
+type mfg_data_block_device, dev_type;
+type sg_device, dev_type;
+type vendor_toe_device, dev_type;
+type lwis_device, dev_type;
+type logbuffer_device, dev_type;
+type rls_device, dev_type;
+type fingerprint_device, dev_type;
+type gxp_device, dev_type, mlstrustedobject;
+type sensor_direct_heap_device, dmabuf_heap_device_type, dev_type;
+type faceauth_heap_device, dmabuf_heap_device_type, dev_type;
+type vframe_heap_device, dmabuf_heap_device_type, dev_type;
+type vscaler_heap_device, dmabuf_heap_device_type, dev_type;
+type radio_test_device, dev_type;
+type vendor_gnss_device, dev_type;
+type fips_block_device, dev_type;
+
+# SecureElement SPI device
+type st54spi_device, dev_type;
+type st33spi_device, dev_type;
+
+# Raw HID device
+type hidraw_device, dev_type;
+

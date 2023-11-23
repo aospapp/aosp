@@ -5,19 +5,21 @@ default	rel
 %define XMMWORD
 %define YMMWORD
 %define ZMMWORD
+
+%include "ring_core_generated/prefix_symbols_nasm.inc"
 section	.text code align=64
 
 
-EXTERN	GFp_ia32cap_P
+EXTERN	OPENSSL_ia32cap_P
 
-global	GFp_bn_mul_mont_gather5
+global	bn_mul_mont_gather5
 
 ALIGN	64
-GFp_bn_mul_mont_gather5:
+bn_mul_mont_gather5:
 	mov	QWORD[8+rsp],rdi	;WIN64 prologue
 	mov	QWORD[16+rsp],rsi
 	mov	rax,rsp
-$L$SEH_begin_GFp_bn_mul_mont_gather5:
+$L$SEH_begin_bn_mul_mont_gather5:
 	mov	rdi,rcx
 	mov	rsi,rdx
 	mov	rdx,r8
@@ -32,7 +34,7 @@ $L$SEH_begin_GFp_bn_mul_mont_gather5:
 
 	test	r9d,7
 	jnz	NEAR $L$mul_enter
-	lea	r11,[GFp_ia32cap_P]
+	lea	r11,[OPENSSL_ia32cap_P]
 	mov	r11d,DWORD[8+r11]
 	jmp	NEAR $L$mul4x_enter
 
@@ -463,7 +465,7 @@ $L$mul_epilogue:
 	mov	rsi,QWORD[16+rsp]
 	DB	0F3h,0C3h		;repret
 
-$L$SEH_end_GFp_bn_mul_mont_gather5:
+$L$SEH_end_bn_mul_mont_gather5:
 
 ALIGN	32
 bn_mul4x_mont_gather5:
@@ -1111,14 +1113,14 @@ $L$inner4x:
 	jmp	NEAR $L$sqr4x_sub_entry
 
 
-global	GFp_bn_power5
+global	bn_power5
 
 ALIGN	32
-GFp_bn_power5:
+bn_power5:
 	mov	QWORD[8+rsp],rdi	;WIN64 prologue
 	mov	QWORD[16+rsp],rsi
 	mov	rax,rsp
-$L$SEH_begin_GFp_bn_power5:
+$L$SEH_begin_bn_power5:
 	mov	rdi,rcx
 	mov	rsi,rdx
 	mov	rdx,r8
@@ -1130,7 +1132,7 @@ $L$SEH_begin_GFp_bn_power5:
 
 	mov	rax,rsp
 
-	lea	r11,[GFp_ia32cap_P]
+	lea	r11,[OPENSSL_ia32cap_P]
 	mov	r11d,DWORD[8+r11]
 	and	r11d,0x80108
 	cmp	r11d,0x80108
@@ -1259,13 +1261,13 @@ $L$power5_epilogue:
 	mov	rsi,QWORD[16+rsp]
 	DB	0F3h,0C3h		;repret
 
-$L$SEH_end_GFp_bn_power5:
+$L$SEH_end_bn_power5:
 
-global	GFp_bn_sqr8x_internal
+global	bn_sqr8x_internal
 
 
 ALIGN	32
-GFp_bn_sqr8x_internal:
+bn_sqr8x_internal:
 __bn_sqr8x_internal:
 
 
@@ -2100,10 +2102,10 @@ $L$sqr4x_sub_entry:
 	DB	0F3h,0C3h		;repret
 
 
-global	GFp_bn_from_montgomery
+global	bn_from_montgomery
 
 ALIGN	32
-GFp_bn_from_montgomery:
+bn_from_montgomery:
 
 	test	DWORD[48+rsp],7
 	jz	NEAR bn_from_mont8x
@@ -2238,7 +2240,7 @@ DB	102,72,15,110,209
 DB	0x67
 	mov	rbp,rcx
 DB	102,73,15,110,218
-	lea	r11,[GFp_ia32cap_P]
+	lea	r11,[OPENSSL_ia32cap_P]
 	mov	r11d,DWORD[8+r11]
 	and	r11d,0x80108
 	cmp	r11d,0x80108
@@ -2992,10 +2994,10 @@ $L$powerx5_epilogue:
 
 $L$SEH_end_bn_powerx5:
 
-global	GFp_bn_sqrx8x_internal
+global	bn_sqrx8x_internal
 
 ALIGN	32
-GFp_bn_sqrx8x_internal:
+bn_sqrx8x_internal:
 __bn_sqrx8x_internal:
 
 
@@ -3664,10 +3666,10 @@ $L$sqrx4x_sub_entry:
 	DB	0F3h,0C3h		;repret
 
 
-global	GFp_bn_scatter5
+global	bn_scatter5
 
 ALIGN	16
-GFp_bn_scatter5:
+bn_scatter5:
 
 	cmp	edx,0
 	jz	NEAR $L$scatter_epilogue
@@ -3684,12 +3686,12 @@ $L$scatter_epilogue:
 
 
 
-global	GFp_bn_gather5
+global	bn_gather5
 
 ALIGN	32
-GFp_bn_gather5:
+bn_gather5:
 
-$L$SEH_begin_GFp_bn_gather5:
+$L$SEH_begin_bn_gather5:
 
 DB	0x4c,0x8d,0x14,0x24
 
@@ -3848,7 +3850,7 @@ $L$gather:
 	lea	rsp,[r10]
 
 	DB	0F3h,0C3h		;repret
-$L$SEH_end_GFp_bn_gather5:
+$L$SEH_end_bn_gather5:
 
 
 ALIGN	64
@@ -3966,17 +3968,17 @@ $L$common_seh_tail:
 
 section	.pdata rdata align=4
 ALIGN	4
-	DD	$L$SEH_begin_GFp_bn_mul_mont_gather5 wrt ..imagebase
-	DD	$L$SEH_end_GFp_bn_mul_mont_gather5 wrt ..imagebase
-	DD	$L$SEH_info_GFp_bn_mul_mont_gather5 wrt ..imagebase
+	DD	$L$SEH_begin_bn_mul_mont_gather5 wrt ..imagebase
+	DD	$L$SEH_end_bn_mul_mont_gather5 wrt ..imagebase
+	DD	$L$SEH_info_bn_mul_mont_gather5 wrt ..imagebase
 
 	DD	$L$SEH_begin_bn_mul4x_mont_gather5 wrt ..imagebase
 	DD	$L$SEH_end_bn_mul4x_mont_gather5 wrt ..imagebase
 	DD	$L$SEH_info_bn_mul4x_mont_gather5 wrt ..imagebase
 
-	DD	$L$SEH_begin_GFp_bn_power5 wrt ..imagebase
-	DD	$L$SEH_end_GFp_bn_power5 wrt ..imagebase
-	DD	$L$SEH_info_GFp_bn_power5 wrt ..imagebase
+	DD	$L$SEH_begin_bn_power5 wrt ..imagebase
+	DD	$L$SEH_end_bn_power5 wrt ..imagebase
+	DD	$L$SEH_info_bn_power5 wrt ..imagebase
 
 	DD	$L$SEH_begin_bn_from_mont8x wrt ..imagebase
 	DD	$L$SEH_end_bn_from_mont8x wrt ..imagebase
@@ -3987,14 +3989,14 @@ ALIGN	4
 
 	DD	$L$SEH_begin_bn_powerx5 wrt ..imagebase
 	DD	$L$SEH_end_bn_powerx5 wrt ..imagebase
-	DD	$L$SEH_info_GFp_bn_powerx5 wrt ..imagebase
-	DD	$L$SEH_begin_GFp_bn_gather5 wrt ..imagebase
-	DD	$L$SEH_end_GFp_bn_gather5 wrt ..imagebase
-	DD	$L$SEH_info_GFp_bn_gather5 wrt ..imagebase
+	DD	$L$SEH_info_bn_powerx5 wrt ..imagebase
+	DD	$L$SEH_begin_bn_gather5 wrt ..imagebase
+	DD	$L$SEH_end_bn_gather5 wrt ..imagebase
+	DD	$L$SEH_info_bn_gather5 wrt ..imagebase
 
 section	.xdata rdata align=8
 ALIGN	8
-$L$SEH_info_GFp_bn_mul_mont_gather5:
+$L$SEH_info_bn_mul_mont_gather5:
 DB	9,0,0,0
 	DD	mul_handler wrt ..imagebase
 	DD	$L$mul_body wrt ..imagebase,$L$mul_body wrt ..imagebase,$L$mul_epilogue wrt ..imagebase
@@ -4004,7 +4006,7 @@ DB	9,0,0,0
 	DD	mul_handler wrt ..imagebase
 	DD	$L$mul4x_prologue wrt ..imagebase,$L$mul4x_body wrt ..imagebase,$L$mul4x_epilogue wrt ..imagebase
 ALIGN	8
-$L$SEH_info_GFp_bn_power5:
+$L$SEH_info_bn_power5:
 DB	9,0,0,0
 	DD	mul_handler wrt ..imagebase
 	DD	$L$power5_prologue wrt ..imagebase,$L$power5_body wrt ..imagebase,$L$power5_epilogue wrt ..imagebase
@@ -4019,12 +4021,12 @@ DB	9,0,0,0
 	DD	mul_handler wrt ..imagebase
 	DD	$L$mulx4x_prologue wrt ..imagebase,$L$mulx4x_body wrt ..imagebase,$L$mulx4x_epilogue wrt ..imagebase
 ALIGN	8
-$L$SEH_info_GFp_bn_powerx5:
+$L$SEH_info_bn_powerx5:
 DB	9,0,0,0
 	DD	mul_handler wrt ..imagebase
 	DD	$L$powerx5_prologue wrt ..imagebase,$L$powerx5_body wrt ..imagebase,$L$powerx5_epilogue wrt ..imagebase
 ALIGN	8
-$L$SEH_info_GFp_bn_gather5:
+$L$SEH_info_bn_gather5:
 DB	0x01,0x0b,0x03,0x0a
 DB	0x0b,0x01,0x21,0x00
 DB	0x04,0xa3,0x00,0x00

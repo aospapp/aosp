@@ -42,8 +42,6 @@
     <string name="car_permission_desc_projection" msgid="2352178999656292944">"Επιτρέπει σε μια εφαρμογή να προβάλλει μια διεπαφή από ένα τηλέφωνο στην οθόνη του αυτοκινήτου."</string>
     <string name="car_permission_label_access_projection_status" msgid="4231618890836627402">"πρόσβαση στην κατάσταση προβολής"</string>
     <string name="car_permission_desc_access_projection_status" msgid="8497351979100616278">"Επιτρέπει σε μια εφαρμογή να λάβει την κατάσταση άλλων εφαρμογών που προβάλλουν στην οθόνη ενός αυτοκινήτου."</string>
-    <string name="car_permission_label_bind_projection_service" msgid="5362076216606651526">"σύνδεση σε υπηρεσία προβολής"</string>
-    <string name="car_permission_desc_bind_projection_service" msgid="2282657787853408639">"Επιτρέπει στον κάτοχο τη δέσμευση στη διεπαφή ανωτάτου επιπέδου μιας υπηρεσίας προβολής. Δεν απαιτείται ποτέ για κανονικές εφαρμογές."</string>
     <string name="car_permission_label_audio_volume" msgid="310587969373137690">"έλεγχος έντασης ήχου αυτοκινήτου"</string>
     <string name="car_permission_label_audio_settings" msgid="6524703796944023977">"διαχείριση των ρυθμίσεων ήχου του αυτοκινήτου"</string>
     <string name="car_permission_label_mock_vehicle_hal" msgid="7198852512207405935">"προσομοίωση HAL οχήματος"</string>
@@ -62,8 +60,6 @@
     <string name="car_permission_desc_car_cluster_control" msgid="9222776665281176031">"Εκκίνηση εφαρμογών στο καντράν"</string>
     <string name="car_permission_car_monitor_cluster_navigation_state" msgid="7025307242306902441">"Κατάσταση πλοήγησης στο καντράν"</string>
     <string name="car_permission_desc_car_monitor_cluster_navigation_state" msgid="8745047153878713339">"Ακρόαση για αλλαγές κατάστασης πλοήγησης στο καντράν"</string>
-    <string name="car_permission_label_bind_instrument_cluster_rendering" msgid="8627480897198377418">"Απόδοση καντράν"</string>
-    <string name="car_permission_desc_bind_instrument_cluster_rendering" msgid="5073596870485006783">"Λήψη δεδομένων καντράν"</string>
     <string name="car_permission_label_car_ux_restrictions_configuration" msgid="6801393970411049725">"Διαμόρφωση περιορισμών εμπειρίας χρήστη"</string>
     <string name="car_permission_desc_car_ux_restrictions_configuration" msgid="5711926927484813777">"Διαμόρφωση περιορισμών εμπειρίας χρήστη"</string>
     <string name="car_permission_label_access_private_display_id" msgid="6712116114341634316">"Πρόσβαση ανάγνωσης στο ιδιωτικό αναγνωριστικό οθόνης"</string>
@@ -74,8 +70,12 @@
     <string name="car_permission_desc_read_car_occupant_awareness_state" msgid="188865882598414986">"Επιτρέπει την ανάγνωση των δεδομένων κατάστασης και ανίχνευσης του συστήματος ελέγχου συμπεριφοράς οδηγού."</string>
     <string name="car_permission_label_control_car_occupant_awareness_system" msgid="7163330266691094542">"Έλεγχος γραφήματος συστήματος ελέγχου συμπεριφοράς οδηγού"</string>
     <string name="car_permission_desc_control_car_occupant_awareness_system" msgid="7123482622084531911">"Επιτρέπει τον έλεγχο της έναρξης και της διακοπής του γραφήματος ανίχνευσης του συστήματος ελέγχου συμπεριφοράς οδηγού."</string>
-    <string name="car_permission_label_bind_input_service" msgid="6698489034024273750">"Υπηρεσία εισόδου αυτοκινήτου"</string>
-    <string name="car_permission_desc_bind_input_service" msgid="1670323419931890170">"Χειρισμός συμβάντων εισόδου"</string>
+    <string name="car_permission_label_read_driver_monitoring_settings" msgid="5208935577581001710">"Ανάγνωση των πληροφοριών του αυτοκινήτου σχετικά με τις ρυθμίσεις παρακολούθησης οδηγού"</string>
+    <string name="car_permission_desc_read_driver_monitoring_settings" msgid="3721117607024237175">"Ανάγνωση των πληροφοριών του αυτοκινήτου σχετικά με τις ρυθμίσεις παρακολούθησης οδηγού."</string>
+    <string name="car_permission_label_control_driver_monitoring_settings" msgid="239453247872865455">"Έλεγχος των πληροφοριών του αυτοκινήτου σχετικά με τις ρυθμίσεις παρακολούθησης οδηγού"</string>
+    <string name="car_permission_desc_control_driver_monitoring_settings" msgid="7244804817277236221">"Έλεγχος των πληροφοριών του αυτοκινήτου σχετικά με τις ρυθμίσεις παρακολούθησης οδηγού."</string>
+    <string name="car_permission_label_read_driver_monitoring_states" msgid="1555412806741155523">"Ανάγνωση των πληροφοριών του αυτοκινήτου σχετικά με τις καταστάσεις παρακολούθησης του οδηγού"</string>
+    <string name="car_permission_desc_read_driver_monitoring_states" msgid="3124328827934661489">"Ανάγνωση των πληροφοριών του αυτοκινήτου σχετικά με τις καταστάσεις παρακολούθησης του οδηγού."</string>
     <string name="car_permission_label_diag_read" msgid="7248894224877702604">"παρακολούθηση δεδομένων διαγνωστικών στοιχείων"</string>
     <string name="car_permission_desc_diag_read" msgid="1121426363040966178">"Παρακολούθηση δεδομένων διαγνωστικών στοιχείων από το αυτοκίνητο."</string>
     <string name="car_permission_label_diag_clear" msgid="4783070510879698157">"διαγραφή δεδομένων διαγνωστικών στοιχείων"</string>
@@ -84,8 +84,6 @@
     <string name="car_permission_desc_vms_publisher" msgid="5589489298597386828">"Δημοσίευση μηνυμάτων VMS"</string>
     <string name="car_permission_label_vms_subscriber" msgid="5648841182059222299">"Εγγεγραμμένη εφαρμογή VMS"</string>
     <string name="car_permission_desc_vms_subscriber" msgid="7551009457847673620">"Εγγραφή σε μηνύματα VMS"</string>
-    <string name="car_permission_label_bind_vms_client" msgid="4889732900973280313">"Υπηρεσία εφαρμογής πελάτη VMS"</string>
-    <string name="car_permission_desc_bind_vms_client" msgid="4062835325264330564">"Δέσμευση σε εφαρμογές πελάτη VMS"</string>
     <string name="car_permission_label_storage_monitoring" msgid="2327639346522530549">"Παρακολούθηση αποθηκευτικού χώρου flash"</string>
     <string name="car_permission_desc_storage_monitoring" msgid="2075712271139671318">"Παρακολούθηση χρήσης αποθηκευτικού χώρου flash"</string>
     <string name="car_permission_label_driving_state" msgid="7754624599537393650">"ακρόαση κατάστασης οδήγησης"</string>
@@ -118,6 +116,8 @@
     <string name="car_permission_desc_control_car_mirrors" msgid="1224135684068855032">"Έλεγχος καθρεπτών αυτοκινήτου."</string>
     <string name="car_permission_label_control_car_seats" msgid="1826934820585497135">"έλεγχος καθισμάτων αυτοκινήτου"</string>
     <string name="car_permission_desc_control_car_seats" msgid="2407536601226470563">"Έλεγχος καθισμάτων αυτοκινήτου."</string>
+    <string name="car_permission_label_control_car_airbags" msgid="6823727183218389617">"έλεγχος των αερόσακων του αυτοκινήτου"</string>
+    <string name="car_permission_desc_control_car_airbags" msgid="6181671903761622348">"Έλεγχος των αερόσακων του αυτοκινήτου."</string>
     <string name="car_permission_label_car_info" msgid="4707513570676492315">"πρόσβαση στις βασικές πληροφορίες του αυτοκινήτου"</string>
     <string name="car_permission_desc_car_info" msgid="2118081474543537653">"Πρόσβαση σε βασικές πληροφορίες του αυτοκινήτου."</string>
     <string name="car_permission_label_privileged_car_info" msgid="1304018073760220785">"πρόσβαση στις προνομιακές πληροφορίες του αυτοκινήτου"</string>
@@ -126,10 +126,10 @@
     <string name="car_permission_desc_vendor_permission_info" msgid="8152113853528488398">"Πρόσβαση στις πληροφορίες άδειας πωλητή του αυτοκινήτου."</string>
     <string name="car_permission_label_car_exterior_lights" msgid="541304469604902110">"παρακολούθηση κατάστασης εξωτερικών φώτων του αυτοκινήτου"</string>
     <string name="car_permission_desc_car_exterior_lights" msgid="4038037584100849318">"Πρόσβαση στην κατάσταση εξωτερικών φώτων του αυτοκινήτου."</string>
+    <string name="car_permission_label_control_glove_box" msgid="992118647212706782">"πρόσβαση στην κατάσταση για το ντουλαπάκι του αυτοκινήτου"</string>
+    <string name="car_permission_desc_control_glove_box" msgid="2888062136750123261">"Πρόσβαση στην κατάσταση για το ντουλαπάκι του αυτοκινήτου."</string>
     <string name="car_permission_label_car_epoch_time" msgid="6303397910662625112">"πρόσβαση στα στοιχεία για την εποχή του αυτοκινήτου"</string>
     <string name="car_permission_desc_car_epoch_time" msgid="398907082895238558">"Πρόσβαση στα στοιχεία για την εποχή του αυτοκινήτου."</string>
-    <string name="car_permission_label_encryption_binding_seed" msgid="4652180636501144684">"πρόσβαση στο φύτρο σύνδεσης με κρυπτογράφηση του αυτοκινήτου"</string>
-    <string name="car_permission_desc_encryption_binding_seed" msgid="6290944678417286024">"Πρόσβαση στο φύτρο σύνδεσης με κρυπτογράφηση του αυτοκινήτου."</string>
     <string name="car_permission_label_control_car_exterior_lights" msgid="101357531386232141">"παρακολούθηση εξωτερικών φώτων του αυτοκινήτου"</string>
     <string name="car_permission_desc_control_car_exterior_lights" msgid="6332252612685264180">"Έλεγχος εξωτερικών φώτων αυτοκινήτου."</string>
     <string name="car_permission_label_car_interior_lights" msgid="8506302199784427680">"παρακολούθηση εσωτερικών φώτων αυτοκινήτου"</string>
@@ -146,6 +146,8 @@
     <string name="car_permission_desc_read_car_display_units" msgid="6891898275208542385">"Παρακολούθηση οθονών."</string>
     <string name="car_permission_label_control_car_display_units" msgid="4975303668183173076">"έλεγχος οθονών αυτοκινήτου"</string>
     <string name="car_permission_desc_control_car_display_units" msgid="8744397195158556945">"Έλεγχος οθονών."</string>
+    <string name="car_permission_label_control_car_powertrain" msgid="234831541490237603">"έλεγχος συστήματος μετάδοσης ισχύος του αυτοκινήτου"</string>
+    <string name="car_permission_desc_control_car_powertrain" msgid="8205110385130069179">"Έλεγχος συστήματος μετάδοσης ισχύος του αυτοκινήτου."</string>
     <string name="car_permission_label_car_powertrain" msgid="4586122326622134886">"παρακολούθηση των πληροφοριών του συστήματος ισχύος του αυτοκινήτου"</string>
     <string name="car_permission_desc_car_powertrain" msgid="1116007372551797796">"Πρόσβαση σε πληροφορίες του συστήματος ισχύος του αυτοκινήτου."</string>
     <string name="car_permission_label_car_power" msgid="8111448088314368268">"παρακολούθηση κατάστασης ισχύος αυτοκινήτου"</string>
@@ -172,6 +174,40 @@
     <string name="car_permission_desc_template_renderer" msgid="6047233999260920122">"Να αποδίδει πρότυπα."</string>
     <string name="car_permission_label_control_car_app_launch" msgid="214632389637409226">"έλεγχος εφαρμογών εκκίνησης"</string>
     <string name="car_permission_desc_control_car_app_launch" msgid="4245527461733374198">"Έλεγχος εφαρμογών εκκίνησης."</string>
+    <string name="car_permission_label_manage_thread_priority" msgid="6775846409863509575">"διαχείριση προτεραιότητας νημάτων"</string>
+    <string name="car_permission_desc_manage_thread_priority" msgid="3833845502119615929">"Διαχείριση προτεραιότητας νημάτων."</string>
+    <string name="car_permission_label_manage_occupant_zone" msgid="1390420387640478679">"διαχείριση χώρου επιβατών οχήματος"</string>
+    <string name="car_permission_desc_manage_occupant_zone" msgid="1641484205694436465">"Διαχείριση χώρου επιβατών οχήματος."</string>
+    <string name="car_permission_label_use_remote_access" msgid="4192095854784769805">"χρήση απομακρυσμένης πρόσβασης"</string>
+    <string name="car_permission_desc_use_remote_access" msgid="7287637348044911791">"Χρήση απομακρυσμένης πρόσβασης."</string>
+    <string name="car_permission_label_control_remote_access" msgid="4247590162299914718">"έλεγχος απομακρυσμένης πρόσβασης"</string>
+    <string name="car_permission_desc_control_remote_access" msgid="127215188256669260">"Έλεγχος απομακρυσμένης πρόσβασης."</string>
+    <string name="car_permission_label_control_steering_wheel" msgid="6244908950907824488">"έλεγχος του τιμονιού του αυτοκινήτου"</string>
+    <string name="car_permission_desc_control_steering_wheel" msgid="8408970211196600423">"Έλεγχος του τιμονιού του αυτοκινήτου."</string>
+    <string name="car_permission_label_read_adas_settings" msgid="151296373212801328">"ανάγνωση πληροφοριών ρυθμίσεων ADAS του αυτοκινήτου"</string>
+    <string name="car_permission_desc_read_adas_settings" msgid="8490545343454791279">"Ανάγνωση πληροφοριών ρυθμίσεων ADAS του αυτοκινήτου."</string>
+    <string name="car_permission_label_control_adas_settings" msgid="2535088218472880855">"έλεγχος πληροφοριών ρυθμίσεων ADAS του αυτοκινήτου"</string>
+    <string name="car_permission_desc_control_adas_settings" msgid="8781131640392345285">"Έλεγχος πληροφοριών ρυθμίσεων ADAS του αυτοκινήτου."</string>
+    <string name="car_permission_label_read_adas_states" msgid="8968657466958098106">"ανάγνωση πληροφοριών καταστάσεων ADAS του αυτοκινήτου"</string>
+    <string name="car_permission_desc_read_adas_states" msgid="5042430899788416991">"Ανάγνωση πληροφοριών καταστάσεων ADAS του αυτοκινήτου."</string>
+    <string name="car_permission_label_control_adas_states" msgid="758803765406463138">"έλεγχος πληροφοριών καταστάσεων ADAS του αυτοκινήτου"</string>
+    <string name="car_permission_desc_control_adas_states" msgid="1893171217779342348">"Έλεγχος πληροφοριών καταστάσεων ADAS του αυτοκινήτου."</string>
+    <string name="car_permission_label_read_windshield_wipers" msgid="896867772546890348">"ανάγνωση των υαλοκαθαριστήρων του αυτοκινήτου"</string>
+    <string name="car_permission_desc_read_windshield_wipers" msgid="597300271560195986">"Ανάγνωση των υαλοκαθαριστήρων του αυτοκινήτου."</string>
+    <string name="car_permission_label_control_windshield_wipers" msgid="7971852482734087493">"έλεγχος των υαλοκαθαριστήρων του αυτοκινήτου"</string>
+    <string name="car_permission_desc_control_windshield_wipers" msgid="3803429825323199728">"Έλεγχος των υαλοκαθαριστήρων του αυτοκινήτου."</string>
+    <string name="car_permission_label_manage_remote_device" msgid="1144368625081074994">"παρακολούθηση των καταστάσεων των άλλων ζωνών επιβατών στο αυτοκίνητο και των ομότιμων εφαρμογών (εφαρμογών που έχουν το ίδιο όνομα πακέτου με τον καλούντα) οι οποίες είναι εγκατεστημένες στις συγκεκριμένες ζώνες, καθώς και διαχείριση της ενέργειας αυτών των ζωνών."</string>
+    <string name="car_permission_desc_manage_remote_device" msgid="4802785901453919948">"Παρακολούθηση των καταστάσεων των άλλων ζωνών επιβατών στο αυτοκίνητο και των ομότιμων εφαρμογών (εφαρμογών που έχουν το ίδιο όνομα πακέτου με τον καλούντα) οι οποίες είναι εγκατεστημένες στις συγκεκριμένες ζώνες, καθώς και διαχείριση της ενέργειας αυτών των ζωνών."</string>
+    <string name="car_permission_label_manage_occupant_connection" msgid="6007579379849984187">"δημιουργία σύνδεσης και επικοινωνία με ομότιμες εφαρμογές (εφαρμογές που έχουν το ίδιο όνομα πακέτου με τον καλούντα) οι οποίες είναι εγκατεστημένες σε άλλες ζώνες επιβατών στο αυτοκίνητο"</string>
+    <string name="car_permission_desc_manage_occupant_connection" msgid="6525045077082552965">"Δημιουργία σύνδεσης και επικοινωνία με ομότιμες εφαρμογές (εφαρμογές που έχουν το ίδιο όνομα πακέτου με τον καλούντα) οι οποίες είναι εγκατεστημένες σε άλλες ζώνες επιβατών στο αυτοκίνητο."</string>
+    <string name="car_permission_label_access_mirrored_surface" msgid="6235459468766618021">"αντικατοπτρισμός οθόνης άλλων εφαρμογών"</string>
+    <string name="car_permission_desc_access_mirrored_surface" msgid="7701151689600074639">"Αντικατοπτρισμός οθόνης άλλων εφαρμογών."</string>
+    <string name="car_permission_label_mirror_display" msgid="7591958768912962529">"αντικατοπτρισμός οθόνης άλλων χρηστών"</string>
+    <string name="car_permission_desc_mirror_display" msgid="2403249980834394896">"Αντικατοπτρισμός οθόνης άλλων χρηστών."</string>
+    <string name="car_permission_label_register_car_system_ui_proxy" msgid="4211405049007842422">"Καταχωρήστε έναν διακομιστή μεσολάβησης διεπαφής χρήστη συστήματος που μπορεί να χρησιμοποιηθεί από άλλες εφαρμογές για τη διαχείριση της διεπαφής χρήστη συστήματος και τη δημιουργία προβολών εργασιών."</string>
+    <string name="car_permission_desc_register_car_system_ui_proxy" msgid="8863676956785764681">"Καταχωρήστε έναν διακομιστή μεσολάβησης διεπαφής χρήστη συστήματος που μπορεί να χρησιμοποιηθεί από άλλες εφαρμογές για τη διαχείριση της διεπαφής χρήστη συστήματος και τη δημιουργία προβολών εργασιών."</string>
+    <string name="car_permission_label_manage_car_system_ui" msgid="1361615518679353414">"Επικοινωνήστε με τη διεπαφή χρήστη συστήματος για να δημιουργήσετε προβολές εργασιών ή για να λαμβάνετε ειδοποιήσεις σχετικά με αλλαγές στη διεπαφή χρήστη συστήματος."</string>
+    <string name="car_permission_desc_manage_car_system_ui" msgid="6201733970421818637">"Επικοινωνήστε με τη διεπαφή χρήστη συστήματος για να δημιουργήσετε προβολές εργασιών ή για να λαμβάνετε ειδοποιήσεις σχετικά με αλλαγές στη διεπαφή χρήστη συστήματος."</string>
     <string name="car_can_bus_failure" msgid="2334035748788283914">"Αποτυχία διαύλου CAN"</string>
     <string name="car_can_bus_failure_desc" msgid="4125516222786484733">"Ο δίαυλος CAN δεν αποκρίνεται. Αποσυνδέστε και συνδέστε ξανά το πλαίσιο μονάδας κεφαλής και έπειτα επανεκκινήστε το αυτοκίνητο"</string>
     <string name="trust_device_default_name" msgid="4213625926070261253">"Η συσκευή μου"</string>

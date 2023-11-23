@@ -10,20 +10,20 @@ package {
 filegroup {
     name: "BluetoothSecuritySources",
     srcs: [
+        ":BluetoothSecurityChannelSources",
+        ":BluetoothSecurityPairingSources",
+        ":BluetoothSecurityRecordSources",
         "ecc/multprecision.cc",
         "ecc/p_256_ecc_pp.cc",
         "ecdh_keys.cc",
         "facade_configuration_api.cc",
+        "internal/security_manager_impl.cc",
         "l2cap_security_module_interface.cc",
         "pairing_handler_le.cc",
         "pairing_handler_le_legacy.cc",
         "pairing_handler_le_secure_connections.cc",
         "security_manager.cc",
-        "internal/security_manager_impl.cc",
         "security_module.cc",
-        ":BluetoothSecurityChannelSources",
-        ":BluetoothSecurityPairingSources",
-        ":BluetoothSecurityRecordSources",
     ],
 }
 
@@ -38,18 +38,18 @@ filegroup {
 filegroup {
     name: "BluetoothSecurityTestSources",
     srcs: [
-        "pairing_handler_le_unittest.cc",
-        "test/fake_l2cap_test.cc",
-        "test/pairing_handler_le_pair_test.cc",
         ":BluetoothSecurityChannelTestSources",
         ":BluetoothSecurityPairingTestSources",
         ":BluetoothSecurityRecordTestSources",
+        "pairing_handler_le_unittest.cc",
+        "test/fake_l2cap_test.cc",
+        "test/pairing_handler_le_pair_test.cc",
     ],
 }
 
 filegroup {
-     name: "BluetoothFacade_security_layer",
-     srcs: [
-         "facade.cc",
-     ],
+    name: "BluetoothFacade_security_layer",
+    srcs: [
+        "facade.cc",
+    ],
 }

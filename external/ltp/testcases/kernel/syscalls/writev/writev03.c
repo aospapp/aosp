@@ -47,9 +47,8 @@ static void setup(void)
 		buf[i] = i & 0xff;
 
 	mapfd = SAFE_OPEN(MAPFILE, O_CREAT|O_RDWR|O_TRUNC, 0644);
-	SAFE_WRITE(1, mapfd, buf, BUF_SIZE);
+	SAFE_WRITE(SAFE_WRITE_ALL, mapfd, buf, BUF_SIZE);
 
-	fzsync_pair.exec_time_p = 0.25;
 	tst_fzsync_pair_init(&fzsync_pair);
 }
 
@@ -146,6 +145,7 @@ static struct tst_test test = {
 	.min_cpus = 2,
 	.setup = setup,
 	.cleanup = cleanup,
+	.max_runtime = 75,
 	.tags = (const struct tst_tag[]) {
 		{"linux-git", "d4690f1e1cda"},
 		{}

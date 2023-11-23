@@ -25,4 +25,5 @@
     <string name="set_wallpaper" msgid="3650915172749345197">"Nustatyti ekrano foną"</string>
     <string name="new_instance" msgid="1924479866055190730">"Pateikti naujo objekto paleidimo užklausą"</string>
     <string name="wallpaper_description" msgid="5885164573334720996">"Pavyzdinis „MultiDisplay“ ekrano fonas"</string>
+    <string name="exit" msgid="3648703694102318310">"Išeiti"</string>
 </resources>

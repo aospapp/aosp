@@ -358,21 +358,145 @@ VOID ixheaacd_dct2_32(WORD32 *inp, WORD32 *out,
   return;
 }
 
+VOID ixheaacd_sbr_qmfanal32_winadd_eld_mps(WORD32 *inp1, WORD32 *inp2,
+                                           const WORD32 *p_qmf1,
+                                           const WORD32 *p_qmf2,
+                                           WORD32 *p_out) {
+  WORD32 n;
+  WORD32 resolution = 64;
+
+  for (n = 0; n < 64; n += 2) {
+    WORD32 accu;
+    accu = ixheaacd_mul32_sh(inp1[n + 0], p_qmf1[(n + 0)], 31);
+    accu = ixheaacd_add32(accu,
+                          ixheaacd_mul32_sh(inp1[n + 2 * resolution],
+                                            p_qmf1[(n + 2 * resolution)], 31));
+    accu = ixheaacd_add32(accu,
+                          ixheaacd_mul32_sh(inp1[n + 4 * resolution],
+                                            p_qmf1[(n + 4 * resolution)], 31));
+    accu = ixheaacd_add32(accu,
+                          ixheaacd_mul32_sh(inp1[n + 6 * resolution],
+                                            p_qmf1[(n + 6 * resolution)], 31));
+    accu = ixheaacd_add32(accu,
+                          ixheaacd_mul32_sh(inp1[n + 8 * resolution],
+                                            p_qmf1[(n + 8 * resolution)], 31));
+    p_out[n] = accu;
+
+    accu = ixheaacd_mul32_sh(inp1[n + 1 + 0], p_qmf1[(n + 1 + 0)], 31);
+    accu = ixheaacd_add32_sat(
+        accu, ixheaacd_mul32_sh(inp1[n + 1 + 2 * resolution],
+                                p_qmf1[(n + 1 + 2 * resolution)], 31));
+    accu = ixheaacd_add32_sat(
+        accu, ixheaacd_mul32_sh(inp1[n + 1 + 4 * resolution],
+                                p_qmf1[(n + 1 + 4 * resolution)], 31));
+    accu = ixheaacd_add32_sat(
+        accu, ixheaacd_mul32_sh(inp1[n + 1 + 6 * resolution],
+                                p_qmf1[(n + 1 + 6 * resolution)], 31));
+    accu = ixheaacd_add32_sat(
+        accu, ixheaacd_mul32_sh(inp1[n + 1 + 8 * resolution],
+                                p_qmf1[(n + 1 + 8 * resolution)], 31));
+    p_out[n + 1] = accu;
+
+    accu = ixheaacd_mul32_sh(inp2[n + 0], p_qmf2[(n + 0)], 31);
+    accu = ixheaacd_add32(accu,
+                          ixheaacd_mul32_sh(inp2[n + 2 * resolution],
+                                            p_qmf2[(n + 2 * resolution)], 31));
+    accu = ixheaacd_add32(accu,
+                          ixheaacd_mul32_sh(inp2[n + 4 * resolution],
+                                            p_qmf2[(n + 4 * resolution)], 31));
+    accu = ixheaacd_add32(accu,
+                          ixheaacd_mul32_sh(inp2[n + 6 * resolution],
+                                            p_qmf2[(n + 6 * resolution)], 31));
+    accu = ixheaacd_add32(accu,
+                          ixheaacd_mul32_sh(inp2[n + 8 * resolution],
+                                            p_qmf2[(n + 8 * resolution)], 31));
+    p_out[n + 64] = accu;
+
+    accu = ixheaacd_mul32_sh(inp2[n + 1 + 0], p_qmf2[(n + 1 + 0)], 31);
+    accu = ixheaacd_add32_sat(
+        accu, ixheaacd_mul32_sh(inp2[n + 1 + 2 * resolution],
+                                p_qmf2[(n + 1 + 2 * resolution)], 31));
+    accu = ixheaacd_add32_sat(
+        accu, ixheaacd_mul32_sh(inp2[n + 1 + 4 * resolution],
+                                p_qmf2[(n + 1 + 4 * resolution)], 31));
+    accu = ixheaacd_add32_sat(
+        accu, ixheaacd_mul32_sh(inp2[n + 1 + 6 * resolution],
+                                p_qmf2[(n + 1 + 6 * resolution)], 31));
+    accu = ixheaacd_add32_sat(
+        accu, ixheaacd_mul32_sh(inp2[n + 1 + 8 * resolution],
+                                p_qmf2[(n + 1 + 8 * resolution)], 31));
+    p_out[n + 1 + 64] = accu;
+  }
+}
+
+VOID ixheaacd_sbr_qmfanal32_winadd_eld_32(WORD32 *inp1, WORD32 *inp2,
+                                          const WORD32 *p_qmf1,
+                                          const WORD32 *p_qmf2, WORD32 *p_out) {
+  WORD32 n;
+
+  for (n = 0; n < 32; n += 2) {
+    WORD32 accu;
+    accu = ixheaacd_mul32_sh(inp1[n + 0], p_qmf1[(n + 0)], 31);
+    accu = ixheaacd_add32(
+        accu, ixheaacd_mul32_sh(inp1[n + 64], p_qmf1[(n + 64)], 31));
+    accu = ixheaacd_add32(
+        accu, ixheaacd_mul32_sh(inp1[n + 128], p_qmf1[(n + 128)], 31));
+    accu = ixheaacd_add32(
+        accu, ixheaacd_mul32_sh(inp1[n + 192], p_qmf1[(n + 192)], 31));
+    accu = ixheaacd_add32(
+        accu, ixheaacd_mul32_sh(inp1[n + 256], p_qmf1[(n + 256)], 31));
+    p_out[n] = accu;
+
+    accu = ixheaacd_mul32_sh(inp1[n + 1 + 0], p_qmf1[(n + 1 + 0)], 31);
+    accu = ixheaacd_add32_sat(
+        accu, ixheaacd_mul32_sh(inp1[n + 1 + 64], p_qmf1[(n + 1 + 64)], 31));
+    accu = ixheaacd_add32_sat(
+        accu, ixheaacd_mul32_sh(inp1[n + 1 + 128], p_qmf1[(n + 1 + 128)], 31));
+    accu = ixheaacd_add32_sat(
+        accu, ixheaacd_mul32_sh(inp1[n + 1 + 192], p_qmf1[(n + 1 + 192)], 31));
+    accu = ixheaacd_add32_sat(
+        accu, ixheaacd_mul32_sh(inp1[n + 1 + 256], p_qmf1[(n + 1 + 256)], 31));
+    p_out[n + 1] = accu;
+
+    accu = ixheaacd_mul32_sh(inp2[n + 0], p_qmf2[(n + 0)], 31);
+    accu = ixheaacd_add32(
+        accu, ixheaacd_mul32_sh(inp2[n + 64], p_qmf2[(n + 64)], 31));
+    accu = ixheaacd_add32(
+        accu, ixheaacd_mul32_sh(inp2[n + 128], p_qmf2[(n + 128)], 31));
+    accu = ixheaacd_add32(
+        accu, ixheaacd_mul32_sh(inp2[n + 192], p_qmf2[(n + 192)], 31));
+    accu = ixheaacd_add32(
+        accu, ixheaacd_mul32_sh(inp2[n + 256], p_qmf2[(n + 256)], 31));
+    p_out[n + 32] = accu;
+
+    accu = ixheaacd_mul32_sh(inp2[n + 1 + 0], p_qmf2[(n + 1 + 0)], 31);
+    accu = ixheaacd_add32_sat(
+        accu, ixheaacd_mul32_sh(inp2[n + 1 + 64], p_qmf2[(n + 1 + 64)], 31));
+    accu = ixheaacd_add32_sat(
+        accu, ixheaacd_mul32_sh(inp2[n + 1 + 128], p_qmf2[(n + 1 + 128)], 31));
+    accu = ixheaacd_add32_sat(
+        accu, ixheaacd_mul32_sh(inp2[n + 1 + 192], p_qmf2[(n + 1 + 192)], 31));
+    accu = ixheaacd_add32_sat(
+        accu, ixheaacd_mul32_sh(inp2[n + 1 + 256], p_qmf2[(n + 1 + 256)], 31));
+    p_out[n + 1 + 32] = accu;
+  }
+}
+
 VOID ixheaacd_sbr_qmfanal32_winadd_eld(WORD16 *inp1, WORD16 *inp2,
-                                       WORD16 *p_qmf1, WORD16 *p_qmf2,
-                                       WORD32 *p_out) {
+                                       const WORD16 *p_qmf1,
+                                       const WORD16 *p_qmf2, WORD32 *p_out) {
   WORD32 n;
 
   for (n = 0; n < 32; n += 2) {
     WORD32 accu;
     accu = ixheaacd_mult16x16in32(inp1[n + 0], p_qmf1[(n + 0)]);
-    accu = ixheaacd_add32(
+    accu = ixheaacd_add32_sat(
         accu, ixheaacd_mult16x16in32(inp1[n + 64], p_qmf1[(n + 64)]));
-    accu = ixheaacd_add32(
+    accu = ixheaacd_add32_sat(
         accu, ixheaacd_mult16x16in32(inp1[n + 128], p_qmf1[(n + 128)]));
-    accu = ixheaacd_add32(
+    accu = ixheaacd_add32_sat(
         accu, ixheaacd_mult16x16in32(inp1[n + 192], p_qmf1[(n + 192)]));
-    accu = ixheaacd_add32(
+    accu = ixheaacd_add32_sat(
         accu, ixheaacd_mult16x16in32(inp1[n + 256], p_qmf1[(n + 256)]));
     p_out[n] = accu;
 
@@ -388,13 +512,13 @@ VOID ixheaacd_sbr_qmfanal32_winadd_eld(WORD16 *inp1, WORD16 *inp2,
     p_out[n + 1] = accu;
 
     accu = ixheaacd_mult16x16in32(inp2[n + 0], p_qmf2[(n + 0)]);
-    accu = ixheaacd_add32(
+    accu = ixheaacd_add32_sat(
         accu, ixheaacd_mult16x16in32(inp2[n + 64], p_qmf2[(n + 64)]));
-    accu = ixheaacd_add32(
+    accu = ixheaacd_add32_sat(
         accu, ixheaacd_mult16x16in32(inp2[n + 128], p_qmf2[(n + 128)]));
-    accu = ixheaacd_add32(
+    accu = ixheaacd_add32_sat(
         accu, ixheaacd_mult16x16in32(inp2[n + 192], p_qmf2[(n + 192)]));
-    accu = ixheaacd_add32(
+    accu = ixheaacd_add32_sat(
         accu, ixheaacd_mult16x16in32(inp2[n + 256], p_qmf2[(n + 256)]));
     p_out[n + 32] = accu;
 
@@ -609,9 +733,18 @@ VOID ixheaacd_esbr_qmfanal32_winadd(WORD32 *inp1, WORD32 *inp2, WORD32 *p_qmf1,
 
 VOID ixheaacd_esbr_inv_modulation(
     WORD32 *qmf_real, ia_sbr_qmf_filter_bank_struct *syn_qmf,
-    ia_qmf_dec_tables_struct *qmf_dec_tables_ptr) {
-  ixheaacd_esbr_cos_sin_mod(qmf_real, syn_qmf, qmf_dec_tables_ptr->esbr_w_32,
-                            qmf_dec_tables_ptr->dig_rev_table2_32);
+    ia_qmf_dec_tables_struct *qmf_dec_tables_ptr, WORD32 no_synthesis_channels) {
+
+    if (no_synthesis_channels == NO_SYNTHESIS_CHANNELS_DOWN_SAMPLED)
+    {
+      ixheaacd_esbr_cos_sin_mod(qmf_real, syn_qmf, qmf_dec_tables_ptr->esbr_w_16,
+        qmf_dec_tables_ptr->dig_rev_table4_16);
+    }
+    else
+    {
+      ixheaacd_esbr_cos_sin_mod(qmf_real, syn_qmf, qmf_dec_tables_ptr->esbr_w_32,
+        qmf_dec_tables_ptr->dig_rev_table2_32);
+    }
 }
 
 VOID ixheaacd_sbr_qmfsyn32_winadd(WORD16 *tmp1, WORD16 *tmp2, WORD16 *inp1,
@@ -715,7 +848,7 @@ VOID ixheaacd_cplx_synt_qmffilt(
   WORD32 *qmf_imag_tmp = &qmf_real2[NO_SYNTHESIS_CHANNELS];
   WORD32 env = 0;
 
-  WORD32 common_shift;
+  WORD32 common_shift = 0;
 
   if (no_synthesis_channels == 32) {
     qmf_bank->cos_twiddle =
@@ -884,7 +1017,7 @@ VOID ixheaacd_cplx_synt_qmffilt(
 
         ixheaacd_apply_ps(ptr_ps_dec, &qmf_real[i], &qmf_imag[i], qmf_real_tmp,
                           qmf_imag_tmp, sbr_scale_factor, (WORD16)i,
-                          sbr_tables_ptr);
+                          sbr_tables_ptr, num_time_slots);
       }
       if (1 == drc_on) {
         WORD32 loop_val;

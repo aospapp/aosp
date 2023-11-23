@@ -20,6 +20,7 @@ import tempfile
 from typing import List, Optional, Set
 
 from . test_utils import TestBase, TestHelper
+from simpleperf_utils import remove
 
 
 class TestReportSample(TestBase):
@@ -34,6 +35,33 @@ class TestReportSample(TestBase):
         got = self.get_record_data_string('perf_display_bitmaps.data')
         with open(TestHelper.testdata_path('perf_display_bitmaps.perf-script')) as f:
             want = f.read()
+        self.assertEqual(got, want)
+
+    def test_output_flag(self):
+        # Test short form flag.
+        remove('some.output')
+        got = self.get_record_data_string('perf_display_bitmaps.data',
+                                          ['-o', 'some.output'])
+        self.assertEqual(got, '')
+        self.check_exist(filename='some.output')
+
+        # Test long form flag
+        remove("some.output")
+        got = self.get_record_data_string('perf_display_bitmaps.data',
+                                          ['--output_file', 'some.output'])
+        self.assertEqual(got, '')
+        self.check_exist(filename="some.output")
+
+        # Verify that the output file contains expected data
+        with open(TestHelper.testdata_path('perf_display_bitmaps.perf-script')) as f:
+            want = f.read()
+        with open('some.output') as f:
+            got = f.read()
+        self.assertEqual(got, want)
+
+        # Verify that an output spec of '-' is stdout
+        remove("some.output")
+        got = self.get_record_data_string('perf_display_bitmaps.data', ['-o', '-'])
         self.assertEqual(got, want)
 
     def test_comm_filter_to_renderthread(self):

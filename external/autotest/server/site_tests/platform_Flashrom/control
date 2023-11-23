@@ -4,7 +4,7 @@
 
 from autotest_lib.server import utils
 
-AUTHOR = "Chrome OS Team"
+AUTHOR = "ChromeOS Team"
 NAME = "platform_Flashrom"
 PURPOSE = "Test flashrom in chromeos-firmwareupdate."
 ATTRIBUTES = "suite:faft_flashrom"
@@ -13,6 +13,7 @@ TEST_CATEGORY = "Functional"
 TEST_CLASS = "platform"
 TEST_TYPE = "server"
 DEPENDENCIES = "flashrom, servo_state:WORKING"
+PY_VERSION = 3
 
 DOC = """
 This test should be executed on one board per type and on every FSI image to

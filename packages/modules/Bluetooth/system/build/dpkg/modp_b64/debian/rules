@@ -10,7 +10,7 @@ defines += cc=\"clang\"
 defines += ar=\"ar\"
 defines += enable_werror=false
 defines += libdir=\"/usr/lib\"
-defines += use={mojo=false asan=false coverage=false crypto=true dbus=true fuzzer=false timers=true cros_host=false profiling=false tcmalloc=false}
+defines += use={mojo=false asan=false coverage=false crypto=true dbus=true fuzzer=false timers=true cros_host=false cros_debug=false profiling=false tcmalloc=false}
 
 # handle parallel build options
 njobs=1

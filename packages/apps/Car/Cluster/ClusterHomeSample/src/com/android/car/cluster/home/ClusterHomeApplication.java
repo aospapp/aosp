@@ -35,6 +35,8 @@ import android.app.IActivityTaskManager;
 import android.app.TaskInfo;
 import android.app.TaskStackListener;
 import android.car.Car;
+import android.car.CarAppFocusManager;
+import android.car.CarAppFocusManager.OnAppFocusChangedListener;
 import android.car.CarOccupantZoneManager;
 import android.car.cluster.ClusterActivityState;
 import android.car.cluster.ClusterHomeManager;
@@ -46,40 +48,47 @@ import android.car.user.CarUserManager.UserLifecycleListener;
 import android.car.user.UserLifecycleEventFilter;
 import android.content.ComponentName;
 import android.content.Intent;
+import android.content.pm.ActivityInfo;
+import android.content.pm.PackageManager;
+import android.content.pm.PackageManager.ResolveInfoFlags;
+import android.content.pm.ResolveInfo;
 import android.graphics.Rect;
 import android.hardware.input.InputManager;
 import android.os.RemoteException;
 import android.os.UserHandle;
+import android.util.ArraySet;
 import android.util.Log;
 import android.view.Display;
 import android.view.KeyEvent;
 
+import java.util.ArrayList;
 import java.util.List;
 
 public final class ClusterHomeApplication extends Application {
     public static final String TAG = "ClusterHome";
-    private static final boolean DBG = false;
+    private static final boolean DBG = Log.isLoggable(TAG, Log.DEBUG);
     private static final int UI_TYPE_HOME = UI_TYPE_CLUSTER_HOME;
     private static final int UI_TYPE_MAPS = UI_TYPE_HOME + 1;
     private static final int UI_TYPE_MUSIC = UI_TYPE_HOME + 2;
     private static final int UI_TYPE_PHONE = UI_TYPE_HOME + 3;
     private static final int UI_TYPE_START = UI_TYPE_MAPS;
 
-    private static final byte HOME_AVAILABILITY = 1;
-    private static final byte MAPS_AVAILABILITY = 1;
-    private static final byte PHONE_AVAILABILITY = 1;
-    private static final byte MUSIC_AVAILABILITY = 1;
+    private static final byte UI_UNAVAILABLE = 0;
+    private static final byte UI_AVAILABLE = 1;
 
+    private PackageManager mPackageManager;
     private IActivityTaskManager mAtm;
     private InputManager mInputManager;
     private ClusterHomeManager mHomeManager;
     private CarUserManager mUserManager;
     private CarInputManager mCarInputManager;
+    private CarAppFocusManager mAppFocusManager;
     private ClusterState mClusterState;
     private byte mUiAvailability[];
     private int mUserLifeCycleEvent = USER_LIFECYCLE_EVENT_TYPE_STARTING;
 
-    private ComponentName[] mClusterActivities;
+    private ArrayList<ComponentName> mClusterActivities = new ArrayList<>();
+    private int mDefaultClusterActivitySize = 0;
 
     private int mLastLaunchedUiType = UI_TYPE_CLUSTER_NONE;
     private int mLastReportedUiType = UI_TYPE_CLUSTER_NONE;
@@ -87,15 +96,16 @@ public final class ClusterHomeApplication extends Application {
     @Override
     public void onCreate() {
         super.onCreate();
-        mClusterActivities = new ComponentName[] {
-                new ComponentName(getApplicationContext(), ClusterHomeActivity.class),
-                ComponentName.unflattenFromString(
-                        getString(R.string.config_clusterMapActivity)),
-                ComponentName.unflattenFromString(
-                        getString(R.string.config_clusterMusicActivity)),
-                ComponentName.unflattenFromString(
-                        getString(R.string.config_clusterPhoneActivity)),
-        };
+        mClusterActivities.add(UI_TYPE_HOME,
+                new ComponentName(getApplicationContext(), ClusterHomeActivity.class));
+        mClusterActivities.add(UI_TYPE_MAPS,
+                ComponentName.unflattenFromString(getString(R.string.config_clusterMapActivity)));
+        mClusterActivities.add(UI_TYPE_MUSIC,
+                ComponentName.unflattenFromString(getString(R.string.config_clusterMusicActivity)));
+        mClusterActivities.add(UI_TYPE_PHONE,
+                ComponentName.unflattenFromString(getString(R.string.config_clusterPhoneActivity)));
+        mDefaultClusterActivitySize = mClusterActivities.size();
+        mPackageManager = getApplicationContext().getPackageManager();
         mAtm = ActivityTaskManager.getService();
         try {
             mAtm.registerTaskStackListener(mTaskStackListener);
@@ -111,6 +121,8 @@ public final class ClusterHomeApplication extends Application {
                     mHomeManager = (ClusterHomeManager) car.getCarManager(Car.CLUSTER_HOME_SERVICE);
                     mUserManager = (CarUserManager) car.getCarManager(Car.CAR_USER_SERVICE);
                     mCarInputManager = (CarInputManager) car.getCarManager(Car.CAR_INPUT_SERVICE);
+                    mAppFocusManager = (CarAppFocusManager) car.getCarManager(
+                            Car.APP_FOCUS_SERVICE);
                     initClusterHome();
                 });
     }
@@ -126,7 +138,7 @@ public final class ClusterHomeApplication extends Application {
         if (!mClusterState.on) {
             mHomeManager.requestDisplay(UI_TYPE_HOME);
         }
-        mUiAvailability = buildUiAvailability();
+        mUiAvailability = buildUiAvailability(ActivityManager.getCurrentUser());
         mHomeManager.reportState(mClusterState.uiType, UI_TYPE_CLUSTER_NONE, mUiAvailability);
         mHomeManager.registerClusterStateListener(getMainExecutor(), mClusterHomeCalback);
 
@@ -136,6 +148,9 @@ public final class ClusterHomeApplication extends Application {
                 .addEventType(USER_LIFECYCLE_EVENT_TYPE_STARTING)
                 .addEventType(USER_LIFECYCLE_EVENT_TYPE_UNLOCKED).build();
         mUserManager.addListener(getMainExecutor(), filter, mUserLifecycleListener);
+
+        mAppFocusManager.addFocusListener(mAppFocusChangedListener,
+                CarAppFocusManager.APP_FOCUS_TYPE_NAVIGATION);
 
         int r = mCarInputManager.requestInputEventCapture(
                 DISPLAY_TYPE_INSTRUMENT_CLUSTER,
@@ -175,7 +190,7 @@ public final class ClusterHomeApplication extends Application {
             return;
         }
         mLastLaunchedUiType = uiType;
-        ComponentName activity = mClusterActivities[uiType];
+        ComponentName activity = mClusterActivities.get(uiType);
 
         Intent intent = new Intent(ACTION_MAIN).setComponent(activity);
         if (mClusterState.bounds != null && mClusterState.insets != null) {
@@ -195,17 +210,63 @@ public final class ClusterHomeApplication extends Application {
         mHomeManager.startFixedActivityModeAsUser(intent, options.toBundle(), userId);
     }
 
-    private byte[] buildUiAvailability() {
-        // TODO(b/183115088): populate uiAvailability based on the package availability
-        return new byte[] {
-                HOME_AVAILABILITY, MAPS_AVAILABILITY, PHONE_AVAILABILITY, MUSIC_AVAILABILITY
-        };
+    private void add3PNavigationActivities(int currentUser) {
+        // Clean up the 3P Navigations from the previous user.
+        mClusterActivities.subList(mDefaultClusterActivitySize, mClusterActivities.size()).clear();
+
+        ArraySet<String> clusterPackages = new ArraySet<>();
+        for (int i = mDefaultClusterActivitySize - 1; i >= 0; --i) {
+            clusterPackages.add(mClusterActivities.get(i).getPackageName());
+        }
+        Intent intent = new Intent(Intent.ACTION_MAIN).addCategory(Car.CAR_CATEGORY_NAVIGATION);
+        List<ResolveInfo> resolveList = mPackageManager.queryIntentActivitiesAsUser(
+                intent, ResolveInfoFlags.of(PackageManager.GET_RESOLVED_FILTER),
+                UserHandle.of(currentUser));
+        for (int i = resolveList.size() - 1; i >= 0; --i) {
+            ActivityInfo activityInfo = resolveList.get(i).activityInfo;
+            if (DBG) Log.d(TAG, "Found: " + activityInfo.packageName + "/" + activityInfo.name);
+            // Some package can have multiple navigation Activities, we choose the default one only.
+            if (clusterPackages.contains(activityInfo.packageName)) {
+                if (DBG) {
+                    Log.d(TAG, "Skip this, because another Activity in the package is registered.");
+                };
+                continue;
+            }
+            mClusterActivities.add(new ComponentName(activityInfo.packageName, activityInfo.name));
+        }
+        mUiAvailability = buildUiAvailability(currentUser);
+    }
+
+    private byte[] buildUiAvailability(int currentUser) {
+        byte[] availability = new byte[mClusterActivities.size()];
+        Intent intent = new Intent(ACTION_MAIN);
+        for (int i = mClusterActivities.size() - 1; i >= 0; --i) {
+            ComponentName clusterActivity = mClusterActivities.get(i);
+            if (clusterActivity.getPackageName().equals(getPackageName())) {
+                // Assume that all Activities in ClusterHome are available.
+                availability[i] = UI_AVAILABLE;
+                continue;
+            }
+            intent.setComponent(clusterActivity);
+            ResolveInfo resolveInfo = mPackageManager.resolveActivityAsUser(
+                    intent, PackageManager.MATCH_DEFAULT_ONLY, currentUser);
+            availability[i] = resolveInfo == null ? UI_UNAVAILABLE : UI_AVAILABLE;
+            if (DBG) {
+                Log.d(TAG, "availability=" + availability[i] + ", activity=" + clusterActivity
+                        + ", userId=" + currentUser);
+            }
+        }
+        return availability;
     }
 
     private final ClusterStateListener mClusterHomeCalback = new ClusterStateListener() {
         @Override
         public void onClusterStateChanged(
                 ClusterState state, @ClusterHomeManager.Config int changes) {
+            if (DBG) {
+                Log.d(TAG, "onClusterStateChanged: changes=" + Integer.toHexString(changes) +
+                        ", state=" + clusterStateToString(state));
+            }
             mClusterState = state;
             // We'll restart Activity when the display bounds or insets are changed, to let Activity
             // redraw itself to fit the changed attributes.
@@ -255,8 +316,8 @@ public final class ClusterHomeApplication extends Application {
     }
 
     private int identifyTopTask(TaskInfo taskInfo) {
-        for (int i = mClusterActivities.length - 1; i >=0; --i) {
-            if (mClusterActivities[i].equals(taskInfo.topActivity)) {
+        for (int i = mClusterActivities.size() - 1; i >=0; --i) {
+            if (mClusterActivities.get(i).equals(taskInfo.topActivity)) {
                 return i;
             }
         }
@@ -269,9 +330,11 @@ public final class ClusterHomeApplication extends Application {
         mUserLifeCycleEvent = event.getEventType();
         if (mUserLifeCycleEvent == USER_LIFECYCLE_EVENT_TYPE_STARTING) {
             startClusterActivity(UI_TYPE_HOME);
-        } else if (UI_TYPE_HOME != UI_TYPE_START
-                && mUserLifeCycleEvent == USER_LIFECYCLE_EVENT_TYPE_UNLOCKED) {
-            startClusterActivity(UI_TYPE_START);
+        } else if (mUserLifeCycleEvent == USER_LIFECYCLE_EVENT_TYPE_UNLOCKED) {
+            add3PNavigationActivities(event.getUserId());
+            if (UI_TYPE_START != UI_TYPE_HOME) {
+                startClusterActivity(UI_TYPE_START);
+            }
         }
     };
 
@@ -287,11 +350,74 @@ public final class ClusterHomeApplication extends Application {
         if (DBG) Log.d(TAG, "onKeyEvent: " + keyEvent);
         if (keyEvent.getKeyCode() == KeyEvent.KEYCODE_MENU) {
             if (keyEvent.getAction() != KeyEvent.ACTION_DOWN) return;
-            int nextUiType = (mLastLaunchedUiType + 1) % mUiAvailability.length;
+            int nextUiType;
+            do {
+                // Select the Cluster Activity within the preinstalled ones.
+                nextUiType = mLastLaunchedUiType + 1;
+                if (nextUiType >= mDefaultClusterActivitySize) nextUiType = 0;
+            } while (mUiAvailability[nextUiType] == UI_UNAVAILABLE);
             startClusterActivity(nextUiType);
             return;
         }
         // Use Android InputManager to forward KeyEvent.
         mInputManager.injectInputEvent(keyEvent, INJECT_INPUT_EVENT_MODE_ASYNC);
+    }
+
+    private OnAppFocusChangedListener mAppFocusChangedListener = new OnAppFocusChangedListener() {
+        @Override
+        public void onAppFocusChanged(int appType, boolean active) {
+            if (!active || appType != CarAppFocusManager.APP_FOCUS_TYPE_NAVIGATION) {
+                return;
+            }
+            int navigationUi = getFocusedNavigationUi();
+            if (navigationUi != UI_TYPE_CLUSTER_NONE) {
+                startClusterActivity(navigationUi);
+            }
+        }
+    };
+
+    private int getFocusedNavigationUi() {
+        List<String> focusOwnerPackageNames = mAppFocusManager.getAppTypeOwner(
+                CarAppFocusManager.APP_FOCUS_TYPE_NAVIGATION);
+        if (focusOwnerPackageNames == null || focusOwnerPackageNames.isEmpty()) {
+            Log.e(TAG, "Can't find the navigation owner");
+            return UI_TYPE_CLUSTER_NONE;
+        }
+        for (int i = 0; i < focusOwnerPackageNames.size(); ++i) {
+            String focusOwnerPackage = focusOwnerPackageNames.get(i);
+            for (int j = mClusterActivities.size() - 1; j >= 0; --j) {
+                if (mUiAvailability[j] == UI_UNAVAILABLE) {
+                    continue;
+                }
+                if (mClusterActivities.get(j).getPackageName().equals(focusOwnerPackage)) {
+                    if (DBG) {
+                        Log.d(TAG, "Found focused NavigationUI: " + j
+                                + ", package=" + focusOwnerPackage);
+                    }
+                    return j;
+                }
+            }
+        }
+        Log.e(TAG, "Can't find the navigation UI for "
+                + String.join(", ", focusOwnerPackageNames) + ".");
+        return UI_TYPE_CLUSTER_NONE;
+    }
+
+    private static String clusterStateToString(ClusterState state) {
+        StringBuilder sb = new StringBuilder("ClusterState[");
+        sb.append("on="); sb.append(state.on);
+        if (state.bounds != null) {
+            sb.append(", bounds="); sb.append(state.bounds);
+        }
+        if (state.insets != null) {
+            sb.append(", insets="); sb.append(state.insets);
+        }
+        if (state.insets != null) {
+            sb.append(", insets="); sb.append(state.insets);
+        }
+        sb.append(", uiType="); sb.append(state.uiType);
+        sb.append(", displayId="); sb.append(state.displayId);
+        sb.append(']');
+        return sb.toString();
     }
 }

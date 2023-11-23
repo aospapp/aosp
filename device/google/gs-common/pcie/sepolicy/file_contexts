@@ -1,0 +1,4 @@
+/vendor/bin/dump/dump_pcie\.sh      u:object_r:dump_pcie_exec:s0
+
+/dev/logbuffer_pcie0                u:object_r:pcie_log_device:s0
+/dev/logbuffer_pcie1                u:object_r:pcie_log_device:s0

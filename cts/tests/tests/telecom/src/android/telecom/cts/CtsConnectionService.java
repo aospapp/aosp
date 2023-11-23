@@ -16,10 +16,7 @@
 
 package android.telecom.cts;
 
-import static org.junit.Assert.assertTrue;
-
 import android.content.Intent;
-import android.os.IBinder;
 import android.telecom.Conference;
 import android.telecom.Connection;
 import android.telecom.ConnectionRequest;
@@ -71,7 +68,10 @@ public class CtsConnectionService extends ConnectionService {
     public static void setUp(ConnectionService connectionService) throws Exception {
         synchronized(sLock) {
             if (sConnectionService != null) {
-                throw new Exception("Mock ConnectionService exists.  Failed to call setUp().");
+                // Clean up so following tests don't fail too, hiding the original culprit in noise
+                sConnectionService = null;
+                throw new Exception("Mock ConnectionService exists.  Failed to call setUp(), "
+                        + "or previous test failed to call tearDown().");
             }
             sConnectionService = connectionService;
         }
@@ -80,6 +80,7 @@ public class CtsConnectionService extends ConnectionService {
     public static void tearDown() {
         synchronized(sLock) {
             sConnectionService = null;
+            sTelecomConnectionService = null;
         }
     }
 

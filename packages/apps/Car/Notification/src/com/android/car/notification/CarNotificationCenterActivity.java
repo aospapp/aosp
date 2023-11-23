@@ -22,7 +22,11 @@ import android.content.Intent;
 import android.content.ServiceConnection;
 import android.os.Bundle;
 import android.os.IBinder;
+import android.os.RemoteException;
+import android.os.ServiceManager;
 import android.util.Log;
+
+import com.android.internal.statusbar.IStatusBarService;
 
 /**
  * Displays all undismissed notifications.
@@ -31,11 +35,13 @@ public class CarNotificationCenterActivity extends Activity {
 
     private static final String TAG = "CarNotificationActivity";
 
-    private boolean mNotificationListenerBound;
     private CarNotificationListener mNotificationListener;
     private PreprocessingManager mPreprocessingManager;
     private CarNotificationView mCarNotificationView;
     private NotificationViewController mNotificationViewController;
+    private IStatusBarService mStatusBarService;
+    private NotificationDataManager mNotificationDataManager;
+    private CarNotificationVisibilityLogger mNotificationVisibilityLogger;
 
     private ServiceConnection mNotificationListenerConnectionListener = new ServiceConnection() {
         public void onServiceConnected(ComponentName className, IBinder binder) {
@@ -48,7 +54,12 @@ public class CarNotificationCenterActivity extends Activity {
                             mNotificationListener,
                             app.getCarUxRestrictionWrapper());
             mNotificationViewController.enable();
-            mNotificationListenerBound = true;
+            getApplicationContext().getMainExecutor().execute(() -> {
+                if (isResumed()) {
+                    notifyVisibilityChanged(/* isVisible= */ true);
+                    mCarNotificationView.setVisibleNotificationsAsSeen();
+                }
+            });
         }
 
         public void onServiceDisconnected(ComponentName className) {
@@ -56,7 +67,6 @@ public class CarNotificationCenterActivity extends Activity {
             mNotificationViewController.disable();
             mNotificationViewController = null;
             mNotificationListener = null;
-            mNotificationListenerBound = false;
         }
     };
 
@@ -69,6 +79,17 @@ public class CarNotificationCenterActivity extends Activity {
         mCarNotificationView = findViewById(R.id.notification_view);
         mCarNotificationView.setClickHandlerFactory(app.getClickHandlerFactory());
         findViewById(R.id.exit_button_container).setOnClickListener(v -> finish());
+        mNotificationDataManager = NotificationDataManager.getInstance();
+        mStatusBarService = IStatusBarService.Stub.asInterface(
+                ServiceManager.getService(Context.STATUS_BAR_SERVICE));
+        mNotificationVisibilityLogger = new CarNotificationVisibilityLogger(mStatusBarService,
+                mNotificationDataManager);
+
+        mNotificationDataManager.setOnUnseenCountUpdateListener(() -> {
+            mNotificationListener.setNotificationsShown(
+                    NotificationDataManager.getInstance().getSeenNotifications());
+            mNotificationVisibilityLogger.notifyVisibilityChanged(isResumed());
+        });
     }
 
     @Override
@@ -79,22 +100,40 @@ public class CarNotificationCenterActivity extends Activity {
         intent.setAction(CarNotificationListener.ACTION_LOCAL_BINDING);
         bindService(intent, mNotificationListenerConnectionListener, Context.BIND_AUTO_CREATE);
         if (mNotificationViewController != null) {
-            mNotificationViewController.onVisibilityChanged(true);
+            mNotificationViewController.onVisibilityChanged(/* isVisible= */ true);
         }
     }
 
     @Override
     protected void onStop() {
         super.onStop();
-        mNotificationViewController.onVisibilityChanged(false);
+        notifyVisibilityChanged(/* isVisible= */ false);
+
         // Unbind notification listener
-        if (mNotificationListenerBound) {
+        if (mNotificationViewController != null) {
             mNotificationViewController.disable();
             mNotificationViewController = null;
-            mNotificationListener = null;
+        }
+
+        if (mNotificationListenerConnectionListener != null) {
             unbindService(mNotificationListenerConnectionListener);
-            mNotificationListenerBound = false;
+            mNotificationListener = null;
         }
     }
 
+    private void notifyVisibilityChanged(boolean isVisible) {
+        if (mNotificationViewController != null) {
+            mNotificationViewController.onVisibilityChanged(isVisible);
+        }
+        try {
+            if (isVisible) {
+                mStatusBarService.onPanelRevealed(/* clearNotificationEffects= */ true,
+                        mNotificationDataManager.getVisibleNotifications().size());
+            } else {
+                mStatusBarService.onPanelHidden();
+            }
+        } catch (RemoteException ex) {
+            Log.e(TAG, "Unable to report notification visibility changes", ex);
+        }
+    }
 }

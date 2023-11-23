@@ -20,6 +20,10 @@
 
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
 
+    <queries>
+        <package android:name="android.voicerecognition.cts" />
+    </queries>
+
     <application android:label="CtsVoiceRecognitionService">
         <uses-library android:name="android.test.runner" />
 

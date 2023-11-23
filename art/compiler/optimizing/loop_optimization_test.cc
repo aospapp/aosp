@@ -14,12 +14,13 @@
  * limitations under the License.
  */
 
+#include "base/macros.h"
 #include "code_generator.h"
 #include "driver/compiler_options.h"
 #include "loop_optimization.h"
 #include "optimizing_unit_test.h"
 
-namespace art {
+namespace art HIDDEN {
 
 /**
  * Fixture class for the loop optimization tests. These unit tests focus
@@ -94,10 +95,7 @@ class LoopOptimizationTest : public OptimizingUnitTest {
   void PerformAnalysis() {
     graph_->BuildDominatorTree();
     iva_->Run();
-    // Do not release the loop hierarchy.
-    ScopedArenaAllocator loop_allocator(GetArenaStack());
-    loop_opt_->loop_allocator_ = &loop_allocator;
-    loop_opt_->LocalRun();
+    loop_opt_->Run();
   }
 
   /** Constructs string representation of computed loop hierarchy. */

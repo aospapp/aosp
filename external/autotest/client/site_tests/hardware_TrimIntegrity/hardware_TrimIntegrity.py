@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # Copyright (c) 2014 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -69,9 +70,9 @@ class hardware_TrimIntegrity(test.test):
         @param size: size to try the trim command
         """
         try:
-            fd = os.open(self._filename, os.O_RDWR, 0666)
+            fd = os.open(self._filename, os.O_RDWR, 0o666)
             self._do_trim(fd, 0, size)
-        except IOError, err:
+        except IOError as err:
             if err.errno == self.IOCTL_NOT_SUPPORT_ERRNO:
                 reason = 'IOCTL Does not support trim.'
                 msg = utils.get_storage_error_msg(self._diskname, reason)
@@ -131,11 +132,6 @@ class hardware_TrimIntegrity(test.test):
         # Make file size multiple of 4 * chunk size
         file_size -= file_size % (4 * chunk_size)
 
-        if fulldisk:
-            fio_file_size = 0
-        else:
-            fio_file_size = file_size
-
         logging.info('filename: %s, filesize: %d', self._filename, file_size)
 
         self._verify_trim_support(chunk_size)
@@ -152,7 +148,7 @@ class hardware_TrimIntegrity(test.test):
         trim_hash = ""
 
         # Write random data to disk
-        chunk_count = file_size / chunk_size
+        chunk_count = file_size // chunk_size
         cmd = str('dd if=/dev/urandom of=%s bs=%d count=%d oflag=direct' %
                   (self._filename, chunk_size, chunk_count))
         utils.run(cmd)
@@ -162,7 +158,7 @@ class hardware_TrimIntegrity(test.test):
         # Check read speed/latency when reading real data.
         self.job.run_test('hardware_StorageFio',
                           disable_sysinfo=True,
-                          filesize=fio_file_size,
+                          filesize=file_size,
                           blkdiscard=False,
                           requirements=[('4k_read_qd32', [])],
                           tag='before_trim')
@@ -187,7 +183,7 @@ class hardware_TrimIntegrity(test.test):
             # Do trim
             begin_trim_chunk = int(last_ratio * chunk_count)
             end_trim_chunk = int(ratio * chunk_count)
-            fd = os.open(self._filename, os.O_RDWR, 0666)
+            fd = os.open(self._filename, os.O_RDWR, 0o666)
             for chunk in trim_order[begin_trim_chunk:end_trim_chunk]:
                 self._do_trim(fd, chunk * chunk_size, chunk_size)
                 trim_status[chunk] = True
@@ -230,7 +226,7 @@ class hardware_TrimIntegrity(test.test):
         # Check read speed/latency when reading from trimmed data.
         self.job.run_test('hardware_StorageFio',
                           disable_sysinfo=True,
-                          filesize=fio_file_size,
+                          filesize=file_size,
                           blkdiscard=False,
                           requirements=[('4k_read_qd32', [])],
                           tag='after_trim')

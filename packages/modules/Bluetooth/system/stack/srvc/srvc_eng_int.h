@@ -57,9 +57,8 @@ typedef struct {
 /* Global GATT data */
 extern tSRVC_ENG_CB srvc_eng_cb;
 
-extern tSRVC_CLCB* srvc_eng_find_clcb_by_conn_id(uint16_t conn_id);
+tSRVC_CLCB* srvc_eng_find_clcb_by_conn_id(uint16_t conn_id);
 
-extern void srvc_eng_release_channel(uint16_t conn_id);
-extern bool srvc_eng_request_channel(const RawAddress& remote_bda,
-                                     uint8_t srvc_id);
+void srvc_eng_release_channel(uint16_t conn_id);
+bool srvc_eng_request_channel(const RawAddress& remote_bda, uint8_t srvc_id);
 #endif

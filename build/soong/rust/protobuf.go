@@ -73,7 +73,7 @@ func (proto *protobufDecorator) GenerateSource(ctx ModuleContext, deps PathDeps)
 	outDir := android.PathForModuleOut(ctx)
 	protoFiles := android.PathsForModuleSrc(ctx, proto.Properties.Protos)
 	grpcFiles := android.PathsForModuleSrc(ctx, proto.Properties.Grpc_protos)
-	protoPluginPath := ctx.Config().HostToolPath(ctx, "protoc-gen-rust")
+	protoPluginPath := ctx.Config().HostToolPath(ctx, "protoc-gen-rust-deprecated")
 
 	commonProtoFlags = append(commonProtoFlags, defaultProtobufFlags...)
 	commonProtoFlags = append(commonProtoFlags, proto.Properties.Proto_flags...)
@@ -206,7 +206,7 @@ func (proto *protobufDecorator) SourceProviderProps() []interface{} {
 
 func (proto *protobufDecorator) SourceProviderDeps(ctx DepsContext, deps Deps) Deps {
 	deps = proto.BaseSourceProvider.SourceProviderDeps(ctx, deps)
-	deps.Rustlibs = append(deps.Rustlibs, "libprotobuf")
+	deps.Rustlibs = append(deps.Rustlibs, "libprotobuf_deprecated")
 	deps.HeaderLibs = append(deps.SharedLibs, proto.Properties.Header_libs...)
 
 	if len(proto.Properties.Grpc_protos) > 0 {
@@ -238,7 +238,7 @@ func NewRustProtobuf(hod android.HostOrDeviceSupported) (*Module, *protobufDecor
 		Properties:         ProtobufProperties{},
 	}
 
-	module := NewSourceProviderModule(hod, protobuf, false)
+	module := NewSourceProviderModule(hod, protobuf, false, false)
 
 	return module, protobuf
 }

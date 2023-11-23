@@ -16,44 +16,48 @@
 package android.packageinstaller.install.cts
 
 import android.app.Activity.RESULT_CANCELED
+import android.app.UiAutomation
 import android.content.pm.ApplicationInfo.CATEGORY_MAPS
 import android.content.pm.ApplicationInfo.CATEGORY_UNDEFINED
+import android.content.pm.PackageInstaller
 import android.content.pm.PackageInstaller.STATUS_FAILURE_ABORTED
 import android.content.pm.PackageInstaller.STATUS_SUCCESS
+import android.content.pm.PackageInstaller.SessionParams.MODE_FULL_INSTALL
+import android.content.pm.PackageManager.COMPONENT_ENABLED_STATE_DEFAULT
+import android.content.pm.PackageManager.COMPONENT_ENABLED_STATE_DISABLED
 import android.platform.test.annotations.AppModeFull
 import androidx.test.InstrumentationRegistry
 import androidx.test.runner.AndroidJUnit4
 import com.android.compatibility.common.util.AppOpsUtils
+import java.util.concurrent.TimeUnit
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
-import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
-import java.util.concurrent.TimeUnit
 
-private const val INSTALL_BUTTON_ID = "button1"
-private const val CANCEL_BUTTON_ID = "button2"
-
+/**
+ * This class tests creation of a package installer session with different params.
+ */
 @AppModeFull(reason = "Instant apps cannot create installer sessions")
 @RunWith(AndroidJUnit4::class)
 class SessionTest : PackageInstallerTestBase() {
-    private val context = InstrumentationRegistry.getTargetContext()
-    private val pm = context.packageManager
 
-    @get:Rule
-    val excludeWatch = ExcludeWatch("Installing APKs not supported on watch", pm)
+    private val uiAutomation: UiAutomation =
+            InstrumentationRegistry.getInstrumentation().getUiAutomation()
 
     /**
      * Check that we can install an app via a package-installer session
      */
     @Test
     fun confirmInstallation() {
-        val installation = startInstallationViaSession()
+        val installation = startInstallationViaSession(needFuture = true)!!
         clickInstallerUIButton(INSTALL_BUTTON_ID)
 
         // Install should have succeeded
-        assertEquals(STATUS_SUCCESS, getInstallSessionResult())
+        val result = getInstallSessionResult()
+        assertEquals(STATUS_SUCCESS, result.status)
+        assertEquals(false, result.preapproval)
         assertInstalled()
 
         // Even when the install succeeds the install confirm dialog returns 'canceled'
@@ -69,12 +73,15 @@ class SessionTest : PackageInstallerTestBase() {
     fun confirmMultiPackageInstallation() {
         val installation = startInstallationViaMultiPackageSession(
                 installFlags = 0,
-                PackageInstallerTestBase.TEST_APK_NAME
-        )
+                TEST_APK_NAME,
+                needFuture = true
+        )!!
         clickInstallerUIButton(INSTALL_BUTTON_ID)
 
         // Install should have succeeded
-        assertEquals(STATUS_SUCCESS, getInstallSessionResult())
+        val result = getInstallSessionResult()
+        assertEquals(STATUS_SUCCESS, result.status)
+        assertEquals(false, result.preapproval)
         assertInstalled()
 
         // Even when the install succeeds the install confirm dialog returns 'canceled'
@@ -103,16 +110,46 @@ class SessionTest : PackageInstallerTestBase() {
     }
 
     /**
+     * Check that we can set an app category for an app we installed
+     */
+    @Test
+    fun setApplicationEnabledSettingPersistent() {
+        installWithApplicationEnabledSetting()
+        assertEquals(COMPONENT_ENABLED_STATE_DEFAULT,
+                pm.getApplicationEnabledSetting(TEST_APK_PACKAGE_NAME))
+
+        disablePackage()
+        assertEquals(COMPONENT_ENABLED_STATE_DISABLED,
+                pm.getApplicationEnabledSetting(TEST_APK_PACKAGE_NAME))
+
+        // enabled setting should be reset to default after reinstall
+        installWithApplicationEnabledSetting()
+        assertEquals(COMPONENT_ENABLED_STATE_DEFAULT,
+                pm.getApplicationEnabledSetting(TEST_APK_PACKAGE_NAME))
+
+        disablePackage()
+        assertEquals(COMPONENT_ENABLED_STATE_DISABLED,
+            pm.getApplicationEnabledSetting(TEST_APK_PACKAGE_NAME))
+
+        // enabled setting should now be persisted after reinstall
+        installWithApplicationEnabledSetting(true)
+        assertEquals(COMPONENT_ENABLED_STATE_DISABLED,
+            pm.getApplicationEnabledSetting(TEST_APK_PACKAGE_NAME))
+    }
+
+    /**
      * Install an app via a package-installer session, but then cancel it when the package installer
      * pops open.
      */
     @Test
     fun cancelInstallation() {
-        val installation = startInstallationViaSession()
+        val installation = startInstallationViaSession(needFuture = true)!!
         clickInstallerUIButton(CANCEL_BUTTON_ID)
 
         // Install should have been aborted
-        assertEquals(STATUS_FAILURE_ABORTED, getInstallSessionResult())
+        val result = getInstallSessionResult()
+        assertEquals(STATUS_FAILURE_ABORTED, result.status)
+        assertEquals(false, result.preapproval)
         assertEquals(RESULT_CANCELED, installation.get(TIMEOUT, TimeUnit.MILLISECONDS))
         assertNotInstalled()
     }
@@ -156,5 +193,31 @@ class SessionTest : PackageInstallerTestBase() {
 
         // Install should never have started
         assertNotInstalled()
+    }
+
+    private fun installWithApplicationEnabledSetting(setEnabledSettingPersistent: Boolean = false) {
+        val sessionParam = PackageInstaller.SessionParams(MODE_FULL_INSTALL)
+        if (setEnabledSettingPersistent) {
+            sessionParam.setApplicationEnabledSettingPersistent()
+        }
+        val sessionId = pi.createSession(sessionParam)
+        val session = pi.openSession(sessionId)
+        assertEquals(setEnabledSettingPersistent, session.isApplicationEnabledSettingPersistent())
+        writeSession(session, TEST_APK_NAME)
+        commitSession(session)
+        clickInstallerUIButton(INSTALL_BUTTON_ID)
+
+        // Wait for installation to finish
+        getInstallSessionResult()
+    }
+
+    private fun disablePackage() {
+        uiAutomation.adoptShellPermissionIdentity()
+        try {
+            pm.setApplicationEnabledSetting(TEST_APK_PACKAGE_NAME,
+                COMPONENT_ENABLED_STATE_DISABLED, 0)
+        } finally {
+            uiAutomation.dropShellPermissionIdentity()
+        }
     }
 }

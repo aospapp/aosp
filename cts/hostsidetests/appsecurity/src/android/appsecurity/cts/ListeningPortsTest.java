@@ -16,6 +16,7 @@
 
 package android.appsecurity.cts;
 
+import com.android.tradefed.util.RunUtil;
 import com.android.compatibility.common.tradefed.build.CompatibilityBuildHelper;
 import com.android.tradefed.build.IBuildInfo;
 import com.android.tradefed.device.DeviceNotAvailableException;
@@ -202,7 +203,7 @@ public class ListeningPortsTest extends DeviceTestCase implements IBuildReceiver
                 if (i == RETRIES_MAX - 1) {
                     throw e;
                 }
-                Thread.sleep(2 * 1000 * i);
+                RunUtil.getDefault().sleep(2 * 1000 * i);
             }
         }
         throw new IllegalStateException("unreachable");

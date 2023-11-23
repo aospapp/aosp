@@ -20,5 +20,7 @@
                   android:key="@string/psk_language_picker">
     <com.android.car.settings.common.LogicalPreferenceGroup
         android:key="@string/pk_language_picker"
-        settings:controller="com.android.car.settings.language.LanguagePickerPreferenceController"/>
+        settings:controller="com.android.car.settings.language.LanguagePickerPreferenceController"
+        settings:occupant_front_passenger="read"
+        settings:occupant_rear_passenger="read"/>
 </PreferenceScreen>

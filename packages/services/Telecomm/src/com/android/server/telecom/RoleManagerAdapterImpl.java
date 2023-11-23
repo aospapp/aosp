@@ -20,6 +20,7 @@ import android.app.role.RoleManager;
 import android.content.Context;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
+import android.os.Binder;
 import android.os.UserHandle;
 import android.telecom.Log;
 
@@ -50,11 +51,11 @@ public class RoleManagerAdapterImpl implements RoleManagerAdapter {
     }
 
     @Override
-    public String getDefaultCallRedirectionApp() {
+    public String getDefaultCallRedirectionApp(UserHandle userHandleForCallRedirection) {
         if (mOverrideDefaultCallRedirectionApp != null) {
             return mOverrideDefaultCallRedirectionApp;
         }
-        return getRoleManagerCallRedirectionApp();
+        return getRoleManagerCallRedirectionApp(userHandleForCallRedirection);
     }
 
     @Override
@@ -63,11 +64,11 @@ public class RoleManagerAdapterImpl implements RoleManagerAdapter {
     }
 
     @Override
-    public String getDefaultCallScreeningApp() {
+    public String getDefaultCallScreeningApp(UserHandle userHandleForCallScreening) {
         if (mOverrideDefaultCallScreeningApp != null) {
             return mOverrideDefaultCallScreeningApp;
         }
-        return getRoleManagerCallScreeningApp();
+        return getRoleManagerCallScreeningApp(userHandleForCallScreening);
     }
 
     @Override
@@ -118,9 +119,9 @@ public class RoleManagerAdapterImpl implements RoleManagerAdapter {
         mCurrentUserHandle = currentUserHandle;
     }
 
-    private String getRoleManagerCallScreeningApp() {
+    private String getRoleManagerCallScreeningApp(UserHandle userHandle) {
         List<String> roleHolders = mRoleManager.getRoleHoldersAsUser(ROLE_CALL_SCREENING,
-                mCurrentUserHandle);
+                userHandle);
         if (roleHolders == null || roleHolders.isEmpty()) {
             return null;
         }
@@ -141,9 +142,9 @@ public class RoleManagerAdapterImpl implements RoleManagerAdapter {
         return new ArrayList<>();
     }
 
-    private String getRoleManagerCallRedirectionApp() {
+    private String getRoleManagerCallRedirectionApp(UserHandle userHandle) {
         List<String> roleHolders = mRoleManager.getRoleHoldersAsUser(ROLE_CALL_REDIRECTION_APP,
-                mCurrentUserHandle);
+                userHandle);
         if (roleHolders == null || roleHolders.isEmpty()) {
             return null;
         }
@@ -184,7 +185,7 @@ public class RoleManagerAdapterImpl implements RoleManagerAdapter {
             pw.print("(override ");
             pw.print(mOverrideDefaultCallRedirectionApp);
             pw.print(") ");
-            pw.print(getRoleManagerCallRedirectionApp());
+            pw.print(getRoleManagerCallRedirectionApp(Binder.getCallingUserHandle()));
         }
         pw.println();
 
@@ -193,7 +194,7 @@ public class RoleManagerAdapterImpl implements RoleManagerAdapter {
             pw.print("(override ");
             pw.print(mOverrideDefaultCallScreeningApp);
             pw.print(") ");
-            pw.print(getRoleManagerCallScreeningApp());
+            pw.print(getRoleManagerCallScreeningApp(Binder.getCallingUserHandle()));
         }
         pw.println();
 

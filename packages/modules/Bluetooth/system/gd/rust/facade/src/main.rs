@@ -1,17 +1,12 @@
 //! Starts the facade services that allow us to test the Bluetooth stack
 
-#[macro_use]
-extern crate clap;
-use clap::{App, Arg};
-
-#[macro_use]
-extern crate lazy_static;
-
 use bluetooth_with_facades::RootFacadeService;
+use clap::{value_parser, Arg, Command};
 use futures::channel::mpsc;
 use futures::executor::block_on;
 use futures::stream::StreamExt;
 use grpcio::*;
+use lazy_static::lazy_static;
 use log::debug;
 use nix::sys::signal;
 use std::sync::{Arc, Mutex};
@@ -24,38 +19,46 @@ fn main() {
     rt.block_on(async_main(Arc::clone(&rt), sigint));
 }
 
-async fn async_main(rt: Arc<Runtime>, mut sigint: mpsc::UnboundedReceiver<()>) {
-    let matches = App::new("bluetooth_with_facades")
+fn clap_command() -> Command {
+    Command::new("bluetooth_with_facades")
         .about("The bluetooth stack, with testing facades enabled and exposed via gRPC.")
         .arg(
-            Arg::with_name("root-server-port")
+            Arg::new("root-server-port")
                 .long("root-server-port")
-                .default_value("8897")
-                .takes_value(true),
+                .value_parser(value_parser!(u16))
+                .default_value("8897"),
         )
-        .arg(Arg::with_name("grpc-port").long("grpc-port").default_value("8899").takes_value(true))
         .arg(
-            Arg::with_name("signal-port")
-                .long("signal-port")
-                .default_value("8895")
-                .takes_value(true),
+            Arg::new("grpc-port")
+                .long("grpc-port")
+                .value_parser(value_parser!(u16))
+                .default_value("8899"),
         )
-        .arg(Arg::with_name("rootcanal-port").long("rootcanal-port").takes_value(true))
-        .arg(Arg::with_name("btsnoop").long("btsnoop").takes_value(true))
-        .arg(Arg::with_name("btsnooz").long("btsnooz").takes_value(true))
-        .arg(Arg::with_name("btconfig").long("btconfig").takes_value(true))
-        .get_matches();
+        .arg(
+            Arg::new("signal-port")
+                .long("signal-port")
+                .value_parser(value_parser!(u16))
+                .default_value("8895"),
+        )
+        .arg(Arg::new("rootcanal-port").long("rootcanal-port").value_parser(value_parser!(u16)))
+        .arg(Arg::new("btsnoop").long("btsnoop"))
+        .arg(Arg::new("btsnooz").long("btsnooz"))
+        .arg(Arg::new("btconfig").long("btconfig"))
+}
 
-    let root_server_port = value_t!(matches, "root-server-port", u16).unwrap();
-    let grpc_port = value_t!(matches, "grpc-port", u16).unwrap();
-    let rootcanal_port = value_t!(matches, "rootcanal-port", u16).ok();
+async fn async_main(rt: Arc<Runtime>, mut sigint: mpsc::UnboundedReceiver<()>) {
+    let matches = clap_command().get_matches();
+
+    let root_server_port = *matches.get_one::<u16>("root-server-port").unwrap();
+    let grpc_port = *matches.get_one::<u16>("grpc-port").unwrap();
+    let rootcanal_port = matches.get_one::<u16>("rootcanal-port").copied();
     let env = Arc::new(Environment::new(2));
     let mut server = ServerBuilder::new(env)
         .register_service(RootFacadeService::create(
             rt,
             grpc_port,
             rootcanal_port,
-            matches.value_of("btsnoop").map(String::from),
+            matches.get_one::<String>("btsnoop").cloned(),
         ))
         .bind("0.0.0.0", root_server_port)
         .build()
@@ -94,4 +97,14 @@ extern "C" fn handle_sigint(_: i32) {
         tx.unbounded_send(()).unwrap();
     }
     *sigint_tx = None;
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn verify_comand() {
+        clap_command().debug_assert();
+    }
 }

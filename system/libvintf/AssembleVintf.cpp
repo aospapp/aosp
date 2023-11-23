@@ -96,14 +96,14 @@ class AssembleVintfImpl : public AssembleVintf {
         std::string envValue = getEnv(key);
         if (envValue.empty()) {
             if (log) {
-                std::cerr << "Warning: " << key << " is missing, defaulted to " << (*value) << "."
-                          << std::endl;
+                err() << "Warning: " << key << " is missing, defaulted to " << (*value) << "."
+                      << std::endl;
             }
             return true;
         }
 
         if (!parse(envValue, value)) {
-            std::cerr << "Cannot parse " << envValue << "." << std::endl;
+            err() << "Cannot parse " << envValue << "." << std::endl;
             return false;
         }
         return true;
@@ -124,7 +124,7 @@ class AssembleVintfImpl : public AssembleVintf {
         std::string envStrValue = getEnv(envKey);
         if (!envStrValue.empty()) {
             if (!parse(envStrValue, &envValue)) {
-                std::cerr << "Cannot parse " << envValue << "." << std::endl;
+                err() << "Cannot parse " << envValue << "." << std::endl;
                 return false;
             }
             hasEnvValue = true;
@@ -132,8 +132,8 @@ class AssembleVintfImpl : public AssembleVintf {
 
         if (hasExistingValue) {
             if (hasEnvValue && (*out != envValue)) {
-                std::cerr << "Cannot override existing value " << *out << " with " << envKey
-                          << " (which is " << envValue << ")." << std::endl;
+                err() << "Cannot override existing value " << *out << " with " << envKey
+                      << " (which is " << envValue << ")." << std::endl;
                 return false;
             }
             return true;
@@ -153,7 +153,7 @@ class AssembleVintfImpl : public AssembleVintf {
         }
         size_t value;
         if (!base::ParseUint(envValue, &value)) {
-            std::cerr << "Error: " << key << " must be a number." << std::endl;
+            err() << "Error: " << key << " must be a number." << std::endl;
             return defaultValue;
         }
         return value;
@@ -189,7 +189,7 @@ class AssembleVintfImpl : public AssembleVintf {
     }
 
     // nullptr on any error, otherwise the condition.
-    static Condition generateCondition(const std::string& path) {
+    Condition generateCondition(const std::string& path) {
         if (!isConditionalConfig(path)) {
             return nullptr;
         }
@@ -208,22 +208,21 @@ class AssembleVintfImpl : public AssembleVintf {
                 sub[i] = toupper(sub[i]);
                 continue;
             }
-            std::cerr << "'" << fname << "' (in " << path
-                      << ") is not a valid kernel config file name. Must match regex: "
-                      << "android-base(-[0-9a-zA-Z-]+)?\\" << gConfigSuffix
-                      << std::endl;
+            err() << "'" << fname << "' (in " << path
+                  << ") is not a valid kernel config file name. Must match regex: "
+                  << "android-base(-[0-9a-zA-Z-]+)?\\" << gConfigSuffix << std::endl;
             return nullptr;
         }
         sub.insert(0, "CONFIG_");
         return std::make_unique<KernelConfig>(std::move(sub), Tristate::YES);
     }
 
-    static bool parseFileForKernelConfigs(std::basic_istream<char>& stream,
-                                          std::vector<KernelConfig>* out) {
+    bool parseFileForKernelConfigs(std::basic_istream<char>& stream,
+                                   std::vector<KernelConfig>* out) {
         KernelConfigParser parser(true /* processComments */, true /* relaxedFormat */);
-        status_t err = parser.processAndFinish(read(stream));
-        if (err != OK) {
-            std::cerr << parser.error();
+        status_t status = parser.processAndFinish(read(stream));
+        if (status != OK) {
+            err() << parser.error();
             return false;
         }
 
@@ -232,16 +231,16 @@ class AssembleVintfImpl : public AssembleVintf {
             KernelConfig& config = out->back();
             config.first = std::move(configPair.first);
             if (!parseKernelConfigTypedValue(configPair.second, &config.second)) {
-                std::cerr << "Unknown value type for key = '" << config.first << "', value = '"
-                          << configPair.second << "'\n";
+                err() << "Unknown value type for key = '" << config.first << "', value = '"
+                      << configPair.second << "'\n";
                 return false;
             }
         }
         return true;
     }
 
-    static bool parseFilesForKernelConfigs(std::vector<NamedIstream>* streams,
-                                           std::vector<ConditionedConfig>* out) {
+    bool parseFilesForKernelConfigs(std::vector<NamedIstream>* streams,
+                                    std::vector<ConditionedConfig>* out) {
         out->clear();
         ConditionedConfig commonConfig;
         bool foundCommonConfig = false;
@@ -250,8 +249,7 @@ class AssembleVintfImpl : public AssembleVintf {
         for (auto& namedStream : *streams) {
             if (isCommonConfig(namedStream.name()) || isExtraCommonConfig(namedStream.name())) {
                 if (!parseFileForKernelConfigs(namedStream.stream(), &commonConfig.second)) {
-                    std::cerr << "Failed to generate common configs for file "
-                              << namedStream.name();
+                    err() << "Failed to generate common configs for file " << namedStream.name();
                     ret = false;
                 }
                 if (isCommonConfig(namedStream.name())) {
@@ -260,8 +258,8 @@ class AssembleVintfImpl : public AssembleVintf {
             } else {
                 Condition condition = generateCondition(namedStream.name());
                 if (condition == nullptr) {
-                    std::cerr << "Failed to generate conditional configs for file "
-                              << namedStream.name();
+                    err() << "Failed to generate conditional configs for file "
+                          << namedStream.name();
                     ret = false;
                 }
 
@@ -272,9 +270,9 @@ class AssembleVintfImpl : public AssembleVintf {
         }
 
         if (!foundCommonConfig) {
-            std::cerr << "No " << gBaseConfig << " is found in these paths:" << std::endl;
+            err() << "No " << gBaseConfig << " is found in these paths:" << std::endl;
             for (auto& namedStream : *streams) {
-                std::cerr << "    " << namedStream.name() << std::endl;
+                err() << "    " << namedStream.name() << std::endl;
             }
             ret = false;
         }
@@ -284,13 +282,16 @@ class AssembleVintfImpl : public AssembleVintf {
     }
 
     std::basic_ostream<char>& out() const { return mOutRef == nullptr ? std::cout : *mOutRef; }
+    std::basic_ostream<char>& err() const override {
+        return mErrRef == nullptr ? std::cerr : *mErrRef;
+    }
 
     // If -c is provided, check it.
     bool checkDualFile(const HalManifest& manifest, const CompatibilityMatrix& matrix) {
         if (getBooleanFlag("PRODUCT_ENFORCE_VINTF_MANIFEST")) {
             std::string error;
             if (!manifest.checkCompatibility(matrix, &error, mCheckFlags)) {
-                std::cerr << "Not compatible: " << error << std::endl;
+                err() << "Not compatible: " << error << std::endl;
                 return false;
             }
         }
@@ -306,7 +307,7 @@ class AssembleVintfImpl : public AssembleVintf {
         out() << "    Input:" << std::endl;
         for (const auto& e : inputs) {
             if (!e.fileName().empty()) {
-                out() << "        " << base::Basename(e.fileName()) << std::endl;
+                out() << "        " << e.fileName() << std::endl;
             }
         }
         out() << "-->" << std::endl;
@@ -318,22 +319,22 @@ class AssembleVintfImpl : public AssembleVintf {
             return true;
         }
         if (mKernels.size() > 1) {
-            std::cerr << "Warning: multiple --kernel is specified when building device manifest. "
-                      << "Only the first one will be used." << std::endl;
+            err() << "Warning: multiple --kernel is specified when building device manifest. "
+                  << "Only the first one will be used." << std::endl;
         }
         auto& kernelArg = *mKernels.begin();
         const auto& kernelVer = kernelArg.first;
         auto& kernelConfigFiles = kernelArg.second;
         // addKernel() guarantees that !kernelConfigFiles.empty().
         if (kernelConfigFiles.size() > 1) {
-            std::cerr << "Warning: multiple config files are specified in --kernel when building "
-                      << "device manfiest. Only the first one will be used." << std::endl;
+            err() << "Warning: multiple config files are specified in --kernel when building "
+                  << "device manfiest. Only the first one will be used." << std::endl;
         }
 
         KernelConfigParser parser(true /* processComments */, false /* relaxedFormat */);
-        status_t err = parser.processAndFinish(read(kernelConfigFiles[0].stream()));
-        if (err != OK) {
-            std::cerr << parser.error();
+        status_t status = parser.processAndFinish(read(kernelConfigFiles[0].stream()));
+        if (status != OK) {
+            err() << parser.error();
             return false;
         }
 
@@ -343,7 +344,7 @@ class AssembleVintfImpl : public AssembleVintf {
         kernel_info->mConfigs = parser.configs();
         std::string error;
         if (!manifest->mergeKernel(&kernel_info, &error)) {
-            std::cerr << error << "\n";
+            err() << error << "\n";
             return false;
         }
         return true;
@@ -355,8 +356,8 @@ class AssembleVintfImpl : public AssembleVintf {
             // Use manifest.kernel()->level() directly because inferredKernelLevel()
             // reads manifest.level().
             manifest.kernel().has_value() && manifest.kernel()->level() != Level::UNSPECIFIED) {
-            std::cerr << "Error: Device manifest with level " << manifest.level()
-                      << " must not set kernel level " << manifest.kernel()->level() << std::endl;
+            err() << "Error: Device manifest with level " << manifest.level()
+                  << " must not set kernel level " << manifest.kernel()->level() << std::endl;
             return false;
         }
         return true;
@@ -365,6 +366,11 @@ class AssembleVintfImpl : public AssembleVintf {
     bool assembleHalManifest(HalManifests* halManifests) {
         std::string error;
         HalManifest* halManifest = &halManifests->front();
+        HalManifest* manifestWithLevel = nullptr;
+        if (halManifest->level() != Level::UNSPECIFIED) {
+            manifestWithLevel = halManifest;
+        }
+
         for (auto it = halManifests->begin() + 1; it != halManifests->end(); ++it) {
             const std::string& path = it->fileName();
             HalManifest& manifestToAdd = *it;
@@ -372,18 +378,20 @@ class AssembleVintfImpl : public AssembleVintf {
             if (manifestToAdd.level() != Level::UNSPECIFIED) {
                 if (halManifest->level() == Level::UNSPECIFIED) {
                     halManifest->mLevel = manifestToAdd.level();
+                    manifestWithLevel = &manifestToAdd;
                 } else if (halManifest->level() != manifestToAdd.level()) {
-                    std::cerr << "Inconsistent FCM Version in HAL manifests:" << std::endl
-                              << "    File '" << halManifests->front().fileName() << "' has level "
-                              << halManifest->level() << std::endl
-                              << "    File '" << path << "' has level " << manifestToAdd.level()
-                              << std::endl;
+                    err() << "Inconsistent FCM Version in HAL manifests:" << std::endl
+                          << "    File '"
+                          << (manifestWithLevel ? manifestWithLevel->fileName() : "<unknown>")
+                          << "' has level " << halManifest->level() << std::endl
+                          << "    File '" << path << "' has level " << manifestToAdd.level()
+                          << std::endl;
                     return false;
                 }
             }
 
             if (!halManifest->addAll(&manifestToAdd, &error)) {
-                std::cerr << "File \"" << path << "\" cannot be added: " << error << std::endl;
+                err() << "File \"" << path << "\" cannot be added: " << error << std::endl;
                 return false;
             }
         }
@@ -421,8 +429,7 @@ class AssembleVintfImpl : public AssembleVintf {
         if (mOutputMatrix) {
             CompatibilityMatrix generatedMatrix = halManifest->generateCompatibleMatrix();
             if (!halManifest->checkCompatibility(generatedMatrix, &error, mCheckFlags)) {
-                std::cerr << "FATAL ERROR: cannot generate a compatible matrix: " << error
-                          << std::endl;
+                err() << "FATAL ERROR: cannot generate a compatible matrix: " << error << std::endl;
             }
             out() << "<!-- \n"
                      "    Autogenerated skeleton compatibility matrix. \n"
@@ -441,8 +448,8 @@ class AssembleVintfImpl : public AssembleVintf {
             CompatibilityMatrix checkMatrix;
             checkMatrix.setFileName(mCheckFile.name());
             if (!fromXml(&checkMatrix, read(mCheckFile.stream()), &error)) {
-                std::cerr << "Cannot parse check file as a compatibility matrix: " << error
-                          << std::endl;
+                err() << "Cannot parse check file as a compatibility matrix: " << error
+                      << std::endl;
                 return false;
             }
             if (!checkDualFile(*halManifest, checkMatrix)) {
@@ -466,7 +473,7 @@ class AssembleVintfImpl : public AssembleVintf {
                     kernel.mConditions.push_back(std::move(*conditionedConfig.first));
                 std::string error;
                 if (!matrix->addKernel(std::move(kernel), &error)) {
-                    std::cerr << "Error:" << error << std::endl;
+                    err() << "Error:" << error << std::endl;
                     return false;
                 };
             }
@@ -486,7 +493,7 @@ class AssembleVintfImpl : public AssembleVintf {
             if (shippingApiLevel != 0) {
                 auto res = android::vintf::testing::TestTargetFcmVersion(manifest->level(),
                                                                          shippingApiLevel);
-                if (!res.ok()) std::cerr << "Warning: " << res.error() << std::endl;
+                if (!res.ok()) err() << "Warning: " << res.error() << std::endl;
             }
             return true;
         }
@@ -496,14 +503,13 @@ class AssembleVintfImpl : public AssembleVintf {
         }
         // TODO(b/70628538): Do not infer from Shipping API level.
         if (shippingApiLevel) {
-            std::cerr << "Warning: Shipping FCM Version is inferred from Shipping API level. "
-                      << "Declare Shipping FCM Version in device manifest directly." << std::endl;
+            err() << "Warning: Shipping FCM Version is inferred from Shipping API level. "
+                  << "Declare Shipping FCM Version in device manifest directly." << std::endl;
             manifest->mLevel = details::convertFromApiLevel(shippingApiLevel);
             if (manifest->mLevel == Level::UNSPECIFIED) {
-                std::cerr << "Error: Shipping FCM Version cannot be inferred from Shipping API "
-                          << "level " << shippingApiLevel << "."
-                          << "Declare Shipping FCM Version in device manifest directly."
-                          << std::endl;
+                err() << "Error: Shipping FCM Version cannot be inferred from Shipping API "
+                      << "level " << shippingApiLevel << "."
+                      << "Declare Shipping FCM Version in device manifest directly." << std::endl;
                 return false;
             }
             return true;
@@ -511,13 +517,13 @@ class AssembleVintfImpl : public AssembleVintf {
         // TODO(b/69638851): should be an error if Shipping API level is not defined.
         // For now, just leave it empty; when framework compatibility matrix is built,
         // lowest FCM Version is assumed.
-        std::cerr << "Warning: Shipping FCM Version cannot be inferred, because:" << std::endl
-                  << "    (1) It is not explicitly declared in device manifest;" << std::endl
-                  << "    (2) PRODUCT_ENFORCE_VINTF_MANIFEST is set to true;" << std::endl
-                  << "    (3) PRODUCT_SHIPPING_API_LEVEL is undefined." << std::endl
-                  << "Assuming 'unspecified' Shipping FCM Version. " << std::endl
-                  << "To remove this warning, define 'level' attribute in device manifest."
-                  << std::endl;
+        err() << "Warning: Shipping FCM Version cannot be inferred, because:" << std::endl
+              << "    (1) It is not explicitly declared in device manifest;" << std::endl
+              << "    (2) PRODUCT_ENFORCE_VINTF_MANIFEST is set to true;" << std::endl
+              << "    (3) PRODUCT_SHIPPING_API_LEVEL is undefined." << std::endl
+              << "Assuming 'unspecified' Shipping FCM Version. " << std::endl
+              << "To remove this warning, define 'level' attribute in device manifest."
+              << std::endl;
         return true;
     }
 
@@ -541,7 +547,7 @@ class AssembleVintfImpl : public AssembleVintf {
             checkManifest = std::make_unique<HalManifest>();
             checkManifest->setFileName(mCheckFile.name());
             if (!fromXml(checkManifest.get(), read(mCheckFile.stream()), &error)) {
-                std::cerr << "Cannot parse check file as a HAL manifest: " << error << std::endl;
+                err() << "Cannot parse check file as a HAL manifest: " << error << std::endl;
                 return false;
             }
         }
@@ -551,7 +557,7 @@ class AssembleVintfImpl : public AssembleVintf {
             matrix = builtMatrix.get();
 
             if (matrix == nullptr) {
-                std::cerr << error << std::endl;
+                err() << error << std::endl;
                 return false;
             }
 
@@ -559,10 +565,10 @@ class AssembleVintfImpl : public AssembleVintf {
             if (!vndkVersion.empty()) {
                 auto& valueInMatrix = matrix->device.mVendorNdk;
                 if (!valueInMatrix.version().empty() && valueInMatrix.version() != vndkVersion) {
-                    std::cerr << "Hard-coded <vendor-ndk> version in device compatibility matrix ("
-                              << matrices->front().fileName() << "), '" << valueInMatrix.version()
-                              << "', does not match value inferred "
-                              << "from BOARD_VNDK_VERSION '" << vndkVersion << "'" << std::endl;
+                    err() << "Hard-coded <vendor-ndk> version in device compatibility matrix ("
+                          << matrices->front().fileName() << "), '" << valueInMatrix.version()
+                          << "', does not match value inferred "
+                          << "from BOARD_VNDK_VERSION '" << vndkVersion << "'" << std::endl;
                     return false;
                 }
                 valueInMatrix = VendorNdk{std::move(vndkVersion)};
@@ -579,10 +585,9 @@ class AssembleVintfImpl : public AssembleVintf {
             if (deviceLevel == Level::UNSPECIFIED) {
                 deviceLevel = getLowestFcmVersion(*matrices);
                 if (checkManifest != nullptr && deviceLevel != Level::UNSPECIFIED) {
-                    std::cerr << "Warning: No Target FCM Version for device. Assuming \""
-                              << to_string(deviceLevel)
-                              << "\" when building final framework compatibility matrix."
-                              << std::endl;
+                    err() << "Warning: No Target FCM Version for device. Assuming \""
+                          << to_string(deviceLevel)
+                          << "\" when building final framework compatibility matrix." << std::endl;
                 }
             }
             // No <kernel> tags to assemble at this point
@@ -591,7 +596,7 @@ class AssembleVintfImpl : public AssembleVintf {
             matrix = builtMatrix.get();
 
             if (matrix == nullptr) {
-                std::cerr << error << std::endl;
+                err() << error << std::endl;
                 return false;
             }
 
@@ -609,11 +614,11 @@ class AssembleVintfImpl : public AssembleVintf {
             for (auto&& s : sepolicyVersionStrings) {
                 Version v;
                 if (!parse(s, &v)) {
-                    std::cerr << "Error: unknown sepolicy version '" << s << "' specified by "
-                              << (s == currentSepolicyVersionString
-                                      ? "PLATFORM_SEPOLICY_VERSION"
-                                      : "PLATFORM_SEPOLICY_COMPAT_VERSIONS")
-                              << ".";
+                    err() << "Error: unknown sepolicy version '" << s << "' specified by "
+                          << (s == currentSepolicyVersionString
+                                  ? "PLATFORM_SEPOLICY_VERSION"
+                                  : "PLATFORM_SEPOLICY_COMPAT_VERSIONS")
+                          << ".";
                     return false;
                 }
                 sepolicyVersions.insert(v);
@@ -663,15 +668,15 @@ class AssembleVintfImpl : public AssembleVintf {
             const std::string& fileName = it->name();
             additionalSchema.setFileName(fileName);
             if (!fromXml(&additionalSchema, read(it->stream()), error)) {
-                std::cerr << "File \"" << fileName << "\" is not a valid " << firstType << " "
-                          << schemaName << " (but the first file is a valid " << firstType << " "
-                          << schemaName << "). Error: " << *error << std::endl;
+                err() << "File \"" << fileName << "\" is not a valid " << firstType << " "
+                      << schemaName << " (but the first file is a valid " << firstType << " "
+                      << schemaName << "). Error: " << *error << std::endl;
                 return FAIL_AND_EXIT;
             }
             if (additionalSchema.type() != firstType) {
-                std::cerr << "File \"" << fileName << "\" is a " << additionalSchema.type() << " "
-                          << schemaName << " (but a " << firstType << " " << schemaName
-                          << " is expected)." << std::endl;
+                err() << "File \"" << fileName << "\" is a " << additionalSchema.type() << " "
+                      << schemaName << " (but a " << firstType << " " << schemaName
+                      << " is expected)." << std::endl;
                 return FAIL_AND_EXIT;
             }
 
@@ -683,7 +688,7 @@ class AssembleVintfImpl : public AssembleVintf {
     bool assemble() override {
         using std::placeholders::_1;
         if (mInFiles.empty()) {
-            std::cerr << "Missing input file." << std::endl;
+            err() << "Missing input file." << std::endl;
             return false;
         }
 
@@ -703,16 +708,21 @@ class AssembleVintfImpl : public AssembleVintf {
         if (status == SUCCESS) return true;
         if (status == FAIL_AND_EXIT) return false;
 
-        std::cerr << "Input file has unknown format." << std::endl
-                  << "Error when attempting to convert to manifest: " << manifestError << std::endl
-                  << "Error when attempting to convert to compatibility matrix: " << matrixError
-                  << std::endl;
+        err() << "Input file has unknown format." << std::endl
+              << "Error when attempting to convert to manifest: " << manifestError << std::endl
+              << "Error when attempting to convert to compatibility matrix: " << matrixError
+              << std::endl;
         return false;
     }
 
     std::ostream& setOutputStream(Ostream&& out) override {
         mOutRef = std::move(out);
         return *mOutRef;
+    }
+
+    std::ostream& setErrorStream(Ostream&& err) override {
+        mErrRef = std::move(err);
+        return *mErrRef;
     }
 
     std::istream& addInputStream(const std::string& name, Istream&& in) override {
@@ -747,7 +757,7 @@ class AssembleVintfImpl : public AssembleVintf {
 
     bool setHalsOnly() override {
         if (mHasSetHalsOnlyFlag) {
-            std::cerr << "Error: Cannot set --hals-only with --no-hals." << std::endl;
+            err() << "Error: Cannot set --hals-only with --no-hals." << std::endl;
             return false;
         }
         // Just override it with HALS_ONLY because other flags that modify mSerializeFlags
@@ -759,7 +769,7 @@ class AssembleVintfImpl : public AssembleVintf {
 
     bool setNoHals() override {
         if (mHasSetHalsOnlyFlag) {
-            std::cerr << "Error: Cannot set --hals-only with --no-hals." << std::endl;
+            err() << "Error: Cannot set --hals-only with --no-hals." << std::endl;
             return false;
         }
         mSerializeFlags = mSerializeFlags.disableHals();
@@ -776,6 +786,7 @@ class AssembleVintfImpl : public AssembleVintf {
    private:
     std::vector<NamedIstream> mInFiles;
     Ostream mOutRef;
+    Ostream mErrRef;
     NamedIstream mCheckFile;
     bool mOutputMatrix = false;
     bool mHasSetHalsOnlyFlag = false;
@@ -804,16 +815,16 @@ bool AssembleVintf::openCheckFile(const std::string& path) {
 bool AssembleVintf::addKernel(const std::string& kernelArg) {
     auto tokens = base::Split(kernelArg, ":");
     if (tokens.size() <= 1) {
-        std::cerr << "Unrecognized --kernel option '" << kernelArg << "'" << std::endl;
+        err() << "Unrecognized --kernel option '" << kernelArg << "'" << std::endl;
         return false;
     }
     KernelVersion kernelVer;
     if (!parse(tokens.front(), &kernelVer)) {
-        std::cerr << "Unrecognized kernel version '" << tokens.front() << "'" << std::endl;
+        err() << "Unrecognized kernel version '" << tokens.front() << "'" << std::endl;
         return false;
     }
     if (hasKernelVersion(kernelVer)) {
-        std::cerr << "Multiple --kernel for " << kernelVer << " is specified." << std::endl;
+        err() << "Multiple --kernel for " << kernelVer << " is specified." << std::endl;
         return false;
     }
     for (auto it = tokens.begin() + 1; it != tokens.end(); ++it) {
@@ -822,7 +833,7 @@ bool AssembleVintf::addKernel(const std::string& kernelArg) {
                 addKernelConfigInputStream(kernelVer, *it, std::make_unique<std::ifstream>(*it)))
                 .is_open();
         if (!opened) {
-            std::cerr << "Cannot open file '" << *it << "'." << std::endl;
+            err() << "Cannot open file '" << *it << "'." << std::endl;
             return false;
         }
     }

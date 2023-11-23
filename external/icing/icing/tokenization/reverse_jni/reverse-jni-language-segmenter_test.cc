@@ -17,11 +17,11 @@
 #include <memory>
 #include <string_view>
 
-#include "icing/jni/jni-cache.h"
 #include "icing/text_classifier/lib3/utils/base/status.h"
 #include "icing/text_classifier/lib3/utils/base/statusor.h"
 #include "gmock/gmock.h"
 #include "icing/absl_ports/str_cat.h"
+#include "icing/jni/jni-cache.h"
 #include "icing/testing/common-matchers.h"
 #include "icing/testing/icu-i18n-test-utils.h"
 #include "icing/testing/jni-test-helpers.h"
@@ -423,7 +423,6 @@ TEST_P(ReverseJniLanguageSegmenterTest, CJKT) {
   // Khmer
   EXPECT_THAT(language_segmenter->GetAllTerms("ញុំដើរទៅធ្វើការរាល់ថ្ងៃ។"),
               IsOkAndHolds(ElementsAre("ញុំ", "ដើរទៅ", "ធ្វើការ", "រាល់ថ្ងៃ", "។")));
-
   // Thai
   EXPECT_THAT(
       language_segmenter->GetAllTerms("ฉันเดินไปทำงานทุกวัน"),

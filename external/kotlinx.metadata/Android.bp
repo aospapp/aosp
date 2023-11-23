@@ -18,7 +18,7 @@ license {
 
 java_import_host {
     name: "kotlinx_metadata_jvm",
-    jars: ["kotlinx-metadata-jvm-0.3.0.jar"],
+    jars: ["kotlinx-metadata-jvm-0.5.0.jar"],
     visibility: [
         "//external/dagger2",
         "//external/kotlinx.atomicfu",

@@ -42,16 +42,17 @@ rust_library {
     host_supported: true,
     crate_name: "rayon",
     cargo_env_compat: true,
-    cargo_pkg_version: "1.5.1",
+    cargo_pkg_version: "1.7.0",
     srcs: ["src/lib.rs"],
-    edition: "2018",
-    cfgs: [
-        "min_const_generics",
-        "step_by",
-    ],
+    edition: "2021",
     rustlibs: [
-        "libcrossbeam_deque",
         "libeither",
         "librayon_core",
     ],
+    apex_available: [
+        "//apex_available:platform",
+        "//apex_available:anyapex",
+    ],
+    product_available: true,
+    vendor_available: true,
 }

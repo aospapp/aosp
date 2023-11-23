@@ -303,6 +303,10 @@ type soongConfigVars struct {
 	Bool_var interface{}
 }
 
+type stringSoongConfigVars struct {
+	String_var interface{}
+}
+
 func Test_PropertiesToApply(t *testing.T) {
 	mt, _ := newModuleType(&ModuleTypeProperties{
 		Module_type:      "foo",
@@ -365,6 +369,155 @@ func Test_PropertiesToApply(t *testing.T) {
 	}
 }
 
+func Test_PropertiesToApply_String_Error(t *testing.T) {
+	mt, _ := newModuleType(&ModuleTypeProperties{
+		Module_type:      "foo",
+		Config_namespace: "bar",
+		Variables:        []string{"string_var"},
+		Properties:       []string{"a", "b"},
+	})
+	mt.Variables = append(mt.Variables, &stringVariable{
+		baseVariable: baseVariable{
+			variable: "string_var",
+		},
+		values: []string{"a", "b", "c"},
+	})
+	stringVarPositive := &properties{
+		A: proptools.StringPtr("A"),
+		B: true,
+	}
+	conditionsDefault := &properties{
+		A: proptools.StringPtr("default"),
+		B: false,
+	}
+	actualProps := &struct {
+		Soong_config_variables stringSoongConfigVars
+	}{
+		Soong_config_variables: stringSoongConfigVars{
+			String_var: &boolVarProps{
+				A:                  stringVarPositive.A,
+				B:                  stringVarPositive.B,
+				Conditions_default: conditionsDefault,
+			},
+		},
+	}
+	props := reflect.ValueOf(actualProps)
+
+	_, err := PropertiesToApply(mt, props, Config(map[string]string{
+		"string_var": "x",
+	}))
+	expected := `Soong config property "string_var" must be one of [a b c], found "x"`
+	if err == nil {
+		t.Fatalf("Expected an error, got nil")
+	} else if err.Error() != expected {
+		t.Fatalf("Error message was not correct, expected %q, got %q", expected, err.Error())
+	}
+}
+
+func Test_Bp2BuildSoongConfigDefinitionsAddVars(t *testing.T) {
+	testCases := []struct {
+		desc     string
+		defs     []*SoongConfigDefinition
+		expected Bp2BuildSoongConfigDefinitions
+	}{
+		{
+			desc: "non-overlapping",
+			defs: []*SoongConfigDefinition{
+				&SoongConfigDefinition{
+					ModuleTypes: map[string]*ModuleType{
+						"a": &ModuleType{
+							ConfigNamespace: "foo",
+							Variables: []soongConfigVariable{
+								&stringVariable{
+									baseVariable: baseVariable{"string_var"},
+									values:       []string{"a", "b", "c"},
+								},
+							},
+						},
+					},
+				},
+				&SoongConfigDefinition{
+					ModuleTypes: map[string]*ModuleType{
+						"b": &ModuleType{
+							ConfigNamespace: "foo",
+							Variables: []soongConfigVariable{
+								&stringVariable{
+									baseVariable: baseVariable{"string_var"},
+									values:       []string{"a", "b", "c"},
+								},
+								&boolVariable{baseVariable: baseVariable{"bool_var"}},
+								&valueVariable{baseVariable: baseVariable{"variable_var"}},
+							},
+						},
+					},
+				},
+			},
+			expected: Bp2BuildSoongConfigDefinitions{
+				StringVars: map[string]map[string]bool{
+					"foo__string_var": map[string]bool{"a": true, "b": true, "c": true},
+				},
+				BoolVars:  map[string]bool{"foo__bool_var": true},
+				ValueVars: map[string]bool{"foo__variable_var": true},
+			},
+		},
+		{
+			desc: "overlapping",
+			defs: []*SoongConfigDefinition{
+				&SoongConfigDefinition{
+					ModuleTypes: map[string]*ModuleType{
+						"a": &ModuleType{
+							ConfigNamespace: "foo",
+							Variables: []soongConfigVariable{
+								&stringVariable{
+									baseVariable: baseVariable{"string_var"},
+									values:       []string{"a", "b", "c"},
+								},
+							},
+						},
+					},
+				},
+				&SoongConfigDefinition{
+					ModuleTypes: map[string]*ModuleType{
+						"b": &ModuleType{
+							ConfigNamespace: "foo",
+							Variables: []soongConfigVariable{
+								&stringVariable{
+									baseVariable: baseVariable{"string_var"},
+									values:       []string{"b", "c", "d"},
+								},
+								&boolVariable{baseVariable: baseVariable{"bool_var"}},
+								&valueVariable{baseVariable: baseVariable{"variable_var"}},
+							},
+						},
+					},
+				},
+			},
+			expected: Bp2BuildSoongConfigDefinitions{
+				StringVars: map[string]map[string]bool{
+					"foo__string_var": map[string]bool{"a": true, "b": true, "c": true, "d": true},
+				},
+				BoolVars:  map[string]bool{"foo__bool_var": true},
+				ValueVars: map[string]bool{"foo__variable_var": true},
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.desc, func(t *testing.T) {
+			actual := &Bp2BuildSoongConfigDefinitions{}
+			for _, d := range tc.defs {
+				func(def *SoongConfigDefinition) {
+					actual.AddVars(def)
+				}(d)
+			}
+			if !reflect.DeepEqual(*actual, tc.expected) {
+				t.Errorf("Expected %#v, got %#v", tc.expected, *actual)
+			}
+		})
+	}
+
+}
+
 func Test_Bp2BuildSoongConfigDefinitions(t *testing.T) {
 	testCases := []struct {
 		desc     string
@@ -407,11 +560,11 @@ soong_config_value_variables = {
 soong_config_string_variables = {}`}, {
 			desc: "only string vars",
 			defs: Bp2BuildSoongConfigDefinitions{
-				StringVars: map[string][]string{
-					"string_var": []string{
-						"choice1",
-						"choice2",
-						"choice3",
+				StringVars: map[string]map[string]bool{
+					"string_var": map[string]bool{
+						"choice1": true,
+						"choice2": true,
+						"choice3": true,
 					},
 				},
 			},
@@ -435,15 +588,15 @@ soong_config_string_variables = {
 					"value_var_one": true,
 					"value_var_two": true,
 				},
-				StringVars: map[string][]string{
-					"string_var_one": []string{
-						"choice1",
-						"choice2",
-						"choice3",
+				StringVars: map[string]map[string]bool{
+					"string_var_one": map[string]bool{
+						"choice1": true,
+						"choice2": true,
+						"choice3": true,
 					},
-					"string_var_two": []string{
-						"foo",
-						"bar",
+					"string_var_two": map[string]bool{
+						"foo": true,
+						"bar": true,
 					},
 				},
 			},
@@ -463,8 +616,8 @@ soong_config_string_variables = {
         "choice3",
     ],
     "string_var_two": [
-        "foo",
         "bar",
+        "foo",
     ],
 }`},
 	}

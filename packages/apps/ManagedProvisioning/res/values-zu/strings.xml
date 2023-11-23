@@ -29,9 +29,9 @@
     <string name="next" msgid="1004321437324424398">"Okulandelayo"</string>
     <string name="setting_up_workspace" msgid="7862472373642601041">"Isetha iphrofayela yomsebenzi..."</string>
     <string name="admin_has_ability_to_monitor_profile" msgid="1018585795537086728">"Umphathi wakho we-IT angakwazi ukwengamela futhi aphathe amasethingi, ukufinyelela kwezinkampani, ama-app, izimvume, idatha, nomsebenzi wenethiwekhi ohlotshaniswa nale phrofayela, kanye nomlando wakho wekholi nomlando wosesho loxhumana nabo. Xhumana nomphathi wakho we-IT ukuze uthole ulwazi olwengeziwe futhi ufunde kabanzi mayelana nezinqubomgomo zobumfihlo zenhlangano yakho."</string>
-    <string name="admin_has_ability_to_monitor_device" msgid="6303112630697870695">"Umphathi wakho we-IT unekhono lokuqaphela aphinde aphathe izilungiselelo, ukufinyelela kwezinkampani, izinhlelo zokusebenza, izimvume, kanye nedatha ehambisana nale divayisi, efaka umsebenzi wakho wenethiwekhi, kanye nendawo yedivayisi yakho, umlando wekholi, nomlando wosesho wokuxhumana.<xliff:g id="LINE_BREAK">
+    <string name="admin_has_ability_to_monitor_device" msgid="7786186939607332934">"Umphathi wakho we-IT unekhono lokuqapha nokuphatha amasethingi, ukufinyelela kwezinkampani, ama-app, izimvume, nedatha ehambisana nale-<xliff:g id="DEVICE_NAME">%1$s</xliff:g>, kubandakanya umsebenzi wakho wenethiwekhi, kanye nendawo yedivayisi yakho, umlando wekholi, nomlando wosesho wokuxhumana.<xliff:g id="LINE_BREAK">
 
-</xliff:g>Xhumana nomphathi wakho we-IT ukuze uthole olunye ulwazi, okufaka izinqubomgomo zobumfihlo zenhlangano yakho."</string>
+</xliff:g>Xhumana nomphathi wakho we-IT ukuze uthole olunye ulwazi, olubandakanya izinqubomgomo zobumfihlo zenhlangano yakho."</string>
     <string name="theft_protection_disabled_warning" msgid="3708092473574738478">"Ukuze usebenzise izici zokuvikela ubugebengu, kufanele nokukhiya kwesikrini okuvikelwe ngephasiwedi kudivayisi yakho."</string>
     <string name="contact_your_admin_for_more_info" msgid="9209568156969966347">"Xhumana nomphathi wakho we-IT ukuze uthole olunye ulwazi, olufaka izinqubomgomo zobumfihlo zenhlangano yakho."</string>
     <string name="learn_more_link" msgid="3012495805919550043">"Funda kabanzi"</string>
@@ -50,8 +50,8 @@
     <string name="sure_you_want_to_delete_profile" msgid="6927697984573575564">"Uma uqhubeka, zonke izinhlelo zokusebenza nedatha kule phrofayela kuzosulwa."</string>
     <string name="delete_profile" msgid="2299218578684663459">"Susa"</string>
     <string name="cancel_delete_profile" msgid="5155447537894046036">"Khansela"</string>
-    <string name="encrypt_device_text_for_profile_owner_setup" msgid="7828515754696057140">"Ukuze kusethwe iphrofayela yakho yomsebenzi, idivayisi yakho mele ibethelwe. Lokhu kungathatha isikhathi esithile."</string>
-    <string name="encrypt_device_text_for_device_owner_setup" msgid="5194673142404735676">"Ukuze usethe le divayisi, kumele iqale ibethelwe kuqala. Lokhu kungathatha isikhathi esithile."</string>
+    <string name="encrypt_device_text_for_profile_owner_setup" msgid="6865483664167134470">"Ukuze usethe iphrofayela yakho yomsebenzi, i-<xliff:g id="DEVICE_NAME">%1$s</xliff:g> yakho kudingeka ibethelwe. Lokhu kungathatha isikhathi esithile."</string>
+    <string name="encrypt_device_text_for_device_owner_setup" msgid="230099563510460941">"Ukuze usethe le <xliff:g id="DEVICE_NAME">%1$s</xliff:g>, kudingeka iqale ibethelwe kuqala. Lokhu kungathatha isikhathi esithile."</string>
     <string name="encrypt_this_device_question" msgid="8719916619866892601">"Bethela le divayisi?"</string>
     <string name="encrypt" msgid="1749320161747489212">"Bethela"</string>
     <string name="continue_provisioning_notify_title" msgid="5191449100153186648">"Ukubethela kuqedile"</string>
@@ -59,7 +59,7 @@
     <string name="managed_provisioning_error_text" msgid="7063621174570680890">"Ayikwazanga ukusehta iphrofayela yakho yomsebenzi. Xhumana nomnyango wakho we-IT noma zama futhi emuva kwesikhathi."</string>
     <string name="cant_add_work_profile" msgid="9217268909964154934">"Ayikwazi ukungeza iphrofayela yomsebenzi"</string>
     <string name="cant_replace_or_remove_work_profile" msgid="7861054306792698290">"Ayikwazi ukufaka esikhundleni noma ukususa iphrofayela yomsebenzi"</string>
-    <string name="work_profile_cant_be_added_contact_admin" msgid="5393019630297157418">"Iphrofayela yomsebenzi ayikwazi ukungezwa kule divayisi. Uma unemibuzo, xhumana nomphathi wakho we-IT."</string>
+    <string name="work_profile_cant_be_added_contact_admin" msgid="4866281518235832928">"Iphrofayela yomsebenzi ayikwazi ukufakwa kule-<xliff:g id="DEVICE_NAME">%1$s</xliff:g>. Uma unemibuzo, xhumana nomphathi wakho we-IT."</string>
     <string name="change_device_launcher" msgid="4523563368433637980">"Shintsha isiqalisi sedivayisi"</string>
     <string name="launcher_app_cant_be_used_by_work_profile" msgid="3524366082000739743">"Lesi siqalisi sohlelo lokusebenza asikwazi ukusetshenziswa iphrofayela yakho yomsebenzi"</string>
     <string name="cancel_provisioning" msgid="3408069559452653724">"Khansela"</string>
@@ -67,9 +67,9 @@
     <string name="user_setup_incomplete" msgid="6494920045526591079">"Ukusetha komsebenzisi akuphelile"</string>
     <string name="default_owned_device_username" msgid="3915120202811807955">"Umsebenzisi wedivayisi yomsebenzi"</string>
     <string name="setup_work_device" msgid="6003988351437862369">"Isetha idivayisi yomsebenzi…"</string>
-    <string name="device_doesnt_allow_encryption_contact_admin" msgid="5124643338424539794">"Le divayisi ayivumeli ukubethelwa, okudingekayo ukuze kusethwe. Ukuze uthole usizo, xhumana nomphathi wakho we-IT."</string>
-    <string name="stop_setup_reset_device_question" msgid="7547191251522623210">"Misa ukusetha uphinde usethe kabusha idivayisi?"</string>
-    <string name="this_will_reset_take_back_first_screen" msgid="4623290347188404725">"Lokhu kuzosetha kabusha idivayisi yakho kuphinde kukubuyisele kusikrini sokuqala"</string>
+    <string name="device_doesnt_allow_encryption_contact_admin" msgid="410347019947997299">"Le-<xliff:g id="DEVICE_NAME">%1$s</xliff:g> ayivumeli ukubethelwa, okudingekayo ukuze kusethwe. Ukuze uthole usizo, xhumana nomphathi wakho we-IT."</string>
+    <string name="stop_setup_reset_device_question" msgid="2323844935990001069">"Misa ukusetha futhi setha kabusha <xliff:g id="DEVICE_NAME">%1$s</xliff:g>?"</string>
+    <string name="this_will_reset_take_back_first_screen" msgid="5881727570968119259">"Lokhu kuzosetha kabusha i-<xliff:g id="DEVICE_NAME">%1$s</xliff:g> yakho nokukubuyisela kusikrini sokuqala"</string>
     <string name="device_owner_cancel_message" msgid="2529288571742712065">"Yeka ukusetha uphinde usule idatha yedivayisi yakho?"</string>
     <string name="device_owner_cancel_cancel" msgid="1052951540909389275">"Khansela"</string>
     <string name="device_owner_error_ok" msgid="2002250763093787051">"Kulungile"</string>
@@ -79,10 +79,10 @@
     <string name="something_went_wrong" msgid="3593223774041784329">"Okuthile akuhambanga kahle"</string>
     <string name="couldnt_set_up_device" msgid="5137950404283642302">"Ayikwazanga ukusetha idivayisi. Ukuze uthole usizo, xhumana nomphathi wakho we-IT."</string>
     <string name="contact_your_admin_for_help" msgid="2009904021552323731">"Thinta umlawuli wakho we-IT ukuze uthole usizo"</string>
-    <string name="reset_device" msgid="5483853913241939262">"Setha kabusha le divayisi bese uzama ukuyisetha futhi"</string>
-    <string name="device_already_set_up" msgid="507881934487140294">"Idivayisi isivele isethiwe"</string>
+    <string name="reset_device" msgid="265029891515486543">"Setha kabusha le-<xliff:g id="DEVICE_NAME">%1$s</xliff:g> bese uzama ukuyisetha futhi"</string>
+    <string name="device_already_set_up" msgid="2916285974248611835">"I-<xliff:g id="DEVICE_NAME">%1$s</xliff:g> seyisethiwe kakade"</string>
     <string name="error_wifi" msgid="1850288843966836571">"Ayikwazanga ukuxhuma ku-Wi-Fi"</string>
-    <string name="device_has_reset_protection_contact_admin" msgid="2662050020376475656">"Idivayisi yakho esethe kabusha ukuvikelwa ivuliwe. Ukuze uthole usizo, xhumana nomphathi wakho we-IT."</string>
+    <string name="device_has_reset_protection_contact_admin" msgid="5922267426079555686">"I-<xliff:g id="DEVICE_NAME">%1$s</xliff:g> yakho ivulwe ukusetha kabusha okuvikelwe. Ukuze uthole usizo, xhumana nomphathi wakho we-IT."</string>
     <string name="frp_clear_progress_title" msgid="8628074089458234965">"Iyasula"</string>
     <string name="frp_clear_progress_text" msgid="1740164332830598827">"Sicela ulinde..."</string>
     <string name="error_hash_mismatch" msgid="1145488923243178454">"Ayikwazi ukusebenzisa uhlelo lokusebenza lomphathi ngenxa yephutha le-checksum. Ukuze uthole usizo, xhumana nomphathi wakho we-IT."</string>
@@ -128,9 +128,9 @@
     <string name="comp_profile_benefits_description" msgid="379837075456998273">"Ngokusebenzisa iphrofayela yomsebenzi, ungagcina izinhlelo zakho zokusebenza endaweni eyodwa"</string>
     <string name="setup_profile_encryption" msgid="5241291404536277038">"Setha iphrofayela yakho. Ukubethela"</string>
     <string name="setup_profile_progress" msgid="7742718527853325656">"Setha iphrofayela yakho. Ibonisa ukuqhubeka"</string>
-    <string name="setup_device" msgid="6725265673245816366">"Setha idivayisi yakho"</string>
-    <string name="setup_device_encryption" msgid="7852944465414197103">"Setha idivayisi yakho. Ukubethela"</string>
-    <string name="setup_device_progress" msgid="7035335208571175393">"Setha idivayisi yakho. Ibonisa ukuqhubeka"</string>
+    <string name="setup_device" msgid="1679201701102889156">"Setha i-<xliff:g id="DEVICE_NAME">%1$s</xliff:g> yakho"</string>
+    <string name="setup_device_encryption" msgid="2628196093806001835">"Setha i-<xliff:g id="DEVICE_NAME">%1$s</xliff:g> yakho. Bethela"</string>
+    <string name="setup_device_progress" msgid="8792474713196537598">"Setha i-<xliff:g id="DEVICE_NAME">%1$s</xliff:g> yakho. Ibonisa ukuqhubeka"</string>
     <string name="learn_more_label" msgid="2723716758654655009">"Inkinobho yokufunda kabanzi"</string>
     <string name="mdm_icon_label" msgid="3399134595549660561">"<xliff:g id="ICON_LABEL">%1$s</xliff:g> isithonjana"</string>
     <string name="section_heading" msgid="3924666803774291908">"<xliff:g id="SECTION_HEADING">%1$s</xliff:g> isihloko sesigaba."</string>
@@ -158,7 +158,7 @@
     <string name="brand_screen_header" msgid="8865808542690116648">"Le divayisi eyenhlangano yakho"</string>
     <string name="brand_screen_subheader" msgid="7664792208784456436">"Uhlelo lokusebenza olulandelayo luzosetshenziselwa ukuphatha nokuqaphela le foni"</string>
     <string name="account_management_disclaimer_header" msgid="8013083414694316564">"I-akhawunti yakho iphethwe"</string>
-    <string name="account_management_disclaimer_subheader" msgid="5146471918840236988">"Umphathi wakho we-IT usebenzisa ukuphathwa kwedivayisi yeselula ukuphoqelela izinqubomgomo zokuphepha"</string>
+    <string name="account_management_disclaimer_subheader" msgid="8991450067243733878">"Umphathi wakho we-IT usebenzisa isiphathi sedivayisi yeselula ukuphoqelela izinqubomgomo zokuvikeleka"</string>
     <string name="downloading_administrator_header" msgid="8660294318893902915">"Ukusethwa kokulungela umsebenzi…"</string>
     <string name="work_profile_provisioning_accept_header_post_suw" msgid="1353127953275291089">"Asisethe iphrofayela yakho yomsebenzi"</string>
     <string name="work_profile_provisioning_step_1_header" msgid="7914961694921466366">"Izinhlelo zakho zokusebenza zigcinwa kuphrofayela yakho yohlelo lokusebenza"</string>
@@ -168,32 +168,35 @@
     <string name="work_profile_provisioning_summary" msgid="3436190271657388747">"Izinhlelo zokusebenza zomsebenzi zigcinwe kuphrofayela yakho yomsebenzi. Ungaphumuza izinhlelo zakho zokusebenza zomsebenzi uma usuqedile ngosuku. Idatha ekuphrofayela yakho yomsebenzi ibonakala kumphathi wakho we-IT."</string>
     <string name="fully_managed_device_provisioning_accept_header" msgid="2944032660440403130">"Asisethe idivayisi yakho yomsebenzi"</string>
     <string name="fully_managed_device_provisioning_step_1_header" msgid="6396274703116708592">"Gcina izinhlelo zakho zokusebenza ezandleni zakho"</string>
-    <string name="fully_managed_device_provisioning_step_2_header" msgid="7165472083121590030">"Le divayisi ayiyona imfihlo"</string>
-    <string name="fully_managed_device_provisioning_step_2_subheader" msgid="2848998570491578119">"Umphathi wakho we-IT angakwazi ukubona idatha yakho kule divayisi."</string>
+    <string name="fully_managed_device_provisioning_step_2_header" msgid="142633978260399682">"Le-<xliff:g id="DEVICE_NAME">%1$s</xliff:g> ayiyona imfihlo"</string>
+    <string name="fully_managed_device_provisioning_step_2_subheader" msgid="3981784440341141618">"Umphathi wakho we-IT angase akwaze ukubona idatha nomsebenzi wakho kule-<xliff:g id="DEVICE_NAME">%1$s</xliff:g>."</string>
     <string name="fully_managed_device_provisioning_permissions_header" msgid="2852101532084770993">"Umsebenzi wakho nedatha"</string>
     <string name="fully_managed_device_provisioning_permissions_secondary_header" msgid="4419374850927705136">"Izimvume ze-app"</string>
-    <string name="fully_managed_device_provisioning_permissions_secondary_subheader" msgid="8328298923037335068">"Umlawuli wakho we-IT angakwazi ukusetha izimvume ze-app kule divayisi, ezifana nemakrofoni, ikhamera, nezimvume zendawo."</string>
+    <string name="fully_managed_device_provisioning_permissions_secondary_subheader" msgid="1973320148595109400">"Umphathi wakho we-IT angakwazi ukusetha izimvume zama-app kule-<xliff:g id="DEVICE_NAME">%1$s</xliff:g>, njengemakrofoni, ikhamera, nezimvume zendawo."</string>
     <string name="fully_managed_device_provisioning_progress_label" msgid="3925516135130021966">"Isetha idivayisi yakho…"</string>
-    <string name="fully_managed_device_provisioning_summary" msgid="1090645190066781456">"Sebenzisa le divayisi ukuze ufinyelele kalula kuma-app wakho. Le divayisi ayiyona imfihlo, ngakho-ke umphathi wakho we-IT angakwazi ukubona idatha yakho nomsebenzi."</string>
-    <string name="fully_managed_device_with_permission_control_provisioning_summary" msgid="6634797147105465856">"Sebenzisa le divayisi ukuze ufinyelele kalula kuma-app wakho. Le divayisi ayiyona imfihlo, ngakho-ke umphathi wakho we-IT angakwazi ukubona umsebenzi wakho nedatha. Umlawuli wakho we-IT naye angakwazi ukusetha izimvume ze-app kule divayisi, ezifana nemakrofoni, ikhamera, nezimvume zendawo."</string>
+    <string name="fully_managed_device_provisioning_summary" msgid="2532673962822596806">"Sebenzisa le-<xliff:g id="DEVICE_NAME_0">%1$s</xliff:g> ukuze ufinyelele kalula kuma-app akho. Le-<xliff:g id="DEVICE_NAME_1">%1$s</xliff:g> ayiyona imfihlo, ngakho-ke umphathi wakho we-IT angakwazi ukubona idatha nomsebenzi wakho."</string>
+    <string name="fully_managed_device_with_permission_control_provisioning_summary" msgid="3487964472228264628">"Sebenzisa le-<xliff:g id="DEVICE_NAME_0">%1$s</xliff:g> ukuze ufinyelele kalula kuma-app akho. Le-<xliff:g id="DEVICE_NAME_1">%1$s</xliff:g> ayiyona imfihlo, ngakho-ke umphathi wakho we-IT angakwazi ukubona umsebenzi nedatha yakho. Umphathi wakho we-IT naye angakwazi ukusetha izimvume ze-app kule divayisi, ezifana nemakrofoni, ikhamera, nezimvume zendawo."</string>
     <string name="fully_managed_device_provisioning_return_device_title" msgid="8500829014794276683">"Phindisela le divayisi kumphathi wakho we-IT"</string>
     <string name="fully_managed_device_provisioning_return_device_subheader" msgid="6194410367910957686">"Iya emuva esikrinini sangaphambilini, noma usethe kabusha le divayisi bese uyibuyisela kumphathi wakho we-IT."</string>
     <string name="fully_managed_device_cancel_setup_button" msgid="4910041382610777599">"Khansela ukusetha"</string>
     <string name="fully_managed_device_reset_and_return_button" msgid="6451125722998550681">"Setha kabusha futhi ubuyisele idivayisi"</string>
+    <string name="fully_managed_device_unsupported_DPC_in_headless_mode_header" msgid="7938653381656306039">"Idivayisi ayikwazi ukusethwa"</string>
+    <string name="fully_managed_device_unsupported_DPC_in_headless_mode_subheader" msgid="5158035482490079567">"Le divayisi ayikwazi ukubhaliswa kumodi ephethwe ngokugcwele. Setha kabusha njengasekuqaleni idivayisi yakho futhi uxhumane nomphathi wakho we-IT."</string>
+    <string name="fully_managed_device_reset_button" msgid="5957116315144904542">"Ukusetha kabusha njengasekuqaleni"</string>
     <string name="cope_provisioning_step_1_header" msgid="1945759718804756423">"Ama-App akuphrofayela yomsebenzi alawulwa umphathi we-IT"</string>
     <string name="cope_provisioning_step_2_header" msgid="2388399739294883042">"Ama-App akho ngqo afihliwe kuma-App omsebenzi"</string>
     <string name="cope_provisioning_step_3_header" msgid="7161795433847296201">"Umphathi we-IT angalawula le divayisi avimbe amanye ama-App"</string>
-    <string name="cope_provisioning_summary" msgid="993014104601034878">"Izinhlelo zokusebenza zomsebenzi zigcinwe kwiphrofayela yakho yomsebenzi futhi ziphathwa ngumphathi wakho we-IT. Izinhlelo zokusebenza zomuntu siqu zihlukanisiwe futhi zifihliwe ezinhlelweni zokusebenza zomsebenzi Umphathi wakho we-IT angalawula le divayisi futhi avimbe izinhlelo zokusebenza ezithile."</string>
+    <string name="cope_provisioning_summary" msgid="4993405755138454918">"Ama-app omsebenzi agcinwe kwiphrofayela yakho yomsebenzi futhi aphathwa ngumphathi wakho we-IT. Ama-app omuntu siqu ahlukanisiwe futhi afihliwe kuma-app omsebenzi. Umphathi wakho we-IT angalawula le <xliff:g id="DEVICE_NAME">%1$s</xliff:g> futhi avimbe ama-app athile."</string>
     <string name="just_a_sec" msgid="6244676028626237220">"Linda kancane…"</string>
     <string name="fully_managed_device_provisioning_privacy_title" msgid="4017627906103556021">"Isikhumbuzi sobumfihlo"</string>
-    <string name="fully_managed_device_provisioning_privacy_body" msgid="2219074604343348608">"Umphathi wakho we-IT angakwazi ukubona idatha yakho nomsebenzi kule divayisi"</string>
-    <string name="financed_device_screen_header" msgid="6875169548352717124">"Le divayisi ihlinzekwa yi-<xliff:g id="CREDITOR_NAME">%s</xliff:g>"</string>
-    <string name="financed_make_payments_subheader_title" msgid="7880606710044254210">"Yenza izinkokhelo zale divayisi"</string>
-    <string name="financed_make_payments_subheader_description" msgid="1222254084091306375">"U-<xliff:g id="CREDITOR_NAME_0">%1$s</xliff:g> angafaka i-app ye-<xliff:g id="CREDITOR_NAME_1">%2$s</xliff:g> ukuze ukwazi ukukhokhela le divayisi."</string>
-    <string name="financed_restrict_device_subheader_title" msgid="2138828664816418195">"Le divayisi ayikwazi ukukhawulelwa"</string>
-    <string name="financed_restrict_device_subheader_description" msgid="5683975693718163300">"I-<xliff:g id="CREDITOR_NAME">%1$s</xliff:g> ingakhawulela ukufinyelela kule divayisi uma ungakhokhi."</string>
-    <string name="error_role_holder_hash_mismatch" msgid="6201584198247885437">"Ayikwazi ukusetha idivayisi. Xhumana nomphathi wakho we-IT bese ubhekisela kokuthi \"I-checksum engavumelekile\"."</string>
+    <string name="fully_managed_device_provisioning_privacy_body" msgid="2107315052054483060">"Umphathi wakho we-IT angase akwaze ukubona idatha nomsebenzi wakho kule-<xliff:g id="DEVICE_NAME">%1$s</xliff:g>"</string>
+    <string name="financed_device_screen_header" msgid="5934940812896302344">"Le-<xliff:g id="DEVICE_NAME">%1$s</xliff:g> ihlinzekwa ngu-<xliff:g id="CREDITOR_NAME">%2$s</xliff:g>"</string>
+    <string name="financed_make_payments_subheader_title" msgid="743966229235451097">"Khokhela le-<xliff:g id="DEVICE_NAME">%1$s</xliff:g>"</string>
+    <string name="financed_make_payments_subheader_description" msgid="7391276584735956742">"U-<xliff:g id="CREDITOR_NAME_0">%1$s</xliff:g> angafaka i-app ye-<xliff:g id="CREDITOR_NAME_1">%2$s</xliff:g> ukuze ukwazi ukukhokhela le-<xliff:g id="DEVICE_NAME">%3$s</xliff:g>."</string>
+    <string name="financed_restrict_device_subheader_title" msgid="4248650736543742083">"Le-<xliff:g id="DEVICE_NAME">%1$s</xliff:g> ayikwazi ukukhawulelwa"</string>
+    <string name="financed_restrict_device_subheader_description" msgid="1539908048861880628">"I-<xliff:g id="CREDITOR_NAME">%1$s</xliff:g> ingakhawulela ukufinyelela kule-<xliff:g id="DEVICE_NAME">%2$s</xliff:g> uma ungakhokhi."</string>
+    <string name="error_role_holder_hash_mismatch" msgid="5098975629103567172">"Ayikwazi ukusetha i-<xliff:g id="DEVICE_NAME">%1$s</xliff:g>. Xhumana nomphathi wakho we-IT bese ubhekisela kokuthi \"I-checksum engavumelekile\"."</string>
     <string name="error_role_holder_download_install_failed" msgid="8151968372180693228">"Zama futhi emuva kwesikhathi noma ucele usizo kumphathi wakho we-IT"</string>
-    <string name="error_role_holder_package_invalid" msgid="2631207759497988833">"Ayikwazi ukusetha idivayisi. Xhumana nomphathi wakho we-IT futhi ubhekisele kokuthi \"Izakhi ezingekho noma ezonakele\"."</string>
+    <string name="error_role_holder_package_invalid" msgid="8159929740916126242">"Ayikwazi ukusetha i-<xliff:g id="DEVICE_NAME">%1$s</xliff:g>. Xhumana nomphathi wakho we-IT futhi ubhekisele kokuthi \"Izakhi ezingekho noma ezonakele\"."</string>
     <string name="setting_up" msgid="1478847967385506664">"Iyasetha…"</string>
 </resources>

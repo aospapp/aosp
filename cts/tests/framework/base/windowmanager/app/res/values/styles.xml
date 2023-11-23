@@ -49,35 +49,6 @@
         <item name="android:windowSplashScreenBackground">@drawable/blue</item>
     </style>
 
-    <style name="BackgroundImage" parent="@android:style/Theme.Translucent.NoTitleBar.Fullscreen">
-        <item name="android:windowNoTitle">true</item>
-        <item name="android:windowLayoutInDisplayCutoutMode">always</item>
-        <item name="android:windowSoftInputMode">stateHidden</item>
-    </style>
-
-    <style name="TranslucentDialog" parent="@android:style/Theme.Material.Dialog">
-        <item name="android:windowIsTranslucent">true</item>
-        <item name="android:windowBackground">@android:color/transparent</item>
-        <item name="android:windowNoTitle">true</item>
-        <item name="android:backgroundDimEnabled">false</item>
-        <item name="android:windowBlurBehindEnabled">true</item>
-        <item name="android:windowDisablePreview">true</item>
-        <item name="android:windowElevation">0dp</item>
-        <item name="android:windowLayoutInDisplayCutoutMode">always</item>
-        <item name="android:windowSoftInputMode">stateHidden</item>
-    </style>
-
-    <style name="BlurryDialog" parent="TranslucentDialog">
-        <item name="android:windowBackgroundBlurRadius">@dimen/test_background_blur_radius</item>
-        <item name="android:windowBlurBehindRadius">@dimen/test_blur_behind_radius</item>
-        <item name="android:windowBlurBehindEnabled">true</item>
-    </style>
-
-    <style name="BadBlurryDialog" parent="TranslucentDialog">
-        <item name="android:windowIsTranslucent">false</item>
-        <item name="android:windowBlurBehindEnabled">false</item>
-    </style>
-
     <style name="ReplaceIconTheme" parent="@android:style/Theme.Material.NoActionBar">
         <item name="android:windowSplashScreenBackground">@drawable/blue</item>
         <item name="android:windowSplashScreenAnimatedIcon">@drawable/animationDrawable</item>
@@ -95,14 +66,6 @@
 
     <style name="SplashScreenStyleTheme" parent="@android:style/Theme.Material.NoActionBar">
         <item name="android:windowSplashScreenBehavior">icon_preferred</item>
-    </style>
-
-    <style name="Theme.CustomTransitionTheme" parent="@android:style/Theme.Material.NoActionBar">
-        <item name="android:background">#ffffff</item>
-        <item name="android:windowBackground">#ffffff</item>
-        <item name="android:colorBackground">#ffffff</item>
-        <item name="android:statusBarColor">@android:color/transparent</item>
-        <item name="android:navigationBarColor">@android:color/transparent</item>
     </style>
 
     <style name="NoInsetsTheme" parent="@android:style/Theme.NoTitleBar">

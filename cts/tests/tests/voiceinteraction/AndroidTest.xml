@@ -20,6 +20,7 @@
     <option name="config-descriptor:metadata" key="parameter" value="instant_app" />
     <option name="config-descriptor:metadata" key="parameter" value="not_multi_abi" />
     <option name="config-descriptor:metadata" key="parameter" value="secondary_user" />
+    <option name="config-descriptor:metadata" key="parameter" value="run_on_sdk_sandbox" />
     <option name="not-shardable" value="true" />
 
     <!-- Force service to be installed as non-instant mode, always -->
@@ -35,6 +36,11 @@
         <option name="cleanup-apks" value="true" />
         <option name="test-file-name" value="CtsVoiceInteractionTestCases.apk"/>
         <option name="test-file-name" value="CtsVoiceInteractionApp.apk"/>
+    </target_preparer>
+
+    <target_preparer class="com.android.tradefed.targetprep.RunCommandTargetPreparer">
+        <option name="run-command" value="am compat enable ALLOW_TEST_API_ACCESS android.voiceinteraction.service" />
+        <option name="teardown-command" value="am compat reset ALLOW_TEST_API_ACCESS android.voiceinteraction.service" />
     </target_preparer>
 
     <test class="com.android.tradefed.testtype.AndroidJUnitTest" >

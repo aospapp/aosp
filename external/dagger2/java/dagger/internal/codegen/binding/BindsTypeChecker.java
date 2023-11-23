@@ -16,15 +16,16 @@
 
 package dagger.internal.codegen.binding;
 
+import static androidx.room.compiler.processing.compat.XConverters.toJavac;
 import static com.google.common.collect.Iterables.getOnlyElement;
 
+import androidx.room.compiler.processing.XType;
 import com.google.auto.common.MoreTypes;
 import com.google.common.collect.ImmutableList;
 import dagger.internal.codegen.base.ContributionType;
+import dagger.internal.codegen.javapoet.TypeNames;
 import dagger.internal.codegen.langmodel.DaggerElements;
 import dagger.internal.codegen.langmodel.DaggerTypes;
-import java.util.Map;
-import java.util.Set;
 import javax.inject.Inject;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.TypeElement;
@@ -35,18 +36,27 @@ import javax.lang.model.type.TypeMirror;
  * Checks the assignability of one type to another, given a {@link ContributionType} context. This
  * is used by {@link dagger.internal.codegen.validation.BindsMethodValidator} to validate that the
  * right-hand- side of a {@link dagger.Binds} method is valid, as well as in {@link
- * dagger.internal.codegen.writing.DelegateBindingExpression} when the right-hand-side in generated
- * code might be an erased type due to accessibility.
+ * dagger.internal.codegen.writing.DelegateRequestRepresentation} when the right-hand-side in
+ * generated code might be an erased type due to accessibility.
  */
 public final class BindsTypeChecker {
   private final DaggerTypes types;
   private final DaggerElements elements;
 
-  // TODO(bcorso): Make this pkg-private. Used by DelegateBindingExpression.
+  // TODO(bcorso): Make this pkg-private. Used by DelegateRequestRepresentation.
   @Inject
   public BindsTypeChecker(DaggerTypes types, DaggerElements elements) {
     this.types = types;
     this.elements = elements;
+  }
+
+  /**
+   * Checks the assignability of {@code rightHandSide} to {@code leftHandSide} given a {@link
+   * ContributionType} context.
+   */
+  public boolean isAssignable(
+      XType rightHandSide, XType leftHandSide, ContributionType contributionType) {
+    return isAssignable(toJavac(rightHandSide), toJavac(leftHandSide), contributionType);
   }
 
   /**
@@ -67,6 +77,7 @@ public final class BindsTypeChecker {
         DeclaredType parameterizedSetType = types.getDeclaredType(setElement(), leftHandSide);
         return methodParameterType(parameterizedSetType, "add");
       case SET_VALUES:
+        // TODO(b/211774331): The left hand side type should be limited to Set types.
         return methodParameterType(MoreTypes.asDeclared(leftHandSide), "addAll");
       case MAP:
         DeclaredType parameterizedMapType =
@@ -98,11 +109,11 @@ public final class BindsTypeChecker {
   }
 
   private TypeElement setElement() {
-    return elements.getTypeElement(Set.class);
+    return elements.getTypeElement(TypeNames.SET);
   }
 
   private TypeElement mapElement() {
-    return elements.getTypeElement(Map.class);
+    return elements.getTypeElement(TypeNames.MAP);
   }
 
   private TypeMirror unboundedWildcard() {

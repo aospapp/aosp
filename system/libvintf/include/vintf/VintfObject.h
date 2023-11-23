@@ -28,6 +28,7 @@
 #include <android-base/result.h>
 #include <hidl/metadata.h>
 
+#include <vintf/Apex.h>
 #include <vintf/CheckFlags.h>
 #include <vintf/CompatibilityMatrix.h>
 #include <vintf/FileSystem.h>
@@ -75,7 +76,7 @@ class VintfObjectBuilder {
     VintfObjectBuilder& setFileSystem(std::unique_ptr<FileSystem>&&);
     VintfObjectBuilder& setRuntimeInfoFactory(std::unique_ptr<ObjectFactory<RuntimeInfo>>&&);
     VintfObjectBuilder& setPropertyFetcher(std::unique_ptr<PropertyFetcher>&&);
-
+    VintfObjectBuilder& setApex(std::unique_ptr<ApexInterface>&&);
     template <typename VintfObjectType = VintfObject>
     std::unique_ptr<VintfObjectType> build() {
         return std::unique_ptr<VintfObjectType>(
@@ -268,11 +269,14 @@ class VintfObject {
         const std::vector<HidlInterfaceMetadata>& hidlMetadata,
         const std::vector<AidlInterfaceMetadata>& aidlMetadata);
 
+    // Get the latest <kernel> minlts for compatibility matrix level |fcmVersion|.
+    android::base::Result<KernelVersion> getLatestMinLtsAtFcmVersion(Level fcmVersion);
+
    private:
     std::unique_ptr<FileSystem> mFileSystem;
     std::unique_ptr<ObjectFactory<RuntimeInfo>> mRuntimeInfoFactory;
     std::unique_ptr<PropertyFetcher> mPropertyFetcher;
-
+    std::unique_ptr<ApexInterface> mApex;
     details::LockedSharedPtr<HalManifest> mDeviceManifest;
     details::LockedSharedPtr<HalManifest> mFrameworkManifest;
     details::LockedSharedPtr<CompatibilityMatrix> mDeviceMatrix;
@@ -300,6 +304,7 @@ class VintfObject {
     virtual const std::unique_ptr<FileSystem>& getFileSystem();
     virtual const std::unique_ptr<PropertyFetcher>& getPropertyFetcher();
     virtual const std::unique_ptr<ObjectFactory<RuntimeInfo>>& getRuntimeInfoFactory();
+    virtual const std::unique_ptr<ApexInterface>& getApex();
 
    public:
     /*
@@ -354,6 +359,8 @@ class VintfObject {
     status_t addDirectoryManifests(const std::string& directory, HalManifest* manifests,
                                    bool ignoreSchemaType, std::string* error);
     status_t fetchDeviceHalManifest(HalManifest* out, std::string* error = nullptr);
+    status_t fetchDeviceHalManifestMinusApex(HalManifest* out, std::string* error = nullptr);
+    status_t fetchDeviceHalManifestApex(HalManifest* out, std::string* error = nullptr);
     status_t fetchDeviceMatrix(CompatibilityMatrix* out, std::string* error = nullptr);
     status_t fetchOdmHalManifest(HalManifest* out, std::string* error = nullptr);
     status_t fetchOneHalManifest(const std::string& path, HalManifest* out,
@@ -363,6 +370,7 @@ class VintfObject {
 
     status_t fetchUnfilteredFrameworkHalManifest(HalManifest* out, std::string* error);
     void filterHalsByDeviceManifestLevel(HalManifest* out);
+    bool isApexReady();
 
     // Helper for checking matrices against lib*idlmetadata. Wrapper of the other variant of
     // getAllFrameworkMatrixLevels. Treat empty output as an error.
@@ -416,7 +424,9 @@ namespace details {
 // because some files have a higher priority than others. The list does NOT
 // include "files" (including kernel interfaces) that are read when GetRuntimeInfo
 // is called.
-std::vector<std::string> dumpFileList();
+// The sku string from ro.boot.product.hardware.sku is needed to build the ODM
+// manifest file name for legacy devices.
+std::vector<std::string> dumpFileList(const std::string& sku);
 
 } // namespace details
 

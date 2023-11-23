@@ -21,7 +21,7 @@ import static com.android.launcher3.LauncherState.ALL_APPS;
 import static com.android.launcher3.LauncherState.HINT_STATE;
 import static com.android.launcher3.LauncherState.NORMAL;
 import static com.android.launcher3.LauncherState.OVERVIEW;
-import static com.android.launcher3.util.DisplayController.NavigationMode.NO_BUTTON;
+import static com.android.launcher3.util.NavigationMode.NO_BUTTON;
 
 import android.content.SharedPreferences;
 
@@ -29,7 +29,6 @@ import com.android.launcher3.LauncherState;
 import com.android.launcher3.Utilities;
 import com.android.launcher3.Workspace;
 import com.android.launcher3.appprediction.AppsDividerView;
-import com.android.launcher3.config.FeatureFlags;
 import com.android.launcher3.hybridhotseat.HotseatPredictionController;
 import com.android.launcher3.statemanager.StateManager;
 import com.android.launcher3.statemanager.StateManager.StateListener;
@@ -65,7 +64,7 @@ public class QuickstepOnboardingPrefs extends OnboardingPrefs<QuickstepLauncher>
             });
         }
 
-        if (!Utilities.IS_RUNNING_IN_TEST_HARNESS
+        if (!Utilities.isRunningInTestHarness()
                 && !hasReachedMaxCount(HOTSEAT_DISCOVERY_TIP_COUNT)) {
             stateManager.addStateListener(new StateListener<LauncherState>() {
                 boolean mFromAllApps = false;
@@ -79,7 +78,8 @@ public class QuickstepOnboardingPrefs extends OnboardingPrefs<QuickstepLauncher>
                 public void onStateTransitionComplete(LauncherState finalState) {
                     HotseatPredictionController client = mLauncher.getHotseatPredictionController();
                     if (mFromAllApps && finalState == NORMAL && client.hasPredictions()) {
-                        if (incrementEventCount(HOTSEAT_DISCOVERY_TIP_COUNT)) {
+                        if (!mLauncher.getDeviceProfile().isTablet
+                                && incrementEventCount(HOTSEAT_DISCOVERY_TIP_COUNT)) {
                             client.showEdu();
                             stateManager.removeStateListener(this);
                         }
@@ -88,8 +88,7 @@ public class QuickstepOnboardingPrefs extends OnboardingPrefs<QuickstepLauncher>
             });
         }
 
-        if (DisplayController.getNavigationMode(launcher) == NO_BUTTON
-                && FeatureFlags.ENABLE_ALL_APPS_EDU.get()) {
+        if (DisplayController.getNavigationMode(launcher) == NO_BUTTON) {
             stateManager.addStateListener(new StateListener<LauncherState>() {
                 private static final int MAX_NUM_SWIPES_TO_TRIGGER_EDU = 3;
 

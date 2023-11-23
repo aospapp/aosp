@@ -20,6 +20,7 @@ import static org.junit.Assert.assertNotNull;
 
 import android.platform.test.annotations.AppModeFull;
 import android.platform.test.annotations.AppModeInstant;
+import android.platform.test.annotations.PlatinumTest;
 import android.platform.test.annotations.Presubmit;
 
 import com.android.compatibility.common.util.CpuFeatures;
@@ -43,6 +44,7 @@ import java.util.Set;
  * Tests that verify installing of various split APKs from host side.
  */
 @Presubmit
+@PlatinumTest(focusArea = "pm")
 @RunWith(DeviceJUnit4ClassRunner.class)
 public class SplitTests extends BaseAppSecurityTest {
     static final String PKG_NO_RESTART = "com.android.cts.norestart";

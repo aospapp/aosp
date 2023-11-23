@@ -31,11 +31,10 @@ import com.android.tradefed.testtype.DeviceTestCase;
 import com.android.tradefed.testtype.IAbi;
 import com.android.tradefed.testtype.IAbiReceiver;
 import com.android.tradefed.testtype.IBuildReceiver;
+import com.android.tradefed.util.RunUtil;
 
 import java.io.FileNotFoundException;
 import java.util.Map;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 abstract class HostsideNetworkTestCase extends DeviceTestCase implements IAbiReceiver,
         IBuildReceiver {
@@ -122,7 +121,7 @@ abstract class HostsideNetworkTestCase extends DeviceTestCase implements IAbiRec
             i++;
             Log.v(TAG, "Package " + packageName + " not uninstalled yet (" + result
                     + "); sleeping 1s before polling again");
-            Thread.sleep(1000);
+            RunUtil.getDefault().sleep(1000);
         }
         fail("Package '" + packageName + "' not uinstalled after " + max_tries + " seconds");
     }
@@ -171,18 +170,19 @@ abstract class HostsideNetworkTestCase extends DeviceTestCase implements IAbiRec
         }
     }
 
-    private static final Pattern UID_PATTERN =
-            Pattern.compile(".*userId=([0-9]+)$", Pattern.MULTILINE);
-
     protected int getUid(String packageName) throws DeviceNotAvailableException {
-        final String output = runCommand("dumpsys package " + packageName);
-        final Matcher matcher = UID_PATTERN.matcher(output);
-        while (matcher.find()) {
-            final String match = matcher.group(1);
-            return Integer.parseInt(match);
+        final int currentUser = getDevice().getCurrentUser();
+        final String uidLines = runCommand(
+                "cmd package list packages -U --user " + currentUser + " " + packageName);
+        for (String uidLine : uidLines.split("\n")) {
+            if (uidLine.startsWith("package:" + packageName + " uid:")) {
+                final String[] uidLineParts = uidLine.split(":");
+                // 3rd entry is package uid
+                return Integer.parseInt(uidLineParts[2].trim());
+            }
         }
-        throw new RuntimeException("Did not find regexp '" + UID_PATTERN + "' on adb output\n"
-                + output);
+        throw new IllegalStateException("Failed to find the test app on the device; pkg="
+                + packageName + ", u=" + currentUser);
     }
 
     protected String runCommand(String command) throws DeviceNotAvailableException {

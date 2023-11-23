@@ -88,7 +88,6 @@ _EXPECT_DEPENDENT_MODULES = {
 
 
 # pylint: disable=protected-access
-# pylint: disable=invalid-name
 class ProjectInfoUnittests(unittest.TestCase):
     """Unit tests for project_info.py"""
 
@@ -142,7 +141,6 @@ class ProjectInfoUnittests(unittest.TestCase):
                 unittest_constants.TEST_MODULE, unittest_constants.TEST_PATH),
             unittest_constants.TEST_MODULE)
 
-    # pylint: disable=too-many-locals
     @mock.patch('logging.info')
     @mock.patch.object(common_util, 'get_android_root_dir')
     @mock.patch('atest.module_info.ModuleInfo')
@@ -179,8 +177,8 @@ class ProjectInfoUnittests(unittest.TestCase):
         self.assertTrue(mock_info.called)
 
         # Test collects source and test folders.
-        result_source = set(['packages/apps/test/src/main/java'])
-        result_test = set(['packages/apps/test/tests'])
+        result_source = {'packages/apps/test/src/main/java'}
+        result_test = {'packages/apps/test/tests'}
         self.assertEqual(project_info_obj.source_path['source_folder_path'],
                          result_source)
         self.assertEqual(project_info_obj.source_path['test_folder_path'],

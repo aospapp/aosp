@@ -26,7 +26,6 @@
 
 #include "update_engine/common/hash_calculator.h"
 #include "update_engine/common/utils.h"
-#include "update_engine/payload_consumer/delta_performer.h"
 #include "update_engine/payload_consumer/file_writer.h"
 #include "update_engine/payload_consumer/payload_constants.h"
 #include "update_engine/payload_generator/annotated_operation.h"
@@ -67,6 +66,9 @@ bool PayloadFile::Init(const PayloadGenerationConfig& config) {
   manifest_.set_minor_version(config.version.minor);
   manifest_.set_block_size(config.block_size);
   manifest_.set_max_timestamp(config.max_timestamp);
+  if (!config.security_patch_level.empty()) {
+    manifest_.set_security_patch_level(config.security_patch_level);
+  }
 
   if (config.target.dynamic_partition_metadata != nullptr)
     *(manifest_.mutable_dynamic_partition_metadata()) =

@@ -17,6 +17,9 @@
 package android.safetycenter;
 
 import static android.os.Build.VERSION_CODES.TIRAMISU;
+import static android.os.Build.VERSION_CODES.UPSIDE_DOWN_CAKE;
+
+import static java.util.Objects.requireNonNull;
 
 import android.annotation.IntDef;
 import android.annotation.NonNull;
@@ -26,6 +29,8 @@ import android.os.Parcel;
 import android.os.Parcelable;
 
 import androidx.annotation.RequiresApi;
+
+import com.android.modules.utils.build.SdkLevel;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -209,15 +214,12 @@ public final class SafetyEvent implements Parcelable {
         return "SafetyEvent{"
                 + "mType="
                 + mType
-                + ", mRefreshBroadcastId='"
+                + ", mRefreshBroadcastId="
                 + mRefreshBroadcastId
-                + '\''
-                + ", mSafetySourceIssueId='"
+                + ", mSafetySourceIssueId="
                 + mSafetySourceIssueId
-                + '\''
-                + ", mSafetySourceIssueActionId='"
+                + ", mSafetySourceIssueActionId="
                 + mSafetySourceIssueActionId
-                + '\''
                 + '}';
     }
 
@@ -232,6 +234,19 @@ public final class SafetyEvent implements Parcelable {
         /** Creates a {@link Builder} for {@link SafetyEvent}. */
         public Builder(@Type int type) {
             mType = validateType(type);
+        }
+
+        /** Creates a {@link Builder} with the values from the given {@link SafetyEvent}. */
+        @RequiresApi(UPSIDE_DOWN_CAKE)
+        public Builder(@NonNull SafetyEvent safetyEvent) {
+            if (!SdkLevel.isAtLeastU()) {
+                throw new UnsupportedOperationException();
+            }
+            requireNonNull(safetyEvent);
+            mType = safetyEvent.mType;
+            mRefreshBroadcastId = safetyEvent.mRefreshBroadcastId;
+            mSafetySourceIssueId = safetyEvent.mSafetySourceIssueId;
+            mSafetySourceIssueActionId = safetyEvent.mSafetySourceIssueActionId;
         }
 
         /**
@@ -296,16 +311,12 @@ public final class SafetyEvent implements Parcelable {
                 case SAFETY_EVENT_TYPE_RESOLVING_ACTION_FAILED:
                     if (mSafetySourceIssueId == null) {
                         throw new IllegalArgumentException(
-                                String.format(
-                                        "Missing issue id for resolving action safety event (%s)",
-                                        mType));
+                                "Missing issue id for resolving action safety event: " + mType);
                     }
                     if (mSafetySourceIssueActionId == null) {
                         throw new IllegalArgumentException(
-                                String.format(
-                                        "Missing issue action id for resolving action safety event "
-                                                + "(%s)",
-                                        mType));
+                                "Missing issue action id for resolving action safety event: "
+                                        + mType);
                     }
                     break;
                 case SAFETY_EVENT_TYPE_SOURCE_STATE_CHANGED:
@@ -330,7 +341,6 @@ public final class SafetyEvent implements Parcelable {
                 return value;
             default:
         }
-        throw new IllegalArgumentException(
-                String.format("Unexpected Type for SafetyEvent: %s", value));
+        throw new IllegalArgumentException("Unexpected Type for SafetyEvent: " + value);
     }
 }

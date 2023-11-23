@@ -28,15 +28,16 @@ gnupg gperf libc++-dev libdbus-1-dev libevent-dev libflatbuffers-dev libflatbuff
 libgl1-mesa-dev libglib2.0-dev liblz4-tool libncurses5 libnss3-dev libprotobuf-dev libre2-9 \
 libssl-dev libtinyxml2-dev libx11-dev libxml2-utils ninja-build openssl protobuf-compiler unzip \
 x11proto-core-dev xsltproc zip zlib1g-dev libc++abi-dev cmake debmake ninja-build libgtest-dev \
-libgmock-dev"
+libgmock-dev libabsl-dev libre2-dev libdouble-conversion-dev bison clang llvm"
 
 ${DRY_RUN} sudo apt install ${APT_REQUIRED}
 
 # Install rustup
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+source $HOME/.cargo/env
 ${DRY_RUN} rustup update
 
-${DRY_RUN} cargo install cxxbridge-cmd || ctrl_c
+${DRY_RUN} cargo install cxxbridge-cmd --version 1.0.42 || ctrl_c
 ${DRY_RUN} cargo install cargo-proc-macro || ctrl_c
 
 echo "Building and installing modp-b64..."
@@ -65,7 +66,7 @@ fi
 # Put the GN binary in the bin...it isn't the right spot, but avoids adding a second directory
 # to the environmental PATH
 ${DRY_RUN} mkdir -p ~/bin
-${DRY_RUN} wget -O ~/bin/gn wget http://commondatastorage.googleapis.com/chromeos-localmirror/distfiles/gn-3e43fac03281e2f5e5ae5f27c8e9a6bb45966ea9.bin
+${DRY_RUN} wget -O ~/bin/gn http://commondatastorage.googleapis.com/chromeos-localmirror/distfiles/gn-3e43fac03281e2f5e5ae5f27c8e9a6bb45966ea9.bin
 ${DRY_RUN} chmod +x ~/bin/gn
 
 rm -rf "${TMP_DIR}"

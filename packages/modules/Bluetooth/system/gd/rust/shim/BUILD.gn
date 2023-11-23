@@ -20,18 +20,6 @@ config("rust_shim_config") {
   include_dirs = [ "//bt/system/gd/rust/shim" ]
 }
 
-cxxbridge_header("shim_bridge_header") {
-  sources = [ "src/bridge.rs" ]
-  all_dependent_configs = [ ":rust_shim_config" ]
-  deps = [ ":cxxlibheader" ]
-}
-
-cxxbridge_cc("shim_bridge_code") {
-  sources = [ "src/bridge.rs" ]
-  deps = [ ":shim_bridge_header" ]
-  configs = [ "//bt/system/gd:gd_defaults" ]
-}
-
 cxxbridge_header("init_flags_bridge_header") {
   sources = [ "src/init_flags.rs" ]
   all_dependent_configs = [ ":rust_shim_config" ]
@@ -44,18 +32,6 @@ cxxbridge_cc("init_flags_bridge_code") {
   configs = [ "//bt/system/gd:gd_defaults" ]
 }
 
-cxxbridge_header("message_loop_thread_bridge_header") {
-  sources = [ "src/message_loop_thread.rs" ]
-  all_dependent_configs = [ ":rust_shim_config" ]
-  deps = [ ":cxxlibheader" ]
-}
-
-cxxbridge_cc("message_loop_thread_bridge_code") {
-  sources = [ "src/message_loop_thread.rs" ]
-  deps = [ ":message_loop_thread_bridge_header" ]
-  configs = [ "//bt/system/gd:gd_defaults" ]
-}
-
 cxxbridge_libheader("cxxlibheader") {
   deps = []
 }
@@ -64,7 +40,5 @@ static_library("libbluetooth_rust_interop") {
   deps = [
     ":cxxlibheader",
     ":init_flags_bridge_code",
-    ":message_loop_thread_bridge_code",
-    ":shim_bridge_code",
   ]
 }

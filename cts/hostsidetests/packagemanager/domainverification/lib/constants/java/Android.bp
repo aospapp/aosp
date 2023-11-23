@@ -20,6 +20,7 @@ java_library {
     name: "CtsDomainVerificationJavaConstantsLibrary",
     defaults: ["cts_defaults"],
     srcs: ["src/**/*.kt"],
+    min_sdk_version: "31",
 }
 
 java_library_host {

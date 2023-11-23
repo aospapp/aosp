@@ -25,6 +25,7 @@ import static com.android.tv.settings.accessories.ConnectedDevicesSliceUtils.EXT
 import android.app.PendingIntent;
 import android.app.admin.DevicePolicyManager;
 import android.app.tvsettings.TvSettingsEnums;
+import android.bluetooth.BluetoothClass;
 import android.bluetooth.BluetoothDevice;
 import android.content.ComponentName;
 import android.content.Context;
@@ -68,6 +69,7 @@ public class ConnectedDevicesSliceProvider extends SliceProvider implements
 
     private static final String TAG = "ConnectedDevices";
     private static final boolean DEBUG = false;
+    private static final boolean DISCONNECT_PREFERENCE_ENABLED = false;
 
     private final Map<Uri, Integer> mPinnedUris = new ArrayMap<>();
     private final Handler mHandler = new Handler(Looper.getMainLooper());
@@ -232,39 +234,42 @@ public class ConnectedDevicesSliceProvider extends SliceProvider implements
         if (cachedDevice != null && !cachedDevice.isBusy()) {
             // Whether the device is actually connected from CachedBluetoothDevice's perceptive.
             boolean isConnected = AccessoryUtils.isConnected(device) && cachedDevice.isConnected();
-            RowBuilder connectionActionPref = new RowBuilder()
-                    .setKey(isConnected ? KEY_DISCONNECT : KEY_CONNECT)
-                    .setTitle(getString(isConnected
-                            ? R.string.bluetooth_disconnect_action_title
-                            : R.string.bluetooth_connect_action_title));
-            extras = new Bundle();
-            i = new Intent(context, BluetoothActionActivity.class);
-            BluetoothActionFragment.prepareArgs(
-                    extras,
-                    isConnected ? KEY_DISCONNECT : KEY_CONNECT,
-                    R.drawable.ic_baseline_bluetooth_searching_large,
-                    isConnected
-                            ? R.string.bluetooth_disconnect_confirm
-                            : R.string.bluetooth_connect_confirm,
-                    0,
-                    YES_NO_ARGS,
-                    deviceName,
-                    isConnected ? 1 /* default to NO (index 1) */ : 0 /* default to YES */
-            );
-            i.putExtras(extras);
-            i.putExtra(KEY_EXTRAS_DEVICE, device);
-            PendingIntent pendingIntent = PendingIntent.getActivity(
-                    context, 3, i,
-                    PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
-            Intent followUpIntent =
-                    new Intent(context, ConnectedDevicesSliceBroadcastReceiver.class);
-            followUpIntent.putExtra(EXTRAS_SLICE_URI, sliceUri.toString());
-            PendingIntent followupIntent = PendingIntent.getBroadcast(
-                    context, 4, followUpIntent,
-                    PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
-            connectionActionPref.setPendingIntent(pendingIntent);
-            connectionActionPref.setFollowupPendingIntent(followupIntent);
-            psb.addPreference(connectionActionPref);
+
+            if (!isConnected || showDisconnectButton(device, context)) {
+                RowBuilder connectionActionPref = new RowBuilder()
+                        .setKey(isConnected ? KEY_DISCONNECT : KEY_CONNECT)
+                        .setTitle(getString((isConnected
+                                ? R.string.bluetooth_disconnect_action_title
+                                : R.string.bluetooth_connect_action_title)));
+                extras = new Bundle();
+                i = new Intent(context, BluetoothActionActivity.class);
+                BluetoothActionFragment.prepareArgs(
+                        extras,
+                        isConnected ? KEY_DISCONNECT : KEY_CONNECT,
+                        R.drawable.ic_baseline_bluetooth_searching_large,
+                        isConnected
+                                ? R.string.bluetooth_disconnect_confirm
+                                : R.string.bluetooth_connect_confirm,
+                        0,
+                        YES_NO_ARGS,
+                        deviceName,
+                        isConnected ? 1 /* default to NO (index 1) */ : 0 /* default to YES */
+                );
+                i.putExtras(extras);
+                i.putExtra(KEY_EXTRAS_DEVICE, device);
+                PendingIntent pendingIntent = PendingIntent.getActivity(
+                        context, 3, i,
+                        PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
+                Intent followUpIntent =
+                        new Intent(context, ConnectedDevicesSliceBroadcastReceiver.class);
+                followUpIntent.putExtra(EXTRAS_SLICE_URI, sliceUri.toString());
+                PendingIntent followupIntent = PendingIntent.getBroadcast(
+                        context, 4, followUpIntent,
+                        PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
+                connectionActionPref.setPendingIntent(pendingIntent);
+                connectionActionPref.setFollowupPendingIntent(followupIntent);
+                psb.addPreference(connectionActionPref);
+            }
         }
 
         // Update "rename preference".
@@ -568,5 +573,13 @@ public class ConnectedDevicesSliceProvider extends SliceProvider implements
     private boolean isSliceProviderValid(String uri) {
         return !TextUtils.isEmpty(uri)
                 && ConnectedDevicesSliceUtils.isSliceProviderValid(getContext(), uri);
+    }
+
+    private boolean showDisconnectButton(BluetoothDevice device, Context context) {
+        if (DISCONNECT_PREFERENCE_ENABLED) {
+            return true;
+        }
+        return !AccessoryUtils.isRemoteClass(device)
+                && !AccessoryUtils.isKnownDevice(context, device);
     }
 }

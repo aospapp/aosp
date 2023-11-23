@@ -51,6 +51,7 @@ function build_go
         local gen_src_dir="${BUILDDIR}/.microfactory_$(uname)_intermediates/src"
         mkdir -p "${gen_src_dir}"
         sed "s/^package microfactory/package main/" "${mf_src}/microfactory.go" >"${gen_src_dir}/microfactory.go"
+        printf "\n//for use with go run\nfunc main() { Main() }\n" >>"${gen_src_dir}/microfactory.go"
 
         mf_cmd="${GOROOT}/bin/go run ${gen_src_dir}/microfactory.go"
     else

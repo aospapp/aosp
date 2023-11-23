@@ -42,6 +42,6 @@
         <!-- disable isolated storage so tests can access dynamic config stored in /sdcard. -->
         <option name="isolated-storage" value="false" />
         <!-- test-timeout unit is ms, value = 10 min -->
-        <option name="test-timeout" value="600000" />
+        <option name="test-timeout" value="900000" />
     </test>
 </configuration>

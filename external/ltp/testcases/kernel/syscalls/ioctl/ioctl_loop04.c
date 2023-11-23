@@ -1,14 +1,20 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Copyright (c) 2020 FUJITSU LIMITED. All rights reserved.
+ * Copyright (c) Linux Test Project, 2022
  * Author: Yang Xu <xuyang2018.jy@cn.jujitsu.com>
- *
- * This is a basic ioctl test about loopdevice.
- *
- * It is designed to test LOOP_SET_CAPACITY can update a live
- * loop device size when we change the size of the underlying
- * backing file. Also check sys value.
  */
+
+/*\
+ * [Description]
+ *
+ * Tests ioctl() on loopdevice with LOOP_SET_CAPACITY flag.
+ *
+ * Tests whether LOOP_SET_CAPACITY can update a live
+ * loop device size after change the size of the underlying
+ * backing file. Also checks sysfs value.
+ */
+
 #include <stdio.h>
 #include <unistd.h>
 #include <string.h>

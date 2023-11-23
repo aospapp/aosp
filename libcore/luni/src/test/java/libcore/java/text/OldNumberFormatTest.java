@@ -6,7 +6,7 @@
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *   http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -32,8 +32,8 @@ public class OldNumberFormatTest extends TestCase {
         DecimalFormat format = (DecimalFormat) NumberFormat.getIntegerInstance(Locale.US);
         assertEquals("#,##0", format.toPattern());
         assertEquals("-36", format.format(-35.76));
-        assertEquals(new Long(-36), format.parse("-36"));
-        assertEquals(new Long(-36), format.parseObject("-36"));
+        assertEquals(Long.valueOf(-36), format.parse("-36"));
+        assertEquals(Long.valueOf(-36), format.parseObject("-36"));
         assertEquals(0, format.getMaximumFractionDigits());
         assertTrue(format.isParseIntegerOnly());
 
@@ -42,8 +42,8 @@ public class OldNumberFormatTest extends TestCase {
         format = (DecimalFormat) NumberFormat.getIntegerInstance(chLocale);
         assertEquals("#,##0", format.toPattern());
         assertEquals("-36", format.format(-35.76));
-        assertEquals(new Long(-36), format.parse("-36"));
-        assertEquals(new Long(-36), format.parseObject("-36"));
+        assertEquals(Long.valueOf(-36), format.parse("-36"));
+        assertEquals(Long.valueOf(-36), format.parseObject("-36"));
         assertEquals(0, format.getMaximumFractionDigits());
         assertTrue(format.isParseIntegerOnly());
 
@@ -112,24 +112,24 @@ public class OldNumberFormatTest extends TestCase {
                 new ParsePosition(-1)));
 
         parseObjectTest(NumberFormat.getInstance(), "123.123",
-                new ParsePosition(1), new Double(23.123), 7, true);
+                new ParsePosition(1), Double.valueOf(23.123), 7, true);
 
         parseObjectTest(NumberFormat.getInstance(), "123.123abc123",
-                new ParsePosition(3), new Double(0.123), 7, true);
+                new ParsePosition(3), Double.valueOf(0.123), 7, true);
 
         parseObjectTest(NumberFormat.getInstance(Locale.FRANCE), "asd123,123abc123",
-                        new ParsePosition(3), new Double(123.123), 10, true);
+                        new ParsePosition(3), Double.valueOf(123.123), 10, true);
 
         parseObjectTest(NumberFormat.getInstance(Locale.FRANCE), "test test",
                         new ParsePosition(0), null, 0, false);
 
         parseObjectTest(NumberFormat.getIntegerInstance(),
                 "asd123.123abc123",
-                new ParsePosition(3), new Long(123), 6, true);
+                new ParsePosition(3), Long.valueOf(123), 6, true);
 
         parseObjectTest(NumberFormat.getNumberInstance(),
                 "$-123,123.123#",
-                new ParsePosition(1), new Double(-123123.123), 13, true);
+                new ParsePosition(1), Double.valueOf(-123123.123), 13, true);
         parseObjectTest(NumberFormat.getNumberInstance(),
                 "$-123,123.123#",
                 new ParsePosition(0), null, 0, false);
@@ -138,7 +138,7 @@ public class OldNumberFormatTest extends TestCase {
                 new ParsePosition(13), null, 13, false);
         parseObjectTest(NumberFormat.getPercentInstance(),
                 "%20.123#",
-                new ParsePosition(0), new Double(20.123), 0, false);
+                new ParsePosition(0), Double.valueOf(20.123), 0, false);
         parseObjectTest(NumberFormat.getPercentInstance(),
                 "%-200,123.123#",
                 new ParsePosition(0), null, 0, false);
@@ -320,7 +320,7 @@ public class OldNumberFormatTest extends TestCase {
         format = NumberFormat.getCurrencyInstance(atLocale);
         // BEGIN Android-changed: ICU uses non-breaking space after the euro sign; the RI uses ' '.
         assertEquals("\u20ac\u00a035,76", format.format(35.76));
-        assertEquals("\u20ac\u00a0123\u00a0456,79", format.format(123456.789));
+        assertEquals("\u20ac\u00a0123.456,79", format.format(123456.789));
         assertEquals("\u20ac\u00a00,10", format.format(0.1));
         assertEquals("\u20ac\u00a01,00", format.format(0.999));
         try {
@@ -742,7 +742,7 @@ public class OldNumberFormatTest extends TestCase {
         try {
             assertEquals(
                     "Test1: NumberFormat.getInstance().parse(\"1234567890.1\") returned wrong number",
-                    new Double(1234567890.1), nf1.parse("1234567890.1"));
+                    Double.valueOf(1234567890.1), nf1.parse("1234567890.1"));
         } catch (java.text.ParseException pe) {
             fail("java.text.ParseException is thrown for 1234567890.1");
         }
@@ -750,7 +750,7 @@ public class OldNumberFormatTest extends TestCase {
         try {
             assertEquals(
                     "Test2: NumberFormat.getInstance().parse(\"-1234567890.1\") returned wrong number",
-                    new Double(-1234567890.1), nf1.parse("-1,234,567,890.1"));
+                    Double.valueOf(-1234567890.1), nf1.parse("-1,234,567,890.1"));
         } catch (java.text.ParseException pe) {
             fail("java.text.ParseException is thrown for -1,234,567,890.1");
         }
@@ -766,7 +766,7 @@ public class OldNumberFormatTest extends TestCase {
         try {
             assertEquals(
                     "Test3: NumberFormat.getPercentInstance().parse(\"-123%\") returned wrong number",
-                    new Double(-1.23), nf1.parse("-123%"));
+                    Double.valueOf(-1.23), nf1.parse("-123%"));
         } catch (java.text.ParseException pe) {
             fail("java.text.ParseException is thrown for -123%");
         }
@@ -775,7 +775,7 @@ public class OldNumberFormatTest extends TestCase {
         try {
             assertEquals(
                     "Test4: NumberFormat.getCurrencyInstance().parse(\"$123\") returned wrong number",
-                    new Long(123), nf1.parse("$123"));
+                    Long.valueOf(123), nf1.parse("$123"));
         } catch (java.text.ParseException pe) {
             fail("java.text.ParseException is thrown for $123");
         }
@@ -783,7 +783,7 @@ public class OldNumberFormatTest extends TestCase {
         try {
             assertEquals(
                     "Test4: NumberFormat.getCurrencyInstance().parse(\"$123abc\") returned wrong number",
-                    new Long(123), nf1.parse("$123abc"));
+                    Long.valueOf(123), nf1.parse("$123abc"));
         } catch (java.text.ParseException pe) {
             fail("java.text.ParseException is thrown for $123");
         }
@@ -821,7 +821,7 @@ public class OldNumberFormatTest extends TestCase {
 
         public Number parse(String source, ParsePosition parsePosition) {
 
-            return new Double(0);
+            return Double.valueOf(0);
         }
 
         public StringBuffer format(long number, StringBuffer toAppendTo,

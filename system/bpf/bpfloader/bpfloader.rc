@@ -15,18 +15,17 @@
 # considered to have booted successfully.
 #
 on load_bpf_programs
-    # Linux 5.16-rc1 has changed the default to 2 (disabled but changeable),
-    # but we need 0
-    write /proc/sys/kernel/unprivileged_bpf_disabled 0
-    # Enable the eBPF JIT -- but do note that on 64-bit kernels it is likely
-    # already force enabled by the kernel config option BPF_JIT_ALWAYS_ON
-    write /proc/sys/net/core/bpf_jit_enable 1
-    # Enable JIT kallsyms export for privileged users only
-    write /proc/sys/net/core/bpf_jit_kallsyms 1
     exec_start bpfloader
 
 service bpfloader /system/bin/bpfloader
     capabilities CHOWN SYS_ADMIN NET_ADMIN
+    # The following group memberships are a workaround for lack of DAC_OVERRIDE
+    # and allow us to open (among other things) files that we created and are
+    # no longer root owned (due to CHOWN) but still have group read access to
+    # one of the following groups.  This is not perfect, but a more correct
+    # solution requires significantly more effort to implement.
+    group root graphics network_stack net_admin net_bw_acct net_bw_stats net_raw system
+    user root
     #
     # Set RLIMIT_MEMLOCK to 1GiB for bpfloader
     #

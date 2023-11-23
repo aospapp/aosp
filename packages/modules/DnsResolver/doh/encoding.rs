@@ -17,6 +17,7 @@
 //! Format DoH requests
 
 use anyhow::{anyhow, Context, Result};
+use base64::{prelude::BASE64_URL_SAFE_NO_PAD, Engine};
 use quiche::h3;
 use ring::rand::SecureRandom;
 use url::Url;
@@ -53,7 +54,7 @@ pub fn probe_query() -> Result<String> {
         0,      NS_T_AAAA,  // QTYPE
         0,      NS_C_IN     // QCLASS
     ];
-    Ok(base64::encode_config(query, base64::URL_SAFE_NO_PAD))
+    Ok(BASE64_URL_SAFE_NO_PAD.encode(query))
 }
 
 /// Takes in a base64-encoded copy of a traditional DNS request and a
@@ -80,6 +81,7 @@ pub fn dns_request(base64_query: &str, url: &Url) -> Result<DnsRequest> {
 
 #[cfg(test)]
 mod tests {
+    use base64::{prelude::BASE64_URL_SAFE_NO_PAD, Engine};
     use quiche::h3::NameValue;
     use url::Url;
 
@@ -109,7 +111,7 @@ mod tests {
         assert_eq!(request[5].value(), b"application/dns-message");
 
         // Verify DNS probe packet.
-        let bytes = base64::decode_config(probe_query, base64::URL_SAFE_NO_PAD).unwrap();
+        let bytes = BASE64_URL_SAFE_NO_PAD.decode(probe_query).unwrap();
         assert_eq!(bytes.len(), PROBE_QUERY_SIZE);
     }
 }

@@ -18,6 +18,7 @@
 
 #include <hidl-util/Formatter.h>
 
+#include <algorithm>
 #include <string>
 #include <vector>
 

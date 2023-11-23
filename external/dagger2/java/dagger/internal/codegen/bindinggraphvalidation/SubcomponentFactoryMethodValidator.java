@@ -16,49 +16,39 @@
 
 package dagger.internal.codegen.bindinggraphvalidation;
 
-import static com.google.auto.common.MoreTypes.asDeclared;
-import static com.google.auto.common.MoreTypes.asExecutable;
-import static com.google.auto.common.MoreTypes.asTypeElements;
 import static com.google.common.collect.Sets.union;
 import static dagger.internal.codegen.binding.ComponentRequirement.componentCanMakeNewInstances;
 import static dagger.internal.codegen.extension.DaggerStreams.instancesOf;
 import static dagger.internal.codegen.extension.DaggerStreams.toImmutableSet;
 import static javax.tools.Diagnostic.Kind.ERROR;
 
+import androidx.room.compiler.processing.XExecutableType;
+import androidx.room.compiler.processing.XType;
+import androidx.room.compiler.processing.XTypeElement;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
 import com.google.common.collect.Sets.SetView;
 import dagger.internal.codegen.base.Util;
 import dagger.internal.codegen.binding.ComponentNodeImpl;
-import dagger.internal.codegen.kotlin.KotlinMetadataUtil;
-import dagger.internal.codegen.langmodel.DaggerTypes;
-import dagger.model.BindingGraph;
-import dagger.model.BindingGraph.ChildFactoryMethodEdge;
-import dagger.model.BindingGraph.ComponentNode;
-import dagger.spi.BindingGraphPlugin;
-import dagger.spi.DiagnosticReporter;
+import dagger.spi.model.BindingGraph;
+import dagger.spi.model.BindingGraph.ChildFactoryMethodEdge;
+import dagger.spi.model.BindingGraph.ComponentNode;
+import dagger.spi.model.BindingGraphPlugin;
+import dagger.spi.model.DiagnosticReporter;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
 import javax.inject.Inject;
-import javax.lang.model.element.TypeElement;
-import javax.lang.model.type.DeclaredType;
-import javax.lang.model.type.ExecutableType;
 
 /** Reports an error if a subcomponent factory method is missing required modules. */
 final class SubcomponentFactoryMethodValidator implements BindingGraphPlugin {
 
-  private final DaggerTypes types;
-  private final KotlinMetadataUtil metadataUtil;
-  private final Map<ComponentNode, Set<TypeElement>> inheritedModulesCache = new HashMap<>();
+  private final Map<ComponentNode, Set<XTypeElement>> inheritedModulesCache = new HashMap<>();
 
   @Inject
-  SubcomponentFactoryMethodValidator(DaggerTypes types, KotlinMetadataUtil metadataUtil) {
-    this.types = types;
-    this.metadataUtil = metadataUtil;
-  }
+  SubcomponentFactoryMethodValidator() {}
 
   @Override
   public String pluginName() {
@@ -77,7 +67,7 @@ final class SubcomponentFactoryMethodValidator implements BindingGraphPlugin {
         .flatMap(instancesOf(ChildFactoryMethodEdge.class))
         .forEach(
             edge -> {
-              ImmutableSet<TypeElement> missingModules = findMissingModules(edge, bindingGraph);
+              ImmutableSet<XTypeElement> missingModules = findMissingModules(edge, bindingGraph);
               if (!missingModules.isEmpty()) {
                 reportMissingModuleParameters(
                     edge, missingModules, bindingGraph, diagnosticReporter);
@@ -85,49 +75,50 @@ final class SubcomponentFactoryMethodValidator implements BindingGraphPlugin {
             });
   }
 
-  private ImmutableSet<TypeElement> findMissingModules(
+  private ImmutableSet<XTypeElement> findMissingModules(
       ChildFactoryMethodEdge edge, BindingGraph graph) {
-    ImmutableSet<TypeElement> factoryMethodParameters =
+    ImmutableSet<XTypeElement> factoryMethodParameters =
         subgraphFactoryMethodParameters(edge, graph);
     ComponentNode child = (ComponentNode) graph.network().incidentNodes(edge).target();
-    SetView<TypeElement> modulesOwnedByChild = ownedModules(child, graph);
+    SetView<XTypeElement> modulesOwnedByChild = ownedModules(child, graph);
     return graph.bindings().stream()
         // bindings owned by child
         .filter(binding -> binding.componentPath().equals(child.componentPath()))
         // that require a module instance
         .filter(binding -> binding.requiresModuleInstance())
-        .map(binding -> binding.contributingModule().get())
+        .map(binding -> binding.contributingModule().get().xprocessing())
         .distinct()
         // module owned by child
         .filter(module -> modulesOwnedByChild.contains(module))
         // module not in the method parameters
         .filter(module -> !factoryMethodParameters.contains(module))
         // module doesn't have an accessible no-arg constructor
-        .filter(moduleType -> !componentCanMakeNewInstances(moduleType, metadataUtil))
+        .filter(moduleType -> !componentCanMakeNewInstances(moduleType))
         .collect(toImmutableSet());
   }
 
-  private ImmutableSet<TypeElement> subgraphFactoryMethodParameters(
+  private ImmutableSet<XTypeElement> subgraphFactoryMethodParameters(
       ChildFactoryMethodEdge edge, BindingGraph bindingGraph) {
     ComponentNode parent = (ComponentNode) bindingGraph.network().incidentNodes(edge).source();
-    DeclaredType parentType = asDeclared(parent.componentPath().currentComponent().asType());
-    ExecutableType factoryMethodType =
-        asExecutable(types.asMemberOf(parentType, edge.factoryMethod()));
-    return asTypeElements(factoryMethodType.getParameterTypes());
+    XType parentType = parent.componentPath().currentComponent().xprocessing().getType();
+    XExecutableType factoryMethodType = edge.factoryMethod().xprocessing().asMemberOf(parentType);
+    return factoryMethodType.getParameterTypes().stream()
+        .map(XType::getTypeElement)
+        .collect(toImmutableSet());
   }
 
-  private SetView<TypeElement> ownedModules(ComponentNode component, BindingGraph graph) {
+  private SetView<XTypeElement> ownedModules(ComponentNode component, BindingGraph graph) {
     return Sets.difference(
         ((ComponentNodeImpl) component).componentDescriptor().moduleTypes(),
         inheritedModules(component, graph));
   }
 
-  private Set<TypeElement> inheritedModules(ComponentNode component, BindingGraph graph) {
+  private Set<XTypeElement> inheritedModules(ComponentNode component, BindingGraph graph) {
     return Util.reentrantComputeIfAbsent(
         inheritedModulesCache, component, uncachedInheritedModules(graph));
   }
 
-  private Function<ComponentNode, Set<TypeElement>> uncachedInheritedModules(BindingGraph graph) {
+  private Function<ComponentNode, Set<XTypeElement>> uncachedInheritedModules(BindingGraph graph) {
     return componentNode ->
         componentNode.componentPath().atRoot()
             ? ImmutableSet.of()
@@ -139,7 +130,7 @@ final class SubcomponentFactoryMethodValidator implements BindingGraphPlugin {
 
   private void reportMissingModuleParameters(
       ChildFactoryMethodEdge edge,
-      ImmutableSet<TypeElement> missingModules,
+      ImmutableSet<XTypeElement> missingModules,
       BindingGraph graph,
       DiagnosticReporter diagnosticReporter) {
     diagnosticReporter.reportSubcomponentFactoryMethod(
@@ -153,7 +144,8 @@ final class SubcomponentFactoryMethodValidator implements BindingGraphPlugin {
             .target()
             .componentPath()
             .currentComponent()
-            .getQualifiedName(),
+            .className()
+            .canonicalName(),
         Joiner.on(", ").join(missingModules));
   }
 }

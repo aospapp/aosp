@@ -3,7 +3,7 @@
 SCRIPT_DIR="$(dirname $0)"
 DIST_DIR="$1"
 
-STUDIO_JDK=${SCRIPT_DIR}"/../../../../prebuilts/jdk/jdk11/linux-x86"
+STUDIO_JDK=${SCRIPT_DIR}"/../../../../prebuilts/jdk/jdk17/linux-x86"
 OUT_INTERMEDIATES=${SCRIPT_DIR}"/../../../../out/soong/.intermediates"
 
 ${STUDIO_JDK}/bin/java -ea \

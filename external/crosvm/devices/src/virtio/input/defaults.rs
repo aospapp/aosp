@@ -1,4 +1,4 @@
-// Copyright 2019 The Chromium OS Authors. All rights reserved.
+// Copyright 2019 The ChromiumOS Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -282,6 +282,7 @@ fn default_keyboard_events() -> BTreeMap<u16, virtio_input_bitmap> {
             KEY_MUTE,
             KEY_VOLUMEDOWN,
             KEY_VOLUMEUP,
+            KEY_BACK,
         ]),
     );
     supported_events.insert(

@@ -18,6 +18,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
      package="android.security.cts">
 
+    <permission-tree android:name="com.android.cts"/>
+
     <uses-permission android:name="android.permission.DISABLE_KEYGUARD"/>
     <uses-permission android:name="android.permission.KILL_BACKGROUND_PROCESSES"/>
     <uses-permission android:name="android.permission.CHANGE_NETWORK_STATE"/>
@@ -25,9 +27,13 @@
     <uses-permission android:name="android.permission.ACCESS_WIFI_STATE"/>
     <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS"/>
     <uses-permission android:name="android.permission.RECORD_AUDIO"/>
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
     <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW"/>
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
     <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES"/>
+    <uses-permission android:name="android.permission.PACKAGE_USAGE_STATS"/>
+    <uses-permission android:name="android.permission.INTERACT_ACROSS_USERS"/>
+    <uses-permission android:name="android.permission.EXPAND_STATUS_BAR"/>
 
     <!-- For FileIntegrityManager -->
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES"/>
@@ -200,6 +206,69 @@
                 <action android:name="android.app.action.AUTOMATIC_ZEN_RULE"/>
             </intent-filter>
         </activity>
+
+        <receiver android:name="android.security.cts.CVE_2022_20420.PocDeviceAdminReceiver"
+            android:exported="true"
+            android:permission="android.permission.BIND_DEVICE_ADMIN">
+            <meta-data android:name="android.app.device_admin"
+                android:resource="@xml/device_admin_CVE_2022_20420" />
+            <intent-filter>
+                <action android:name="android.app.action.DEVICE_ADMIN_ENABLED" />
+            </intent-filter>
+        </receiver>
+
+        <activity android:name="android.security.cts.ActivityManagerTest$ActivityOptionsActivity" />
+        <activity android:name="android.security.cts.ActivityManagerTest$BaseActivity" />
+
+        <activity android:name="android.security.cts.PackageInstallerTest$BackgroundLaunchActivity"
+            android:exported="true" />
+        <service android:name="android.security.cts.TestForegroundService"
+            android:exported="true" />
+
+        <provider android:name="android.security.cts.CVE_2022_20358.PocContentProvider"
+            android:authorities="android.security.cts.CVE_2022_20358.provider"
+            android:enabled="true"
+            android:exported="true" />
+
+        <service android:name="android.security.cts.CVE_2022_20358.PocSyncService"
+            android:enabled="true"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.content.SyncAdapter" />
+            </intent-filter>
+            <meta-data android:name="android.content.SyncAdapter"
+                android:resource="@xml/syncadapter" />
+        </service>
+
+        <activity android:name="android.security.cts.CVE_2023_20953.PocActivity"
+            android:exported="true" />
+
+        <activity android:name="android.security.cts.CVE_2021_0642.PocActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.telephony.action.CONFIGURE_VOICEMAIL" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="CVE_2021_0642_ACTION" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+
+        <activity android:name="android.security.cts.CVE_2021_0642.SecondActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="CVE_2021_0642_ACTION" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
+        </activity>
+
+        <service android:name="android.security.cts.AttributionSourceService"
+            android:enabled="true"
+            android:exported="true"
+            android:label="AttributionSourceService"
+            android:process=":attributionSourceServiceProcess">
+        </service>
 
     </application>
 

@@ -34,11 +34,15 @@
 #include "jit/jit_code_cache.h"
 #include "jit/jit_logger.h"
 
-namespace art {
+namespace art HIDDEN {
 namespace jit {
 
 JitCompiler* JitCompiler::Create() {
   return new JitCompiler();
+}
+
+void JitCompiler::SetDebuggableCompilerOption(bool value) {
+  compiler_options_->SetDebuggable(value);
 }
 
 void JitCompiler::ParseCompilerOptions() {
@@ -85,7 +89,7 @@ void JitCompiler::ParseCompilerOptions() {
     if (StartsWith(option, "--instruction-set-variant=")) {
       const char* str = option.c_str() + strlen("--instruction-set-variant=");
       VLOG(compiler) << "JIT instruction set variant " << str;
-      instruction_set_features = InstructionSetFeatures::FromVariant(
+      instruction_set_features = InstructionSetFeatures::FromVariantAndHwcap(
           instruction_set, str, &error_msg);
       if (instruction_set_features == nullptr) {
         LOG(WARNING) << "Error parsing " << option << " message=" << error_msg;
@@ -121,7 +125,7 @@ void JitCompiler::ParseCompilerOptions() {
   }
 }
 
-extern "C" JitCompilerInterface* jit_load() {
+EXPORT extern "C" JitCompilerInterface* jit_load() {
   VLOG(jit) << "Create jit compiler";
   auto* const jit_compiler = JitCompiler::Create();
   CHECK(jit_compiler != nullptr);
@@ -199,6 +203,8 @@ bool JitCompiler::CompileMethod(
     VLOG(jit) << "Compilation of " << method->PrettyMethod() << " took "
               << PrettyDuration(UsToNs(duration_us));
     runtime->GetMetrics()->JitMethodCompileCount()->AddOne();
+    runtime->GetMetrics()->JitMethodCompileTotalTimeDelta()->Add(duration_us);
+    runtime->GetMetrics()->JitMethodCompileCountDelta()->AddOne();
   }
 
   // Trim maps to reduce memory usage.

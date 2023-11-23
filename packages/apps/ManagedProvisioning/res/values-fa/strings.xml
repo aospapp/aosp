@@ -29,9 +29,9 @@
     <string name="next" msgid="1004321437324424398">"بعدی"</string>
     <string name="setting_up_workspace" msgid="7862472373642601041">"درحال راه‌اندازی نمایه کاری…"</string>
     <string name="admin_has_ability_to_monitor_profile" msgid="1018585795537086728">"سرپرست فناوری اطلاعات شما می‌تواند تنظیمات، دسترسی شرکتی، برنامه‌ها، اجازه‌ها، داده‌ها، و فعالیت شبکه مرتبط با این نمایه، و همچنین سابقه تماس و سابقه جستجوی مخاطب شما را پایش و مدیریت کند. برای کسب اطلاعات بیشتر و آشنایی با خط‌مشی رازداری سازمانتان، با سرپرست فناوری اطلاعات تماس بگیرید."</string>
-    <string name="admin_has_ability_to_monitor_device" msgid="6303112630697870695">"سرپرست فناوری اطلاعات می‌تواند تنظیمات، دسترسی شرکتی، برنامه‌ها، مجوزها، و داده‌های مرتبط با این دستگاه - ازجمله فعالیت شما در شبکه و همچنین مکان دستگاه، سابقه تماس، و سابقه جستجوی مخاطب - را پایش و مدیریت کند.<xliff:g id="LINE_BREAK">
+    <string name="admin_has_ability_to_monitor_device" msgid="7786186939607332934">"سرپرست سیستم می‌تواند تنظیمات، دسترسی شرکتی، برنامه‌ها، اجازه‌ها، و داده‌های مرتبط با این <xliff:g id="DEVICE_NAME">%1$s</xliff:g> را پایش و مدیریت کند، ازجمله فعالیت شما در شبکه و همچنین مکان دستگاه، سابقه تماس، و سابقه جستجوی مخاطب.<xliff:g id="LINE_BREAK">
 
-</xliff:g>برای دریافت اطلاعات بیشتر، ازجمله خط‌مشی‌های رازداری سازمان، با سرپرست فناوری اطلاعات تماس بگیرید."</string>
+</xliff:g>برای دریافت اطلاعات بیشتر (ازجمله خط‌مشی‌های رازداری سازمان) با سرپرست فناوری اطلاعات تماس بگیرید."</string>
     <string name="theft_protection_disabled_warning" msgid="3708092473574738478">"برای استفاده از قابلیت‌های محافظت دربرابر دزدی، باید برای دستگاهتان قفل صفحه با محافظت گذرواژه داشته باشید."</string>
     <string name="contact_your_admin_for_more_info" msgid="9209568156969966347">"برای کسب اطلاعات بیشتر، ازجمله درباره خط‌مشی‌های رازداری سازمان، با سرپرست فناوری اطلاعات‌ تماس بگیرید."</string>
     <string name="learn_more_link" msgid="3012495805919550043">"بیشتر بدانید"</string>
@@ -50,8 +50,8 @@
     <string name="sure_you_want_to_delete_profile" msgid="6927697984573575564">"اگر ادامه دهید، همه برنامه‌ها و داده‌ها در این نمایه حذف خواهند شد."</string>
     <string name="delete_profile" msgid="2299218578684663459">"حذف"</string>
     <string name="cancel_delete_profile" msgid="5155447537894046036">"لغو"</string>
-    <string name="encrypt_device_text_for_profile_owner_setup" msgid="7828515754696057140">"برای تنظیم نمایه کاری‌تان، دستگاه شما باید رمزگذاری شود. این کار ممکن است مدتی طول بکشد."</string>
-    <string name="encrypt_device_text_for_device_owner_setup" msgid="5194673142404735676">"قبل از اینکه این دستگاه بتواند راه‌اندازی شود باید رمزگذاری شود. این کار ممکن است مدتی طول بکشد."</string>
+    <string name="encrypt_device_text_for_profile_owner_setup" msgid="6865483664167134470">"برای تنظیم نمایه کاری‌تان، <xliff:g id="DEVICE_NAME">%1$s</xliff:g> باید رمزگذاری شود. این کار ممکن است مدتی طول بکشد."</string>
+    <string name="encrypt_device_text_for_device_owner_setup" msgid="230099563510460941">"این <xliff:g id="DEVICE_NAME">%1$s</xliff:g> پیش‌از راه‌اندازی باید رمزگذاری شود. این کار ممکن است مدتی طول بکشد."</string>
     <string name="encrypt_this_device_question" msgid="8719916619866892601">"این دستگاه رمزگذاری شود؟"</string>
     <string name="encrypt" msgid="1749320161747489212">"رمزگذاری"</string>
     <string name="continue_provisioning_notify_title" msgid="5191449100153186648">"رمزگذاری کامل شد"</string>
@@ -59,7 +59,7 @@
     <string name="managed_provisioning_error_text" msgid="7063621174570680890">"نمایه کاری‌تان تنظیم نشد. با بخش فناوری اطلاعات مربوط به خودتان تماس بگیرید یا دوباره بعداً امتحان کنید."</string>
     <string name="cant_add_work_profile" msgid="9217268909964154934">"نمی‌توان نمایه کاری اضافه کرد"</string>
     <string name="cant_replace_or_remove_work_profile" msgid="7861054306792698290">"نمی‌توان نمایه کاری را جایگزین کرد یا برداشت"</string>
-    <string name="work_profile_cant_be_added_contact_admin" msgid="5393019630297157418">"نمی‌توان به این دستگاه نمایه کاری اضافه کرد. اگر سؤالی دارید، با سرپرست فناوری اطلاعات تماس بگیرید."</string>
+    <string name="work_profile_cant_be_added_contact_admin" msgid="4866281518235832928">"نمایه کاری به این <xliff:g id="DEVICE_NAME">%1$s</xliff:g> اضافه نشد. اگر سؤالی دارید، با سرپرست فناوری اطلاعات تماس بگیرید."</string>
     <string name="change_device_launcher" msgid="4523563368433637980">"راه‌انداز دستگاه را تغییر دهید"</string>
     <string name="launcher_app_cant_be_used_by_work_profile" msgid="3524366082000739743">"این برنامه راه‌اندازی نمی‌تواند توسط نمایه کاری‌تان استفاده شود"</string>
     <string name="cancel_provisioning" msgid="3408069559452653724">"لغو"</string>
@@ -67,9 +67,9 @@
     <string name="user_setup_incomplete" msgid="6494920045526591079">"تنظیم کاربر کامل نیست"</string>
     <string name="default_owned_device_username" msgid="3915120202811807955">"کاربر دستگاه کاری"</string>
     <string name="setup_work_device" msgid="6003988351437862369">"درحال راه‌اندازی دستگاه کاری…"</string>
-    <string name="device_doesnt_allow_encryption_contact_admin" msgid="5124643338424539794">"این دستگاه از رمزگذاری، که برای راه‌اندازی لازم است، پشتیبانی نمی‌کند. برای دریافت راهنمایی، با سرپرست فناوری اطلاعات تماس بگیرید."</string>
-    <string name="stop_setup_reset_device_question" msgid="7547191251522623210">"راه‌اندازی متوقف و دستگاه بازنشانی شود؟"</string>
-    <string name="this_will_reset_take_back_first_screen" msgid="4623290347188404725">"این کار دستگاه شما را بازنشانی می‌کند و شما را به صفحه اول برمی‌گرداند"</string>
+    <string name="device_doesnt_allow_encryption_contact_admin" msgid="410347019947997299">"این <xliff:g id="DEVICE_NAME">%1$s</xliff:g> از رمزگذاری، که برای راه‌اندازی لازم است، پشتیبانی نمی‌کند. برای دریافت راهنمایی، با سرپرست فناوری اطلاعات خود تماس بگیرید."</string>
+    <string name="stop_setup_reset_device_question" msgid="2323844935990001069">"راه‌اندازی متوقف و <xliff:g id="DEVICE_NAME">%1$s</xliff:g> بازنشانی شود؟"</string>
+    <string name="this_will_reset_take_back_first_screen" msgid="5881727570968119259">"این کار <xliff:g id="DEVICE_NAME">%1$s</xliff:g> را بازنشانی می‌کند و شما را به صفحه اول برمی‌گرداند"</string>
     <string name="device_owner_cancel_message" msgid="2529288571742712065">"راه‌اندازی متوقف شود و داده‌های دستگاهتان پاک شود؟"</string>
     <string name="device_owner_cancel_cancel" msgid="1052951540909389275">"لغو"</string>
     <string name="device_owner_error_ok" msgid="2002250763093787051">"تأیید"</string>
@@ -79,10 +79,10 @@
     <string name="something_went_wrong" msgid="3593223774041784329">"مشکلی پیش آمد"</string>
     <string name="couldnt_set_up_device" msgid="5137950404283642302">"دستگاه راه‌اندازی نشد. برای دریافت راهنمایی، با سرپرست فناوری اطلاعات تماس بگیرید."</string>
     <string name="contact_your_admin_for_help" msgid="2009904021552323731">"برای راهنمایی، با سرپرست فناوری اطلاعات تماس بگیرید"</string>
-    <string name="reset_device" msgid="5483853913241939262">"این دستگاه را بازنشانی کنید و دوباره راه‌اندازی کنید"</string>
-    <string name="device_already_set_up" msgid="507881934487140294">"دستگاه قبلاً راه‌اندازی شده است"</string>
+    <string name="reset_device" msgid="265029891515486543">"این <xliff:g id="DEVICE_NAME">%1$s</xliff:g> را بازنشانی کنید و دوباره راه‌اندازی کنید"</string>
+    <string name="device_already_set_up" msgid="2916285974248611835">"<xliff:g id="DEVICE_NAME">%1$s</xliff:g> قبلاً راه‌اندازی شده است"</string>
     <string name="error_wifi" msgid="1850288843966836571">"‏به Wi-Fi متصل نشد"</string>
-    <string name="device_has_reset_protection_contact_admin" msgid="2662050020376475656">"محافظت دربرابر بازنشانی در دستگاه روشن است. برای دریافت راهنمایی با سرپرست فناوری اطلاعات تماس بگیرید."</string>
+    <string name="device_has_reset_protection_contact_admin" msgid="5922267426079555686">"محافظت دربرابر بازنشانی در <xliff:g id="DEVICE_NAME">%1$s</xliff:g> روشن است. برای دریافت راهنمایی، با سرپرست فناوری اطلاعات خود تماس بگیرید."</string>
     <string name="frp_clear_progress_title" msgid="8628074089458234965">"در حال پاک کردن"</string>
     <string name="frp_clear_progress_text" msgid="1740164332830598827">"لطفاً صبر کنید..."</string>
     <string name="error_hash_mismatch" msgid="1145488923243178454">"به دلیل خطای سرجمع نمی‌توان از برنامه سرپرست استفاده کرد. برای دریافت راهنمایی، با سرپرست فناوری اطلاعات تماس بگیرید."</string>
@@ -97,7 +97,7 @@
     <string name="work_profile_setup_later_message" msgid="122069011117225292">"در فرصت دیگری می‌توانید از برنامه مدیریت دستگاه مورداستفاده سازمانتان، نمایه کاری‌تان را راه‌اندازی کنید"</string>
     <string name="continue_button" msgid="7177918589510964446">"ادامه"</string>
     <string name="work_profile_setup_stop" msgid="6772128629992514750">"متوقف کردن"</string>
-    <string name="dismiss" msgid="9009534756748565880">"نپذیرفتن"</string>
+    <string name="dismiss" msgid="9009534756748565880">"بستن پنجره"</string>
     <string name="profile_owner_info" msgid="8975319972303812298">"می‌خواهید یک نمایه کاری ایجاد کنید که توسط سازمانتان مدیریت و پایش خواهد شد. شرایط اعمال می‌شود."</string>
     <string name="profile_owner_info_with_terms_headers" msgid="7373591910245655373">"می‌خواهید یک نمایه کاری ایجاد کنید که توسط سازمان شما مدیریت و پایش خواهد شد. شرایط <xliff:g id="TERMS_HEADERS">%1$s</xliff:g> اعمال می‌شود."</string>
     <string name="profile_owner_info_comp" msgid="9190421701126119142">"نمایه‌ای برای برنامه‌های کاری‌تان ایجاد می‌شود. این نمایه و مابقی دستگاهتان توسط سازمان شما مدیریت و پایش خواهد شد. شرایط اعمال می‌شود."</string>
@@ -128,9 +128,9 @@
     <string name="comp_profile_benefits_description" msgid="379837075456998273">"با استفاده از نمایه کاری، می‌توانید برنامه‌های کاری‌تان را در یک مکان نگه‌دارید"</string>
     <string name="setup_profile_encryption" msgid="5241291404536277038">"نمایه‌تان را راه‌اندازی کنید. رمزگذاری"</string>
     <string name="setup_profile_progress" msgid="7742718527853325656">"نمایه‌تان را راه‌اندازی کنید. نمایش پیشرفت"</string>
-    <string name="setup_device" msgid="6725265673245816366">"تنظیم کردن دستگاه"</string>
-    <string name="setup_device_encryption" msgid="7852944465414197103">"دستگاهتان را تنظیم کنید. رمزگذاری"</string>
-    <string name="setup_device_progress" msgid="7035335208571175393">"دستگاهتان را تنظیم کنید. نمایش پیشرفت"</string>
+    <string name="setup_device" msgid="1679201701102889156">"راه‌اندازی <xliff:g id="DEVICE_NAME">%1$s</xliff:g>"</string>
+    <string name="setup_device_encryption" msgid="2628196093806001835">"راه‌اندازی <xliff:g id="DEVICE_NAME">%1$s</xliff:g>. رمزگذاری"</string>
+    <string name="setup_device_progress" msgid="8792474713196537598">"راه‌اندازی <xliff:g id="DEVICE_NAME">%1$s</xliff:g>. درحال نمایش پیشرفت"</string>
     <string name="learn_more_label" msgid="2723716758654655009">"دکمه بیشتر بدانید"</string>
     <string name="mdm_icon_label" msgid="3399134595549660561">"نماد <xliff:g id="ICON_LABEL">%1$s</xliff:g>"</string>
     <string name="section_heading" msgid="3924666803774291908">"عنوان بخش <xliff:g id="SECTION_HEADING">%1$s</xliff:g>."</string>
@@ -158,42 +158,45 @@
     <string name="brand_screen_header" msgid="8865808542690116648">"این دستگاه به سازمان شما تعلق دارد"</string>
     <string name="brand_screen_subheader" msgid="7664792208784456436">"از برنامه زیر برای مدیریت و نظارت بر این تلفن استفاده می‌شود"</string>
     <string name="account_management_disclaimer_header" msgid="8013083414694316564">"حسابتان مدیریت می‌شود"</string>
-    <string name="account_management_disclaimer_subheader" msgid="5146471918840236988">"سرپرست فناوری اطلاعات شما برای اجرای اجباری خط‌مشی‌های امنیتی از مدیریت دستگاه همراه استفاده می‌کند"</string>
+    <string name="account_management_disclaimer_subheader" msgid="8991450067243733878">"سرپرست فناوری اطلاعات شما از مدیریت تلفن همراه برای اجرای اجباری خط‌مشی‌های امنیتی استفاده می‌کند"</string>
     <string name="downloading_administrator_header" msgid="8660294318893902915">"درحال آماده شدن برای راه‌اندازی نمایه کاری…"</string>
     <string name="work_profile_provisioning_accept_header_post_suw" msgid="1353127953275291089">"ابتدا بیایید نمایه کاری‌تان را راه‌اندازی کنیم"</string>
     <string name="work_profile_provisioning_step_1_header" msgid="7914961694921466366">"برنامه‌های کاری در نمایه کاری‌تان حفظ می‌شوند"</string>
     <string name="work_profile_provisioning_step_2_header" msgid="6001172190404670248">"توقف موقت برنامه‌های کاری وقتی کار روزانه‌تان تمام شد"</string>
-    <string name="work_profile_provisioning_step_3_header" msgid="4316106639726774330">"داده‌های موجود در نمایه کاری‌تان برای سرپرست فناوری اطلاعات نمایان است"</string>
+    <string name="work_profile_provisioning_step_3_header" msgid="4316106639726774330">"سرپرست فناوری اطلاعات می‌تواند داده‌های نمایه کاری‌تان را ببیند"</string>
     <string name="work_profile_provisioning_progress_label" msgid="2627905308998389193">"درحال راه اندازی نمایه کاری‌…"</string>
-    <string name="work_profile_provisioning_summary" msgid="3436190271657388747">"برنامه‌های کاری در نمایه کاری‌تان حفظ می‌شوند. وقتی کار روزانه‌تان تمام شد، می‌توانید برنامه‌های کاری را موقتاً متوقف کنید. داده‌های موجود در نمایه کاری‌تان برای سرپرست فناوری اطلاعات نمایان است."</string>
+    <string name="work_profile_provisioning_summary" msgid="3436190271657388747">"برنامه‌های کاری در نمایه کاری‌تان حفظ می‌شوند. وقتی کار روزانه‌تان تمام شد، می‌توانید برنامه‌های کاری را موقتاً متوقف کنید. سرپرست فناوری اطلاعات می‌تواند داده‌های نمایه کاری‌تان را ببیند."</string>
     <string name="fully_managed_device_provisioning_accept_header" msgid="2944032660440403130">"بیایید دستگاه محل کارتان را راه‌اندازی کنیم"</string>
-    <string name="fully_managed_device_provisioning_step_1_header" msgid="6396274703116708592">"دردسترس قرار دادن برنامه‌های کاری"</string>
-    <string name="fully_managed_device_provisioning_step_2_header" msgid="7165472083121590030">"این دستگاه شخصی نیست"</string>
-    <string name="fully_managed_device_provisioning_step_2_subheader" msgid="2848998570491578119">"ممکن است سرپرست فناوری اطلاعات بتواند داده‌ها و فعالیتتان را در این دستگاه ببیند."</string>
+    <string name="fully_managed_device_provisioning_step_1_header" msgid="6396274703116708592">"به‌آسانی به برنامه‌های کاری دسترسی داشته باشید"</string>
+    <string name="fully_managed_device_provisioning_step_2_header" msgid="142633978260399682">"این <xliff:g id="DEVICE_NAME">%1$s</xliff:g> خصوصی نیست"</string>
+    <string name="fully_managed_device_provisioning_step_2_subheader" msgid="3981784440341141618">"سرپرست فناوری اطلاعات ممکن است بتواند داده‌ها و فعالیتتان در این <xliff:g id="DEVICE_NAME">%1$s</xliff:g> را ببیند."</string>
     <string name="fully_managed_device_provisioning_permissions_header" msgid="2852101532084770993">"فعالیت و داده‌های شما"</string>
     <string name="fully_managed_device_provisioning_permissions_secondary_header" msgid="4419374850927705136">"اجازه‌های برنامه"</string>
-    <string name="fully_managed_device_provisioning_permissions_secondary_subheader" msgid="8328298923037335068">"سرپرست فناوری اطلاعات شما می‌تواند برای برنامه‌های این دستگاه اجازه‌هایی تنظیم کند، برای مثال اجازه‌های میکروفون، دوربین، و مکان."</string>
+    <string name="fully_managed_device_provisioning_permissions_secondary_subheader" msgid="1973320148595109400">"سرپرست فناوری اطلاعات شما می‌تواند اجازه‌های برنامه‌های این <xliff:g id="DEVICE_NAME">%1$s</xliff:g> را تنظیم کند، مثلاً اجازه‌های میکروفون، دوربین، و مکان."</string>
     <string name="fully_managed_device_provisioning_progress_label" msgid="3925516135130021966">"درحال راه‌اندازی دستگاه…"</string>
-    <string name="fully_managed_device_provisioning_summary" msgid="1090645190066781456">"از این دستگاه برای دسترسی آسان به برنامه‌های کاری استفاده کنید. این دستگاه شخصی نیست، بنابراین ممکن است سرپرست فناوری اطلاعات بتواند داده‌ها و فعالیتتان را ببیند."</string>
-    <string name="fully_managed_device_with_permission_control_provisioning_summary" msgid="6634797147105465856">"از این دستگاه برای دسترسی آسان به برنامه‌های کاری استفاده کنید. این دستگاه شخصی نیست، بنابراین ممکن است سرپرست فناوری اطلاعات بتواند داده‌ها و فعالیتتان را ببیند. سرپرست فناوری اطلاعات شما می‌تواند اجازه‌های برنامه‌های این دستگاه را نیز تنظیم کند، برای مثال، اجازه‌های میکروفون، دوربین، و مکان."</string>
+    <string name="fully_managed_device_provisioning_summary" msgid="2532673962822596806">"از این <xliff:g id="DEVICE_NAME_0">%1$s</xliff:g> برای دسترسی آسان به برنامه‌های کاری‌تان استفاده کنید. این <xliff:g id="DEVICE_NAME_1">%1$s</xliff:g> خصوصی نیست، بنابراین ممکن است سرپرست فناوری اطلاعات بتواند داده‌ها و فعالیتتان را ببیند."</string>
+    <string name="fully_managed_device_with_permission_control_provisioning_summary" msgid="3487964472228264628">"از این <xliff:g id="DEVICE_NAME_0">%1$s</xliff:g> برای دسترسی آسان به برنامه‌های کاری استفاده کنید. این <xliff:g id="DEVICE_NAME_1">%1$s</xliff:g> خصوصی نیست، بنابراین سرپرست فناوری اطلاعات شما ممکن است بتواند داده‌ها و فعالیتتان را ببیند. سرپرست فناوری اطلاعات می‌تواند اجازه‌های برنامه‌های این دستگاه را نیز تنظیم کند، برای مثال، اجازه‌های میکروفون، دوربین، و مکان."</string>
     <string name="fully_managed_device_provisioning_return_device_title" msgid="8500829014794276683">"این دستگاه را به سرپرست فناوری اطلاعات برگردانید"</string>
     <string name="fully_managed_device_provisioning_return_device_subheader" msgid="6194410367910957686">"به صفحه قبلی برگردید یا این دستگاه را بازنشانی کنید و آن را به سرپرست فناوری اطلاعات برگردانید."</string>
     <string name="fully_managed_device_cancel_setup_button" msgid="4910041382610777599">"لغو راه‌اندازی"</string>
     <string name="fully_managed_device_reset_and_return_button" msgid="6451125722998550681">"بازنشانی و برگرداندن دستگاه"</string>
+    <string name="fully_managed_device_unsupported_DPC_in_headless_mode_header" msgid="7938653381656306039">"دستگاه را نمی‌توان راه‌اندازی کرد"</string>
+    <string name="fully_managed_device_unsupported_DPC_in_headless_mode_subheader" msgid="5158035482490079567">"این دستگاه را نمی‌توان در حالت کاملاً مدیریت‌شده ثبت‌نام کرد. دستگاهتان را بازنشانی کارخانه‌ای کنید و با سرپرست فناوری اطلاعات تماس بگیرید."</string>
+    <string name="fully_managed_device_reset_button" msgid="5957116315144904542">"بازنشانی کارخانه‌ای"</string>
     <string name="cope_provisioning_step_1_header" msgid="1945759718804756423">"برنامه‌های کاری در نمایه کاری هستند و سرپرست فناوری اطلاعات آن‌ها را مدیریت می‌کند"</string>
     <string name="cope_provisioning_step_2_header" msgid="2388399739294883042">"برنامه‌های شخصی از برنامه‌های کاری جدا است و از آن پنهان است"</string>
     <string name="cope_provisioning_step_3_header" msgid="7161795433847296201">"سرپرست فناوری اطلاعات می‌تواند این دستگاه را کنترل کند و برخی از برنامه‌ها را مسدود کند"</string>
-    <string name="cope_provisioning_summary" msgid="993014104601034878">"برنامه‌های کاری در نمایه کاری نگه داشته می‌شوند و سرپرست فناوری اطلاعات می‌تواند آن‌ها را مدیریت کند. برنامه‌های شخصی مجزا هستند و از دسترس برنامه‌های کاری پنهان هستند. سرپرست فناوری اطلاعات می‌تواند این دستگاه را کنترل کند و برخی از برنامه‌ها را مسدود کند."</string>
+    <string name="cope_provisioning_summary" msgid="4993405755138454918">"برنامه‌های کاری در نمایه کاری نگه داشته می‌شوند و سرپرست فناوری اطلاعات می‌تواند آن‌ها را مدیریت کند. برنامه‌های شخصی مجزا هستند و از دسترس برنامه‌های کاری پنهان هستند. سرپرست فناوری اطلاعات می‌تواند این <xliff:g id="DEVICE_NAME">%1$s</xliff:g> را کنترل کند و برخی‌از برنامه‌ها را مسدود کند."</string>
     <string name="just_a_sec" msgid="6244676028626237220">"لحظه‌ای صبر کنید…"</string>
-    <string name="fully_managed_device_provisioning_privacy_title" msgid="4017627906103556021">"یادآوری حریم‌خصوصی"</string>
-    <string name="fully_managed_device_provisioning_privacy_body" msgid="2219074604343348608">"ممکن است سرپرست فناوری اطلاعات بتواند داده‌ها و فعالیتتان را در این دستگاه ببیند"</string>
-    <string name="financed_device_screen_header" msgid="6875169548352717124">"این دستگاه را <xliff:g id="CREDITOR_NAME">%s</xliff:g> تأمین کرده است"</string>
-    <string name="financed_make_payments_subheader_title" msgid="7880606710044254210">"می‌توانید برای این دستگاه پرداخت انجام دهید"</string>
-    <string name="financed_make_payments_subheader_description" msgid="1222254084091306375">"<xliff:g id="CREDITOR_NAME_0">%1$s</xliff:g> می‌تواند برنامه <xliff:g id="CREDITOR_NAME_1">%2$s</xliff:g> را نصب کند تا بتوانید پرداخت‌های مربوط به این دستگاه را انجام دهید."</string>
-    <string name="financed_restrict_device_subheader_title" msgid="2138828664816418195">"می‌توانید این دستگاه را محدود کنید"</string>
-    <string name="financed_restrict_device_subheader_description" msgid="5683975693718163300">"اگر پرداخت‌ها را انجام ندهید، <xliff:g id="CREDITOR_NAME">%1$s</xliff:g> می‌تواند دسترسی به این دستگاه را محدود کند."</string>
-    <string name="error_role_holder_hash_mismatch" msgid="6201584198247885437">"‏نمی‌توان دستگاه را راه‌اندازی کرد. با سرپرست فناوری اطلاعات تماس بگیرید و بگویید پیام خطای «جمع‌آزمای نامعتبر» (Invalid checksum) دریافت می‌کنید."</string>
+    <string name="fully_managed_device_provisioning_privacy_title" msgid="4017627906103556021">"یادآوری حریم خصوصی"</string>
+    <string name="fully_managed_device_provisioning_privacy_body" msgid="2107315052054483060">"سرپرست فناوری اطلاعات ممکن است بتواند داده‌ها و فعالیتتان در این <xliff:g id="DEVICE_NAME">%1$s</xliff:g> را ببیند."</string>
+    <string name="financed_device_screen_header" msgid="5934940812896302344">"<xliff:g id="CREDITOR_NAME">%2$s</xliff:g> این <xliff:g id="DEVICE_NAME">%1$s</xliff:g> را ارائه داده است."</string>
+    <string name="financed_make_payments_subheader_title" msgid="743966229235451097">"انجام پرداخت‌های مربوط به این <xliff:g id="DEVICE_NAME">%1$s</xliff:g>"</string>
+    <string name="financed_make_payments_subheader_description" msgid="7391276584735956742">"<xliff:g id="CREDITOR_NAME_0">%1$s</xliff:g> می‌تواند برنامه <xliff:g id="CREDITOR_NAME_1">%2$s</xliff:g> را نصب کند تا بتوانید پرداخت‌های مربوط به این <xliff:g id="DEVICE_NAME">%3$s</xliff:g> را انجام دهید."</string>
+    <string name="financed_restrict_device_subheader_title" msgid="4248650736543742083">"این <xliff:g id="DEVICE_NAME">%1$s</xliff:g> می‌تواند مسدود شود"</string>
+    <string name="financed_restrict_device_subheader_description" msgid="1539908048861880628">"اگر پرداخت‌ها را انجام ندهید، <xliff:g id="CREDITOR_NAME">%1$s</xliff:g> می‌تواند دسترسی به این <xliff:g id="DEVICE_NAME">%2$s</xliff:g> را محدود کند."</string>
+    <string name="error_role_holder_hash_mismatch" msgid="5098975629103567172">"‏<xliff:g id="DEVICE_NAME">%1$s</xliff:g> راه‌اندازی نشد. با سرپرست فناوری اطلاعات خود تماس بگیرید و بگویید پیام خطای «جمع‌آزمای نامعتبر» (Invalid checksum) را دریافت می‌کنید."</string>
     <string name="error_role_holder_download_install_failed" msgid="8151968372180693228">"بعداً دوباره امتحان کنید یا از سرپرست فناوری اطلاعات کمک بگیرید"</string>
-    <string name="error_role_holder_package_invalid" msgid="2631207759497988833">"‏نمی‌توان دستگاه را راه‌اندازی کرد. با سرپرست فناوری اطلاعات تماس بگیرید و بگویید پیام خطای «مؤلفه‌های خراب یا مفقوده» (Missing or corrupted components) دریافت می‌کنید."</string>
+    <string name="error_role_holder_package_invalid" msgid="8159929740916126242">"‏<xliff:g id="DEVICE_NAME">%1$s</xliff:g> راه‌اندازی نشد. با سرپرست فناوری اطلاعات خود تماس بگیرید و بگویید پیام خطای «وجود نداشتن یا خراب بودن مؤلفه» (Missing or corrupted components) را دریافت می‌کنید."</string>
     <string name="setting_up" msgid="1478847967385506664">"درحال راه‌اندازی…"</string>
 </resources>

@@ -24,20 +24,37 @@
 // NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+use std::convert::TryInto;
+
 use crate::Error;
 use crate::Result;
 
-use crate::octets;
 use crate::packet;
 use crate::ranges;
 use crate::stream;
+
+#[cfg(feature = "qlog")]
+use qlog::events::quic::AckedRanges;
+#[cfg(feature = "qlog")]
+use qlog::events::quic::ErrorSpace;
+#[cfg(feature = "qlog")]
+use qlog::events::quic::QuicFrame;
+#[cfg(feature = "qlog")]
+use qlog::events::quic::StreamType;
 
 pub const MAX_CRYPTO_OVERHEAD: usize = 8;
 pub const MAX_DGRAM_OVERHEAD: usize = 2;
 pub const MAX_STREAM_OVERHEAD: usize = 12;
 pub const MAX_STREAM_SIZE: u64 = 1 << 62;
 
-#[derive(Clone, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct EcnCounts {
+    ect0_count: u64,
+    ect1_count: u64,
+    ecn_ce_count: u64,
+}
+
+#[derive(Clone, PartialEq, Eq)]
 pub enum Frame {
     Padding {
         len: usize,
@@ -48,6 +65,7 @@ pub enum Frame {
     ACK {
         ack_delay: u64,
         ranges: ranges::RangeSet,
+        ecn_counts: Option<EcnCounts>,
     },
 
     ResetStream {
@@ -124,7 +142,7 @@ pub enum Frame {
         seq_num: u64,
         retire_prior_to: u64,
         conn_id: Vec<u8>,
-        reset_token: Vec<u8>,
+        reset_token: [u8; 16],
     },
 
     RetireConnectionId {
@@ -132,11 +150,11 @@ pub enum Frame {
     },
 
     PathChallenge {
-        data: Vec<u8>,
+        data: [u8; 8],
     },
 
     PathResponse {
-        data: Vec<u8>,
+        data: [u8; 8],
     },
 
     ConnectionClose {
@@ -155,6 +173,10 @@ pub enum Frame {
     Datagram {
         data: Vec<u8>,
     },
+
+    DatagramHeader {
+        length: usize,
+    },
 }
 
 impl Frame {
@@ -162,8 +184,6 @@ impl Frame {
         b: &mut octets::Octets, pkt: packet::Type,
     ) -> Result<Frame> {
         let frame_type = b.get_varint()?;
-
-        // println!("GOT FRAME {:x}", frame_type);
 
         let frame = match frame_type {
             0x00 => {
@@ -180,7 +200,7 @@ impl Frame {
 
             0x01 => Frame::Ping,
 
-            0x02 => parse_ack_frame(frame_type, b)?,
+            0x02..=0x03 => parse_ack_frame(frame_type, b)?,
 
             0x04 => Frame::ResetStream {
                 stream_id: b.get_varint()?,
@@ -245,7 +265,11 @@ impl Frame {
                 seq_num: b.get_varint()?,
                 retire_prior_to: b.get_varint()?,
                 conn_id: b.get_bytes_with_u8_length()?.to_vec(),
-                reset_token: b.get_bytes(16)?.to_vec(),
+                reset_token: b
+                    .get_bytes(16)?
+                    .buf()
+                    .try_into()
+                    .map_err(|_| Error::BufferTooShort)?,
             },
 
             0x19 => Frame::RetireConnectionId {
@@ -253,11 +277,19 @@ impl Frame {
             },
 
             0x1a => Frame::PathChallenge {
-                data: b.get_bytes(8)?.to_vec(),
+                data: b
+                    .get_bytes(8)?
+                    .buf()
+                    .try_into()
+                    .map_err(|_| Error::BufferTooShort)?,
             },
 
             0x1b => Frame::PathResponse {
-                data: b.get_bytes(8)?.to_vec(),
+                data: b
+                    .get_bytes(8)?
+                    .buf()
+                    .try_into()
+                    .map_err(|_| Error::BufferTooShort)?,
             },
 
             0x1c => Frame::ConnectionClose {
@@ -331,8 +363,16 @@ impl Frame {
                 b.put_varint(0x01)?;
             },
 
-            Frame::ACK { ack_delay, ranges } => {
-                b.put_varint(0x02)?;
+            Frame::ACK {
+                ack_delay,
+                ranges,
+                ecn_counts,
+            } => {
+                if ecn_counts.is_none() {
+                    b.put_varint(0x02)?;
+                } else {
+                    b.put_varint(0x03)?;
+                }
 
                 let mut it = ranges.iter().rev();
 
@@ -354,6 +394,12 @@ impl Frame {
                     b.put_varint(ack_block)?;
 
                     smallest_ack = block.start;
+                }
+
+                if let Some(ecn) = ecn_counts {
+                    b.put_varint(ecn.ect0_count)?;
+                    b.put_varint(ecn.ect1_count)?;
+                    b.put_varint(ecn.ecn_ce_count)?;
                 }
             },
 
@@ -380,9 +426,9 @@ impl Frame {
             },
 
             Frame::Crypto { data } => {
-                encode_crypto_header(data.off() as u64, data.len() as u64, b)?;
+                encode_crypto_header(data.off(), data.len() as u64, b)?;
 
-                b.put_bytes(&data)?;
+                b.put_bytes(data)?;
             },
 
             Frame::CryptoHeader { .. } => (),
@@ -391,19 +437,19 @@ impl Frame {
                 b.put_varint(0x07)?;
 
                 b.put_varint(token.len() as u64)?;
-                b.put_bytes(&token)?;
+                b.put_bytes(token)?;
             },
 
             Frame::Stream { stream_id, data } => {
                 encode_stream_header(
                     *stream_id,
-                    data.off() as u64,
+                    data.off(),
                     data.len() as u64,
                     data.fin(),
                     b,
                 )?;
 
-                b.put_bytes(&data)?;
+                b.put_bytes(data)?;
             },
 
             Frame::StreamHeader { .. } => (),
@@ -517,16 +563,12 @@ impl Frame {
             },
 
             Frame::Datagram { data } => {
-                let mut ty: u8 = 0x30;
+                encode_dgram_header(data.len() as u64, b)?;
 
-                // Always encode length
-                ty |= 0x01;
-
-                b.put_varint(u64::from(ty))?;
-
-                b.put_varint(data.len() as u64)?;
                 b.put_bytes(data.as_ref())?;
             },
+
+            Frame::DatagramHeader { .. } => (),
         }
 
         Ok(before - b.cap())
@@ -538,7 +580,11 @@ impl Frame {
 
             Frame::Ping => 1,
 
-            Frame::ACK { ack_delay, ranges } => {
+            Frame::ACK {
+                ack_delay,
+                ranges,
+                ecn_counts,
+            } => {
                 let mut it = ranges.iter().rev();
 
                 let first = it.next().unwrap();
@@ -560,6 +606,12 @@ impl Frame {
                            octets::varint_len(ack_block); // ack_block
 
                     smallest_ack = block.start;
+                }
+
+                if let Some(ecn) = ecn_counts {
+                    len += octets::varint_len(ecn.ect0_count) +
+                        octets::varint_len(ecn.ect1_count) +
+                        octets::varint_len(ecn.ecn_ce_count);
                 }
 
                 len
@@ -587,7 +639,7 @@ impl Frame {
 
             Frame::Crypto { data } => {
                 1 + // frame type
-                octets::varint_len(data.off() as u64) + // offset
+                octets::varint_len(data.off()) + // offset
                 2 + // length, always encode as 2-byte varint
                 data.len() // data
             },
@@ -608,7 +660,7 @@ impl Frame {
             Frame::Stream { stream_id, data } => {
                 1 + // frame type
                 octets::varint_len(*stream_id) + // stream_id
-                octets::varint_len(data.off() as u64) + // offset
+                octets::varint_len(data.off()) + // offset
                 2 + // length, always encode as 2-byte varint
                 data.len() // data
             },
@@ -723,8 +775,14 @@ impl Frame {
 
             Frame::Datagram { data } => {
                 1 + // frame type
-                octets::varint_len(data.len() as u64) + // length
+                2 + // length, always encode as 2-byte varint
                 data.len() // data
+            },
+
+            Frame::DatagramHeader { length } => {
+                1 + // frame type
+                2 + // length, always encode as 2-byte varint
+                *length // data
             },
         }
     }
@@ -740,176 +798,204 @@ impl Frame {
         )
     }
 
-    pub fn shrink_for_retransmission(&mut self) {
-        if let Frame::Datagram { data } = self {
-            *data = Vec::new();
-        }
+    pub fn probing(&self) -> bool {
+        matches!(
+            self,
+            Frame::Padding { .. } |
+                Frame::NewConnectionId { .. } |
+                Frame::PathChallenge { .. } |
+                Frame::PathResponse { .. }
+        )
     }
 
     #[cfg(feature = "qlog")]
-    pub fn to_qlog(&self) -> qlog::QuicFrame {
+    pub fn to_qlog(&self) -> QuicFrame {
         match self {
-            Frame::Padding { .. } => qlog::QuicFrame::padding(),
+            Frame::Padding { .. } => QuicFrame::Padding,
 
-            Frame::Ping { .. } => qlog::QuicFrame::ping(),
+            Frame::Ping { .. } => QuicFrame::Ping,
 
-            Frame::ACK { ack_delay, ranges } => {
-                let ack_ranges =
-                    ranges.iter().map(|r| (r.start, r.end - 1)).collect();
-                qlog::QuicFrame::ack(
-                    Some(ack_delay.to_string()),
-                    Some(ack_ranges),
-                    None,
-                    None,
-                    None,
-                )
+            Frame::ACK {
+                ack_delay,
+                ranges,
+                ecn_counts,
+            } => {
+                let ack_ranges = AckedRanges::Double(
+                    ranges.iter().map(|r| (r.start, r.end - 1)).collect(),
+                );
+
+                let (ect0, ect1, ce) = match ecn_counts {
+                    Some(ecn) => (
+                        Some(ecn.ect0_count),
+                        Some(ecn.ect1_count),
+                        Some(ecn.ecn_ce_count),
+                    ),
+
+                    None => (None, None, None),
+                };
+
+                QuicFrame::Ack {
+                    ack_delay: Some(*ack_delay as f32 / 1000.0),
+                    acked_ranges: Some(ack_ranges),
+                    ect1,
+                    ect0,
+                    ce,
+                }
             },
 
             Frame::ResetStream {
                 stream_id,
                 error_code,
                 final_size,
-            } => qlog::QuicFrame::reset_stream(
-                stream_id.to_string(),
-                *error_code,
-                final_size.to_string(),
-            ),
+            } => QuicFrame::ResetStream {
+                stream_id: *stream_id,
+                error_code: *error_code,
+                final_size: *final_size,
+            },
 
             Frame::StopSending {
                 stream_id,
                 error_code,
-            } =>
-                qlog::QuicFrame::stop_sending(stream_id.to_string(), *error_code),
+            } => QuicFrame::StopSending {
+                stream_id: *stream_id,
+                error_code: *error_code,
+            },
 
-            Frame::Crypto { data } => qlog::QuicFrame::crypto(
-                data.off().to_string(),
-                data.len().to_string(),
-            ),
+            Frame::Crypto { data } => QuicFrame::Crypto {
+                offset: data.off(),
+                length: data.len() as u64,
+            },
 
-            Frame::CryptoHeader { offset, length } =>
-                qlog::QuicFrame::crypto(offset.to_string(), length.to_string()),
+            Frame::CryptoHeader { offset, length } => QuicFrame::Crypto {
+                offset: *offset,
+                length: *length as u64,
+            },
 
-            Frame::NewToken { token } => qlog::QuicFrame::new_token(
-                token.len().to_string(),
-                "TODO: https://github.com/quiclog/internet-drafts/issues/36"
-                    .to_string(),
-            ),
+            Frame::NewToken { token } => QuicFrame::NewToken {
+                token: qlog::Token {
+                    // TODO: pick the token type some how
+                    ty: Some(qlog::TokenType::Retry),
+                    raw: Some(qlog::events::RawInfo {
+                        data: qlog::HexSlice::maybe_string(Some(token)),
+                        length: Some(token.len() as u64),
+                        payload_length: None,
+                    }),
+                    details: None,
+                },
+            },
 
-            Frame::Stream { stream_id, data } => qlog::QuicFrame::stream(
-                stream_id.to_string(),
-                data.off().to_string(),
-                data.len().to_string(),
-                data.fin(),
-                None,
-            ),
+            Frame::Stream { stream_id, data } => QuicFrame::Stream {
+                stream_id: *stream_id,
+                offset: data.off(),
+                length: data.len() as u64,
+                fin: data.fin().then_some(true),
+                raw: None,
+            },
 
             Frame::StreamHeader {
                 stream_id,
                 offset,
                 length,
                 fin,
-            } => qlog::QuicFrame::stream(
-                stream_id.to_string(),
-                offset.to_string(),
-                length.to_string(),
-                *fin,
-                None,
-            ),
+            } => QuicFrame::Stream {
+                stream_id: *stream_id,
+                offset: *offset,
+                length: *length as u64,
+                fin: fin.then(|| true),
+                raw: None,
+            },
 
-            Frame::MaxData { max } => qlog::QuicFrame::max_data(max.to_string()),
+            Frame::MaxData { max } => QuicFrame::MaxData { maximum: *max },
 
-            Frame::MaxStreamData { stream_id, max } =>
-                qlog::QuicFrame::max_stream_data(
-                    stream_id.to_string(),
-                    max.to_string(),
-                ),
+            Frame::MaxStreamData { stream_id, max } => QuicFrame::MaxStreamData {
+                stream_id: *stream_id,
+                maximum: *max,
+            },
 
-            Frame::MaxStreamsBidi { max } => qlog::QuicFrame::max_streams(
-                qlog::StreamType::Bidirectional,
-                max.to_string(),
-            ),
+            Frame::MaxStreamsBidi { max } => QuicFrame::MaxStreams {
+                stream_type: StreamType::Bidirectional,
+                maximum: *max,
+            },
 
-            Frame::MaxStreamsUni { max } => qlog::QuicFrame::max_streams(
-                qlog::StreamType::Unidirectional,
-                max.to_string(),
-            ),
+            Frame::MaxStreamsUni { max } => QuicFrame::MaxStreams {
+                stream_type: StreamType::Unidirectional,
+                maximum: *max,
+            },
 
             Frame::DataBlocked { limit } =>
-                qlog::QuicFrame::data_blocked(limit.to_string()),
+                QuicFrame::DataBlocked { limit: *limit },
 
             Frame::StreamDataBlocked { stream_id, limit } =>
-                qlog::QuicFrame::stream_data_blocked(
-                    stream_id.to_string(),
-                    limit.to_string(),
-                ),
+                QuicFrame::StreamDataBlocked {
+                    stream_id: *stream_id,
+                    limit: *limit,
+                },
 
-            Frame::StreamsBlockedBidi { limit } =>
-                qlog::QuicFrame::streams_blocked(
-                    qlog::StreamType::Bidirectional,
-                    limit.to_string(),
-                ),
+            Frame::StreamsBlockedBidi { limit } => QuicFrame::StreamsBlocked {
+                stream_type: StreamType::Bidirectional,
+                limit: *limit,
+            },
 
-            Frame::StreamsBlockedUni { limit } =>
-                qlog::QuicFrame::streams_blocked(
-                    qlog::StreamType::Unidirectional,
-                    limit.to_string(),
-                ),
+            Frame::StreamsBlockedUni { limit } => QuicFrame::StreamsBlocked {
+                stream_type: StreamType::Unidirectional,
+                limit: *limit,
+            },
 
             Frame::NewConnectionId {
                 seq_num,
                 retire_prior_to,
                 conn_id,
-                ..
-            } => qlog::QuicFrame::new_connection_id(
-                seq_num.to_string(),
-                retire_prior_to.to_string(),
-                conn_id.len() as u64,
-                "TODO: https://github.com/quiclog/internet-drafts/issues/36"
-                    .to_string(),
-                "TODO: https://github.com/quiclog/internet-drafts/issues/36"
-                    .to_string(),
-            ),
+                reset_token,
+            } => QuicFrame::NewConnectionId {
+                sequence_number: *seq_num as u32,
+                retire_prior_to: *retire_prior_to as u32,
+                connection_id_length: Some(conn_id.len() as u8),
+                connection_id: format!("{}", qlog::HexSlice::new(conn_id)),
+                stateless_reset_token: qlog::HexSlice::maybe_string(Some(
+                    reset_token,
+                )),
+            },
 
             Frame::RetireConnectionId { seq_num } =>
-                qlog::QuicFrame::retire_connection_id(seq_num.to_string()),
+                QuicFrame::RetireConnectionId {
+                    sequence_number: *seq_num as u32,
+                },
 
-            Frame::PathChallenge { .. } => qlog::QuicFrame::path_challenge(Some(
-                "TODO: https://github.com/quiclog/internet-drafts/issues/36"
-                    .to_string(),
-            )),
+            Frame::PathChallenge { .. } =>
+                QuicFrame::PathChallenge { data: None },
 
-            Frame::PathResponse { .. } => qlog::QuicFrame::path_response(Some(
-                "TODO: https://github.com/quiclog/internet-drafts/issues/36"
-                    .to_string(),
-            )),
+            Frame::PathResponse { .. } => QuicFrame::PathResponse { data: None },
 
             Frame::ConnectionClose {
                 error_code, reason, ..
-            } => qlog::QuicFrame::connection_close(
-                qlog::ErrorSpace::TransportError,
-                *error_code,
-                *error_code,
-                String::from_utf8(reason.clone()).unwrap(),
-                Some(
-                    "TODO: https://github.com/quiclog/internet-drafts/issues/36"
-                        .to_string(),
-                ),
-            ),
+            } => QuicFrame::ConnectionClose {
+                error_space: Some(ErrorSpace::TransportError),
+                error_code: Some(*error_code),
+                error_code_value: None, // raw error is no different for us
+                reason: Some(String::from_utf8_lossy(reason).into_owned()),
+                trigger_frame_type: None, // don't know trigger type
+            },
 
             Frame::ApplicationClose { error_code, reason } =>
-                qlog::QuicFrame::connection_close(
-                    qlog::ErrorSpace::ApplicationError,
-                    *error_code,
-                    *error_code,
-                    String::from_utf8(reason.clone()).unwrap(),
-                    None, /* Application variant of the frame has no trigger
-                           * frame type */
-                ),
+                QuicFrame::ConnectionClose {
+                    error_space: Some(ErrorSpace::ApplicationError),
+                    error_code: Some(*error_code),
+                    error_code_value: None, // raw error is no different for us
+                    reason: Some(String::from_utf8_lossy(reason).into_owned()),
+                    trigger_frame_type: None, // don't know trigger type
+                },
 
-            Frame::HandshakeDone => qlog::QuicFrame::handshake_done(),
+            Frame::HandshakeDone => QuicFrame::HandshakeDone,
 
-            Frame::Datagram { data } =>
-                qlog::QuicFrame::datagram(data.len().to_string(), None),
+            Frame::Datagram { data } => QuicFrame::Datagram {
+                length: data.len() as u64,
+                raw: None,
+            },
+
+            Frame::DatagramHeader { length } => QuicFrame::Datagram {
+                length: *length as u64,
+                raw: None,
+            },
         }
     }
 }
@@ -918,15 +1004,22 @@ impl std::fmt::Debug for Frame {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {
             Frame::Padding { len } => {
-                write!(f, "PADDING len={}", len)?;
+                write!(f, "PADDING len={len}")?;
             },
 
             Frame::Ping => {
                 write!(f, "PING")?;
             },
 
-            Frame::ACK { ack_delay, ranges } => {
-                write!(f, "ACK delay={} blocks={:?}", ack_delay, ranges)?;
+            Frame::ACK {
+                ack_delay,
+                ranges,
+                ecn_counts,
+            } => {
+                write!(
+                    f,
+                    "ACK delay={ack_delay} blocks={ranges:?} ecn_counts={ecn_counts:?}"
+                )?;
             },
 
             Frame::ResetStream {
@@ -936,8 +1029,7 @@ impl std::fmt::Debug for Frame {
             } => {
                 write!(
                     f,
-                    "RESET_STREAM stream={} err={:x} size={}",
-                    stream_id, error_code, final_size
+                    "RESET_STREAM stream={stream_id} err={error_code:x} size={final_size}"
                 )?;
             },
 
@@ -945,11 +1037,7 @@ impl std::fmt::Debug for Frame {
                 stream_id,
                 error_code,
             } => {
-                write!(
-                    f,
-                    "STOP_SENDING stream={} err={:x}",
-                    stream_id, error_code
-                )?;
+                write!(f, "STOP_SENDING stream={stream_id} err={error_code:x}")?;
             },
 
             Frame::Crypto { data } => {
@@ -957,7 +1045,7 @@ impl std::fmt::Debug for Frame {
             },
 
             Frame::CryptoHeader { offset, length } => {
-                write!(f, "CRYPTO off={} len={}", offset, length)?;
+                write!(f, "CRYPTO off={offset} len={length}")?;
             },
 
             Frame::NewToken { .. } => {
@@ -983,61 +1071,67 @@ impl std::fmt::Debug for Frame {
             } => {
                 write!(
                     f,
-                    "STREAM id={} off={} len={} fin={}",
-                    stream_id, offset, length, fin
+                    "STREAM id={stream_id} off={offset} len={length} fin={fin}"
                 )?;
             },
 
             Frame::MaxData { max } => {
-                write!(f, "MAX_DATA max={}", max)?;
+                write!(f, "MAX_DATA max={max}")?;
             },
 
             Frame::MaxStreamData { stream_id, max } => {
-                write!(f, "MAX_STREAM_DATA stream={} max={}", stream_id, max)?;
+                write!(f, "MAX_STREAM_DATA stream={stream_id} max={max}")?;
             },
 
             Frame::MaxStreamsBidi { max } => {
-                write!(f, "MAX_STREAMS type=bidi max={}", max)?;
+                write!(f, "MAX_STREAMS type=bidi max={max}")?;
             },
 
             Frame::MaxStreamsUni { max } => {
-                write!(f, "MAX_STREAMS type=uni max={}", max)?;
+                write!(f, "MAX_STREAMS type=uni max={max}")?;
             },
 
             Frame::DataBlocked { limit } => {
-                write!(f, "DATA_BLOCKED limit={}", limit)?;
+                write!(f, "DATA_BLOCKED limit={limit}")?;
             },
 
             Frame::StreamDataBlocked { stream_id, limit } => {
                 write!(
                     f,
-                    "STREAM_DATA_BLOCKED stream={} limit={}",
-                    stream_id, limit
+                    "STREAM_DATA_BLOCKED stream={stream_id} limit={limit}"
                 )?;
             },
 
             Frame::StreamsBlockedBidi { limit } => {
-                write!(f, "STREAMS_BLOCKED type=bidi limit={}", limit)?;
+                write!(f, "STREAMS_BLOCKED type=bidi limit={limit}")?;
             },
 
             Frame::StreamsBlockedUni { limit } => {
-                write!(f, "STREAMS_BLOCKED type=uni limit={}", limit)?;
+                write!(f, "STREAMS_BLOCKED type=uni limit={limit}")?;
             },
 
-            Frame::NewConnectionId { .. } => {
-                write!(f, "NEW_CONNECTION_ID (TODO)")?;
+            Frame::NewConnectionId {
+                seq_num,
+                retire_prior_to,
+                conn_id,
+                reset_token,
+            } => {
+                write!(
+                    f,
+                    "NEW_CONNECTION_ID seq_num={seq_num} retire_prior_to={retire_prior_to} conn_id={conn_id:02x?} reset_token={reset_token:02x?}",
+                )?;
             },
 
-            Frame::RetireConnectionId { .. } => {
-                write!(f, "RETIRE_CONNECTION_ID (TODO)")?;
+            Frame::RetireConnectionId { seq_num } => {
+                write!(f, "RETIRE_CONNECTION_ID seq_num={seq_num}")?;
             },
 
             Frame::PathChallenge { data } => {
-                write!(f, "PATH_CHALLENGE data={:02x?}", data)?;
+                write!(f, "PATH_CHALLENGE data={data:02x?}")?;
             },
 
             Frame::PathResponse { data } => {
-                write!(f, "PATH_RESPONSE data={:02x?}", data)?;
+                write!(f, "PATH_RESPONSE data={data:02x?}")?;
             },
 
             Frame::ConnectionClose {
@@ -1047,16 +1141,14 @@ impl std::fmt::Debug for Frame {
             } => {
                 write!(
                     f,
-                    "CONNECTION_CLOSE err={:x} frame={:x} reason={:x?}",
-                    error_code, frame_type, reason
+                    "CONNECTION_CLOSE err={error_code:x} frame={frame_type:x} reason={reason:x?}"
                 )?;
             },
 
             Frame::ApplicationClose { error_code, reason } => {
                 write!(
                     f,
-                    "APPLICATION_CLOSE err={:x} reason={:x?}",
-                    error_code, reason
+                    "APPLICATION_CLOSE err={error_code:x} reason={reason:x?}"
                 )?;
             },
 
@@ -1065,7 +1157,11 @@ impl std::fmt::Debug for Frame {
             },
 
             Frame::Datagram { data } => {
-                write!(f, "DATAGRAM len={}", data.len(),)?;
+                write!(f, "DATAGRAM len={}", data.len())?;
+            },
+
+            Frame::DatagramHeader { length } => {
+                write!(f, "DATAGRAM len={length}")?;
             },
         }
 
@@ -1073,7 +1169,9 @@ impl std::fmt::Debug for Frame {
     }
 }
 
-fn parse_ack_frame(_ty: u64, b: &mut octets::Octets) -> Result<Frame> {
+fn parse_ack_frame(ty: u64, b: &mut octets::Octets) -> Result<Frame> {
+    let first = ty as u8;
+
     let largest_ack = b.get_varint()?;
     let ack_delay = b.get_varint()?;
     let block_count = b.get_varint()?;
@@ -1087,7 +1185,6 @@ fn parse_ack_frame(_ty: u64, b: &mut octets::Octets) -> Result<Frame> {
 
     let mut ranges = ranges::RangeSet::default();
 
-    #[allow(clippy::range_plus_one)]
     ranges.insert(smallest_ack..largest_ack + 1);
 
     for _i in 0..block_count {
@@ -1106,11 +1203,26 @@ fn parse_ack_frame(_ty: u64, b: &mut octets::Octets) -> Result<Frame> {
 
         smallest_ack = largest_ack - ack_block;
 
-        #[allow(clippy::range_plus_one)]
         ranges.insert(smallest_ack..largest_ack + 1);
     }
 
-    Ok(Frame::ACK { ack_delay, ranges })
+    let ecn_counts = if first & 0x01 != 0 {
+        let ecn = EcnCounts {
+            ect0_count: b.get_varint()?,
+            ect1_count: b.get_varint()?,
+            ecn_ce_count: b.get_varint()?,
+        };
+
+        Some(ecn)
+    } else {
+        None
+    };
+
+    Ok(Frame::ACK {
+        ack_delay,
+        ranges,
+        ecn_counts,
+    })
 }
 
 pub fn encode_crypto_header(
@@ -1146,6 +1258,20 @@ pub fn encode_stream_header(
 
     b.put_varint(stream_id)?;
     b.put_varint(offset)?;
+
+    // Always encode length field as 2-byte varint.
+    b.put_varint_with_len(length, 2)?;
+
+    Ok(())
+}
+
+pub fn encode_dgram_header(length: u64, b: &mut octets::OctetsMut) -> Result<()> {
+    let mut ty: u8 = 0x30;
+
+    // Always encode length
+    ty |= 0x01;
+
+    b.put_varint(u64::from(ty))?;
 
     // Always encode length field as 2-byte varint.
     b.put_varint_with_len(length, 2)?;
@@ -1240,7 +1366,7 @@ mod tests {
         };
 
         assert_eq!(wire_len, 1);
-        assert_eq!(&d[..wire_len], [0x01 as u8]);
+        assert_eq!(&d[..wire_len], [0x01_u8]);
 
         let mut b = octets::Octets::with_slice(&d);
         assert_eq!(Frame::from_bytes(&mut b, packet::Type::Short), Ok(frame));
@@ -1268,6 +1394,7 @@ mod tests {
         let frame = Frame::ACK {
             ack_delay: 874_656_534,
             ranges,
+            ecn_counts: None,
         };
 
         let wire_len = {
@@ -1276,6 +1403,48 @@ mod tests {
         };
 
         assert_eq!(wire_len, 17);
+
+        let mut b = octets::Octets::with_slice(&d);
+        assert_eq!(Frame::from_bytes(&mut b, packet::Type::Short), Ok(frame));
+
+        let mut b = octets::Octets::with_slice(&d);
+        assert!(Frame::from_bytes(&mut b, packet::Type::Initial).is_ok());
+
+        let mut b = octets::Octets::with_slice(&d);
+        assert!(Frame::from_bytes(&mut b, packet::Type::ZeroRTT).is_err());
+
+        let mut b = octets::Octets::with_slice(&d);
+        assert!(Frame::from_bytes(&mut b, packet::Type::Handshake).is_ok());
+    }
+
+    #[test]
+    fn ack_ecn() {
+        let mut d = [42; 128];
+
+        let mut ranges = ranges::RangeSet::default();
+        ranges.insert(4..7);
+        ranges.insert(9..12);
+        ranges.insert(15..19);
+        ranges.insert(3000..5000);
+
+        let ecn_counts = Some(EcnCounts {
+            ect0_count: 100,
+            ect1_count: 200,
+            ecn_ce_count: 300,
+        });
+
+        let frame = Frame::ACK {
+            ack_delay: 874_656_534,
+            ranges,
+            ecn_counts,
+        };
+
+        let wire_len = {
+            let mut b = octets::OctetsMut::with_slice(&mut d);
+            frame.to_bytes(&mut b).unwrap()
+        };
+
+        assert_eq!(wire_len, 23);
 
         let mut b = octets::Octets::with_slice(&d);
         assert_eq!(Frame::from_bytes(&mut b, packet::Type::Short), Ok(frame));
@@ -1685,7 +1854,7 @@ mod tests {
             seq_num: 123_213,
             retire_prior_to: 122_211,
             conn_id: vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15],
-            reset_token: vec![0x42; 16],
+            reset_token: [0x42; 16],
         };
 
         let wire_len = {
@@ -1739,7 +1908,7 @@ mod tests {
         let mut d = [42; 128];
 
         let frame = Frame::PathChallenge {
-            data: vec![1, 2, 3, 4, 5, 6, 7, 8],
+            data: [1, 2, 3, 4, 5, 6, 7, 8],
         };
 
         let wire_len = {
@@ -1767,7 +1936,7 @@ mod tests {
         let mut d = [42; 128];
 
         let frame = Frame::PathResponse {
-            data: vec![1, 2, 3, 4, 5, 6, 7, 8],
+            data: [1, 2, 3, 4, 5, 6, 7, 8],
         };
 
         let wire_len = {
@@ -1881,14 +2050,14 @@ mod tests {
 
         let data = vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
 
-        let mut frame = Frame::Datagram { data: data.clone() };
+        let frame = Frame::Datagram { data: data.clone() };
 
         let wire_len = {
             let mut b = octets::OctetsMut::with_slice(&mut d);
             frame.to_bytes(&mut b).unwrap()
         };
 
-        assert_eq!(wire_len, 14);
+        assert_eq!(wire_len, 15);
 
         let mut b = octets::Octets::with_slice(&mut d);
         assert_eq!(
@@ -1912,15 +2081,5 @@ mod tests {
         };
 
         assert_eq!(frame_data, data);
-
-        frame.shrink_for_retransmission();
-
-        let frame_data = match &frame {
-            Frame::Datagram { data } => data.clone(),
-
-            _ => unreachable!(),
-        };
-
-        assert_eq!(frame_data.len(), 0);
     }
 }

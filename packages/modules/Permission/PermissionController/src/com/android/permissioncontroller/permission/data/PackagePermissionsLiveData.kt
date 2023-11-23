@@ -22,7 +22,7 @@ import android.content.pm.PermissionInfo
 import android.os.Build
 import android.os.UserHandle
 import com.android.permissioncontroller.PermissionControllerApplication
-import com.android.permissioncontroller.permission.utils.Utils
+import com.android.permissioncontroller.permission.utils.PermissionMapping
 import kotlinx.coroutines.Job
 
 /**
@@ -58,7 +58,7 @@ class PackagePermissionsLiveData private constructor(
         val packageInfo = packageInfoLiveData.value ?: return
         val permissionMap = mutableMapOf<String, MutableList<String>>()
         for (permName in packageInfo.requestedPermissions) {
-            var groupName = Utils.getGroupOfPlatformPermission(permName)
+            var groupName = PermissionMapping.getGroupOfPlatformPermission(permName)
             if (groupName == null) {
                 val permInfo = try {
                     app.packageManager.getPermissionInfo(permName, 0)
@@ -93,7 +93,7 @@ class PackagePermissionsLiveData private constructor(
                     continue
                 }
 
-                groupName = Utils.getGroupOfPermission(permInfo) ?: permName
+                groupName = PermissionMapping.getGroupOfPermission(permInfo) ?: permName
             }
 
             permissionMap.getOrPut(groupName) { mutableListOf() }.add(permName)

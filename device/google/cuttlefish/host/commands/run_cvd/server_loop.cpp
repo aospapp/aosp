@@ -16,18 +16,24 @@
 
 #include "host/commands/run_cvd/server_loop.h"
 
+#include <unistd.h>
+
+#include <algorithm>
+#include <memory>
+#include <string>
+
 #include <fruit/fruit.h>
 #include <gflags/gflags.h>
-#include <unistd.h>
-#include <string>
 
 #include "common/libs/fs/shared_buf.h"
 #include "common/libs/utils/files.h"
 #include "common/libs/utils/subprocess.h"
 #include "host/commands/run_cvd/runner_defs.h"
+#include "host/libs/config/command_source.h"
 #include "host/libs/config/cuttlefish_config.h"
 #include "host/libs/config/data_image.h"
 #include "host/libs/config/feature.h"
+#include "host/libs/config/inject.h"
 
 namespace cuttlefish {
 
@@ -38,7 +44,8 @@ bool CreateQcowOverlay(const std::string& crosvm_path,
                        const std::string& output_overlay_path) {
   Command crosvm_qcow2_cmd(crosvm_path);
   crosvm_qcow2_cmd.AddParameter("create_qcow2");
-  crosvm_qcow2_cmd.AddParameter("--backing_file=", backing_file);
+  crosvm_qcow2_cmd.AddParameter("--backing-file");
+  crosvm_qcow2_cmd.AddParameter(backing_file);
   crosvm_qcow2_cmd.AddParameter(output_overlay_path);
   int success = crosvm_qcow2_cmd.Start().Wait();
   if (success != 0) {
@@ -49,14 +56,37 @@ bool CreateQcowOverlay(const std::string& crosvm_path,
   return true;
 }
 
-class ServerLoopImpl : public ServerLoop, public SetupFeature {
+class ServerLoopImpl : public ServerLoop,
+                       public SetupFeature,
+                       public LateInjected {
  public:
   INJECT(ServerLoopImpl(const CuttlefishConfig& config,
                         const CuttlefishConfig::InstanceSpecific& instance))
       : config_(config), instance_(instance) {}
 
+  Result<void> LateInject(fruit::Injector<>& injector) override {
+    command_sources_ = injector.getMultibindings<CommandSource>();
+    return {};
+  }
+
   // ServerLoop
-  void Run(ProcessMonitor& process_monitor) override {
+  Result<void> Run() override {
+    // Monitor and restart host processes supporting the CVD
+    ProcessMonitor::Properties process_monitor_properties;
+    process_monitor_properties.RestartSubprocesses(
+        instance_.restart_subprocesses());
+
+    for (auto& command_source : command_sources_) {
+      if (command_source->Enabled()) {
+        auto commands = CF_EXPECT(command_source->Commands());
+        process_monitor_properties.AddCommands(std::move(commands));
+      }
+    }
+
+    ProcessMonitor process_monitor(std::move(process_monitor_properties));
+
+    CF_EXPECT(process_monitor.StartAndMonitorProcesses());
+
     while (true) {
       // TODO: use select to handle simultaneous connections.
       auto client = SharedFD::Accept(*server_);
@@ -70,7 +100,10 @@ class ServerLoopImpl : public ServerLoop, public SetupFeature {
               client->Write(&response, sizeof(response));
               std::exit(0);
             } else {
-              LOG(ERROR) << "Failed to stop subprocesses:\n" << stop.error();
+              LOG(ERROR) << "Failed to stop subprocesses:\n"
+                         << stop.error().Message();
+              LOG(DEBUG) << "Failed to stop subprocesses:\n"
+                         << stop.error().Trace();
               auto response = LauncherResponse::kError;
               client->Write(&response, sizeof(response));
             }
@@ -84,9 +117,21 @@ class ServerLoopImpl : public ServerLoop, public SetupFeature {
           }
           case LauncherAction::kPowerwash: {
             LOG(INFO) << "Received a Powerwash request from the monitor socket";
+            const auto& disks = instance_.virtual_disk_paths();
+            auto overlay = instance_.PerInstancePath("overlay.img");
+            if (std::find(disks.begin(), disks.end(), overlay) == disks.end()) {
+              LOG(ERROR) << "Powerwash unsupported with --use_overlay=false";
+              auto response = LauncherResponse::kError;
+              client->Write(&response, sizeof(response));
+              break;
+            }
+
             auto stop = process_monitor.StopMonitoredProcesses();
             if (!stop.ok()) {
-              LOG(ERROR) << "Stopping processes failed:\n" << stop.error();
+              LOG(ERROR) << "Stopping processes failed:\n"
+                         << stop.error().Message();
+              LOG(DEBUG) << "Stopping processes failed:\n"
+                         << stop.error().Trace();
               auto response = LauncherResponse::kError;
               client->Write(&response, sizeof(response));
               break;
@@ -110,7 +155,10 @@ class ServerLoopImpl : public ServerLoop, public SetupFeature {
           case LauncherAction::kRestart: {
             auto stop = process_monitor.StopMonitoredProcesses();
             if (!stop.ok()) {
-              LOG(ERROR) << "Stopping processes failed:\n" << stop.error();
+              LOG(ERROR) << "Stopping processes failed:\n"
+                         << stop.error().Message();
+              LOG(DEBUG) << "Stopping processes failed:\n"
+                         << stop.error().Trace();
               auto response = LauncherResponse::kError;
               client->Write(&response, sizeof(response));
               break;
@@ -167,10 +215,14 @@ class ServerLoopImpl : public ServerLoop, public SetupFeature {
         instance_.PerInstanceInternalPath("gatekeeper_fifo_vm.out"),
         instance_.PerInstanceInternalPath("bt_fifo_vm.in"),
         instance_.PerInstanceInternalPath("bt_fifo_vm.out"),
+        instance_.PerInstanceInternalPath("uwb_fifo_vm.in"),
+        instance_.PerInstanceInternalPath("uwb_fifo_vm.out"),
         instance_.PerInstanceInternalPath("gnsshvc_fifo_vm.in"),
         instance_.PerInstanceInternalPath("gnsshvc_fifo_vm.out"),
         instance_.PerInstanceInternalPath("locationhvc_fifo_vm.in"),
         instance_.PerInstanceInternalPath("locationhvc_fifo_vm.out"),
+        instance_.PerInstanceInternalPath("confui_fifo_vm.in"),
+        instance_.PerInstanceInternalPath("confui_fifo_vm.out"),
     };
     for (const auto& pipe : pipes) {
       unlink(pipe.c_str());
@@ -179,6 +231,9 @@ class ServerLoopImpl : public ServerLoop, public SetupFeature {
 
   bool PowerwashFiles() {
     DeleteFifos();
+
+    // TODO(b/269669405): Figure out why this file is not being deleted
+    unlink(instance_.PerInstanceInternalUdsPath("crosvm_control.sock").c_str());
 
     // TODO(schuffelen): Clean up duplication with assemble_cvd
     unlink(instance_.PerInstancePath("NVChip").c_str());
@@ -202,15 +257,27 @@ class ServerLoopImpl : public ServerLoop, public SetupFeature {
     auto sdcard_mb_size = (sdcard_size + (1 << 20) - 1) / (1 << 20);
     LOG(DEBUG) << "Size in mb is " << sdcard_mb_size;
     CreateBlankImage(sdcard_path, sdcard_mb_size, "sdcard");
-    std::vector<std::string> overlay_files{"overlay.img"};
-    if (instance_.start_ap()) {
-      overlay_files.emplace_back("ap_overlay.img");
+
+    struct OverlayFile {
+      std::string name;
+      std::string composite_disk_path;
+
+      OverlayFile(std::string name, std::string composite_disk_path)
+          : name(std::move(name)), composite_disk_path(std::move(composite_disk_path)) {}
+    };
+    std::vector<OverlayFile> overlay_files{
+      OverlayFile("overlay.img", instance_.os_composite_disk_path())
+    };
+    if (instance_.ap_boot_flow() != CuttlefishConfig::InstanceSpecific::APBootFlow::None) {
+      overlay_files.emplace_back(
+        OverlayFile("ap_overlay.img", instance_.ap_composite_disk_path()));
     }
-    for (auto overlay_file : {"overlay.img", "ap_overlay.img"}) {
-      auto overlay_path = instance_.PerInstancePath(overlay_file);
+    for (const auto& overlay_file : overlay_files) {
+      auto overlay_path = instance_.PerInstancePath(overlay_file.name.c_str());
+      auto composite_disk_path = overlay_file.composite_disk_path.c_str();
+
       unlink(overlay_path.c_str());
-      if (!CreateQcowOverlay(config_.crosvm_binary(),
-                             config_.os_composite_disk_path(), overlay_path)) {
+      if (!CreateQcowOverlay(instance_.crosvm_binary(), composite_disk_path, overlay_path)) {
         LOG(ERROR) << "CreateQcowOverlay failed";
         return false;
       }
@@ -226,7 +293,7 @@ class ServerLoopImpl : public ServerLoop, public SetupFeature {
     followup_stdin->UNMANAGED_Dup2(0);
 
     auto argv_vec = gflags::GetArgvs();
-    char** argv = new char*[argv_vec.size() + 2];
+    std::unique_ptr<char*[]> argv(new char*[argv_vec.size() + 2]);
     for (size_t i = 0; i < argv_vec.size(); i++) {
       argv[i] = argv_vec[i].data();
     }
@@ -236,13 +303,14 @@ class ServerLoopImpl : public ServerLoop, public SetupFeature {
     argv[argv_vec.size()] = reboot_notification.data();
     argv[argv_vec.size() + 1] = nullptr;
 
-    execv("/proc/self/exe", argv);
+    execv("/proc/self/exe", argv.get());
     // execve should not return, so something went wrong.
     PLOG(ERROR) << "execv returned: ";
   }
 
   const CuttlefishConfig& config_;
   const CuttlefishConfig::InstanceSpecific& instance_;
+  std::vector<CommandSource*> command_sources_;
   SharedFD server_;
 };
 
@@ -256,6 +324,7 @@ fruit::Component<fruit::Required<const CuttlefishConfig,
 serverLoopComponent() {
   return fruit::createComponent()
       .bind<ServerLoop, ServerLoopImpl>()
+      .addMultibinding<LateInjected, ServerLoopImpl>()
       .addMultibinding<SetupFeature, ServerLoopImpl>();
 }
 

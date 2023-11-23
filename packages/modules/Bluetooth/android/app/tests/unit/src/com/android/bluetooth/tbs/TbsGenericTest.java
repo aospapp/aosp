@@ -23,28 +23,23 @@ import static org.mockito.AdditionalMatchers.*;
 import android.bluetooth.*;
 import android.bluetooth.IBluetoothLeCallControlCallback;
 import android.content.Context;
-import android.os.Looper;
 import android.os.ParcelUuid;
 import android.os.RemoteException;
 
-import androidx.test.InstrumentationRegistry;
 import androidx.test.filters.MediumTest;
-import androidx.test.rule.ServiceTestRule;
 import androidx.test.runner.AndroidJUnit4;
 import static androidx.test.platform.app.InstrumentationRegistry.getInstrumentation;
 
 import com.android.bluetooth.TestUtils;
-import com.android.bluetooth.btservice.AdapterService;
+import com.android.bluetooth.le_audio.LeAudioService;
 
 import org.junit.After;
 import org.junit.Before;
-import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Captor;
 import org.mockito.Mock;
-import org.mockito.Mockito;
 import org.mockito.MockitoAnnotations;
 
 import java.util.Arrays;
@@ -52,7 +47,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.TimeoutException;
 
 @MediumTest
 @RunWith(AndroidJUnit4.class)
@@ -81,6 +75,8 @@ public class TbsGenericTest {
         mAdapter = BluetoothAdapter.getDefaultAdapter();
         mContext = getInstrumentation().getTargetContext();
 
+        getInstrumentation().getUiAutomation().adoptShellPermissionIdentity();
+
         // Default TbsGatt mock behavior
         doReturn(true).when(mTbsGatt).init(mGtbsCcidCaptor.capture(), mGtbsUciCaptor.capture(),
                 mDefaultGtbsUriSchemesCaptor.capture(), anyBoolean(), anyBoolean(),
@@ -91,8 +87,8 @@ public class TbsGenericTest {
         doReturn(true).when(mTbsGatt).setBearerUriSchemesSupportedList(any());
         doReturn(true).when(mTbsGatt).setCallState(any());
         doReturn(true).when(mTbsGatt).setBearerListCurrentCalls(any());
-        doReturn(true).when(mTbsGatt).setInbandRingtoneFlag();
-        doReturn(true).when(mTbsGatt).clearInbandRingtoneFlag();
+        doReturn(true).when(mTbsGatt).setInbandRingtoneFlag(any());
+        doReturn(true).when(mTbsGatt).clearInbandRingtoneFlag(any());
         doReturn(true).when(mTbsGatt).setSilentModeFlag();
         doReturn(true).when(mTbsGatt).clearSilentModeFlag();
         doReturn(true).when(mTbsGatt).setTerminationReason(anyInt(), anyInt());
@@ -131,6 +127,18 @@ public class TbsGenericTest {
         }
 
         return ccidCaptor.getValue();
+    }
+
+    @Test
+    public void testSetClearInbandRingtone() {
+        mCurrentDevice = TestUtils.getTestDevice(mAdapter, 0);
+        prepareTestBearer();
+
+        mTbsGeneric.setInbandRingtoneSupport(mCurrentDevice);
+        verify(mTbsGatt).setInbandRingtoneFlag(mCurrentDevice);
+
+        mTbsGeneric.clearInbandRingtoneSupport(mCurrentDevice);
+        verify(mTbsGatt).clearInbandRingtoneFlag(mCurrentDevice);
     }
 
     @Test
@@ -282,6 +290,9 @@ public class TbsGenericTest {
         Integer ccid = prepareTestBearer();
         reset(mTbsGatt);
 
+        LeAudioService leAudioService = mock(LeAudioService.class);
+        mTbsGeneric.setLeAudioServiceForTesting(leAudioService);
+
         // Prepare the incoming call
         UUID callUuid = UUID.randomUUID();
         List<BluetoothLeCall> tbsCalls = new ArrayList<>();
@@ -310,6 +321,8 @@ public class TbsGenericTest {
             throw e.rethrowFromSystemServer();
         }
         assertThat(callUuidCaptor.getValue().getUuid()).isEqualTo(callUuid);
+        // Active device should be changed
+        verify(leAudioService).setActiveDevice(mCurrentDevice);
 
         // Respond with requestComplete...
         mTbsGeneric.requestResult(ccid, requestIdCaptor.getValue(), BluetoothLeCallControl.RESULT_SUCCESS);
@@ -462,6 +475,9 @@ public class TbsGenericTest {
         Integer ccid = prepareTestBearer();
         reset(mTbsGatt);
 
+        LeAudioService leAudioService = mock(LeAudioService.class);
+        mTbsGeneric.setLeAudioServiceForTesting(leAudioService);
+
         // Act as if peer originates a call via Gtbs
         String uri = "xmpp:123456789";
         mTbsGattCallback.getValue().onCallControlPointRequest(mCurrentDevice,
@@ -475,6 +491,9 @@ public class TbsGenericTest {
         } catch (RemoteException e) {
             throw e.rethrowFromSystemServer();
         }
+
+        // Active device should be changed
+        verify(leAudioService).setActiveDevice(mCurrentDevice);
 
         // Respond with requestComplete...
         mTbsGeneric.requestResult(ccid, requestIdCaptor.getValue(), BluetoothLeCallControl.RESULT_SUCCESS);

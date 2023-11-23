@@ -18,6 +18,7 @@ package android.appsearch.cts;
 
 import static com.google.common.truth.Truth.assertWithMessage;
 
+import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.testtype.junit4.BaseHostJUnit4Test;
 import com.android.tradefed.testtype.junit4.DeviceTestRunOptions;
 
@@ -91,12 +92,16 @@ public abstract class AppSearchHostTestBase extends BaseHostJUnit4Test {
     }
 
     protected void rebootAndWaitUntilReady() throws Exception {
-        if (getDevice().getBooleanProperty("init.userspace_reboot.is_supported", false)) {
+        rebootAndWaitUntilReady(getDevice());
+    }
+
+    protected static void rebootAndWaitUntilReady(ITestDevice device) throws Exception {
+        if (device.getBooleanProperty("init.userspace_reboot.is_supported", false)) {
             // Soft reboot, reboots only userspace part of device. It waits for device to be
             // available.
-            getDevice().rebootUserspace();
+            device.rebootUserspace();
         } else {
-            getDevice().reboot(); // reboot() waits for device available
+            device.reboot(); // reboot() waits for device available
         }
     }
 }

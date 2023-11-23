@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # Copyright 2016 The Chromium OS Authors. All rights reserved.
 # Copyright 2016 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
@@ -51,7 +52,7 @@ class audio_LeftRightInternalSpeaker(audio_test.AudioTest):
 
         @param host: A reference to the DUT.
         @param player: A string representing what audio player to use. Could
-                       be 'native' or 'browser'.
+                       be 'internal' or 'browser'.
 
         """
 
@@ -114,7 +115,7 @@ class audio_LeftRightInternalSpeaker(audio_test.AudioTest):
                 'device' % output_nodes)
         self.audio_facade.set_selected_output_volume(80)
 
-        if player == 'native':
+        if player == 'internal':
             if channel == 'left':
                 frequencies = [440, 0]
             else:

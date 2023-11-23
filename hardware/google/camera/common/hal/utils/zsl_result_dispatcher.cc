@@ -30,7 +30,8 @@ namespace google_camera_hal {
 
 std::unique_ptr<ZslResultDispatcher> ZslResultDispatcher::Create(
     uint32_t partial_result_count,
-    ProcessCaptureResultFunc process_capture_result, NotifyFunc notify) {
+    ProcessCaptureResultFunc process_capture_result, NotifyFunc notify,
+    const StreamConfiguration& stream_config) {
   ATRACE_CALL();
   auto dispatcher = std::unique_ptr<ZslResultDispatcher>(
       new ZslResultDispatcher(process_capture_result, notify));
@@ -39,7 +40,7 @@ std::unique_ptr<ZslResultDispatcher> ZslResultDispatcher::Create(
     return nullptr;
   }
 
-  status_t res = dispatcher->Initialize(partial_result_count);
+  status_t res = dispatcher->Initialize(partial_result_count, stream_config);
   if (res != OK) {
     ALOGE("%s: Initialize failed.", __FUNCTION__);
     return nullptr;
@@ -54,7 +55,8 @@ ZslResultDispatcher::ZslResultDispatcher(
       device_session_notify_(notify) {
 }
 
-status_t ZslResultDispatcher::Initialize(uint32_t partial_result_count) {
+status_t ZslResultDispatcher::Initialize(
+    uint32_t partial_result_count, const StreamConfiguration& stream_config) {
   ATRACE_CALL();
   process_capture_result_ =
       ProcessCaptureResultFunc([this](std::unique_ptr<CaptureResult> result) {
@@ -63,17 +65,17 @@ status_t ZslResultDispatcher::Initialize(uint32_t partial_result_count) {
   notify_ = NotifyFunc(
       [this](const NotifyMessage& message) { NotifyHalMessage(message); });
 
-  normal_result_dispatcher_ =
-      std::unique_ptr<ResultDispatcher>(new ResultDispatcher(
-          partial_result_count, process_capture_result_, notify_));
+  normal_result_dispatcher_ = std::unique_ptr<ResultDispatcher>(
+      new ResultDispatcher(partial_result_count, process_capture_result_,
+                           notify_, stream_config, "ZslNormalDispatcher"));
   if (normal_result_dispatcher_ == nullptr) {
     ALOGE("%s: Creating normal_result_dispatcher_ failed.", __FUNCTION__);
     return BAD_VALUE;
   }
 
-  zsl_result_dispatcher_ =
-      std::unique_ptr<ResultDispatcher>(new ResultDispatcher(
-          partial_result_count, process_capture_result_, notify_));
+  zsl_result_dispatcher_ = std::unique_ptr<ResultDispatcher>(
+      new ResultDispatcher(partial_result_count, process_capture_result_,
+                           notify_, stream_config, "ZslZslDispatcher"));
   if (zsl_result_dispatcher_ == nullptr) {
     ALOGE("%s: Creating zsl_result_dispatcher_ failed.", __FUNCTION__);
     return BAD_VALUE;

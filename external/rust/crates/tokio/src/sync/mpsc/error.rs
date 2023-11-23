@@ -19,7 +19,7 @@ impl<T: fmt::Debug> std::error::Error for SendError<T> {}
 
 /// This enumeration is the list of the possible error outcomes for the
 /// [try_send](super::Sender::try_send) method.
-#[derive(Debug)]
+#[derive(Debug, Eq, PartialEq)]
 pub enum TrySendError<T> {
     /// The data could not be sent on the channel because the channel is
     /// currently full and sending would require blocking.
@@ -78,7 +78,7 @@ impl Error for TryRecvError {}
 // ===== RecvError =====
 
 /// Error returned by `Receiver`.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 #[doc(hidden)]
 #[deprecated(note = "This type is unused because recv returns an Option.")]
 pub struct RecvError(());
@@ -96,7 +96,7 @@ impl Error for RecvError {}
 cfg_time! {
     // ===== SendTimeoutError =====
 
-    #[derive(Debug)]
+    #[derive(Debug, Eq, PartialEq)]
     /// Error returned by [`Sender::send_timeout`](super::Sender::send_timeout)].
     pub enum SendTimeoutError<T> {
         /// The data could not be sent on the channel because the channel is

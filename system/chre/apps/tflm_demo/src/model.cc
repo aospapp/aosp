@@ -18,8 +18,8 @@
 
 #include "sine_model_data.h"
 #include "tensorflow/lite/micro/kernels/micro_ops.h"
-#include "tensorflow/lite/micro/micro_error_reporter.h"
 #include "tensorflow/lite/micro/micro_interpreter.h"
+#include "tensorflow/lite/micro/micro_log.h"
 #include "tensorflow/lite/micro/micro_mutable_op_resolver.h"
 #include "tensorflow/lite/schema/schema_generated.h"
 
@@ -39,7 +39,6 @@ void RegisterSelectedOps(::tflite::MicroMutableOpResolver *resolver) {
 
 namespace demo {
 float run(float x_val) {
-  tflite::MicroErrorReporter micro_error_reporter;
   const tflite::Model *model = tflite::GetModel(g_sine_model_data);
   // TODO(wangtz): Check for schema version.
 
@@ -48,8 +47,8 @@ float run(float x_val) {
   constexpr int kTensorAreanaSize = 2 * 1024;
   uint8_t tensor_arena[kTensorAreanaSize];
 
-  tflite::MicroInterpreter interpreter(
-      model, resolver, tensor_arena, kTensorAreanaSize, &micro_error_reporter);
+  tflite::MicroInterpreter interpreter(model, resolver, tensor_arena,
+                                       kTensorAreanaSize);
   interpreter.AllocateTensors();
 
   TfLiteTensor *input = interpreter.input(0);
@@ -57,7 +56,7 @@ float run(float x_val) {
   input->data.f[0] = x_val;
   TfLiteStatus invoke_status = interpreter.Invoke();
   if (invoke_status != kTfLiteOk) {
-    micro_error_reporter.ReportError(nullptr, "Internal error: invoke failed.");
+    MicroPrintf("Internal error: invoke failed.");
     return 0.0;
   }
   float y_val = output->data.f[0];

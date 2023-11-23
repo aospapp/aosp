@@ -18,11 +18,8 @@ package android.net.util;
 
 import android.annotation.NonNull;
 import android.content.Context;
-import android.content.res.Resources;
-import android.net.ConnectivityResources;
+import android.net.ConnectivityManager;
 import android.net.NetworkCapabilities;
-import android.text.TextUtils;
-import android.util.AndroidRuntimeException;
 
 /**
  * Collection of utilities for socket keepalive offload.
@@ -33,64 +30,20 @@ public final class KeepaliveUtils {
 
     public static final String TAG = "KeepaliveUtils";
 
-    public static class KeepaliveDeviceConfigurationException extends AndroidRuntimeException {
-        public KeepaliveDeviceConfigurationException(final String msg) {
-            super(msg);
-        }
-    }
-
     /**
      * Read supported keepalive count for each transport type from overlay resource. This should be
      * used to create a local variable store of resource customization, and use it as the input for
-     * {@link getSupportedKeepalivesForNetworkCapabilities}.
+     * {@link #getSupportedKeepalivesForNetworkCapabilities}.
      *
      * @param context The context to read resource from.
      * @return An array of supported keepalive count for each transport type.
+     * @deprecated This is used by CTS 13, but can be removed after switching it to
+     * {@link ConnectivityManager#getSupportedKeepalives()}.
      */
     @NonNull
+    @Deprecated
     public static int[] getSupportedKeepalives(@NonNull Context context) {
-        String[] res = null;
-        try {
-            final ConnectivityResources connRes = new ConnectivityResources(context);
-            // TODO: use R.id.config_networkSupportedKeepaliveCount directly
-            final int id = connRes.get().getIdentifier("config_networkSupportedKeepaliveCount",
-                    "array", connRes.getResourcesContext().getPackageName());
-            res = new ConnectivityResources(context).get().getStringArray(id);
-        } catch (Resources.NotFoundException unused) {
-        }
-        if (res == null) throw new KeepaliveDeviceConfigurationException("invalid resource");
-
-        final int[] ret = new int[NetworkCapabilities.MAX_TRANSPORT + 1];
-        for (final String row : res) {
-            if (TextUtils.isEmpty(row)) {
-                throw new KeepaliveDeviceConfigurationException("Empty string");
-            }
-            final String[] arr = row.split(",");
-            if (arr.length != 2) {
-                throw new KeepaliveDeviceConfigurationException("Invalid parameter length");
-            }
-
-            int transport;
-            int supported;
-            try {
-                transport = Integer.parseInt(arr[0]);
-                supported = Integer.parseInt(arr[1]);
-            } catch (NumberFormatException e) {
-                throw new KeepaliveDeviceConfigurationException("Invalid number format");
-            }
-
-            if (!NetworkCapabilities.isValidTransport(transport)) {
-                throw new KeepaliveDeviceConfigurationException("Invalid transport " + transport);
-            }
-
-            if (supported < 0) {
-                throw new KeepaliveDeviceConfigurationException(
-                        "Invalid supported count " + supported + " for "
-                                + NetworkCapabilities.transportNameOf(transport));
-            }
-            ret[transport] = supported;
-        }
-        return ret;
+        return context.getSystemService(ConnectivityManager.class).getSupportedKeepalives();
     }
 
     /**

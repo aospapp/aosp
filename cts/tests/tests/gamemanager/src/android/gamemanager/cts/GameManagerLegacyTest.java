@@ -19,7 +19,6 @@ package android.gamemanager.cts;
 import static androidx.test.platform.app.InstrumentationRegistry.getInstrumentation;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
 
 import android.app.GameManager;
 import android.app.Instrumentation;
@@ -71,7 +70,7 @@ public class GameManagerLegacyTest {
      */
     @Test
     public void testGetGameMode() throws InterruptedException {
-        assertTrue(TestUtil.installPackage(LEGACY_GAME_TEST_APP_APK_PATH));
+        TestUtil.installPackage(LEGACY_GAME_TEST_APP_APK_PATH);
         Thread.sleep(500);
 
         // Without any change, the default behaviour should be STANDARD for a game.

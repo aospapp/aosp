@@ -15,6 +15,9 @@ limitations under the License.
 #ifndef TENSORFLOW_CORE_DATA_SERVICE_JOURNAL_H_
 #define TENSORFLOW_CORE_DATA_SERVICE_JOURNAL_H_
 
+#include <memory>
+#include <string>
+
 #include "tensorflow/core/data/service/journal.pb.h"
 #include "tensorflow/core/lib/core/status.h"
 #include "tensorflow/core/lib/io/record_reader.h"
@@ -104,7 +107,7 @@ class FileJournalReader : public JournalReader {
   Env* env_;
   const std::string journal_dir_;
   // Sequence number of current journal file.
-  int64 sequence_number_ = 0;
+  int64_t sequence_number_ = 0;
   std::unique_ptr<RandomAccessFile> file_;
   std::unique_ptr<io::SequentialRecordReader> reader_;
 };

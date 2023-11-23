@@ -1,6 +1,6 @@
 # Tracing SDK
 
-The Perfetto Tracing SDK is a C++11 library that allows userspace applications
+The Perfetto Tracing SDK is a C++17 library that allows userspace applications
 to emit trace events and add more app-specific context to a Perfetto trace.
 
 When using the Tracing SDK there are two main aspects to consider:
@@ -30,12 +30,12 @@ repository](/examples/sdk/README.md).
 To start using the Client API, first check out the latest SDK release:
 
 ```bash
-git clone https://android.googlesource.com/platform/external/perfetto -b v23.0
+git clone https://android.googlesource.com/platform/external/perfetto -b v34.0
 ```
 
 The SDK consists of two files, `sdk/perfetto.h` and `sdk/perfetto.cc`. These are
 an amalgamation of the Client API designed to easy to integrate to existing
-build systems. The sources are self-contained and require only a C++11 compliant
+build systems. The sources are self-contained and require only a C++17 compliant
 standard library.
 
 For example, to add the SDK to a CMake project, edit your CMakeLists.txt:
@@ -52,6 +52,21 @@ add_library(perfetto STATIC perfetto/sdk/perfetto.cc)
 # Link the library to your main executable.
 add_executable(example example.cc)
 target_link_libraries(example perfetto ${CMAKE_THREAD_LIBS_INIT})
+
+if (WIN32)
+  # The perfetto library contains many symbols, so it needs the big object
+  # format.
+  target_compile_options(perfetto PRIVATE "/bigobj")
+  # Disable legacy features in windows.h.
+  add_definitions(-DWIN32_LEAN_AND_MEAN -DNOMINMAX)
+  # On Windows we should link to WinSock2.
+  target_link_libraries(example ws2_32)
+endif (WIN32)
+
+# Enable standards-compliant mode when using the Visual Studio compiler.
+if (MSVC)
+  target_compile_options(example PRIVATE "/permissive-")
+endif (MSVC)
 ```
 
 Next, initialize Perfetto in your program:
@@ -59,7 +74,7 @@ Next, initialize Perfetto in your program:
 ```C++
 #include <perfetto.h>
 
-int main(int argv, char** argc) {
+int main(int argc, char** argv) {
   perfetto::TracingInitArgs args;
 
   // The backends determine where trace events are recorded. You may select one
@@ -103,9 +118,10 @@ PERFETTO_DEFINE_CATEGORIES(
     perfetto::Category("network")
         .SetDescription("Network upload and download statistics"));
 
+PERFETTO_TRACK_EVENT_STATIC_STORAGE();
 ...
 
-int main(int argv, char** argc) {
+int main(int argc, char** argv) {
   ...
   perfetto::Tracing::Initialize(args);
   perfetto::TrackEvent::Register();
@@ -199,7 +215,7 @@ PERFETTO_DEFINE_DATA_SOURCE_STATIC_MEMBERS(CustomDataSource);
 Custom data sources need to be registered with Perfetto:
 
 ```C++
-int main(int argv, char** argc) {
+int main(int argc, char** argv) {
   ...
   perfetto::Tracing::Initialize(args);
   // Add the following:
@@ -300,11 +316,11 @@ side-channel attacks.
 * On older versions of Android, traced can be built from sources using the
   the [standalone NDK-based workflow](/docs/contributing/build-instructions.md)
   and sideloaded via adb shell.
-* On Linux and MacOS `traced` must be built and run separately. See the
-  [Linux quickstart](/docs/quickstart/linux-tracing.md) for instructions.
-
-_System mode is not yet supported on Windows, due to the lack of an IPC
-implementation_.
+* On Linux and MacOS and Windows `traced` must be built and run separately. See
+  the [Linux quickstart](/docs/quickstart/linux-tracing.md) for instructions.
+* On Windows the tracing protocol works over TCP/IP (
+  [127.0.0.1:32278](https://cs.android.com/android/platform/superproject/+/master:external/perfetto/src/tracing/ipc/default_socket.cc;l=75;drc=4f88a2fdfd3801c109d5e927b8206f9756288b12)
+  ) + named shmem.
 
 ## {#recording} Recording traces through the API
 

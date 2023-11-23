@@ -21,14 +21,13 @@ import static android.net.ConnectivityManager.TYPE_MOBILE;
 import static android.net.ConnectivityManager.TYPE_MOBILE_DUN;
 import static android.net.ConnectivityManager.TYPE_MOBILE_HIPRI;
 import static android.net.ConnectivityManager.TYPE_WIFI;
-import static android.provider.DeviceConfig.NAMESPACE_CONNECTIVITY;
 import static android.telephony.CarrierConfigManager.KEY_CARRIER_CONFIG_APPLIED_BOOL;
 import static android.telephony.CarrierConfigManager.KEY_REQUIRE_ENTITLEMENT_CHECKS_BOOL;
 import static android.telephony.SubscriptionManager.INVALID_SUBSCRIPTION_ID;
 
-import static com.android.dx.mockito.inline.extended.ExtendedMockito.doReturn;
-import static com.android.dx.mockito.inline.extended.ExtendedMockito.mockitoSession;
 import static com.android.networkstack.apishim.ConstantsShim.KEY_CARRIER_SUPPORTS_TETHERING_BOOL;
+import static com.android.networkstack.tethering.TetheringConfiguration.OVERRIDE_TETHER_ENABLE_BPF_OFFLOAD;
+import static com.android.networkstack.tethering.TetheringConfiguration.TETHER_ENABLE_LEGACY_DHCP_SERVER;
 import static com.android.networkstack.tethering.TetheringConfiguration.TETHER_FORCE_USB_FUNCTIONS;
 import static com.android.networkstack.tethering.TetheringConfiguration.TETHER_USB_NCM_FUNCTION;
 import static com.android.networkstack.tethering.TetheringConfiguration.TETHER_USB_RNDIS_FUNCTION;
@@ -39,6 +38,7 @@ import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Matchers.eq;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.when;
 
 import android.content.Context;
@@ -47,15 +47,15 @@ import android.content.pm.ModuleInfo;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.content.res.Resources;
-import android.net.util.SharedLog;
 import android.os.Build;
 import android.os.PersistableBundle;
-import android.provider.DeviceConfig;
 import android.provider.Settings;
 import android.telephony.CarrierConfigManager;
 import android.telephony.TelephonyManager;
 import android.test.mock.MockContentResolver;
+import android.util.ArrayMap;
 
+import androidx.annotation.NonNull;
 import androidx.test.filters.SmallTest;
 import androidx.test.runner.AndroidJUnit4;
 
@@ -63,6 +63,7 @@ import com.android.internal.util.test.BroadcastInterceptingContext;
 import com.android.internal.util.test.FakeSettingsProvider;
 import com.android.modules.utils.build.SdkLevel;
 import com.android.net.module.util.DeviceConfigUtils;
+import com.android.net.module.util.SharedLog;
 import com.android.testutils.DevSdkIgnoreRule;
 import com.android.testutils.DevSdkIgnoreRule.IgnoreAfter;
 import com.android.testutils.DevSdkIgnoreRule.IgnoreUpTo;
@@ -73,8 +74,7 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.Mock;
-import org.mockito.MockitoSession;
-import org.mockito.quality.Strictness;
+import org.mockito.MockitoAnnotations;
 
 import java.util.Arrays;
 import java.util.Iterator;
@@ -102,13 +102,13 @@ public class TetheringConfigurationTest {
     @Mock private ModuleInfo mMi;
     private Context mMockContext;
     private boolean mHasTelephonyManager;
-    private MockitoSession mMockingSession;
     private MockContentResolver mContentResolver;
     private final PersistableBundle mCarrierConfig = new PersistableBundle();
+    private final MockDependencies mDeps = new MockDependencies();
 
     private class MockTetheringConfiguration extends TetheringConfiguration {
         MockTetheringConfiguration(Context ctx, SharedLog log, int id) {
-            super(ctx, log, id);
+            super(ctx, log, id, mDeps);
         }
 
         @Override
@@ -151,19 +151,43 @@ public class TetheringConfigurationTest {
         }
     }
 
+    private static class MockDependencies extends TetheringConfiguration.Dependencies {
+        private ArrayMap<String, Boolean> mMockFlags = new ArrayMap<>();
+
+        @Override
+        boolean isFeatureEnabled(@NonNull Context context, @NonNull String namespace,
+                @NonNull String name, @NonNull String moduleName, boolean defaultEnabled) {
+            return isMockFlagEnabled(name, defaultEnabled);
+        }
+
+        @Override
+        boolean getDeviceConfigBoolean(@NonNull String namespace, @NonNull String name,
+                boolean defaultValue) {
+            // Flags should use isFeatureEnabled instead of getBoolean; see comments in
+            // DeviceConfigUtils. getBoolean should only be used for the two legacy flags below.
+            assertTrue(OVERRIDE_TETHER_ENABLE_BPF_OFFLOAD.equals(name)
+                    || TETHER_ENABLE_LEGACY_DHCP_SERVER.equals(name));
+
+            // Use the same mocking strategy as isFeatureEnabled for testing
+            return isMockFlagEnabled(name, defaultValue);
+        }
+
+        private boolean isMockFlagEnabled(@NonNull String name, boolean defaultEnabled) {
+            final Boolean flag = mMockFlags.getOrDefault(name, defaultEnabled);
+            // Value in the map can also be null
+            if (flag != null) return flag;
+            return defaultEnabled;
+        }
+
+        void setFeatureEnabled(@NonNull String flag, Boolean enabled) {
+            mMockFlags.put(flag, enabled);
+        }
+    }
+
     @Before
     public void setUp() throws Exception {
-        // TODO: use a dependencies class instead of mock statics.
-        mMockingSession = mockitoSession()
-                .initMocks(this)
-                .mockStatic(DeviceConfig.class)
-                .strictness(Strictness.WARN)
-                .startMocking();
-        DeviceConfigUtils.resetPackageVersionCacheForTest();
-        doReturn(null).when(
-                () -> DeviceConfig.getProperty(eq(NAMESPACE_CONNECTIVITY),
-                eq(TetheringConfiguration.TETHER_ENABLE_LEGACY_DHCP_SERVER)));
-        setTetherForceUpstreamAutomaticFlagVersion(null);
+        MockitoAnnotations.initMocks(this);
+        setTetherForceUpstreamAutomaticFlagEnabled(null);
 
         final PackageInfo pi = new PackageInfo();
         pi.setLongVersionCode(TEST_PACKAGE_VERSION);
@@ -202,7 +226,6 @@ public class TetheringConfigurationTest {
 
     @After
     public void tearDown() throws Exception {
-        mMockingSession.finishMocking();
         DeviceConfigUtils.resetPackageVersionCacheForTest();
         // Call {@link #clearSettingsProvider()} before and after using FakeSettingsProvider.
         FakeSettingsProvider.clearSettingsProvider();
@@ -211,7 +234,7 @@ public class TetheringConfigurationTest {
     private TetheringConfiguration getTetheringConfiguration(int... legacyTetherUpstreamTypes) {
         when(mResources.getIntArray(R.array.config_tether_upstream_types)).thenReturn(
                 legacyTetherUpstreamTypes);
-        return new TetheringConfiguration(mMockContext, mLog, INVALID_SUBSCRIPTION_ID);
+        return new TetheringConfiguration(mMockContext, mLog, INVALID_SUBSCRIPTION_ID, mDeps);
     }
 
     @Test
@@ -297,7 +320,7 @@ public class TetheringConfigurationTest {
         when(mTelephonyManager.isTetheringApnRequired()).thenReturn(false);
 
         final TetheringConfiguration cfg = new TetheringConfiguration(
-                mMockContext, mLog, INVALID_SUBSCRIPTION_ID);
+                mMockContext, mLog, INVALID_SUBSCRIPTION_ID, mDeps);
         final Iterator<Integer> upstreamIterator = cfg.preferredUpstreamIfaceTypes.iterator();
         assertTrue(upstreamIterator.hasNext());
         assertEquals(TYPE_ETHERNET, upstreamIterator.next().intValue());
@@ -320,7 +343,7 @@ public class TetheringConfigurationTest {
         when(mTelephonyManager.isTetheringApnRequired()).thenReturn(false);
 
         final TetheringConfiguration cfg = new TetheringConfiguration(
-                mMockContext, mLog, INVALID_SUBSCRIPTION_ID);
+                mMockContext, mLog, INVALID_SUBSCRIPTION_ID, mDeps);
         final Iterator<Integer> upstreamIterator = cfg.preferredUpstreamIfaceTypes.iterator();
         assertTrue(upstreamIterator.hasNext());
         assertEquals(TYPE_ETHERNET, upstreamIterator.next().intValue());
@@ -338,7 +361,7 @@ public class TetheringConfigurationTest {
         when(mTelephonyManager.isTetheringApnRequired()).thenReturn(false);
 
         final TetheringConfiguration cfg = new TetheringConfiguration(
-                mMockContext, mLog, INVALID_SUBSCRIPTION_ID);
+                mMockContext, mLog, INVALID_SUBSCRIPTION_ID, mDeps);
         final Iterator<Integer> upstreamIterator = cfg.preferredUpstreamIfaceTypes.iterator();
         assertTrue(upstreamIterator.hasNext());
         assertEquals(TYPE_WIFI, upstreamIterator.next().intValue());
@@ -350,27 +373,26 @@ public class TetheringConfigurationTest {
     }
 
     private void initializeBpfOffloadConfiguration(
-            final boolean fromRes, final String fromDevConfig) {
+            final boolean fromRes, final Boolean fromDevConfig) {
         when(mResources.getBoolean(R.bool.config_tether_enable_bpf_offload)).thenReturn(fromRes);
-        doReturn(fromDevConfig).when(
-                () -> DeviceConfig.getProperty(eq(NAMESPACE_CONNECTIVITY),
-                eq(TetheringConfiguration.OVERRIDE_TETHER_ENABLE_BPF_OFFLOAD)));
+        mDeps.setFeatureEnabled(
+                TetheringConfiguration.OVERRIDE_TETHER_ENABLE_BPF_OFFLOAD, fromDevConfig);
     }
 
     @Test
     public void testBpfOffloadEnabledByResource() {
         initializeBpfOffloadConfiguration(true, null /* unset */);
         final TetheringConfiguration enableByRes =
-                new TetheringConfiguration(mMockContext, mLog, INVALID_SUBSCRIPTION_ID);
+                new TetheringConfiguration(mMockContext, mLog, INVALID_SUBSCRIPTION_ID, mDeps);
         assertTrue(enableByRes.isBpfOffloadEnabled());
     }
 
     @Test
     public void testBpfOffloadEnabledByDeviceConfigOverride() {
         for (boolean res : new boolean[]{true, false}) {
-            initializeBpfOffloadConfiguration(res, "true");
+            initializeBpfOffloadConfiguration(res, true);
             final TetheringConfiguration enableByDevConOverride =
-                    new TetheringConfiguration(mMockContext, mLog, INVALID_SUBSCRIPTION_ID);
+                    new TetheringConfiguration(mMockContext, mLog, INVALID_SUBSCRIPTION_ID, mDeps);
             assertTrue(enableByDevConOverride.isBpfOffloadEnabled());
         }
     }
@@ -379,16 +401,16 @@ public class TetheringConfigurationTest {
     public void testBpfOffloadDisabledByResource() {
         initializeBpfOffloadConfiguration(false, null /* unset */);
         final TetheringConfiguration disableByRes =
-                new TetheringConfiguration(mMockContext, mLog, INVALID_SUBSCRIPTION_ID);
+                new TetheringConfiguration(mMockContext, mLog, INVALID_SUBSCRIPTION_ID, mDeps);
         assertFalse(disableByRes.isBpfOffloadEnabled());
     }
 
     @Test
     public void testBpfOffloadDisabledByDeviceConfigOverride() {
         for (boolean res : new boolean[]{true, false}) {
-            initializeBpfOffloadConfiguration(res, "false");
+            initializeBpfOffloadConfiguration(res, false);
             final TetheringConfiguration disableByDevConOverride =
-                    new TetheringConfiguration(mMockContext, mLog, INVALID_SUBSCRIPTION_ID);
+                    new TetheringConfiguration(mMockContext, mLog, INVALID_SUBSCRIPTION_ID, mDeps);
             assertFalse(disableByDevConOverride.isBpfOffloadEnabled());
         }
     }
@@ -397,22 +419,18 @@ public class TetheringConfigurationTest {
     public void testNewDhcpServerDisabled() {
         when(mResources.getBoolean(R.bool.config_tether_enable_legacy_dhcp_server)).thenReturn(
                 true);
-        doReturn("false").when(
-                () -> DeviceConfig.getProperty(eq(NAMESPACE_CONNECTIVITY),
-                eq(TetheringConfiguration.TETHER_ENABLE_LEGACY_DHCP_SERVER)));
+        mDeps.setFeatureEnabled(TetheringConfiguration.TETHER_ENABLE_LEGACY_DHCP_SERVER, false);
 
         final TetheringConfiguration enableByRes =
-                new TetheringConfiguration(mMockContext, mLog, INVALID_SUBSCRIPTION_ID);
+                new TetheringConfiguration(mMockContext, mLog, INVALID_SUBSCRIPTION_ID, mDeps);
         assertTrue(enableByRes.useLegacyDhcpServer());
 
         when(mResources.getBoolean(R.bool.config_tether_enable_legacy_dhcp_server)).thenReturn(
                 false);
-        doReturn("true").when(
-                () -> DeviceConfig.getProperty(eq(NAMESPACE_CONNECTIVITY),
-                eq(TetheringConfiguration.TETHER_ENABLE_LEGACY_DHCP_SERVER)));
+        mDeps.setFeatureEnabled(TetheringConfiguration.TETHER_ENABLE_LEGACY_DHCP_SERVER, true);
 
         final TetheringConfiguration enableByDevConfig =
-                new TetheringConfiguration(mMockContext, mLog, INVALID_SUBSCRIPTION_ID);
+                new TetheringConfiguration(mMockContext, mLog, INVALID_SUBSCRIPTION_ID, mDeps);
         assertTrue(enableByDevConfig.useLegacyDhcpServer());
     }
 
@@ -420,12 +438,10 @@ public class TetheringConfigurationTest {
     public void testNewDhcpServerEnabled() {
         when(mResources.getBoolean(R.bool.config_tether_enable_legacy_dhcp_server)).thenReturn(
                 false);
-        doReturn("false").when(
-                () -> DeviceConfig.getProperty(eq(NAMESPACE_CONNECTIVITY),
-                eq(TetheringConfiguration.TETHER_ENABLE_LEGACY_DHCP_SERVER)));
+        mDeps.setFeatureEnabled(TetheringConfiguration.TETHER_ENABLE_LEGACY_DHCP_SERVER, false);
 
         final TetheringConfiguration cfg =
-                new TetheringConfiguration(mMockContext, mLog, INVALID_SUBSCRIPTION_ID);
+                new TetheringConfiguration(mMockContext, mLog, INVALID_SUBSCRIPTION_ID, mDeps);
 
         assertFalse(cfg.useLegacyDhcpServer());
     }
@@ -433,7 +449,7 @@ public class TetheringConfigurationTest {
     @Test
     public void testOffloadIntervalByResource() {
         final TetheringConfiguration intervalByDefault =
-                new TetheringConfiguration(mMockContext, mLog, INVALID_SUBSCRIPTION_ID);
+                new TetheringConfiguration(mMockContext, mLog, INVALID_SUBSCRIPTION_ID, mDeps);
         assertEquals(TetheringConfiguration.DEFAULT_TETHER_OFFLOAD_POLL_INTERVAL_MS,
                 intervalByDefault.getOffloadPollInterval());
 
@@ -442,7 +458,7 @@ public class TetheringConfigurationTest {
             when(mResources.getInteger(R.integer.config_tether_offload_poll_interval)).thenReturn(
                     override);
             final TetheringConfiguration overrideByRes =
-                    new TetheringConfiguration(mMockContext, mLog, INVALID_SUBSCRIPTION_ID);
+                    new TetheringConfiguration(mMockContext, mLog, INVALID_SUBSCRIPTION_ID, mDeps);
             assertEquals(override, overrideByRes.getOffloadPollInterval());
         }
     }
@@ -451,7 +467,7 @@ public class TetheringConfigurationTest {
     public void testGetResourcesBySubId() {
         setUpResourceForSubId();
         final TetheringConfiguration cfg = new TetheringConfiguration(
-                mMockContext, mLog, INVALID_SUBSCRIPTION_ID);
+                mMockContext, mLog, INVALID_SUBSCRIPTION_ID, mDeps);
         assertTrue(cfg.provisioningApp.length == 0);
         final int anyValidSubId = 1;
         final MockTetheringConfiguration mockCfg =
@@ -493,7 +509,7 @@ public class TetheringConfigurationTest {
         mockService(Context.CARRIER_CONFIG_SERVICE,
                 CarrierConfigManager.class, null);
         final TetheringConfiguration cfg = new TetheringConfiguration(
-                mMockContext, mLog, INVALID_SUBSCRIPTION_ID);
+                mMockContext, mLog, INVALID_SUBSCRIPTION_ID, mDeps);
 
         assertTrue(cfg.isCarrierSupportTethering);
         assertTrue(cfg.isCarrierConfigAffirmsEntitlementCheckRequired);
@@ -506,7 +522,7 @@ public class TetheringConfigurationTest {
                 CarrierConfigManager.class, mCarrierConfigManager);
         when(mCarrierConfigManager.getConfigForSubId(anyInt())).thenReturn(null);
         final TetheringConfiguration cfg = new TetheringConfiguration(
-                mMockContext, mLog, INVALID_SUBSCRIPTION_ID);
+                mMockContext, mLog, INVALID_SUBSCRIPTION_ID, mDeps);
 
         assertTrue(cfg.isCarrierSupportTethering);
         assertTrue(cfg.isCarrierConfigAffirmsEntitlementCheckRequired);
@@ -521,7 +537,7 @@ public class TetheringConfigurationTest {
         mCarrierConfig.putBoolean(KEY_CARRIER_SUPPORTS_TETHERING_BOOL, false);
         when(mCarrierConfigManager.getConfigForSubId(anyInt())).thenReturn(mCarrierConfig);
         final TetheringConfiguration cfg = new TetheringConfiguration(
-                mMockContext, mLog, INVALID_SUBSCRIPTION_ID);
+                mMockContext, mLog, INVALID_SUBSCRIPTION_ID, mDeps);
 
         if (SdkLevel.isAtLeastT()) {
             assertFalse(cfg.isCarrierSupportTethering);
@@ -535,17 +551,18 @@ public class TetheringConfigurationTest {
     @Test
     public void testEnableLegacyWifiP2PAddress() throws Exception {
         final TetheringConfiguration defaultCfg = new TetheringConfiguration(
-                mMockContext, mLog, INVALID_SUBSCRIPTION_ID);
+                mMockContext, mLog, INVALID_SUBSCRIPTION_ID, mDeps);
         assertFalse(defaultCfg.shouldEnableWifiP2pDedicatedIp());
 
         when(mResources.getBoolean(R.bool.config_tether_enable_legacy_wifi_p2p_dedicated_ip))
                 .thenReturn(true);
         final TetheringConfiguration testCfg = new TetheringConfiguration(
-                mMockContext, mLog, INVALID_SUBSCRIPTION_ID);
+                mMockContext, mLog, INVALID_SUBSCRIPTION_ID, mDeps);
         assertTrue(testCfg.shouldEnableWifiP2pDedicatedIp());
     }
 
-    @Test
+    // The config only works on T-
+    @Test @IgnoreAfter(Build.VERSION_CODES.TIRAMISU)
     public void testChooseUpstreamAutomatically() throws Exception {
         when(mResources.getBoolean(R.bool.config_tether_upstream_automatic))
                 .thenReturn(true);
@@ -556,41 +573,68 @@ public class TetheringConfigurationTest {
         assertChooseUpstreamAutomaticallyIs(false);
     }
 
+    // The automatic mode is always enabled on U+
+    @Test @IgnoreUpTo(Build.VERSION_CODES.TIRAMISU)
+    public void testChooseUpstreamAutomaticallyAfterT() throws Exception {
+        // Expect that automatic mode is always enabled no matter what
+        // config_tether_upstream_automatic is.
+        when(mResources.getBoolean(R.bool.config_tether_upstream_automatic))
+                .thenReturn(true);
+        assertChooseUpstreamAutomaticallyIs(true);
+
+        when(mResources.getBoolean(R.bool.config_tether_upstream_automatic))
+                .thenReturn(false);
+        assertChooseUpstreamAutomaticallyIs(true);
+    }
+
     // The flag override only works on R-
     @Test @IgnoreAfter(Build.VERSION_CODES.R)
     public void testChooseUpstreamAutomatically_FlagOverride() throws Exception {
         when(mResources.getBoolean(R.bool.config_tether_upstream_automatic))
                 .thenReturn(false);
-        setTetherForceUpstreamAutomaticFlagVersion(TEST_PACKAGE_VERSION - 1);
-        assertTrue(DeviceConfigUtils.isFeatureEnabled(mMockContext, NAMESPACE_CONNECTIVITY,
-                TetheringConfiguration.TETHER_FORCE_UPSTREAM_AUTOMATIC_VERSION, APEX_NAME, false));
-
+        setTetherForceUpstreamAutomaticFlagEnabled(true);
         assertChooseUpstreamAutomaticallyIs(true);
 
-        setTetherForceUpstreamAutomaticFlagVersion(0L);
+        setTetherForceUpstreamAutomaticFlagEnabled(null);
         assertChooseUpstreamAutomaticallyIs(false);
 
-        setTetherForceUpstreamAutomaticFlagVersion(Long.MAX_VALUE);
+        setTetherForceUpstreamAutomaticFlagEnabled(false);
         assertChooseUpstreamAutomaticallyIs(false);
     }
 
-    @Test @IgnoreUpTo(Build.VERSION_CODES.R)
-    public void testChooseUpstreamAutomatically_FlagOverrideAfterR() throws Exception {
+    @Test @IgnoreUpTo(Build.VERSION_CODES.R) @IgnoreAfter(Build.VERSION_CODES.TIRAMISU)
+    public void testChooseUpstreamAutomatically_FlagOverrideOnSAndT() throws Exception {
         when(mResources.getBoolean(R.bool.config_tether_upstream_automatic))
                 .thenReturn(false);
-        setTetherForceUpstreamAutomaticFlagVersion(TEST_PACKAGE_VERSION - 1);
+        setTetherForceUpstreamAutomaticFlagEnabled(true);
         assertChooseUpstreamAutomaticallyIs(false);
     }
 
-    private void setTetherForceUpstreamAutomaticFlagVersion(Long version) {
-        doReturn(version == null ? null : Long.toString(version)).when(
-                () -> DeviceConfig.getProperty(eq(NAMESPACE_CONNECTIVITY),
-                        eq(TetheringConfiguration.TETHER_FORCE_UPSTREAM_AUTOMATIC_VERSION)));
+    // The automatic mode is always enabled on U+
+    @Test @IgnoreUpTo(Build.VERSION_CODES.TIRAMISU)
+    public void testChooseUpstreamAutomatically_FlagOverrideAfterT() throws Exception {
+        // Expect that automatic mode is always enabled no matter what
+        // TETHER_FORCE_UPSTREAM_AUTOMATIC_VERSION is.
+        when(mResources.getBoolean(R.bool.config_tether_upstream_automatic))
+                .thenReturn(false);
+        setTetherForceUpstreamAutomaticFlagEnabled(true);
+        assertChooseUpstreamAutomaticallyIs(true);
+
+        setTetherForceUpstreamAutomaticFlagEnabled(null);
+        assertChooseUpstreamAutomaticallyIs(true);
+
+        setTetherForceUpstreamAutomaticFlagEnabled(false);
+        assertChooseUpstreamAutomaticallyIs(true);
+    }
+
+    private void setTetherForceUpstreamAutomaticFlagEnabled(Boolean enabled) {
+        mDeps.setFeatureEnabled(
+                TetheringConfiguration.TETHER_FORCE_UPSTREAM_AUTOMATIC_VERSION, enabled);
     }
 
     private void assertChooseUpstreamAutomaticallyIs(boolean value) {
-        assertEquals(value, new TetheringConfiguration(mMockContext, mLog, INVALID_SUBSCRIPTION_ID)
-                .chooseUpstreamAutomatically);
+        assertEquals(value, new TetheringConfiguration(
+                mMockContext, mLog, INVALID_SUBSCRIPTION_ID, mDeps).chooseUpstreamAutomatically);
     }
 
     @Test
@@ -619,7 +663,7 @@ public class TetheringConfigurationTest {
 
     private void assertIsUsingNcm(boolean expected) {
         final TetheringConfiguration cfg =
-                new TetheringConfiguration(mMockContext, mLog, INVALID_SUBSCRIPTION_ID);
+                new TetheringConfiguration(mMockContext, mLog, INVALID_SUBSCRIPTION_ID, mDeps);
         assertEquals(expected, cfg.isUsingNcm());
     }
 
@@ -669,7 +713,7 @@ public class TetheringConfigurationTest {
 
     private void assertUsbAndNcmRegexs(final String[] usbRegexs, final String[] ncmRegexs) {
         final TetheringConfiguration cfg =
-                new TetheringConfiguration(mMockContext, mLog, INVALID_SUBSCRIPTION_ID);
+                new TetheringConfiguration(mMockContext, mLog, INVALID_SUBSCRIPTION_ID, mDeps);
         assertArrayEquals(usbRegexs, cfg.tetherableUsbRegexs);
         assertArrayEquals(ncmRegexs, cfg.tetherableNcmRegexs);
     }
@@ -681,28 +725,28 @@ public class TetheringConfigurationTest {
 
         final int defaultSubnetPrefixLength = 0;
         final TetheringConfiguration defaultCfg =
-                new TetheringConfiguration(mMockContext, mLog, INVALID_SUBSCRIPTION_ID);
+                new TetheringConfiguration(mMockContext, mLog, INVALID_SUBSCRIPTION_ID, mDeps);
         assertEquals(defaultSubnetPrefixLength, defaultCfg.getP2pLeasesSubnetPrefixLength());
 
         final int prefixLengthTooSmall = -1;
         when(mResources.getInteger(R.integer.config_p2p_leases_subnet_prefix_length)).thenReturn(
                 prefixLengthTooSmall);
         final TetheringConfiguration tooSmallCfg =
-                new TetheringConfiguration(mMockContext, mLog, INVALID_SUBSCRIPTION_ID);
+                new TetheringConfiguration(mMockContext, mLog, INVALID_SUBSCRIPTION_ID, mDeps);
         assertEquals(defaultSubnetPrefixLength, tooSmallCfg.getP2pLeasesSubnetPrefixLength());
 
         final int prefixLengthTooLarge = 31;
         when(mResources.getInteger(R.integer.config_p2p_leases_subnet_prefix_length)).thenReturn(
                 prefixLengthTooLarge);
         final TetheringConfiguration tooLargeCfg =
-                new TetheringConfiguration(mMockContext, mLog, INVALID_SUBSCRIPTION_ID);
+                new TetheringConfiguration(mMockContext, mLog, INVALID_SUBSCRIPTION_ID, mDeps);
         assertEquals(defaultSubnetPrefixLength, tooLargeCfg.getP2pLeasesSubnetPrefixLength());
 
         final int p2pLeasesSubnetPrefixLength = 27;
         when(mResources.getInteger(R.integer.config_p2p_leases_subnet_prefix_length)).thenReturn(
                 p2pLeasesSubnetPrefixLength);
         final TetheringConfiguration p2pCfg =
-                new TetheringConfiguration(mMockContext, mLog, INVALID_SUBSCRIPTION_ID);
+                new TetheringConfiguration(mMockContext, mLog, INVALID_SUBSCRIPTION_ID, mDeps);
         assertEquals(p2pLeasesSubnetPrefixLength, p2pCfg.getP2pLeasesSubnetPrefixLength());
     }
 }

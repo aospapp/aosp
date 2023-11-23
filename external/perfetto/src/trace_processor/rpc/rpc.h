@@ -24,6 +24,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#include "perfetto/trace_processor/basic_types.h"
 #include "perfetto/trace_processor/status.h"
 #include "src/protozero/proto_ring_buffer.h"
 
@@ -31,7 +32,6 @@ namespace perfetto {
 
 namespace protos {
 namespace pbzero {
-class RawQueryResult;
 class ComputeMetricResult;
 class DisableAndReadMetatraceResult;
 }  // namespace pbzero
@@ -102,9 +102,10 @@ class Rpc {
 
   util::Status Parse(const uint8_t* data, size_t len);
   void NotifyEndOfFile();
+  void ResetTraceProcessor(const uint8_t* args, size_t len);
   std::string GetCurrentTraceName();
   std::vector<uint8_t> ComputeMetric(const uint8_t* data, size_t len);
-  void EnableMetatrace();
+  void EnableMetatrace(const uint8_t* data, size_t len);  // EnableMetatraceArgs
   std::vector<uint8_t> DisableAndReadMetatrace();
   std::vector<uint8_t> GetStatus();
 
@@ -130,23 +131,18 @@ class Rpc {
       void(const uint8_t* /*buf*/, size_t /*len*/, bool /*has_more*/)>;
   void Query(const uint8_t* args, size_t len, QueryResultBatchCallback);
 
-  // DEPRECATED, only for legacy clients. Use |Query()| above.
-  std::vector<uint8_t> RawQuery(const uint8_t* args, size_t len);
-
  private:
   void ParseRpcRequest(const uint8_t* data, size_t len);
-  void ResetTraceProcessor();
+  void ResetTraceProcessorInternal(const Config& config);
   void MaybePrintProgress();
   Iterator QueryInternal(const uint8_t* args, size_t len);
-  void RawQueryInternal(const uint8_t* args,
-                        size_t len,
-                        protos::pbzero::RawQueryResult*);
   void ComputeMetricInternal(const uint8_t* args,
                              size_t len,
                              protos::pbzero::ComputeMetricResult*);
   void DisableAndReadMetatraceInternal(
       protos::pbzero::DisableAndReadMetatraceResult*);
 
+  Config trace_processor_config_;
   std::unique_ptr<TraceProcessor> trace_processor_;
   RpcResponseFunction rpc_response_fn_;
   protozero::ProtoRingBuffer rxbuf_;

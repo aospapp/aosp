@@ -16,6 +16,8 @@
 
 package com.android.server.nearby.provider;
 
+import static android.nearby.ScanCallback.ERROR_UNKNOWN;
+
 import static com.android.server.nearby.NearbyService.TAG;
 
 import android.annotation.Nullable;
@@ -27,20 +29,29 @@ import android.bluetooth.le.ScanRecord;
 import android.bluetooth.le.ScanResult;
 import android.bluetooth.le.ScanSettings;
 import android.content.Context;
+import android.nearby.DataElement;
 import android.nearby.NearbyDevice;
 import android.nearby.NearbyDeviceParcelable;
+import android.nearby.PresenceDevice;
+import android.nearby.PresenceScanFilter;
+import android.nearby.PublicCredential;
 import android.nearby.ScanRequest;
 import android.os.ParcelUuid;
 import android.util.Log;
 
+import com.android.internal.annotations.GuardedBy;
 import com.android.server.nearby.common.bluetooth.fastpair.Constants;
 import com.android.server.nearby.injector.Injector;
+import com.android.server.nearby.presence.ExtendedAdvertisement;
 import com.android.server.nearby.presence.PresenceConstants;
+import com.android.server.nearby.util.ArrayUtils;
 import com.android.server.nearby.util.ForegroundThread;
+import com.android.server.nearby.util.encryption.CryptorImpIdentityV1;
 
 import com.google.common.annotations.VisibleForTesting;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Executor;
@@ -57,15 +68,32 @@ public class BleDiscoveryProvider extends AbstractDiscoveryProvider {
     // Don't block the thread as it may be used by other services.
     private static final Executor NEARBY_EXECUTOR = ForegroundThread.getExecutor();
     private final Injector mInjector;
+    private final Object mLock = new Object();
+    // Null when the filters are never set
+    @VisibleForTesting
+    @GuardedBy("mLock")
+    @Nullable
+    private List<android.nearby.ScanFilter> mScanFilters;
+    private android.bluetooth.le.ScanCallback mScanCallbackLegacy =
+            new android.bluetooth.le.ScanCallback() {
+                @Override
+                public void onScanResult(int callbackType, ScanResult scanResult) {
+                }
+                @Override
+                public void onScanFailed(int errorCode) {
+                }
+            };
     private android.bluetooth.le.ScanCallback mScanCallback =
             new android.bluetooth.le.ScanCallback() {
                 @Override
                 public void onScanResult(int callbackType, ScanResult scanResult) {
                     NearbyDeviceParcelable.Builder builder = new NearbyDeviceParcelable.Builder();
-                    builder.setMedium(NearbyDevice.Medium.BLE)
+                    String bleAddress = scanResult.getDevice().getAddress();
+                    builder.setDeviceId(bleAddress.hashCode())
+                            .setMedium(NearbyDevice.Medium.BLE)
                             .setRssi(scanResult.getRssi())
                             .setTxPower(scanResult.getTxPower())
-                            .setBluetoothAddress(scanResult.getDevice().getAddress());
+                            .setBluetoothAddress(bleAddress);
 
                     ScanRecord record = scanResult.getScanRecord();
                     if (record != null) {
@@ -81,7 +109,8 @@ public class BleDiscoveryProvider extends AbstractDiscoveryProvider {
                             } else {
                                 byte[] presenceData = serviceDataMap.get(PRESENCE_UUID);
                                 if (presenceData != null) {
-                                    builder.setData(serviceDataMap.get(PRESENCE_UUID));
+                                    setPresenceDevice(presenceData, builder, deviceName,
+                                            scanResult.getRssi());
                                 }
                             }
                         }
@@ -91,7 +120,8 @@ public class BleDiscoveryProvider extends AbstractDiscoveryProvider {
 
                 @Override
                 public void onScanFailed(int errorCode) {
-                    Log.w(TAG, "BLE Scan failed with error code " + errorCode);
+                    Log.w(TAG, "BLE 5.0 Scan failed with error code " + errorCode);
+                    mExecutor.execute(() -> mListener.onError(ERROR_UNKNOWN));
                 }
             };
 
@@ -100,11 +130,38 @@ public class BleDiscoveryProvider extends AbstractDiscoveryProvider {
         mInjector = injector;
     }
 
+    private static PresenceDevice getPresenceDevice(ExtendedAdvertisement advertisement,
+            String deviceName, int rssi) {
+        // TODO(238458326): After implementing encryption, use real data.
+        byte[] secretIdBytes = new byte[0];
+        PresenceDevice.Builder builder =
+                new PresenceDevice.Builder(
+                        String.valueOf(advertisement.hashCode()),
+                        advertisement.getSalt(),
+                        secretIdBytes,
+                        advertisement.getIdentity())
+                        .addMedium(NearbyDevice.Medium.BLE)
+                        .setName(deviceName)
+                        .setRssi(rssi);
+        for (int i : advertisement.getActions()) {
+            builder.addExtendedProperty(new DataElement(DataElement.DataType.ACTION,
+                    new byte[]{(byte) i}));
+        }
+        for (DataElement dataElement : advertisement.getDataElements()) {
+            builder.addExtendedProperty(dataElement);
+        }
+        return builder.build();
+    }
+
     private static List<ScanFilter> getScanFilters() {
         List<ScanFilter> scanFilterList = new ArrayList<>();
         scanFilterList.add(
                 new ScanFilter.Builder()
                         .setServiceData(FAST_PAIR_UUID, new byte[]{0}, new byte[]{0})
+                        .build());
+        scanFilterList.add(
+                new ScanFilter.Builder()
+                        .setServiceData(PRESENCE_UUID, new byte[]{0}, new byte[]{0})
                         .build());
         return scanFilterList;
     }
@@ -130,8 +187,9 @@ public class BleDiscoveryProvider extends AbstractDiscoveryProvider {
     @Override
     protected void onStart() {
         if (isBleAvailable()) {
-            Log.d(TAG, "BleDiscoveryProvider started.");
-            startScan(getScanFilters(), getScanSettings(), mScanCallback);
+            Log.d(TAG, "BleDiscoveryProvider started");
+            startScan(getScanFilters(), getScanSettings(/* legacy= */ false), mScanCallback);
+            startScan(getScanFilters(), getScanSettings(/* legacy= */ true), mScanCallbackLegacy);
             return;
         }
         Log.w(TAG, "Cannot start BleDiscoveryProvider because Ble is not available.");
@@ -148,12 +206,32 @@ public class BleDiscoveryProvider extends AbstractDiscoveryProvider {
         }
         Log.v(TAG, "Ble scan stopped.");
         bluetoothLeScanner.stopScan(mScanCallback);
+        bluetoothLeScanner.stopScan(mScanCallbackLegacy);
+        synchronized (mLock) {
+            if (mScanFilters != null) {
+                mScanFilters = null;
+            }
+        }
     }
 
     @Override
     protected void invalidateScanMode() {
         onStop();
         onStart();
+    }
+
+    @Override
+    protected void onSetScanFilters(List<android.nearby.ScanFilter> filters) {
+        synchronized (mLock) {
+            mScanFilters = filters == null ? null : List.copyOf(filters);
+        }
+    }
+
+    @VisibleForTesting
+    protected List<android.nearby.ScanFilter> getFiltersLocked() {
+        synchronized (mLock) {
+            return mScanFilters == null ? null : List.copyOf(mScanFilters);
+        }
     }
 
     private void startScan(
@@ -179,7 +257,7 @@ public class BleDiscoveryProvider extends AbstractDiscoveryProvider {
         }
     }
 
-    private ScanSettings getScanSettings() {
+    private ScanSettings getScanSettings(boolean legacy) {
         int bleScanMode = ScanSettings.SCAN_MODE_LOW_POWER;
         switch (mController.getProviderScanMode()) {
             case ScanRequest.SCAN_MODE_LOW_LATENCY:
@@ -195,11 +273,45 @@ public class BleDiscoveryProvider extends AbstractDiscoveryProvider {
                 bleScanMode = ScanSettings.SCAN_MODE_OPPORTUNISTIC;
                 break;
         }
-        return new ScanSettings.Builder().setScanMode(bleScanMode).build();
+        return new ScanSettings.Builder().setScanMode(bleScanMode).setLegacy(legacy).build();
     }
 
     @VisibleForTesting
     ScanCallback getScanCallback() {
         return mScanCallback;
+    }
+
+    private void setPresenceDevice(byte[] data, NearbyDeviceParcelable.Builder builder,
+            String deviceName, int rssi) {
+        synchronized (mLock) {
+            if (mScanFilters == null) {
+                return;
+            }
+            for (android.nearby.ScanFilter scanFilter : mScanFilters) {
+                if (scanFilter instanceof PresenceScanFilter) {
+                    // Iterate all possible authenticity key and identity combinations to decrypt
+                    // advertisement
+                    PresenceScanFilter presenceFilter = (PresenceScanFilter) scanFilter;
+                    for (PublicCredential credential : presenceFilter.getCredentials()) {
+                        ExtendedAdvertisement advertisement =
+                                ExtendedAdvertisement.fromBytes(data, credential);
+                        if (advertisement == null) {
+                            continue;
+                        }
+                        if (CryptorImpIdentityV1.getInstance().verify(
+                                advertisement.getIdentity(),
+                                credential.getEncryptedMetadataKeyTag())) {
+                            builder.setPresenceDevice(getPresenceDevice(advertisement, deviceName,
+                                    rssi));
+                            builder.setEncryptionKeyTag(credential.getEncryptedMetadataKeyTag());
+                            if (!ArrayUtils.isEmpty(credential.getSecretId())) {
+                                builder.setDeviceId(Arrays.hashCode(credential.getSecretId()));
+                            }
+                            return;
+                        }
+                    }
+                }
+            }
+        }
     }
 }

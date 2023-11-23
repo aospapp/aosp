@@ -57,7 +57,7 @@ public class PredicateNotTest {
         }
     }
 
-    static <T> Predicate<T> not​(Predicate<? super T> target) {
+    static <T> Predicate<T> not(Predicate<? super T> target) {
         try {
             return (Predicate<T>) NOT.invoke(target);
         } catch (Throwable t) {

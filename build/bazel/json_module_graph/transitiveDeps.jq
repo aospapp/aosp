@@ -1,7 +1,7 @@
-# CMD: Returns the names of the transitive dependencies of the module named $arg
+# CMD: Returns the names of the transitive dependencies of the module(s) $arg, splits on ","
 
 include "library";
 
 (moduleGraphNoVariants | removeSelfEdges) as $m |
-  [$arg] |
+  ($arg | split(",")) |
   transitiveDeps($m)

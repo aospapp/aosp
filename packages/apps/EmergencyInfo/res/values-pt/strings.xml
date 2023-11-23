@@ -100,7 +100,7 @@
     <string name="phone_type_and_phone_number" msgid="5034188169563878371">"<xliff:g id="PHONE_TYPE">%1$s</xliff:g> • <xliff:g id="PHONE_NUMBER">%2$s</xliff:g>"</string>
     <string name="no_info_provided" msgid="716200382010821001">"Nenhuma informação sobre o proprietário do smartphone"</string>
     <string name="tap_pencil" msgid="3429817710241457947">"Com o smartphone desbloqueado, toque no ícone de lápis para adicionar as informações que vão aparecer aqui em caso de emergência"</string>
-    <string name="clear_all" msgid="8899013032870561633">"Limpar tudo"</string>
+    <string name="clear_all" msgid="8899013032870561633">"Remover tudo"</string>
     <string name="clear" msgid="3648880442502887163">"Limpar"</string>
     <string name="clear_all_message" msgid="1548432000373861295">"Limpar todas as informações e contatos?"</string>
     <string name="emergency_info_footer" msgid="8751758742506410146">"Adicionar informações médicas e contatos de emergência pode ajudar os socorristas em uma emergência.\n\nQualquer pessoa pode ler essas informações na tela de bloqueio e ligar para seus contatos tocando no nome deles sem desbloquear o smartphone."</string>

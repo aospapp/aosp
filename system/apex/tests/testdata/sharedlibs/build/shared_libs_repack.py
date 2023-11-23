@@ -200,8 +200,8 @@ def run_apexer(container_files, payload_dir, key_path, pubkey_path, tmpdir):
 
 def _get_java_toolchain():
   java_toolchain = 'java'
-  if os.path.isfile('prebuilts/jdk/jdk11/linux-x86/bin/java'):
-    java_toolchain = 'prebuilts/jdk/jdk11/linux-x86/bin/java'
+  if os.path.isfile('prebuilts/jdk/jdk17/linux-x86/bin/java'):
+    java_toolchain = 'prebuilts/jdk/jdk17/linux-x86/bin/java'
 
   java_dep_lib = (
       os.path.join(os.path.dirname(_get_host_tools_path()), 'lib64') + ':' +
@@ -229,7 +229,7 @@ def sign_apk_container(unsigned_apex, x509key_path, pk8key_path, tmpdir):
       java_toolchain, '-Djava.library.path=' + java_dep_lib, '-jar',
       os.path.join(
           os.path.dirname(_get_host_tools_path()), 'framework', 'signapk.jar'),
-      '-a', '4096', x509key_path, pk8key_path, unsigned_apex, fn
+      '-a', '4096', '--align-file-size', x509key_path, pk8key_path, unsigned_apex, fn
   ]
   run_and_check_output(cmd)
   return fn

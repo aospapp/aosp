@@ -21,5 +21,6 @@
              android:targetName="CarMediaApp"
              android:targetPackage="com.android.car.media"
              android:resourcesMap="@xml/overlays"
-             android:isStatic="true" />
+             android:category="caruiportrait.media"
+             android:isStatic="false" />
 </manifest>

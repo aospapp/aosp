@@ -1,6 +1,6 @@
 use std::{io::Read, marker::PhantomData};
 
-use log::debug;
+use log::trace;
 use serde::de::{self, Unexpected};
 use serde::forward_to_deserialize_any;
 use xml::name::OwnedName;
@@ -21,10 +21,7 @@ mod var;
 /// A convenience method for deserialize some object from a string.
 ///
 /// ```rust
-/// # #[macro_use]
-/// # extern crate serde_derive;
-/// # extern crate serde;
-/// # extern crate serde_xml_rs;
+/// # use serde::{Deserialize, Serialize};
 /// # use serde_xml_rs::from_str;
 /// #[derive(Debug, Deserialize, PartialEq)]
 /// struct Item {
@@ -44,10 +41,7 @@ pub fn from_str<'de, T: de::Deserialize<'de>>(s: &str) -> Result<T> {
 /// A convenience method for deserialize some object from a reader.
 ///
 /// ```rust
-/// # #[macro_use]
-/// # extern crate serde_derive;
-/// # extern crate serde;
-/// # extern crate serde_xml_rs;
+/// # use serde::Deserialize;
 /// # use serde_xml_rs::from_reader;
 /// #[derive(Debug, Deserialize, PartialEq)]
 /// struct Item {
@@ -108,12 +102,8 @@ impl<'de, R: Read> RootDeserializer<R> {
     /// default. Enabling this option may incur additional memory usage.
     ///
     /// ```rust
-    /// # #[macro_use]
-    /// # extern crate serde_derive;
-    /// # extern crate serde;
-    /// # extern crate serde_xml_rs;
-    /// # use serde_xml_rs::from_reader;
     /// # use serde::Deserialize;
+    /// # use serde_xml_rs::from_reader;
     /// #[derive(Debug, Deserialize, PartialEq)]
     /// struct Foo {
     ///     bar: Vec<usize>,
@@ -164,7 +154,7 @@ impl<'de, R: Read, B: BufferedXmlReader<R>> Deserializer<R, B> {
     fn peek(&mut self) -> Result<&XmlEvent> {
         let peeked = self.buffered_reader.peek()?;
 
-        debug!("Peeked {:?}", peeked);
+        trace!("Peeked {:?}", peeked);
         Ok(peeked)
     }
 
@@ -181,7 +171,7 @@ impl<'de, R: Read, B: BufferedXmlReader<R>> Deserializer<R, B> {
             }
             _ => {}
         }
-        debug!("Fetched {:?}", next);
+        trace!("Fetched {:?}", next);
         Ok(next)
     }
 

@@ -27,6 +27,7 @@
     <string name="notification_channel_network_status" msgid="1631786866932924838">"네트워크 상태"</string>
     <string name="notification_channel_network_alerts" msgid="1391603215241200880">"네트워크 알림"</string>
     <string name="notification_channel_network_available" msgid="8454366142428864948">"네트워크 사용 가능"</string>
+    <string name="notification_channel_apm_alerts" msgid="6775293475896473489">"APM 알림"</string>
     <string name="wifi_suggestion_title" msgid="2564179935989099139">"제안된 Wi‑Fi 네트워크를 허용하시겠습니까?"</string>
     <string name="wifi_suggestion_content" msgid="6985149577828091835">"<xliff:g id="NAME">%s</xliff:g>에서 네트워크를 제안했습니다. 기기가 자동으로 연결될 수 있습니다."</string>
     <string name="wifi_suggestion_action_allow_app" msgid="7757859972144671588">"허용"</string>
@@ -54,6 +55,7 @@
     <string name="ok" msgid="847575529546290102">"확인"</string>
     <string name="wifi_p2p_invitation_sent_title" msgid="6552639940428040869">"초대장을 보냈습니다."</string>
     <string name="wifi_p2p_invitation_to_connect_title" msgid="8917157937652519251">"연결하도록 초대"</string>
+    <string name="wifi_p2p_invitation_seconds_remaining" msgid="4214101104506918344">"{0,plural, =1{#초 이내에 수락하세요.}other{#초 이내에 수락하세요.}}"</string>
     <string name="wifi_p2p_from_message" msgid="5921308150192756898">"보낸사람:"</string>
     <string name="wifi_p2p_to_message" msgid="3809923305696994787">"수신:"</string>
     <string name="wifi_p2p_enter_pin_message" msgid="5200220251738047620">"필수 PIN 입력:"</string>
@@ -102,19 +104,19 @@
   </string-array>
     <string name="wifi_eap_error_message_code_32767" msgid="7094289719914089006">"<xliff:g id="SSID">%1$s</xliff:g> : EAP 인증 오류 32767"</string>
   <string-array name="wifi_eap_error_message_code_32767_carrier_overrides">
-    <item msgid="873264900678243330">"<xliff:g id="CARRIER_ID_PREFIX">:::1839:::</xliff:g><xliff:g id="SSID">%1$s</xliff:g>: Verizon Wi-Fi Access에 연결하는 중에 문제가 발생했습니다. 나중에 다시 시도하거나 다른 위치에서 시도해 보세요."</item>
+    <item msgid="3756793972687282940">"<xliff:g id="CARRIER_ID_PREFIX">:::1839:::</xliff:g><xliff:g id="SSID">%1$s</xliff:g>: Verizon Wi-Fi Access에 연결하는 중에 문제가 발생했습니다. 나중에 다시 시도하거나 다른 위치에서 시도해 보세요. (오류 = 32767)"</item>
   </string-array>
     <string name="wifi_eap_error_message_code_16384" msgid="575394783233092922">"<xliff:g id="SSID">%1$s</xliff:g> : EAP 인증 오류 16384"</string>
   <string-array name="wifi_eap_error_message_code_16384_carrier_overrides">
-    <item msgid="5042774904407799226">"<xliff:g id="CARRIER_ID_PREFIX">:::1839:::</xliff:g><xliff:g id="SSID">%1$s</xliff:g>: 오류 16384로 인해 Verizon Wi-Fi Access에 연결하는 중에 문제가 발생했습니다."</item>
+    <item msgid="270219697600808218">"<xliff:g id="CARRIER_ID_PREFIX">:::1839:::</xliff:g><xliff:g id="SSID">%1$s</xliff:g>: Verizon Wi-Fi에 연결하는 중에 문제가 발생했습니다. (오류 = 16384)"</item>
   </string-array>
     <string name="wifi_eap_error_message_code_16385" msgid="8392878664662215609">"<xliff:g id="SSID">%1$s</xliff:g> : EAP 인증 오류 16385"</string>
   <string-array name="wifi_eap_error_message_code_16385_carrier_overrides">
-    <item msgid="1251122579833932025">"<xliff:g id="CARRIER_ID_PREFIX">:::1839:::</xliff:g><xliff:g id="SSID">%1$s</xliff:g>: 오류 16385로 인해 Verizon Wi-Fi Access에 연결하는 중에 문제가 발생했습니다."</item>
+    <item msgid="50575315771146940">"<xliff:g id="CARRIER_ID_PREFIX">:::1839:::</xliff:g><xliff:g id="SSID">%1$s</xliff:g>: Verizon Wi-Fi에 연결하는 중에 문제가 발생했습니다. (오류 = 16385)"</item>
   </string-array>
     <string name="wifi_eap_error_message_unknown_error_code" msgid="4480884285384231323">"<xliff:g id="SSID">%1$s</xliff:g> : EAP 인증 오류, 알 수 없는 오류 코드"</string>
   <string-array name="wifi_eap_error_message_unknown_error_code_carrier_overrides">
-    <item msgid="6141795443609380009">"<xliff:g id="CARRIER_ID_PREFIX">:::1839:::</xliff:g><xliff:g id="SSID">%1$s</xliff:g>: Verizon Wi-Fi Access에 연결하는 중에 문제가 발생했습니다."</item>
+    <item msgid="2705387186478280792">"<xliff:g id="CARRIER_ID_PREFIX">:::1839:::</xliff:g><xliff:g id="SSID">%1$s</xliff:g>: Verizon Wi-Fi에 연결하는 중에 문제가 발생했습니다. (오류 = 알 수 없음)"</item>
   </string-array>
     <string name="wifi_softap_auto_shutdown_timeout_expired_title" msgid="4896534374569504484">"핫스팟이 사용 중지됨"</string>
     <string name="wifi_softap_auto_shutdown_timeout_expired_summary" msgid="7975476698140267728">"연결된 기기가 없습니다. 수정하려면 탭하세요."</string>
@@ -125,6 +127,11 @@
     <string name="wifi_interface_priority_message_plural" msgid="8178086373318831859">"다음 앱에서 문제를 일으킬 수 있습니다. <xliff:g id="APPS">%3$s</xliff:g>"</string>
     <string name="wifi_interface_priority_approve" msgid="7877379614986261096">"허용"</string>
     <string name="wifi_interface_priority_reject" msgid="1378461018835886777">"허용 안함"</string>
+    <string name="wifi_interface_priority_interface_name_sta" msgid="5107477901500010776">"STA"</string>
+    <string name="wifi_interface_priority_interface_name_ap" msgid="161777054136866061">"Wi‑Fi 핫스팟"</string>
+    <string name="wifi_interface_priority_interface_name_ap_bridge" msgid="1270364818879977821">"Wi‑Fi 핫스팟"</string>
+    <string name="wifi_interface_priority_interface_name_p2p" msgid="1278122698099149708">"Wi‑Fi Direct"</string>
+    <string name="wifi_interface_priority_interface_name_nan" msgid="8812888073122966870">"Wi‑Fi Aware"</string>
     <string name="wifi_ca_cert_dialog_title" msgid="3872340345882915806">"신뢰하는 네트워크인가요?"</string>
     <string name="wifi_ca_cert_dialog_continue_text" msgid="1674156611893471003">"예, 연결"</string>
     <string name="wifi_ca_cert_dialog_abort_text" msgid="1303170595421648059">"연결 안 함"</string>
@@ -132,14 +139,18 @@
     <string name="wifi_ca_cert_dialog_message_server_name_text" msgid="3707809865604348289">"서버 이름:\n<xliff:g id="VALUE">%1$s</xliff:g>\n\n"</string>
     <string name="wifi_ca_cert_dialog_message_issuer_name_text" msgid="1147216922475192304">"발급기관 이름:\n<xliff:g id="VALUE">%1$s</xliff:g>\n\n"</string>
     <string name="wifi_ca_cert_dialog_message_organization_text" msgid="4936354600863239487">"조직:\n<xliff:g id="VALUE">%1$s</xliff:g>\n\n"</string>
+    <string name="wifi_ca_cert_dialog_message_expiration_text" msgid="1612917217606436217">"인증서 만료:\n<xliff:g id="VALUE">%1$s</xliff:g>\n\n"</string>
+    <string name="wifi_ca_cert_dialog_message_signature_name_text" msgid="8455163626514894233">"SHA-256 지문:\n<xliff:g id="VALUE">%1$s</xliff:g>\n\n"</string>
     <string name="wifi_ca_cert_dialog_message_contact_text" msgid="5799083318641183815">"연락처:\n<xliff:g id="VALUE">%1$s</xliff:g>\n\n"</string>
-    <string name="wifi_ca_cert_dialog_message_signature_name_text" msgid="704614002854299776">"서명:\n<xliff:g id="VALUE">%1$s</xliff:g>\n\n"</string>
     <string name="wifi_ca_cert_notification_title" msgid="537569884930429796">"네트워크 인증 필요"</string>
     <string name="wifi_ca_cert_notification_message" msgid="6413248690626616961">"연결하기 전에 <xliff:g id="SSID">%1$s</xliff:g>의 네트워크 세부정보를 확인하세요. 계속하려면 탭하세요."</string>
     <string name="wifi_ca_cert_failed_to_install_ca_cert" msgid="4864192219789736195">"인증서를 설치할 수 없습니다."</string>
+    <string name="wifi_tofu_invalid_cert_chain_title" msgid="332710627417595752">"<xliff:g id="VALUE">%1$s</xliff:g>에 연결할 수 없음"</string>
+    <string name="wifi_tofu_invalid_cert_chain_message" msgid="7047987920029432392">"잘못된 서버 인증 체인입니다."</string>
+    <string name="wifi_tofu_invalid_cert_chain_ok_text" msgid="9098567577510279854">"확인"</string>
     <string name="wifi_ca_cert_dialog_preT_title" msgid="6916320484037009061">"이 네트워크를 확인할 수 없음"</string>
-    <string name="wifi_ca_cert_dialog_preT_continue_text" msgid="3181614240421159530">"무시하고 연결"</string>
-    <string name="wifi_ca_cert_dialog_preT_abort_text" msgid="1195575129023960325">"연결 안 함"</string>
+    <string name="wifi_ca_cert_dialog_preT_continue_text" msgid="9118713368838029797">"연결 상태 유지"</string>
+    <string name="wifi_ca_cert_dialog_preT_abort_text" msgid="1331309662999405224">"지금 연결 해제"</string>
     <string name="wifi_ca_cert_dialog_preT_message_hint" msgid="5682518783200852031">"<xliff:g id="SSID">%1$s</xliff:g> 네트워크에 인증서가 없습니다."</string>
     <string name="wifi_ca_cert_dialog_preT_message_link" msgid="6325483132538546884">"인증서 추가 방법 알아보기"</string>
     <string name="wifi_ca_cert_notification_preT_title" msgid="7255129934648316663">"이 네트워크를 확인할 수 없음"</string>
@@ -150,4 +161,15 @@
     <string name="wifi_enable_request_dialog_message" msgid="6395169178524938278">"빠른 설정에서 Wi‑Fi를 끌 수 있습니다."</string>
     <string name="wifi_enable_request_dialog_positive_button" msgid="6050832555821470466">"허용"</string>
     <string name="wifi_enable_request_dialog_negative_button" msgid="4754219902374918882">"허용 안함"</string>
+    <string name="wifi_enabled_apm_first_time_title" msgid="4814302384637588804">"비행기 모드에서 Wi-Fi 사용"</string>
+    <string name="wifi_enabled_apm_first_time_message" msgid="6416193199042203037">"Wi-Fi를 켜진 상태로 유지하면 다음에 비행기 모드를 사용할 때도 Wi-Fi 연결이 유지됩니다."</string>
+    <string name="apm_enabled_first_time_title" msgid="2534167413190488009">"Wi‑Fi가 켜진 상태로 유지됨"</string>
+    <string name="apm_enabled_first_time_message" msgid="6093911536874954410">"비행기 모드에서 기기의 Wi-Fi가 켜진 상태로 유지됩니다. 유지하지 않으려면 Wi-Fi를 사용 중지하세요."</string>
+    <string name="wifi_network_disabled_by_admin_title" msgid="9057697656855227293">"사용할 수 없는 네트워크"</string>
+    <string name="wifi_network_disabled_by_admin_message" msgid="7830360441333155462">"<xliff:g id="SSID">%1$s</xliff:g>이(가) 관리자에 의해 사용 중지되었습니다."</string>
+    <string name="wifi_network_disabled_by_admin_button" msgid="3350310756265122689">"닫기"</string>
+    <string name="wifi_network_switch_dialog_title_no_internet" msgid="4116969009784041242">"<xliff:g id="SSID_0">%1$s</xliff:g> 네트워크가 인터넷에 연결되어 있지 않은 것 같습니다. <xliff:g id="SSID_1">%2$s</xliff:g> 네트워크로 전환할까요?"</string>
+    <string name="wifi_network_switch_dialog_title_bad_internet" msgid="6013385270249705547">"<xliff:g id="SSID_0">%1$s</xliff:g>의 품질이 낮습니다. <xliff:g id="SSID_1">%2$s</xliff:g> 네트워크로 전환할까요?"</string>
+    <string name="wifi_network_switch_dialog_positive_button" msgid="7845507995422722454">"전환"</string>
+    <string name="wifi_network_switch_dialog_negative_button" msgid="1496665895689498806">"전환 안 함"</string>
 </resources>

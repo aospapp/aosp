@@ -47,6 +47,7 @@ public enum Wrapper {
     private final Class<?> wrapperType;
     private final Class<?> primitiveType;
     private final char     basicTypeChar;
+    private final String   basicTypeString;
     private final Object   emptyArray;
     private final int      format;
     private final String   wrapperSimpleName;
@@ -56,6 +57,7 @@ public enum Wrapper {
         this.wrapperType = wtype;
         this.primitiveType = ptype;
         this.basicTypeChar = tchar;
+        this.basicTypeString = String.valueOf(this.basicTypeChar);
         this.emptyArray = emptyArray;
         this.format = format;
         this.wrapperSimpleName = wtypeName;
@@ -458,6 +460,11 @@ public enum Wrapper {
      *  primitive type?
      */
     public char basicTypeChar() { return basicTypeChar; }
+
+    /** What is the bytecode signature string for this wrapper's
+     *  primitive type?
+     */
+    public String basicTypeString() { return basicTypeString; }
 
     /** What is the simple name of the wrapper type?
      */

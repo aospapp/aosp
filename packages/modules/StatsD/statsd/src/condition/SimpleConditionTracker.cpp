@@ -56,10 +56,11 @@ SimpleConditionTracker::~SimpleConditionTracker() {
     VLOG("~SimpleConditionTracker()");
 }
 
-bool SimpleConditionTracker::init(const vector<Predicate>& allConditionConfig,
-                                  const vector<sp<ConditionTracker>>& allConditionTrackers,
-                                  const unordered_map<int64_t, int>& conditionIdIndexMap,
-                                  vector<bool>& stack, vector<ConditionState>& conditionCache) {
+optional<InvalidConfigReason> SimpleConditionTracker::init(
+        const vector<Predicate>& allConditionConfig,
+        const vector<sp<ConditionTracker>>& allConditionTrackers,
+        const unordered_map<int64_t, int>& conditionIdIndexMap, vector<bool>& stack,
+        vector<ConditionState>& conditionCache) {
     // SimpleConditionTracker does not have dependency on other conditions, thus we just return
     // if the initialization was successful.
     ConditionKey conditionKey;
@@ -67,10 +68,14 @@ bool SimpleConditionTracker::init(const vector<Predicate>& allConditionConfig,
         conditionKey[mConditionId] = DEFAULT_DIMENSION_KEY;
     }
     isConditionMet(conditionKey, allConditionTrackers, mSliced, conditionCache);
-    return mInitialized;
+    if (!mInitialized) {
+        return createInvalidConfigReasonWithPredicate(
+                INVALID_CONFIG_REASON_CONDITION_TRACKER_NOT_INITIALIZED, mConditionId);
+    }
+    return nullopt;
 }
 
-bool SimpleConditionTracker::onConfigUpdated(
+optional<InvalidConfigReason> SimpleConditionTracker::onConfigUpdated(
         const vector<Predicate>& allConditionProtos, const int index,
         const vector<sp<ConditionTracker>>& allConditionTrackers,
         const unordered_map<int64_t, int>& atomMatchingTrackerMap,
@@ -78,7 +83,7 @@ bool SimpleConditionTracker::onConfigUpdated(
     ConditionTracker::onConfigUpdated(allConditionProtos, index, allConditionTrackers,
                                       atomMatchingTrackerMap, conditionTrackerMap);
     setMatcherIndices(allConditionProtos[index].simple_predicate(), atomMatchingTrackerMap);
-    return true;
+    return nullopt;
 }
 
 void SimpleConditionTracker::setMatcherIndices(

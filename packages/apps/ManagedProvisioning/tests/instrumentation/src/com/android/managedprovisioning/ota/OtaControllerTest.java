@@ -52,6 +52,7 @@ import org.mockito.MockitoAnnotations;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 import java.util.function.IntFunction;
 
 /**
@@ -261,7 +262,7 @@ public class OtaControllerTest {
 
     private void assertTaskListContains(Integer userId, Class taskClass) {
         for (Pair<Integer, AbstractProvisioningTask> task : mTasks) {
-            if (userId == task.first && taskClass.isInstance(task.second)) {
+            if (Objects.equals(userId, task.first) && taskClass.isInstance(task.second)) {
                 return;
             }
         }

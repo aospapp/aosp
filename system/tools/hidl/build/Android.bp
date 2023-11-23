@@ -28,6 +28,7 @@ bootstrap_go_package {
         "blueprint",
         "soong",
         "soong-android",
+        "soong-bp2build",
         "soong-cc",
         "soong-genrule",
         "soong-java",
@@ -38,6 +39,9 @@ bootstrap_go_package {
         "hidl_package_root.go",
         "properties.go",
         "utils.go",
+    ],
+    testSrcs: [
+        "hidl_interface_conversion_test.go",
     ],
     pluginFor: ["soong_build"],
 }

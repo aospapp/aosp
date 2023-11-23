@@ -23,8 +23,8 @@ from __future__ import print_function
 # Gerrit config
 GERRIT_HOST = 'android-review.googlesource.com'
 GERRIT_PROJECT = 'platform/external/perfetto'
-GERRIT_REVIEW_URL = (
-    'https://android-review.googlesource.com/c/' + GERRIT_PROJECT)
+GERRIT_REVIEW_URL = ('https://android-review.googlesource.com/c/' +
+                     GERRIT_PROJECT)
 REPO_URL = 'https://android.googlesource.com/' + GERRIT_PROJECT
 GERRIT_POLL_SEC = 15
 GERRIT_VOTING_ENABLED = True
@@ -66,7 +66,8 @@ GCE_SCOPES = [
 # Only variables starting with PERFETTO_ are propagated into the sandbox.
 JOB_CONFIGS = {
     'linux-clang-x86_64-debug': {
-        'PERFETTO_TEST_GN_ARGS': 'is_debug=true is_hermetic_clang=false',
+        'PERFETTO_TEST_GN_ARGS': 'is_debug=true is_hermetic_clang=false '
+                                 'non_hermetic_clang_stdlib="libc++"',
         'PERFETTO_TEST_SCRIPT': 'test/ci/linux_tests.sh',
     },
     'linux-clang-x86_64-tsan': {

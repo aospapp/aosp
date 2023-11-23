@@ -11,6 +11,7 @@ TEST_CLASS = "platform"
 TEST_TYPE = "server"
 # Disable this test until it can be fixed: https://crbug.com/969207
 # ATTRIBUTES = "suite:cellular_au"
+PY_VERSION = 3
 DOC = """
 This tests the forced autoupdate flow at OOBE using cellular.
 

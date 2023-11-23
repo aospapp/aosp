@@ -128,12 +128,12 @@ public abstract class WizardCard {
   }
 
   /**
-   * A dummy card for testing purpose.
+   * A stub card for testing purpose.
    */
-  public static class DummyCard extends WizardCard {
-    public DummyCard() {
-      setViewTitle("Dummy view");
-      setEditTitle("Dummy Edit");
+  public static class StubCard extends WizardCard {
+    public StubCard() {
+      setViewTitle("Stub view");
+      setEditTitle("Stub Edit");
     }
 
     @Override

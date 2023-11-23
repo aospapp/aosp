@@ -43,7 +43,13 @@ public class ClassPathURLStreamHandler extends Handler {
   private final JarFile jarFile;
 
   public ClassPathURLStreamHandler(String jarFileName) throws IOException {
-    jarFile = new JarFile(jarFileName);
+    this(jarFileName, /* enableZipPathValidator */ true);
+  }
+
+  /** @hide */
+  public ClassPathURLStreamHandler(String jarFileName, boolean enableZipPathValidator) throws
+          IOException {
+    jarFile = new JarFile(jarFileName, enableZipPathValidator, /* verify */ true);
 
     // File.toURI() is compliant with RFC 1738 in always creating absolute path names. If we
     // construct the URL by concatenating strings, we might end up with illegal URLs for relative

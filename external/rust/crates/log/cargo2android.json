@@ -1,4 +1,5 @@
 {
+  "add-toplevel-block": "cargo2android_nostd.bp",
   "apex-available": [
     "//apex_available:platform",
     "//apex_available:anyapex"
@@ -8,5 +9,10 @@
   "features": "std",
   "min-sdk-version": "29",
   "run": true,
-  "vendor-available": true
+  "vendor-available": true,
+  "variants": [
+    {
+      "suffix": "_rust"
+    }
+  ]
 }

@@ -42,15 +42,36 @@ Address::Address(std::initializer_list<uint8_t> l) {
   std::copy(l.begin(), std::min(l.begin() + kLength, l.end()), data());
 }
 
-std::string Address::ToString() const {
+std::string Address::_ToMaskedColonSepHexString(int bytes_to_mask) const {
   std::stringstream ss;
+  int count = 0;
   for (auto it = address.rbegin(); it != address.rend(); it++) {
-    ss << std::nouppercase << std::hex << std::setw(2) << std::setfill('0') << +*it;
+    if (count++ < bytes_to_mask) {
+      ss << "xx";
+    } else {
+      ss << std::nouppercase << std::hex << std::setw(2) << std::setfill('0') << +*it;
+    }
     if (std::next(it) != address.rend()) {
       ss << ':';
     }
   }
   return ss.str();
+}
+
+std::string Address::ToString() const {
+  return _ToMaskedColonSepHexString(0);
+}
+
+std::string Address::ToColonSepHexString() const {
+  return _ToMaskedColonSepHexString(0);
+}
+
+std::string Address::ToStringForLogging() const {
+  return _ToMaskedColonSepHexString(0);
+}
+
+std::string Address::ToRedactedStringForLogging() const {
+  return _ToMaskedColonSepHexString(4);
 }
 
 std::string Address::ToLegacyConfigString() const {

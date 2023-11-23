@@ -5,6 +5,12 @@ on:
   pull_request:
   schedule: [cron: "40 1 * * *"]
 
+permissions:
+  contents: read
+
+env:
+  RUSTFLAGS: -Dwarnings
+
 jobs:
   test:
     name: Rust ${{matrix.rust}}
@@ -12,42 +18,62 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        rust: [nightly, beta, stable, 1.26.0]
+        rust: [nightly, beta, stable, 1.36.0]
+    timeout-minutes: 45
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - uses: dtolnay/rust-toolchain@master
         with:
           toolchain: ${{matrix.rust}}
       - run: cargo build
-      - run: cargo build --features i128
-      - run: cargo test --features i128
-      - run: cargo test --features i128 --release
-      - run: cargo build --no-default-features --features i128
-      - run: cargo test --tests --no-default-features --features i128
-      - run: cargo test --tests --no-default-features --features i128 --release
-      - run: cargo bench --no-run --features i128
+      - run: cargo test
+      - run: cargo test --release
+      - run: cargo build --no-default-features
+      - run: cargo test --tests --no-default-features
+      - run: cargo test --tests --no-default-features --release
+      - run: cargo build --tests --features no-panic --release
+        if: matrix.rust == 'nightly'
+      - run: cargo bench --no-run
         if: matrix.rust == 'nightly'
 
-  mintest:
-    name: Rust 1.20.0
+  miri:
+    name: Miri
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     steps:
-      - uses: actions/checkout@v2
-      - uses: dtolnay/rust-toolchain@1.20.0
-      - run: cargo test
-
-  msrv:
-    name: Rust 1.0.0
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v2
-      - uses: dtolnay/rust-toolchain@1.0.0
-      - run: cargo build
+      - uses: actions/checkout@v3
+      - uses: dtolnay/rust-toolchain@miri
+      - run: cargo miri test
+        env:
+          MIRIFLAGS: -Zmiri-strict-provenance
 
   clippy:
     name: Clippy
     runs-on: ubuntu-latest
+    if: github.event_name != 'pull_request'
+    timeout-minutes: 45
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - uses: dtolnay/rust-toolchain@clippy
-      - run: cargo clippy -- -Dclippy::all -Dclippy::pedantic
+      - run: cargo clippy --tests --benches -- -Dclippy::all -Dclippy::pedantic
+
+  fuzz:
+    name: Fuzz
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v3
+      - uses: dtolnay/rust-toolchain@nightly
+      - uses: dtolnay/install@cargo-fuzz
+      - run: cargo fuzz build -O
+
+  outdated:
+    name: Outdated
+    runs-on: ubuntu-latest
+    if: github.event_name != 'pull_request'
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v3
+      - uses: dtolnay/install@cargo-outdated
+      - run: cargo outdated --workspace --exit-code 1
+      - run: cargo outdated --manifest-path fuzz/Cargo.toml --exit-code 1

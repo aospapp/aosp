@@ -20,13 +20,13 @@ package {
 
 java_library {
     name: "automotive-notifications-app-helper",
-    libs: [
-        "ub-uiautomator",
-        "app-helpers-auto-interfaces",
-    ],
     static_libs: [
         "truth-prebuilt",
-        "automotive-standard-app-helper",
+        "spectatio-lib",
+        "app-helpers-auto-interfaces",
+        "android-support-annotations",
+        "automotive-config-lib",
+        "automotive-utility-helper",
     ],
     srcs: ["src/**/*.java"],
     sdk_version: "test_current",

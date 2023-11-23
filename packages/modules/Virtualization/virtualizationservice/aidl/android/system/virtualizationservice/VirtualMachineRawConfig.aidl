@@ -15,10 +15,14 @@
  */
 package android.system.virtualizationservice;
 
+import android.system.virtualizationservice.CpuTopology;
 import android.system.virtualizationservice.DiskImage;
 
 /** Raw configuration for running a VM. */
 parcelable VirtualMachineRawConfig {
+    /** Name of VM */
+    String name;
+
     /** The kernel image, if any. */
     @nullable ParcelFileDescriptor kernel;
 
@@ -46,17 +50,8 @@ parcelable VirtualMachineRawConfig {
     /** The amount of RAM to give the VM, in MiB. 0 or negative to use the default. */
     int memoryMib;
 
-    /**
-     * Number of vCPUs in the VM. Defaults to 1.
-     */
-    int numCpus = 1;
-
-    /**
-     * Comma-separated list of CPUs or CPU ranges to run vCPUs on (e.g. 0,1-3,5), or
-     * colon-separated list of assignments of vCPU to host CPU assignments (e.g. 0=0:1=1:2=2).
-     * Default is no mask which means a vCPU can run on any host CPU.
-     */
-    @nullable String cpuAffinity;
+    /** The vCPU topology that will be generated for the VM. Default to 1 vCPU. */
+    CpuTopology cpuTopology = CpuTopology.ONE_CPU;
 
     /**
      * A version or range of versions of the virtual platform that this config is compatible with.
@@ -68,4 +63,10 @@ parcelable VirtualMachineRawConfig {
      * List of task profile names to apply for the VM
      */
     String[] taskProfiles;
+
+    /**
+     * Port at which crosvm will start a gdb server to debug guest kernel.
+     * If set to zero, then gdb server won't be started.
+     */
+    int gdbPort = 0;
 }

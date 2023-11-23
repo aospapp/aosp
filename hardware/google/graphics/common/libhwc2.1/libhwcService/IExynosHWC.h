@@ -62,20 +62,21 @@ public:
     virtual void getHWCFenceDebug() = 0;
     virtual int setHWCCtl(uint32_t display, uint32_t ctrl, int32_t val) = 0;
 
-    virtual int setDDIScaler(uint32_t width, uint32_t height) = 0;
+    virtual int setDDIScaler(uint32_t display_id, uint32_t width, uint32_t height) = 0;
 
     virtual int32_t setDisplayDeviceMode(int32_t display_id, int32_t mode) = 0;
     virtual int32_t setPanelGammaTableSource(int32_t display_id, int32_t type, int32_t source) = 0;
     virtual void setLbeCtrl(uint32_t display_id, uint32_t state, uint32_t lux) = 0;
-    /*
-    virtual void notifyPSRExit() = 0;
-    */
     virtual int32_t setDisplayBrightness(int32_t display_id, float brightness) = 0;
     virtual int32_t setDisplayLhbm(int32_t display_id, uint32_t on) = 0;
     virtual int32_t setMinIdleRefreshRate(uint32_t display_id, int32_t refresh_rate) = 0;
     virtual int32_t setRefreshRateThrottle(uint32_t display_id, int32_t throttle) = 0;
     virtual int32_t setDisplayRCDLayerEnabled(uint32_t displayIndex, bool enable) = 0;
     virtual int32_t triggerDisplayIdleEnter(uint32_t displayIndex, uint32_t idleTeRefreshRate) = 0;
+    virtual int32_t setDisplayDbm(int32_t display_id, uint32_t on) = 0;
+    virtual int32_t setDisplayMultiThreadedPresent(const int32_t& displayId,
+                                                   const bool& enable) = 0;
+    virtual int32_t triggerRefreshRateIndicatorUpdate(uint32_t displayId, uint32_t refreshRate) = 0;
 };
 
 /* Native Interface */

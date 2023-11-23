@@ -16,6 +16,17 @@ package {
     default_applicable_licenses: ["Android-Apache-2.0"],
 }
 
+java_library {
+    name: "CtsAttentionServiceDevice",
+    srcs: ["src/**/CtsTestAttentionService.java"],
+    static_libs: [
+        "androidx.test.rules",
+        "androidx.test.ext.junit",
+        "compatibility-device-util-axt",
+        "platform-test-annotations",
+    ],
+}
+
 android_test {
     name: "CtsAttentionServiceDeviceTestCases",
     defaults: ["cts_defaults"],
@@ -34,5 +45,5 @@ android_test {
     srcs: ["src/**/*.java"],
     // Tag this module as a cts test artifact
     test_suites: ["cts"],
-//    sdk_version: "system_current",
+    // sdk_version: "system_current",
 }

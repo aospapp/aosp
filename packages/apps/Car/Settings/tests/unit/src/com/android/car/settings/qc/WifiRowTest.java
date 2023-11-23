@@ -219,6 +219,61 @@ public class WifiRowTest extends BaseSettingsQCItemTestCase {
         verify(mWifiManager).setWifiEnabled(true);
     }
 
+    @Test
+    public void getQCItem_createsRow_zoneWrite() {
+        mWifiRow.setAvailabilityStatusForZone("write");
+        String testSSID = "TEST_SSID";
+        when(mWifiManager.isWifiEnabled()).thenReturn(true);
+        when(mWifiManager.getWifiState()).thenReturn(WifiManager.WIFI_STATE_ENABLED);
+        WifiInfo wifiInfo = mock(WifiInfo.class);
+        when(wifiInfo.getSSID()).thenReturn(testSSID);
+        when(wifiInfo.getNetworkId()).thenReturn(1);
+        when(wifiInfo.getRssi()).thenReturn(-90);
+        when(mWifiManager.getConnectionInfo()).thenReturn(wifiInfo);
+        when(mWifiManager.calculateSignalLevel(anyInt())).thenReturn(4);
+        QCRow row = getWifiRow();
+        assertThat(row.getSubtitle()).isEqualTo(testSSID);
+        assertThat(row.getStartIcon().getResId()).isEqualTo(R.drawable.ic_qc_wifi_level_4);
+        QCActionItem actionItem = row.getEndItems().get(0);
+        assertThat(actionItem.isEnabled()).isTrue();
+    }
+
+    @Test
+    public void getQCItem_createsRow_zoneRead() {
+        mWifiRow.setAvailabilityStatusForZone("read");
+        String testSSID = "TEST_SSID";
+        when(mWifiManager.isWifiEnabled()).thenReturn(true);
+        when(mWifiManager.getWifiState()).thenReturn(WifiManager.WIFI_STATE_ENABLED);
+        WifiInfo wifiInfo = mock(WifiInfo.class);
+        when(wifiInfo.getSSID()).thenReturn(testSSID);
+        when(wifiInfo.getNetworkId()).thenReturn(1);
+        when(wifiInfo.getRssi()).thenReturn(-90);
+        when(mWifiManager.getConnectionInfo()).thenReturn(wifiInfo);
+        when(mWifiManager.calculateSignalLevel(anyInt())).thenReturn(4);
+        QCRow row = getWifiRow();
+        assertThat(row.getSubtitle()).isEqualTo(testSSID);
+        assertThat(row.getStartIcon().getResId()).isEqualTo(R.drawable.ic_qc_wifi_level_4);
+        QCActionItem actionItem = row.getEndItems().get(0);
+        assertThat(actionItem.isEnabled()).isFalse();
+        assertThat(actionItem.isClickableWhileDisabled()).isTrue();
+    }
+
+    @Test
+    public void getQCItem_createsRow_zoneHidden() {
+        mWifiRow.setAvailabilityStatusForZone("hidden");
+        String testSSID = "TEST_SSID";
+        when(mWifiManager.isWifiEnabled()).thenReturn(true);
+        when(mWifiManager.getWifiState()).thenReturn(WifiManager.WIFI_STATE_ENABLED);
+        WifiInfo wifiInfo = mock(WifiInfo.class);
+        when(wifiInfo.getSSID()).thenReturn(testSSID);
+        when(wifiInfo.getNetworkId()).thenReturn(1);
+        when(wifiInfo.getRssi()).thenReturn(-90);
+        when(mWifiManager.getConnectionInfo()).thenReturn(wifiInfo);
+        when(mWifiManager.calculateSignalLevel(anyInt())).thenReturn(4);
+        QCItem item = mWifiRow.getQCItem();
+        assertThat(item).isNull();
+    }
+
     private QCRow getWifiRow() {
         QCItem item = mWifiRow.getQCItem();
         assertThat(item).isNotNull();

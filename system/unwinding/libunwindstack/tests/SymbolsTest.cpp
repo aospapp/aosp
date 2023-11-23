@@ -405,9 +405,84 @@ TYPED_TEST_P(SymbolsTest, get_global) {
   EXPECT_FALSE(symbols.GetGlobal<TypeParam>(&this->memory_, "global_2", &offset));
 }
 
+TYPED_TEST_P(SymbolsTest, get_global_overflow) {
+  uint64_t start_offset = UINT64_MAX - 0x1000;
+  uint64_t str_offset = 0xa000;
+  Symbols symbols(start_offset, UINT64_MAX, UINT64_MAX / 4, str_offset, 0x1000);
+
+  TypeParam sym;
+  memset(&sym, 0, sizeof(sym));
+  sym.st_shndx = SHN_COMMON;
+  sym.st_info = STT_OBJECT | (STB_GLOBAL << 4);
+  sym.st_name = 0x100;
+  this->memory_.SetMemory(start_offset, &sym, sizeof(sym));
+  this->memory_.SetMemory(str_offset + 0x100, "global_0");
+
+  uint64_t offset;
+  EXPECT_TRUE(symbols.GetGlobal<TypeParam>(&this->memory_, "global_0", &offset));
+  // Should trigger the overflow.
+  EXPECT_FALSE(symbols.GetGlobal<TypeParam>(&this->memory_, "global_1", &offset));
+}
+
+TYPED_TEST_P(SymbolsTest, get_name_oversized_count) {
+  Symbols symbols(0x1000, UINT64_MAX, sizeof(TypeParam), 0x2000, UINT64_MAX);
+
+  TypeParam sym;
+  this->InitSym(&sym, 0x5000, 0x10, 0x40);
+  uint64_t offset = 0x1000;
+  this->memory_.SetMemory(offset, &sym, sizeof(sym));
+
+  std::string fake_name("fake_function");
+  this->memory_.SetMemory(0x2040, fake_name.c_str(), fake_name.size() + 1);
+
+  SharedString name;
+  uint64_t func_offset;
+  ASSERT_TRUE(symbols.GetName<TypeParam>(0x5000, &this->memory_, &name, &func_offset));
+  ASSERT_EQ("fake_function", name);
+  ASSERT_EQ(0U, func_offset);
+}
+
+TYPED_TEST_P(SymbolsTest, get_name_size_overflow) {
+  Symbols symbols(0x1000, sizeof(TypeParam), sizeof(TypeParam), 0x2000, UINT64_MAX);
+
+  TypeParam sym;
+  this->InitSym(&sym, 0x5000, 0x10, 0x40);
+  uint64_t offset = 0x1000;
+  this->memory_.SetMemory(offset, &sym, sizeof(sym));
+
+  std::string fake_name("fake_function");
+  this->memory_.SetMemory(0x2040, fake_name.c_str(), fake_name.size() + 1);
+
+  SharedString name;
+  uint64_t func_offset;
+  ASSERT_TRUE(symbols.GetName<TypeParam>(0x5000, &this->memory_, &name, &func_offset));
+  ASSERT_EQ("fake_function", name);
+  ASSERT_EQ(0U, func_offset);
+}
+
+TYPED_TEST_P(SymbolsTest, get_name_offset_overflow) {
+  Symbols symbols(UINT64_MAX - 0x1000, UINT64_MAX, UINT64_MAX / 4, 0x2000, 0x100);
+
+  TypeParam sym;
+  this->InitSym(&sym, 0x5000, 0x10, 0x40);
+  uint64_t offset = UINT64_MAX - 0x1000;
+  this->memory_.SetMemory(offset, &sym, sizeof(sym));
+
+  std::string fake_name("fake_function");
+  this->memory_.SetMemory(0x2040, fake_name.c_str(), fake_name.size() + 1);
+
+  SharedString name;
+  uint64_t func_offset;
+  ASSERT_TRUE(symbols.GetName<TypeParam>(0x5000, &this->memory_, &name, &func_offset));
+  ASSERT_EQ("fake_function", name);
+  ASSERT_EQ(0U, func_offset);
+}
+
 REGISTER_TYPED_TEST_SUITE_P(SymbolsTest, function_bounds_check, no_symbol, multiple_entries,
                             multiple_entries_nonstandard_size, symtab_value_out_of_bounds,
-                            symtab_read_cached, get_global, symtab_end_marker);
+                            symtab_read_cached, get_global, get_global_overflow, symtab_end_marker,
+                            get_name_size_overflow, get_name_offset_overflow,
+                            get_name_oversized_count);
 
 typedef ::testing::Types<Elf32_Sym, Elf64_Sym> SymbolsTestTypes;
 INSTANTIATE_TYPED_TEST_SUITE_P(Libunwindstack, SymbolsTest, SymbolsTestTypes);

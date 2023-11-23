@@ -64,6 +64,7 @@ if (defined(use.android) && use.android) {
   group("android_bluetooth_tests") {
     deps = [
       "//bt/system/device:net_test_device",
+      "//bt/system/device:net_test_device_iot_config",
       "//bt/system/hci:net_test_hci",
       "//bt/system/osi:net_test_osi",
       "//bt/system/test/suite:net_test_bluetooth",
@@ -77,6 +78,7 @@ config("target_defaults") {
     "//bt/system/linux_include",
     "//bt/system/types",
     "//bt/system/include",
+    "//bt/system/gd",
 
     # For flatbuffer generated headers
     "${root_gen_dir}/bt/system/gd/",
@@ -103,26 +105,23 @@ config("target_defaults") {
     "-Wno-unknown-warning-option",
     "-Wno-final-dtor-non-final-class",
 
-    string_join("", ["-ffile-prefix-map=", rebase_path(".", "${root_build_dir}", "."), "/= "])
+    string_join("",
+                [
+                  "-ffile-prefix-map=",
+                  rebase_path(".", "${root_build_dir}", "."),
+                  "/= ",
+                ]),
   ]
 
-  cflags_cc = [
-    "-std=c++17",
-  ]
+  cflags_cc = [ "-std=c++17" ]
 
   defines = [
-    "HAS_NO_BDROID_BUILDCFG",
-    "OS_GENERIC",
-    "OS_LINUX_GENERIC",
     "TARGET_FLOSS",
     "EXPORT_SYMBOL=__attribute__((visibility(\"default\")))",
     "FALLTHROUGH_INTENDED=[[clang::fallthrough]]",
-    # TODO(b/214148074): Start with NB, should enable WB.
-    "DISABLE_WBS=TRUE",
-    # TODO(b/214149380): Start with Enhanced Call Status feature supported.
-    # Should enable required features in the future.
-    # This will be consumed by BTA_AgRegister and passed to HF through AT+BRSF.
-    "BTIF_HF_FEATURES=0x00000040"
+    # BTA_AG_FEAT_ECS (Enhanced Call Status 0x040) |
+    # BTA_AG_FEAT_CODEC (Codec Negotiation 0x200)
+    "BTIF_HF_FEATURES=0x00000240",
   ]
 
   if (!(defined(use.bt_nonstandard_codecs) && use.bt_nonstandard_codecs)) {
@@ -130,6 +129,10 @@ config("target_defaults") {
   }
 
   configs = [ ":external_libchrome" ]
+
+  if (target_os == "chromeos") {
+    configs += [ ":external_chromeos" ]
+  }
 }
 
 group("libbt-platform-protos-lite") {
@@ -226,5 +229,16 @@ if (defined(use.bt_nonstandard_codecs) && use.bt_nonstandard_codecs) {
 
   pkg_config("pkg_libldacBT_abr") {
     pkg_deps = [ "ldacBT-abr" ]
+  }
+}
+
+# To include ChroemOS-specific libraries and build dependencies.
+if (target_os == "chromeos") {
+  config("external_chromeos") {
+    configs = [ ":pkgpkg_libstructuredmetrics" ]
+  }
+
+  pkg_config("pkgpkg_libstructuredmetrics") {
+    pkg_deps = [ "libstructuredmetrics" ]
   }
 }

@@ -21,6 +21,7 @@ ATTRIBUTES = "suite:audio_essential"
 # This test doesn't necessarily need to be in a audio box.
 DEPENDENCIES = "audio_box"
 JOB_RETRIES = 1
+PY_VERSION = 3
 
 DOC = """
 This test remotely tests plugged audio nodes for internal cards.

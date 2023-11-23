@@ -24,6 +24,12 @@
         <option name="cleanup-apks" value="true" />
         <option name="test-file-name" value="CtsLegacyNotification30TestCases.apk" />
     </target_preparer>
+    <target_preparer class="com.android.tradefed.targetprep.RunCommandTargetPreparer">
+        <option name="run-command" value="input keyevent KEYCODE_WAKEUP" />
+        <option name="run-command" value="wm dismiss-keyguard" />
+        <option name="run-command" value="settings put secure immersive_mode_confirmations confirmed" />
+        <option name="run-command" value="input keyevent KEYCODE_HOME" />
+    </target_preparer>
     <test class="com.android.tradefed.testtype.AndroidJUnitTest" >
         <option name="package" value="android.app.notification.legacy30.cts" />
         <option name="runtime-hint" value="5m" />

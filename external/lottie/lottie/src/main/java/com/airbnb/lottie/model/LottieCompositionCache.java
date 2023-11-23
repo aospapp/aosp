@@ -18,8 +18,7 @@ public class LottieCompositionCache {
 
   private final LruCache<String, LottieComposition> cache = new LruCache<>(20);
 
-  @VisibleForTesting
-  LottieCompositionCache() {
+  @VisibleForTesting LottieCompositionCache() {
   }
 
   @Nullable
@@ -43,7 +42,7 @@ public class LottieCompositionCache {
 
   /**
    * Set the maximum number of compositions to keep cached in memory.
-   * This must be > 0.
+   * This must be {@literal >} 0.
    */
   public void resize(int size) {
     cache.resize(size);

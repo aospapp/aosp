@@ -1,15 +1,15 @@
-.TH CAP_COPY_EXT 3 "2008-05-11" "" "Linux Programmer's Manual"
+.TH CAP_COPY_EXT 3 "2021-03-06" "" "Linux Programmer's Manual"
 .SH NAME
 cap_copy_ext, cap_size, cap_copy_int \- capability state
 external representation translation
 .SH SYNOPSIS
-.B #include <sys/capability.h>
-.sp
-.BI "ssize_t cap_size(cap_t " cap_p );
-.sp
-.BI "ssize_t cap_copy_ext(void *" ext_p ", cap_t " cap_p ", ssize_t " size );
-.sp
-.BI "cap_t cap_copy_int(const void *" ext_p );
+.nf
+#include <sys/capability.h>
+
+ssize_t cap_size(cap_t cap_p);
+ssize_t cap_copy_ext(void *ext_p, cap_t cap_p, ssize_t size);
+cap_t cap_copy_int(const void * ext_p);
+.fi
 .sp
 Link with \fI\-lcap\fP.
 .SH DESCRIPTION

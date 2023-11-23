@@ -31,11 +31,9 @@ _TEST_CLASSES_LIST = [
 ]
 
 
-def _valid_argument(arg: str) -> bool:
-    return arg.startswith(('--config', '-c', '--tests', '--test_case'))
-
-
 if __name__ == '__main__':
     logging.basicConfig(filename=_BOOTSTRAP_LOGGING_FILENAME, level=logging.INFO)
-    suite_runner.run_suite(argv=[arg for arg in sys.argv if _valid_argument(arg)],
-                           test_classes=_TEST_CLASSES_LIST)
+    if '--' in sys.argv:
+        index = sys.argv.index('--')
+        sys.argv = sys.argv[:1] + sys.argv[index + 1:]
+    suite_runner.run_suite(test_classes=_TEST_CLASSES_LIST)

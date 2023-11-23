@@ -136,7 +136,7 @@
     <string name="notification_multiple_title" msgid="1523638925739947855">"新警示"</string>
     <string name="show_cmas_opt_out_summary" msgid="6926059266585295440">"首個警示出現後顯示停用對話框 (國家級警示除外)。"</string>
     <string name="show_cmas_opt_out_title" msgid="9182104842820171132">"顯示停用對話框"</string>
-    <string name="cmas_opt_out_dialog_text" msgid="4820577535626084938">"您目前有接收無線緊急警示，要繼續接收嗎？"</string>
+    <string name="cmas_opt_out_dialog_text" msgid="4820577535626084938">"你目前有接收無線緊急警示，要繼續接收嗎？"</string>
     <string name="cmas_opt_out_button_yes" msgid="7248930667195432936">"是"</string>
     <string name="cmas_opt_out_button_no" msgid="3110484064328538553">"否"</string>
     <string name="cb_list_activity_title" msgid="1433502151877791724">"緊急警示記錄"</string>
@@ -170,7 +170,7 @@
     <string name="seconds" msgid="141450721520515025">"秒"</string>
     <string name="message_copied" msgid="6922953753733166675">"已複製訊息"</string>
     <string name="top_intro_default_text" msgid="1922926733152511202"></string>
-    <string name="top_intro_roaming_text" msgid="186872150397081032">"漫遊時，您可能接收不包括在這些設定中的部分警示。"</string>
+    <string name="top_intro_roaming_text" msgid="186872150397081032">"漫遊時，你可能接收不包括在這些設定中的部分警示。"</string>
     <string name="notification_cb_settings_changed_title" msgid="7664799881479966932">"流動網絡供應商已變更設定"</string>
     <string name="notification_cb_settings_changed_text" msgid="1397646219615654933">"輕按以查看無線緊急警示設定"</string>
 </resources>

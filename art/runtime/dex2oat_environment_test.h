@@ -21,8 +21,6 @@
 #include <string>
 #include <vector>
 
-#include <gtest/gtest.h>
-
 #include "base/file_utils.h"
 #include "base/os.h"
 #include "base/stl_util.h"
@@ -34,28 +32,26 @@
 #include "exec_utils.h"
 #include "gc/heap.h"
 #include "gc/space/image_space.h"
+#include "gtest/gtest.h"
 #include "oat_file_assistant.h"
 #include "runtime.h"
+#include "ziparchive/zip_writer.h"
 
 namespace art {
 
 static constexpr bool kDebugArgs = false;
 
-// Test class that provides some helpers to set a test up for compilation using dex2oat.
-class Dex2oatEnvironmentTest : public CommonRuntimeTest {
+class Dex2oatScratchDirs {
  public:
-  void SetUp() override {
-    CommonRuntimeTest::SetUp();
-    const ArtDexFileLoader dex_file_loader;
-
+  void SetUp(const std::string& android_data) {
     // Create a scratch directory to work from.
 
     // Get the realpath of the android data. The oat dir should always point to real location
     // when generating oat files in dalvik-cache. This avoids complicating the unit tests
     // when matching the expected paths.
-    UniqueCPtr<const char[]> android_data_real(realpath(android_data_.c_str(), nullptr));
+    UniqueCPtr<const char[]> android_data_real(realpath(android_data.c_str(), nullptr));
     ASSERT_TRUE(android_data_real != nullptr)
-      << "Could not get the realpath of the android data" << android_data_ << strerror(errno);
+        << "Could not get the realpath of the android data" << android_data << strerror(errno);
 
     scratch_dir_.assign(android_data_real.get());
     scratch_dir_ += "/Dex2oatEnvironmentTest";
@@ -67,6 +63,39 @@ class Dex2oatEnvironmentTest : public CommonRuntimeTest {
 
     odex_dir_ = odex_oat_dir_ + "/" + std::string(GetInstructionSetString(kRuntimeISA));
     ASSERT_EQ(0, mkdir(odex_dir_.c_str(), 0700));
+  }
+
+  void TearDown() {
+    CommonArtTest::ClearDirectory(odex_dir_.c_str());
+    ASSERT_EQ(0, rmdir(odex_dir_.c_str()));
+
+    CommonArtTest::ClearDirectory(odex_oat_dir_.c_str());
+    ASSERT_EQ(0, rmdir(odex_oat_dir_.c_str()));
+
+    CommonArtTest::ClearDirectory(scratch_dir_.c_str());
+    ASSERT_EQ(0, rmdir(scratch_dir_.c_str()));
+  }
+
+  // Scratch directory, for dex and odex files (oat files will go in the
+  // dalvik cache).
+  const std::string& GetScratchDir() const { return scratch_dir_; }
+
+  // Odex directory is the subdirectory in the scratch directory where odex
+  // files should be located.
+  const std::string& GetOdexDir() const { return odex_dir_; }
+
+ private:
+  std::string scratch_dir_;
+  std::string odex_oat_dir_;
+  std::string odex_dir_;
+};
+
+// Test class that provides some helpers to set a test up for compilation using dex2oat.
+class Dex2oatEnvironmentTest : public Dex2oatScratchDirs, public CommonRuntimeTest {
+ public:
+  void SetUp() override {
+    CommonRuntimeTest::SetUp();
+    Dex2oatScratchDirs::SetUp(android_data_);
 
     // Verify the environment is as we expect
     std::vector<uint32_t> checksums;
@@ -78,10 +107,9 @@ class Dex2oatEnvironmentTest : public CommonRuntimeTest {
       << "Expected dex file to be at: " << GetDexSrc1();
     ASSERT_TRUE(OS::FileExists(GetResourceOnlySrc1().c_str()))
       << "Expected stripped dex file to be at: " << GetResourceOnlySrc1();
-    ASSERT_FALSE(
-        dex_file_loader.GetMultiDexChecksums(
-            GetResourceOnlySrc1().c_str(), &checksums, &dex_locations, &error_msg))
-      << "Expected stripped dex file to be stripped: " << GetResourceOnlySrc1();
+    ASSERT_TRUE(ArtDexFileLoader::GetMultiDexChecksums(
+        GetResourceOnlySrc1().c_str(), &checksums, &dex_locations, &error_msg))
+        << "Expected stripped dex file to be stripped: " << GetResourceOnlySrc1();
     ASSERT_TRUE(OS::FileExists(GetDexSrc2().c_str()))
       << "Expected dex file to be at: " << GetDexSrc2();
 
@@ -89,21 +117,15 @@ class Dex2oatEnvironmentTest : public CommonRuntimeTest {
     // GetMultiDexSrc1, but a different secondary dex checksum.
     static constexpr bool kVerifyChecksum = true;
     std::vector<std::unique_ptr<const DexFile>> multi1;
-    ASSERT_TRUE(dex_file_loader.Open(GetMultiDexSrc1().c_str(),
-                                     GetMultiDexSrc1().c_str(),
-                                     /* verify= */ true,
-                                     kVerifyChecksum,
-                                     &error_msg,
-                                     &multi1)) << error_msg;
+    ArtDexFileLoader dex_file_loader1(GetMultiDexSrc1());
+    ASSERT_TRUE(dex_file_loader1.Open(/* verify= */ true, kVerifyChecksum, &error_msg, &multi1))
+        << error_msg;
     ASSERT_GT(multi1.size(), 1u);
 
     std::vector<std::unique_ptr<const DexFile>> multi2;
-    ASSERT_TRUE(dex_file_loader.Open(GetMultiDexSrc2().c_str(),
-                                     GetMultiDexSrc2().c_str(),
-                                     /* verify= */ true,
-                                     kVerifyChecksum,
-                                     &error_msg,
-                                     &multi2)) << error_msg;
+    ArtDexFileLoader dex_file_loader2(GetMultiDexSrc2());
+    ASSERT_TRUE(dex_file_loader2.Open(/* verify= */ true, kVerifyChecksum, &error_msg, &multi2))
+        << error_msg;
     ASSERT_GT(multi2.size(), 1u);
 
     ASSERT_EQ(multi1[0]->GetLocationChecksum(), multi2[0]->GetLocationChecksum());
@@ -122,15 +144,7 @@ class Dex2oatEnvironmentTest : public CommonRuntimeTest {
   }
 
   void TearDown() override {
-    ClearDirectory(odex_dir_.c_str());
-    ASSERT_EQ(0, rmdir(odex_dir_.c_str()));
-
-    ClearDirectory(odex_oat_dir_.c_str());
-    ASSERT_EQ(0, rmdir(odex_oat_dir_.c_str()));
-
-    ClearDirectory(scratch_dir_.c_str());
-    ASSERT_EQ(0, rmdir(scratch_dir_.c_str()));
-
+    Dex2oatScratchDirs::TearDown();
     CommonRuntimeTest::TearDown();
   }
 
@@ -155,6 +169,10 @@ class Dex2oatEnvironmentTest : public CommonRuntimeTest {
     return GetTestDexFileName("MultiDex");
   }
 
+  std::string GetMultiDexUncompressedAlignedSrc1() const {
+    return GetTestDexFileName("MultiDexUncompressedAligned");
+  }
+
   // Returns the path to a multidex file equivalent to GetMultiDexSrc2, but
   // with the contents of the secondary dex file changed.
   std::string GetMultiDexSrc2() const {
@@ -163,18 +181,6 @@ class Dex2oatEnvironmentTest : public CommonRuntimeTest {
 
   std::string GetDexSrc2() const {
     return GetTestDexFileName("Nested");
-  }
-
-  // Scratch directory, for dex and odex files (oat files will go in the
-  // dalvik cache).
-  const std::string& GetScratchDir() const {
-    return scratch_dir_;
-  }
-
-  // Odex directory is the subdirectory in the scratch directory where odex
-  // files should be located.
-  const std::string& GetOdexDir() const {
-    return odex_dir_;
   }
 
   int Dex2Oat(const std::vector<std::string>& dex2oat_args,
@@ -233,10 +239,22 @@ class Dex2oatEnvironmentTest : public CommonRuntimeTest {
     return res.status_code;
   }
 
- private:
-  std::string scratch_dir_;
-  std::string odex_oat_dir_;
-  std::string odex_dir_;
+  void CreateDexMetadata(const std::string& vdex, const std::string& out_dm) {
+    // Read the vdex bytes.
+    std::unique_ptr<File> vdex_file(OS::OpenFileForReading(vdex.c_str()));
+    std::vector<uint8_t> data(vdex_file->GetLength());
+    ASSERT_TRUE(vdex_file->ReadFully(data.data(), data.size()));
+
+    // Zip the content.
+    FILE* file = fopen(out_dm.c_str(), "wbe");
+    ZipWriter writer(file);
+    writer.StartEntry("primary.vdex", ZipWriter::kAlign32);
+    writer.WriteBytes(data.data(), data.size());
+    writer.FinishEntry();
+    writer.Finish();
+    fflush(file);
+    fclose(file);
+  }
 };
 
 }  // namespace art

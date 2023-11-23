@@ -39,8 +39,6 @@ struct mp {
 
 static void setup(void)
 {
-	if (tst_hugepages != test.request_hugepages)
-		tst_brk(TCONF, "System RAM is not enough to test.");
 	hpage_size = SAFE_READ_MEMINFO("Hugepagesize:") * 1024;
 }
 
@@ -116,13 +114,12 @@ static void do_mmap(unsigned int j LTP_ATTRIBUTE_UNUSED)
 }
 
 static struct tst_test test = {
-	.min_kver = "2.6.32",
 	.needs_root = 1,
 	.tcnt = LOOP,
 	.needs_tmpdir = 1,
 	.test = do_mmap,
 	.setup = setup,
-	.request_hugepages = (ARSZ + 1) * LOOP,
+	.hugepages = {(ARSZ + 1) * LOOP, TST_NEEDS},
 	.tags = (const struct tst_tag[]) {
 		{"linux-git", "f522c3ac00a4"},
 		{"linux-git", "9119a41e9091"},

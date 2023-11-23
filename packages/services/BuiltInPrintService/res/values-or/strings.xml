@@ -50,7 +50,7 @@
     <string name="wifi_direct" msgid="4629404342852294985">"ୱାଇ-ଫାଇ ଡାଇରେକ୍ଟ"</string>
     <string name="find_wifi_direct" msgid="5270504288829123954">"ୱାଇ-ଫାଇ ଡାଇରେକ୍ଟ ପ୍ରିଣ୍ଟର୍‌ ଖୋଜନ୍ତୁ"</string>
     <string name="wifi_direct_printing" msgid="8423811041563144048">"ୱାଇ-ଫାଇ ଡାଇରେକ୍ଟ ପ୍ରିଣ୍ଟିଂ"</string>
-    <string name="wifi_direct_printers" msgid="541168032444693191">"ୱାଇ-ଫାଇ ଡାଇରେକ୍ଟ ପ୍ରିଣ୍ଟର୍"</string>
+    <string name="wifi_direct_printers" msgid="541168032444693191">"ୱାଇ-ଫାଇ ଡାଇରେକ୍ଟ ପ୍ରିଣ୍ଟର"</string>
     <string name="searching" msgid="2114018057619514587">"ଖୋଜୁଛି…"</string>
     <string name="connect_hint_text" msgid="587112503851044234">"ପ୍ରିଣ୍ଟର୍‌ର ସାମ୍ନା ପ୍ୟାନେଲ୍‌ରୁ ଆପଣ ଏହି କନେକ୍ସନ୍‌କୁ ଅନୁମୋଦନ କରିପାରିବେ"</string>
     <string name="connecting_to" msgid="2665161014972086194">"<xliff:g id="PRINTER">%1$s</xliff:g> ସହିତ କନେକ୍ଟ ହେଉଛି"</string>

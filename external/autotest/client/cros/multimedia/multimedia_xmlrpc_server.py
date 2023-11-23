@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python
 # Copyright (c) 2013 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -10,6 +10,7 @@ import code
 import logging
 import os
 import six.moves.xmlrpc_client
+import sys
 import traceback
 
 import common   # pylint: disable=unused-import
@@ -18,19 +19,22 @@ from autotest_lib.client.common_lib import logging_config
 from autotest_lib.client.cros import constants
 from autotest_lib.client.cros import upstart
 from autotest_lib.client.cros import xmlrpc_server
-from autotest_lib.client.cros.multimedia import assistant_facade_native
-from autotest_lib.client.cros.multimedia import audio_facade_native
-from autotest_lib.client.cros.multimedia import bluetooth_facade_native
-from autotest_lib.client.cros.multimedia import browser_facade_native
-from autotest_lib.client.cros.multimedia import cfm_facade_native
-from autotest_lib.client.cros.multimedia import display_facade_native
+from autotest_lib.client.cros.multimedia import assistant_facade
+from autotest_lib.client.cros.multimedia import audio_facade
+from autotest_lib.client.cros.multimedia import browser_facade
+from autotest_lib.client.cros.multimedia import cfm_facade
+from autotest_lib.client.cros.multimedia import display_facade
 from autotest_lib.client.cros.multimedia import facade_resource
-from autotest_lib.client.cros.multimedia import graphics_facade_native
-from autotest_lib.client.cros.multimedia import input_facade_native
-from autotest_lib.client.cros.multimedia import kiosk_facade_native
-from autotest_lib.client.cros.multimedia import system_facade_native
-from autotest_lib.client.cros.multimedia import usb_facade_native
-from autotest_lib.client.cros.multimedia import video_facade_native
+from autotest_lib.client.cros.multimedia import graphics_facade
+from autotest_lib.client.cros.multimedia import input_facade
+from autotest_lib.client.cros.multimedia import kiosk_facade
+from autotest_lib.client.cros.multimedia import system_facade
+from autotest_lib.client.cros.multimedia import usb_facade
+from autotest_lib.client.cros.multimedia import video_facade
+
+# Python3 required for the following:
+if sys.version_info[0] >= 3:
+    from autotest_lib.client.cros.multimedia import bluetooth_facade
 
 
 class MultimediaXmlRpcDelegate(xmlrpc_server.XmlRpcDelegate):
@@ -50,47 +54,53 @@ class MultimediaXmlRpcDelegate(xmlrpc_server.XmlRpcDelegate):
 
         self._facades = {
                 'assistant':
-                assistant_facade_native.AssistantFacadeNative(resource),
+                assistant_facade.AssistantFacadeLocal(resource),
                 'audio':
-                audio_facade_native.AudioFacadeNative(resource,
+                audio_facade.AudioFacadeLocal(resource,
                                                       arc_resource=arc_res),
-                'bluetooth':
-                bluetooth_facade_native.BluetoothFacadeNative(),
                 'video':
-                video_facade_native.VideoFacadeNative(resource,
+                video_facade.VideoFacadeLocal(resource,
                                                       arc_resource=arc_res),
                 'display':
-                display_facade_native.DisplayFacadeNative(resource),
+                display_facade.DisplayFacadeLocal(resource),
                 'system':
-                system_facade_native.SystemFacadeNative(),
+                system_facade.SystemFacadeLocal(),
                 'usb':
-                usb_facade_native.USBFacadeNative(),
+                usb_facade.USBFacadeLocal(),
                 'browser':
-                browser_facade_native.BrowserFacadeNative(resource),
+                browser_facade.BrowserFacadeLocal(resource),
                 'input':
-                input_facade_native.InputFacadeNative(),
+                input_facade.InputFacadeLocal(),
                 'cfm_main_screen':
-                cfm_facade_native.CFMFacadeNative(resource, 'hotrod'),
+                cfm_facade.CFMFacadeLocal(resource, 'hotrod'),
                 'cfm_mimo_screen':
-                cfm_facade_native.CFMFacadeNative(resource, 'control'),
+                cfm_facade.CFMFacadeLocal(resource, 'control'),
                 'kiosk':
-                kiosk_facade_native.KioskFacadeNative(resource),
+                kiosk_facade.KioskFacadeLocal(resource),
                 'graphics':
-                graphics_facade_native.GraphicsFacadeNative()
+                graphics_facade.GraphicsFacadeLocal()
         }
 
+        # Limit some facades to python3
+        if sys.version_info[0] >= 3:
+            self._facades[
+                    'bluetooth'] = bluetooth_facade.BluezFacadeLocal()
+            self._facades['floss'] = bluetooth_facade.FlossFacadeLocal(
+            )
 
     def __exit__(self, exception, value, traceback):
         """Clean up the resources."""
         self._facades['audio'].cleanup()
 
+        if 'floss' in self._facades:
+            self._facades['floss'].cleanup()
 
     def _dispatch(self, method, params):
         """Dispatches the method to the proper facade.
 
         We turn off allow_dotted_names option. The method handles the dot
         and dispatches the method to the proper native facade, like
-        DisplayFacadeNative.
+        DisplayFacadeLocal.
 
         """
         try:

@@ -67,6 +67,11 @@ public final class TestAppActivitiesQueryBuilder implements Queryable {
     }
 
     @Override
+    public boolean isEmptyQuery() {
+        return Queryable.isEmptyQuery(mActivity);
+    }
+
+    @Override
     public String describeQuery(String fieldName) {
         return "{" + Queryable.joinQueryStrings(
                 mActivity.describeQuery("activity")

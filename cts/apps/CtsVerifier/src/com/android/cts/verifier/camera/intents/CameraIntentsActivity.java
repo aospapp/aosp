@@ -355,7 +355,7 @@ implements OnClickListener, SurfaceHolder.Callback {
         catch(IntentFilter.MalformedMimeTypeException e) {
             Log.e(TAG, "Caught exceptione e " + e.toString());
         }
-        registerReceiver(mReceiver, mFilterPicture);
+        registerReceiver(mReceiver, mFilterPicture, Context.RECEIVER_EXPORTED);
     }
 
     @Override

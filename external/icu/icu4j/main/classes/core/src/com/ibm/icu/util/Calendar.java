@@ -1595,6 +1595,25 @@ public abstract class Calendar implements Serializable, Cloneable, Comparable<Ca
         // week data
         setWeekData(getRegionForCalendar(locale));
 
+        // Check if the locale has a "fw" u extension and we honor it if present.
+        String fw = locale.getKeywordValue("fw");
+        if (fw != null) {
+            int fwOverride;
+            switch (fw) {
+                case "sun": fwOverride = SUNDAY; break;
+                case "mon": fwOverride = MONDAY; break;
+                case "tue": fwOverride = TUESDAY; break;
+                case "wed": fwOverride = WEDNESDAY; break;
+                case "thu": fwOverride = THURSDAY; break;
+                case "fri": fwOverride = FRIDAY; break;
+                case "sat": fwOverride = SATURDAY; break;
+                default: fwOverride = -1;
+            }
+            if (fwOverride != -1) {
+                setFirstDayOfWeek(fwOverride);
+            }
+        }
+
         // set valid/actual locale
         setCalendarLocale(locale);
 
@@ -3498,17 +3517,23 @@ public abstract class Calendar implements Serializable, Cloneable, Comparable<Ca
     // date format pattern cache
     private static final ICUCache<String, PatternData> PATTERN_CACHE =
             new SimpleCache<>();
-    // final fallback patterns
+    // final fallback patterns (match current root)
     private static final String[] DEFAULT_PATTERNS = {
         "HH:mm:ss z",
         "HH:mm:ss z",
         "HH:mm:ss",
         "HH:mm",
-        "EEEE, yyyy MMMM dd",
-        "yyyy MMMM d",
-        "yyyy MMM d",
-        "yy/MM/dd",
+        "y MMMM d, EEEE",
+        "y MMMM d",
+        "y MMM d",
+        "y-MM-dd",
         "{1} {0}",
+        "{1} {0}",
+        "{1} {0}",
+        "{1} {0}",
+        "{1} {0}"
+    };
+    private static final String[] DEFAULT_ATTIME_PATTERNS = {
         "{1} {0}",
         "{1} {0}",
         "{1} {0}",
@@ -3538,7 +3563,7 @@ public abstract class Calendar implements Serializable, Cloneable, Comparable<Ca
         String pattern = null;
         if ((timeStyle >= 0) && (dateStyle >= 0)) {
             pattern = SimpleFormatterImpl.formatRawPattern(
-                    patternData.getDateTimePattern(dateStyle), 2, 2,
+                    patternData.getDateAtTimePattern(dateStyle), 2, 2,
                     patternData.patterns[timeStyle],
                     patternData.patterns[dateStyle + 4]);
             // Might need to merge the overrides from the date and time into a single
@@ -3601,7 +3626,7 @@ public abstract class Calendar implements Serializable, Cloneable, Comparable<Ca
         String pattern = null;
         if ((timeStyle >= 0) && (dateStyle >= 0)) {
             pattern = SimpleFormatterImpl.formatRawPattern(
-                    patternData.getDateTimePattern(dateStyle), 2, 2,
+                    patternData.getDateAtTimePattern(dateStyle), 2, 2,
                     patternData.patterns[timeStyle],
                     patternData.patterns[dateStyle + 4]);
         } else if (timeStyle >= 0) {
@@ -3619,9 +3644,11 @@ public abstract class Calendar implements Serializable, Cloneable, Comparable<Ca
         // TODO make this even more object oriented
         private String[] patterns;
         private String[] overrides;
-        public PatternData(String[] patterns, String[] overrides) {
+        private String[] atTimePatterns;
+        public PatternData(String[] patterns, String[] overrides, String[] atTimePatterns) {
             this.patterns = patterns;
             this.overrides = overrides;
+            this.atTimePatterns = atTimePatterns;
         }
         private String getDateTimePattern(int dateStyle) {
             int glueIndex = 8;
@@ -3630,6 +3657,14 @@ public abstract class Calendar implements Serializable, Cloneable, Comparable<Ca
             }
             final String dateTimePattern = patterns[glueIndex];
             return dateTimePattern;
+        }
+        private String getDateAtTimePattern(int dateStyle) {
+            if (atTimePatterns != null && atTimePatterns.length >= 4) {
+                final String dateTimePattern = atTimePatterns[dateStyle];
+                return dateTimePattern;
+            } else {
+                return getDateTimePattern(dateStyle);
+            }
         }
         private static PatternData make(Calendar cal, ULocale loc) {
             // Android patch (http://b/28832222) start.
@@ -3645,7 +3680,7 @@ public abstract class Calendar implements Serializable, Cloneable, Comparable<Ca
                 try {
                     patternData = getPatternData(loc, calType);
                 } catch (MissingResourceException e) {
-                    patternData = new PatternData(DEFAULT_PATTERNS, null);
+                    patternData = new PatternData(DEFAULT_PATTERNS, null, DEFAULT_ATTIME_PATTERNS);
                 }
                 PATTERN_CACHE.put(key, patternData);
             }
@@ -3715,7 +3750,26 @@ public abstract class Calendar implements Serializable, Cloneable, Comparable<Ca
                     break;
             }
         }
-        return new PatternData(dateTimePatterns, dateTimePatternsOverrides);
+
+        dtPatternsRb = rb.findWithFallback("calendar/" + calType + "/DateTimePatterns%atTime");
+        if (dtPatternsRb == null) {
+            dtPatternsRb = rb.findWithFallback("calendar/gregorian/DateTimePatterns%atTime");
+        }
+        String[] atTimePatterns = null;
+        if (dtPatternsRb != null) {
+            patternsSize = dtPatternsRb.getSize();
+            atTimePatterns = new String[patternsSize];
+            if (patternsSize >= 4) {
+                for (i = 0; i < 4; i++) {
+                    ICUResourceBundle concatenationPatternRb = (ICUResourceBundle) dtPatternsRb.get(i);
+                    if (concatenationPatternRb.getType() == UResourceBundle.STRING) {
+                        atTimePatterns[i] = concatenationPatternRb.getString();
+                    }
+                }
+            }
+       }
+
+        return new PatternData(dateTimePatterns, dateTimePatternsOverrides, atTimePatterns);
     }
 
     /**
@@ -3726,6 +3780,16 @@ public abstract class Calendar implements Serializable, Cloneable, Comparable<Ca
     public static String getDateTimePattern(Calendar cal, ULocale uLocale, int dateStyle) {
         PatternData patternData = PatternData.make(cal, uLocale);
         return patternData.getDateTimePattern(dateStyle);
+    }
+
+    /**
+     * @internal
+     * @deprecated This API is ICU internal only.
+     */
+    @Deprecated
+    public static String getDateAtTimePattern(Calendar cal, ULocale uLocale, int dateStyle) {
+        PatternData patternData = PatternData.make(cal, uLocale);
+        return patternData.getDateAtTimePattern(dateStyle);
     }
 
     private static String mergeOverrideStrings( String datePattern, String timePattern,
@@ -4386,8 +4450,8 @@ public abstract class Calendar implements Serializable, Cloneable, Comparable<Ca
         {           0,            0,            59,            59  }, // MINUTE
         {           0,            0,            59,            59  }, // SECOND
         {           0,            0,           999,           999  }, // MILLISECOND
-        {-12*ONE_HOUR, -12*ONE_HOUR,   12*ONE_HOUR,   12*ONE_HOUR  }, // ZONE_OFFSET
-        {           0,            0,    1*ONE_HOUR,    1*ONE_HOUR  }, // DST_OFFSET
+        {-16*ONE_HOUR, -16*ONE_HOUR,   12*ONE_HOUR,   30*ONE_HOUR  }, // ZONE_OFFSET
+        {           0,            0,    2*ONE_HOUR,    2*ONE_HOUR  }, // DST_OFFSET
         {/*                                                      */}, // YEAR_WOY
         {           1,            1,             7,             7  }, // DOW_LOCAL
         {/*                                                      */}, // EXTENDED_YEAR

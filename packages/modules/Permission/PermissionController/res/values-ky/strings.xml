@@ -23,6 +23,8 @@
     <string name="back" msgid="6249950659061523680">"Артка"</string>
     <string name="available" msgid="6007778121920339498">"Жеткиликтүү"</string>
     <string name="blocked" msgid="9195547604866033708">"Бөгөттөлдү"</string>
+    <string name="on" msgid="280241003226755921">"Күйүк"</string>
+    <string name="off" msgid="1438489226422866263">"Өчүк"</string>
     <string name="uninstall_or_disable" msgid="4496612999740858933">"Чыгарып салуу же өчүрүү"</string>
     <string name="app_not_found_dlg_title" msgid="6029482906093859756">"Колдонмо табылган жок"</string>
     <string name="grant_dialog_button_deny" msgid="88262611492697192">"Жок"</string>
@@ -30,6 +32,11 @@
     <string name="grant_dialog_button_no_upgrade" msgid="8344732743633736625">"\"Колдонмо колдонулуп жатканда\" режими кала берсин"</string>
     <string name="grant_dialog_button_no_upgrade_one_time" msgid="5125892775684968694">"\"Ушул жолу гана\" жөндөөсү калсын"</string>
     <string name="grant_dialog_button_more_info" msgid="213350268561945193">"Дагы маалымат"</string>
+    <string name="grant_dialog_button_allow_all" msgid="5939066403732409516">"Баарына уруксат берүү"</string>
+    <string name="grant_dialog_button_always_allow_all" msgid="1719900027660252167">"Ар дайым баарына уруксат берүү"</string>
+    <string name="grant_dialog_button_allow_selected_photos" msgid="5497042471576153842">"Сүрөттөрдү жана видеолорду тандаңыз"</string>
+    <string name="grant_dialog_button_allow_more_selected_photos" msgid="5145657877588697709">"Дагы тандоо"</string>
+    <string name="grant_dialog_button_dont_select_more" msgid="6643552729129461268">"Башка тандалбасын"</string>
     <string name="grant_dialog_button_deny_anyway" msgid="7225905870668915151">"Баары бир тыюу салуу"</string>
     <string name="grant_dialog_button_dismiss" msgid="1930399742250226393">"Жабуу"</string>
     <string name="current_permission_template" msgid="7452035392573329375">"<xliff:g id="PERMISSION_COUNT">%2$s</xliff:g> уруксаттын ичинен <xliff:g id="CURRENT_PERMISSION_INDEX">%1$s</xliff:g>"</string>
@@ -53,12 +60,12 @@
     <string name="app_permissions_breadcrumb" msgid="5136969550489411650">"Колдонмолор"</string>
     <string name="app_permissions" msgid="3369917736607944781">"Колдонмонун уруксаттары"</string>
     <string name="unused_apps" msgid="2058057455175955094">"Колдонулбаган колдонмолор"</string>
-    <string name="no_unused_apps" msgid="12809387670415295">"Бардык колдонмолор иштетилүүдө"</string>
+    <string name="no_unused_apps" msgid="12809387670415295">"Бардык колдонмолор колдонулууда"</string>
     <string name="zero_unused_apps" msgid="9024448554157499748">"Колдонулбаган колдонмолор: 0"</string>
     <string name="review_permission_decisions" msgid="309559429150613632">"Уруксаттарга байланыштуу аракеттер"</string>
-    <string name="review_permission_decisions_view_all" msgid="90391040431566130">"Уруксаттар боюнча алынган бардык соңку чечимдерди көрүү"</string>
-    <string name="review_permission_decisions_empty" msgid="8120775336417279806">"Уруксаттар боюнча соңку алынган чечимдер жок"</string>
-    <string name="auto_permission_manager_summary" msgid="9157438376234301354">"Жылнаамадагы, чалуулар тизмесиндеги ж.б. маалыматты көрүү мүмкүнчүлүгүн башкаруу"</string>
+    <string name="review_permission_decisions_view_all" msgid="90391040431566130">"Уруксаттар боюнча көрүлгөн соңку аракеттер"</string>
+    <string name="review_permission_decisions_empty" msgid="8120775336417279806">"Уруксаттар боюнча эч кандай аракет көрүлө элек"</string>
+    <string name="auto_permission_manager_summary" msgid="9157438376234301354">"Жылнаамадагы, чалуулар тизмесиндеги ж.б. маалыматты көрүү мүмкүнчүлүгүн тескейсиз"</string>
     <string name="granted_permission_decision" msgid="7824827491551861365">"<xliff:g id="APP_NAME">%1$s</xliff:g> колдонмосуна төмөнкүгө уруксат бердиңиз: <xliff:g id="PERMISSION_NAME">%2$s</xliff:g>"</string>
     <string name="denied_permission_decision" msgid="5308961501779563781">"<xliff:g id="APP_NAME">%1$s</xliff:g> колдонмосуна төмөнкүгө өтүүгө тыюу салдыңыз: <xliff:g id="PERMISSION_NAME">%2$s</xliff:g>"</string>
     <string name="days_ago" msgid="6650359081551335629">"{count,plural, =0{Бүгүн}=1{1 күн мурун}other{# күн мурун}}"</string>
@@ -82,8 +89,8 @@
     <string name="menu_show_24_hours_data" msgid="8228054833323380780">"24 саатты көрсөтүү"</string>
     <string name="manage_permission" msgid="2895385393037061964">"Уруксатты башкаруу"</string>
     <string name="no_apps" msgid="2412612731628386816">"Бир да колдонмо жок"</string>
-    <string name="location_settings" msgid="3624412509133422562">"Жайгашкан жерди аныктоо жөндөөлөрү"</string>
-    <string name="location_warning" msgid="2381649060929040962">"<xliff:g id="APP_NAME">%1$s</xliff:g> - бул түзмөктөгү жайгашкан жерди аныктоо кызматынын жабдуучусу. Жайгашкан жерди көрүү мүмкүнчүлүгүн жайгашкан жерди аныктоо жөндөөлөрүнөн өзгөртсө болот."</string>
+    <string name="location_settings" msgid="3624412509133422562">"Жайгашкан жерди аныктоо параметрлери"</string>
+    <string name="location_warning" msgid="2381649060929040962">"<xliff:g id="APP_NAME">%1$s</xliff:g> - бул түзмөктөгү жайгашкан жерди аныктоо кызматынын жабдуучусу. Жайгашкан жерди көрүү мүмкүнчүлүгүн жайгашкан жерди аныктоо параметрлеринен өзгөртсө болот."</string>
     <string name="system_warning" msgid="1173400963234358816">"Эгер бул уруксатты четке каксаңыз, түзмөгүңүздүн негизги функциялары талаптагыдай иштебей калышы мүмкүн."</string>
     <string name="deny_read_media_visual_warning" msgid="3982586279917232827">"Бул колдонмо эски Android версиясы үчүн түзүлгөн. Эгер бул колдонмого сүрөттөр менен видеолорду колдонууга тыюу салсаңыз, музыка менен башка аудио файлдарды да колдонууга мүмкүн болбой калат."</string>
     <string name="deny_read_media_aural_warning" msgid="8928699919508646732">"Бул колдонмо эски Android версиясы үчүн түзүлгөн. Эгер бул колдонмого музыка менен башка аудио файлдарды колдонууга тыюу салсаңыз, сүрөттөр менен видеолорду да колдонууга мүмкүн болбой калат."</string>
@@ -107,9 +114,6 @@
     <string name="all_permissions" msgid="6911125611996872522">"Бардык уруксаттар"</string>
     <string name="other_permissions" msgid="2901186127193849594">"Колдонмонун башка мүмкүнчүлүктөрү"</string>
     <string name="permission_request_title" msgid="8790310151025020126">"Уруксат суроо"</string>
-    <string name="screen_overlay_title" msgid="6977038513913222078">"Колдонмонун үстүнө коюу күйүк"</string>
-    <string name="screen_overlay_message" msgid="5622563069757142102">"Бул уруксаттын жөндөөсүн өзгөртүү үчүн адегенде Жөндөөлөр &gt; Колдонмолор бөлүмүнөн колдонмонун үстүнө коюуну өчүрүңүз"</string>
-    <string name="screen_overlay_button" msgid="4655005928054025250">"Жөндөөлөрдү ачуу"</string>
     <string name="wear_not_allowed_dlg_title" msgid="1429467891296932713">"Android Wear"</string>
     <string name="wear_not_allowed_dlg_text" msgid="512340555334769098">"Орнотуу/чыгарып салуу аракеттери Android Wear\'де колдоого алынбайт."</string>
     <string name="permission_review_title_template_install" msgid="1284337937156289081">"&lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; колдонмосу үчүн уруксаттарды тандаңыз"</string>
@@ -130,21 +134,20 @@
     <string name="permission_group_usage_subtitle_7d" msgid="1465828402260324654">"Соңку 7 күндүн ичинде <xliff:g id="PERMGROUP">%1$s</xliff:g> уруксаты колдонулган убакыт тилкеси"</string>
     <string name="permission_usage_access_dialog_subtitle" msgid="4171772805196955753">"Бул колдонмо <xliff:g id="PERMGROUP">%1$s</xliff:g> уруксатыңызды колдонгондо"</string>
     <string name="permission_usage_access_dialog_learn_more" msgid="7121468469493184613">"Кененирээк"</string>
+    <string name="learn_more_content_description" msgid="8673699744544502539">"<xliff:g id="PERMGROUP">%1$s</xliff:g> жөнүндө кеңири маалымат"</string>
     <string name="manage_permission_summary" msgid="4117555482684114317">"Колдонмонун <xliff:g id="PERMGROUP">%1$s</xliff:g> уруксатын колдонуу мүмкүнчүлүгүн башкаруу"</string>
     <string name="auto_permission_usage_timeline_summary" msgid="2713135806453218703">"<xliff:g id="ACCESS_TIME">%1$s</xliff:g> • <xliff:g id="SUMMARY_TEXT">%2$s</xliff:g>"</string>
     <string name="history_preference_subtext_2" msgid="1521763591164293683">"<xliff:g id="APP_NAME">%1$s</xliff:g> • <xliff:g id="TRUNCATED_TIME">%2$s</xliff:g>"</string>
     <string name="history_preference_subtext_3" msgid="758761785983094351">"<xliff:g id="ATTRIBUTION_NAME">%1$s</xliff:g> • <xliff:g id="APP_NAME">%2$s</xliff:g> • <xliff:g id="TRUNCATED_TIME">%3$s</xliff:g>"</string>
-    <string name="duration_used_days" msgid="8293010131040301793">"{count,plural, =1{1 күн}other{# күн}}"</string>
-    <string name="duration_used_hours" msgid="1128716208752263576">"{count,plural, =1{1 саат}other{# саат}}"</string>
-    <string name="duration_used_minutes" msgid="5335824115042576567">"{count,plural, =1{1 мүн.}other{# мүн.}}"</string>
-    <string name="duration_used_seconds" msgid="6543746449171675028">"{count,plural, =1{1 сек.}other{# сек.}}"</string>
+    <string name="duration_used_days" msgid="8238355545812998877">"{count,plural, =1{# күн}other{# күн}}"</string>
+    <string name="duration_used_hours" msgid="4983814806123370332">"{count,plural, =1{# саат}other{# саат}}"</string>
+    <string name="duration_used_minutes" msgid="1701379522897227819">"{count,plural, =1{# мүн.}other{# мүн.}}"</string>
+    <string name="duration_used_seconds" msgid="4067390990568727715">"{count,plural, =1{# сек.}other{# сек.}}"</string>
     <string name="permission_usage_any_permission" msgid="6358023078298106997">"Бардык уруксаттар"</string>
     <string name="permission_usage_any_time" msgid="3802087027301631827">"Каалаган убакта"</string>
-    <string name="permission_usage_last_7_days" msgid="7386221251886130065">"Акыркы 7 күндө"</string>
-    <string name="permission_usage_last_day" msgid="1512880889737305115">"Акыркы 24 саатта"</string>
-    <string name="permission_usage_last_hour" msgid="3866005205535400264">"Акыркы 1 саатта"</string>
-    <string name="permission_usage_last_15_minutes" msgid="9077554653436200702">"Акыркы 15 мүнөттө"</string>
-    <string name="permission_usage_last_minute" msgid="7297055967335176238">"Акыркы 1 мүнөт"</string>
+    <string name="permission_usage_last_n_days" msgid="7882626467375714145">"{count,plural, =1{Акыркы # күндө}other{Акыркы # күндө}}"</string>
+    <string name="permission_usage_last_n_hours" msgid="8490466053680267858">"{count,plural, =1{Акыркы # саатта}other{Акыркы # саатта}}"</string>
+    <string name="permission_usage_last_n_minutes" msgid="7817864229878281983">"{count,plural, =1{Акыркы # мүнөттө}other{Акыркы # мүнөттө}}"</string>
     <string name="no_permission_usages" msgid="9119517454177289331">"Уруксаттар колдонулган жок"</string>
     <string name="permission_usage_list_title_any_time" msgid="8718257027381592407">"Бардык убакыттагы эң акыркы колдонулушу"</string>
     <string name="permission_usage_list_title_last_7_days" msgid="9048542342670890615">"Өткөн 7 күндүн ичиндеги эң акыркы колдонулушу"</string>
@@ -158,8 +161,8 @@
     <string name="permission_usage_bar_chart_title_last_hour" msgid="6571647509660009185">"Акыркы 1 саатта колдонулган уруксаттар"</string>
     <string name="permission_usage_bar_chart_title_last_15_minutes" msgid="2743143675412824819">"Акыркы 15 мүнөттө уруксаттардын колдонулушу"</string>
     <string name="permission_usage_bar_chart_title_last_minute" msgid="820450867183487607">"Акыркы 1 мүнөттө уруксаттардын колдонулушу"</string>
-    <string name="permission_usage_preference_summary_not_used_24h" msgid="3087783232178611025">"Акыркы 24 сааттын ичинде колдонулган жок"</string>
-    <string name="permission_usage_preference_summary_not_used_7d" msgid="4592301300810120096">"Акыркы 7 күндө колдонулган жок"</string>
+    <string name="permission_usage_preference_summary_not_used_in_past_n_days" msgid="4771868094611359651">"{count,plural, =1{Акыркы # күндө колдонулган жок}other{Акыркы # күндө колдонулган жок}}"</string>
+    <string name="permission_usage_preference_summary_not_used_in_past_n_hours" msgid="3828973177433435742">"{count,plural, =1{Акыркы # саатта колдонулган жок}other{Акыркы # саатта колдонулган жок}}"</string>
     <string name="permission_usage_preference_label" msgid="8343167938128676378">"{count,plural, =1{1 колдонмо пайдаланды}other{# колдонмо пайдаланды}}"</string>
     <string name="permission_usage_view_details" msgid="6675335735468752787">"Баарын Куралдар тактасында көрүү"</string>
     <string name="app_permission_usage_filter_label" msgid="7182861154638631550">"Чыпка: <xliff:g id="PERM">%1$s</xliff:g>"</string>
@@ -185,6 +188,7 @@
     <string name="app_permission_button_allow_media_only" msgid="2834282724426046154">"Медиа файлдарга гана уруксат берүү"</string>
     <string name="app_permission_button_allow_always" msgid="4573292371734011171">"Бардык учурда уруксат берилет"</string>
     <string name="app_permission_button_allow_foreground" msgid="1991570451498943207">"Колдонмо колдонулуп жатканда гана уруксат берилет"</string>
+    <string name="app_permission_button_always_allow_all" msgid="4905699259378428855">"Ар дайым баарына уруксат берүү"</string>
     <string name="app_permission_button_ask" msgid="3342950658789427">"Ар дайым суралсын"</string>
     <string name="app_permission_button_deny" msgid="6016454069832050300">"Жок"</string>
     <string name="precise_image_description" msgid="6349638632303619872">"Так жайгашкан жери"</string>
@@ -196,7 +200,7 @@
     <string name="app_permission_footer_app_permissions_link" msgid="4926890342636587393">"Бардык <xliff:g id="APP">%1$s</xliff:g> уруксаттарын көрүү"</string>
     <string name="app_permission_footer_permission_apps_link" msgid="3941988129992794327">"Ушундай уруксат берилген бардык колдонмолорду көрүү"</string>
     <string name="assistant_mic_label" msgid="1011432357152323896">"Кошумча микрофондун иштешин көрсөтүү"</string>
-    <string name="unused_apps_category_title" msgid="2988455616845243901">"Колдонулбаган колдонмолордун жөндөөлөрү"</string>
+    <string name="unused_apps_category_title" msgid="2988455616845243901">"Колдонулбаган колдонмолордун параметрлери"</string>
     <string name="auto_revoke_label" msgid="5068393642936571656">"Эгер колдонмо пайдаланылбаса, уруксаттар өчүрүлсүн"</string>
     <string name="unused_apps_label" msgid="2595428768404901064">"Уруксаттарды өчүрүп, орун бошотуу"</string>
     <string name="unused_apps_label_v2" msgid="7058776770056517980">"Колдонулбаган колдонмолордун ишин тындыруу"</string>
@@ -211,14 +215,13 @@
     <string name="auto_revocable_permissions_two" msgid="4874067408752041716">"<xliff:g id="PERM_0">%1$s</xliff:g> жана <xliff:g id="PERM_1">%2$s</xliff:g> уруксаттары өчүрүлөт."</string>
     <string name="auto_revocable_permissions_many" msgid="1521807896206032992">"Өчүрүлө турган уруксаттар: <xliff:g id="PERMS">%1$s</xliff:g>."</string>
     <string name="auto_manage_title" msgid="7693181026874842935">"Уруксаттарды автоматтык түрдө башкаруу"</string>
-    <string name="off" msgid="1438489226422866263">"Өчүк"</string>
     <string name="auto_revoked_app_summary_one" msgid="7093213590301252970">"<xliff:g id="PERMISSION_NAME">%s</xliff:g> уруксаты өчүрүлдү"</string>
     <string name="auto_revoked_app_summary_two" msgid="1910545340763709389">"<xliff:g id="PERMISSION_NAME_0">%1$s</xliff:g> жана <xliff:g id="PERMISSION_NAME_1">%2$s</xliff:g> уруксаттары өчүрүлдү"</string>
     <string name="auto_revoked_app_summary_many" msgid="5930976230827378798">"<xliff:g id="PERMISSION_NAME">%1$s</xliff:g> жана дагы <xliff:g id="NUMBER">%2$s</xliff:g> уруксат өчүрүлдү"</string>
     <string name="unused_apps_page_title" msgid="6986983535677572559">"Колдонулбаган колдонмолор"</string>
     <string name="unused_apps_page_summary" msgid="1867593913217272155">"Эгер колдонмо бир нече ай колдонулбаса:\n\n• Маалыматыңызды коргоо үчүн уруксаттар жоюлат\n• Батареяны көбүрөөк убакытка жеткирүү үчүн билдирмелер токтотулат\n• Орун бошотуу үчүн убактылуу файлдар өчүрүлөт\n\nУруксаттарды жана билдирмелерди кайра иштетүү үчүн колдонмону ачыңыз."</string>
-    <string name="unused_apps_page_tv_summary" msgid="3685907153054355671">"Эгер колдонмо бир нече ай колдонулбаса:\n\n• Маалыматыңызды коргоо үчүн уруксаттар жоюлат\n• Орун бошотуу үчүн убактылуу файлдар өчүрүлөт\n\nУруксаттарды жана билдирмелерди кайра иштетүү үчүн колдонмону ачыңыз."</string>
-    <string name="last_opened_category_title" msgid="7871347400611202595">"Акыркы жолу <xliff:g id="NUMBER">%s</xliff:g> ай мурда ачылган"</string>
+    <string name="unused_apps_page_tv_summary" msgid="2624911608663778308">"Эгер колдонмо бир ай колдонулбаса:\n\n• Маалыматыңызды коргоо үчүн уруксаттар жоюлат\n• Орун бошотуу үчүн убактылуу файлдар өчүрүлөт\n\nУруксаттарды кайра иштетүү үчүн колдонмону ачыңыз."</string>
+    <string name="last_opened_category_title" msgid="8796557894614236128">"{count,plural, =1{Акыркы жолу # ай мурда ачылган}other{Акыркы жолу # ай мурда ачылган}}"</string>
     <string name="last_opened_summary" msgid="5248984030024968808">"Колдонмо акыркы жолу <xliff:g id="DATE">%s</xliff:g> ачылган"</string>
     <string name="last_opened_summary_short" msgid="1646067226191176825">"Акыркы жолу <xliff:g id="DATE">%s</xliff:g> ачылган"</string>
     <string name="app_permission_footer_special_file_access" msgid="1884202176147657788">"Эгерде бардык файлдарды башкарууга уруксат берсеңиз, бул колдонмо түзмөктүн жалпы сактагычындагы же туташтырылган сактагыч түзмөктөрүндөгү бардык файлдарды көрүп, өзгөртүп жана өчүрө алат. Колдонмо файлдарга сизден сурабай эле кире алат."</string>
@@ -251,9 +254,9 @@
     <string name="denied_header" msgid="903209608358177654">"Тыюу салынган"</string>
     <string name="storage_footer_hyperlink_text" msgid="8873343987957834810">"Дагы кайсы колдонмолорго бардык файлдар жеткиликтүү?"</string>
     <string name="days" msgid="609563020985571393">"{count,plural, =1{1 күн}other{# күн}}"</string>
-    <string name="hours" msgid="3447767892295843282">"{count,plural, =1{1 саат}other{# саат}}"</string>
-    <string name="minutes" msgid="4408293038068503157">"{count,plural, =1{1 мүнөт}other{# мүнөт}}"</string>
-    <string name="seconds" msgid="5397771912131132690">"{count,plural, =1{1 секунд}other{# секунд}}"</string>
+    <string name="hours" msgid="7302866489666950038">"{count,plural, =1{# саат}other{# саат}}"</string>
+    <string name="minutes" msgid="4868414855445375753">"{count,plural, =1{# мүнөт}other{# мүнөт}}"</string>
+    <string name="seconds" msgid="5893958182059842734">"{count,plural, =1{# секунд}other{# секунд}}"</string>
     <string name="permission_reminders" msgid="6528257957664832636">"Уруксат жөнүндө эстеткичтер"</string>
     <string name="auto_revoke_permission_reminder_notification_title_one" msgid="6690347469376854137">"1 колдонулбаган колдонмо"</string>
     <string name="auto_revoke_permission_reminder_notification_title_many" msgid="6062217713645069960">"<xliff:g id="NUMBER_OF_APPS">%s</xliff:g> колдонулбаган колдонмо"</string>
@@ -262,12 +265,15 @@
     <string name="auto_revoke_permission_notification_content" msgid="5125990886047799375">"Айрым колдонмолор бир нече ай иштетилген жок. Көрүү үчүн таптап коюңуз."</string>
     <string name="unused_apps_notification_title" msgid="4314832015894238019">"{count,plural, =1{# иштетилбеген колдонмо}other{# иштетилбеген колдонмо}}"</string>
     <string name="unused_apps_notification_content" msgid="9195026773244581246">"Уруксаттар менен убактылуу файлдар өчүрүлүп, билдирмелер токтотулду. Көрүү үчүн таптап коюңуз."</string>
+    <string name="unused_apps_safety_center_card_title" msgid="5638409355530099149">"Уруксаттары өчүрүлгөн колдонмолорду карап чыгуу"</string>
+    <string name="unused_apps_safety_center_card_content" msgid="1088557243627427820">"Көптөн бери иштетилбеген колдонмолордун уруксаттары жана убактылуу файлдары өчүрүлүп, билдирмелери токтотулду."</string>
+    <string name="unused_apps_safety_center_action_title" msgid="8865914432518993194">"Колдонмолорду карап чыгуу"</string>
     <string name="post_drive_permission_decision_reminder_title" msgid="1290697371418139976">"Акыркы уруксаттарды көрүү"</string>
     <string name="post_drive_permission_decision_reminder_summary_1_app_1_permission" msgid="670521503734140711">"Унаа айдап баратканда <xliff:g id="APP">%1$s</xliff:g> колдонмосуна төмөнкүгө уруксат бердиңиз: <xliff:g id="PERMISSION">%2$s</xliff:g>"</string>
     <string name="post_drive_permission_decision_reminder_summary_1_app_2_permissions" msgid="671791184670801301">"Унаа айдап баратканда <xliff:g id="APP">%1$s</xliff:g> колдонмосуна төмөнкүгө уруксат бердиңиз: <xliff:g id="PERMISSION_1">%2$s</xliff:g> жана <xliff:g id="PERMISSION_2">%3$s</xliff:g>"</string>
     <string name="post_drive_permission_decision_reminder_summary_1_app_multi_permission" msgid="4080701771111456927">"Унаа айдап баратканда <xliff:g id="APP">%2$s</xliff:g> колдонмосуна <xliff:g id="COUNT">%1$d</xliff:g> уруксат бердиңиз"</string>
     <string name="post_drive_permission_decision_reminder_summary_multi_apps" msgid="5253882771252863902">"{count,plural, =1{Унаа айдап баратканда <xliff:g id="APP_0">%1$s</xliff:g> жана дагы # колдонмого уруксат бердиңиз}other{Унаа айдап баратканда <xliff:g id="APP_1">%1$s</xliff:g> жана дагы # колдонмого уруксат бердиңиз}}"</string>
-    <string name="go_to_settings" msgid="1053735612211228335">"Жөндөөлөргө өтүү"</string>
+    <string name="go_to_settings" msgid="1053735612211228335">"Параметрлерге өтүү"</string>
     <string name="auto_revoke_setting_subtitle" msgid="8631720570723050460">"Айрым колдонмолор бир нече ай иштетилген жок"</string>
     <string name="permissions_removed_category_title" msgid="1064754271178447643">"Өчүрүлгөн уруксаттар"</string>
     <string name="permission_removed_page_title" msgid="2627436155091001209">"Уруксаттар өчүрүлдү"</string>
@@ -276,6 +282,19 @@
     <string name="auto_revoke_preference_summary" msgid="5517958331781391481">"Купуялыгыңызды коргоо максатында, уруксаттар өчүрүлөт"</string>
     <string name="background_location_access_reminder_notification_title" msgid="1140797924301941262">"<xliff:g id="APP_NAME">%s</xliff:g> жайгашкан жериңизди фондон алды"</string>
     <string name="background_location_access_reminder_notification_content" msgid="7787084707336546245">"Бул колдонмо кайда жүргөнүңүздү ар дайым билип турат. Аны өзгөртүү үчүн таптап коюңуз."</string>
+    <string name="notification_listener_reminder_notification_title" msgid="3747210460187479091">"Билдирмелерди көрө алган колдонмону караңыз"</string>
+    <string name="notification_listener_reminder_notification_content" msgid="831476101108863427">"<xliff:g id="APP_NAME">%s</xliff:g> билдирмелерди жаап, алар боюнча аракеттерди аткарып жана көрө алат"</string>
+    <string name="notification_listener_warning_card_content" msgid="7840973324284115893">"Бул колдонмо билдирмелер менен иштеп, аларды жашырып жана көрө алат. Бул колдонмонун туура иштеши үчүн керек."</string>
+    <string name="notification_listener_remove_access_button_label" msgid="7101898782417817097">"Кирүү мүмкүнчүлүгүн өчүрүү"</string>
+    <string name="notification_listener_review_app_button_label" msgid="3433073281029143924">"Дагы башка параметрлерди көрүү"</string>
+    <string name="notification_listener_remove_access_success_label" msgid="2477611529875633107">"Кирүү мүмкүнчүлүгү өчүрүлдү"</string>
+    <string name="accessibility_access_reminder_notification_title" msgid="2971317234668807566">"Түзмөккө толук мүмкүнчүлүгү бар колдонмолорду карап чыгыңыз"</string>
+    <string name="accessibility_access_reminder_notification_content" msgid="7389454158175306720">"<xliff:g id="APP_NAME">%s</xliff:g> экраныңыздагы нерселерди көрүп, түзмөгүңүздө ар кандай буйруктарды аткара алат. Бул нерсе атайын мүмкүнчүлүктөр ойдогудай иштеши үчүн талап кылынат."</string>
+    <string name="accessibility_access_warning_card_content" msgid="4370327190293217358">"Атайын мүмкүнчүлүктөр туура иштеши үчүн бул колдонмо экрандагы нерселерди көрүп, түзмөгүңүздө ар кандай аракеттерди жасай алат. Эң негизгиси, колдонмо ишенимдүү болушу керек."</string>
+    <string name="accessibility_remove_access_button_label" msgid="44145801526711640">"Кирүү мүмкүнчүлүгүн өчүрүү"</string>
+    <string name="accessibility_show_all_apps_button_label" msgid="960067249326392280">"Толук мүмкүнчүлүгү бар колдонмолорду көрүү"</string>
+    <string name="accessibility_remove_access_success_label" msgid="4380995302917014670">"Кирүү мүмкүнчүлүгү өчүрүлдү"</string>
+    <string name="safety_center_notification_app_label" msgid="2457720616141926534">"Android системасы"</string>
     <string name="auto_revoke_after_notification_title" msgid="5417761027669887431">"Колдонмонун уруксаттары купуялыкты сактоо үчүн өчүрүлдү"</string>
     <string name="auto_revoke_after_notification_content_one" msgid="6804038707453662753">"<xliff:g id="APP_NAME">%s</xliff:g> бир нече айдан бери колдонулган жок. Көрүү үчүн таптап коюңуз."</string>
     <string name="auto_revoke_after_notification_content_two" msgid="9108709764831425172">"<xliff:g id="APP_NAME">%s</xliff:g> жана дагы 1 колдонмо бир нече айдан бери колдонулган жок. Көрүү үчүн таптап коюңуз."</string>
@@ -323,7 +342,7 @@
     <string name="no_apps_allowed_scoped" msgid="4908850477787659501">"Медиа файлдар үчүн гана бир да колдомого уруксат берилген жок"</string>
     <string name="no_apps_denied" msgid="7663435886986784743">"Бардык колдонмолорго уруксат берилген"</string>
     <string name="car_permission_selected" msgid="180837028920791596">"Тандалды"</string>
-    <string name="settings" msgid="5409109923158713323">"Жөндөөлөр"</string>
+    <string name="settings" msgid="5409109923158713323">"Параметрлер"</string>
     <string name="accessibility_service_dialog_title_single" msgid="7956432823014102366">"<xliff:g id="SERVICE_NAME">%s</xliff:g> кызматынын түзмөгүңүзгө кирүүгө толук мүмкүнчүлүгү бар"</string>
     <string name="accessibility_service_dialog_title_multiple" msgid="5527879210683548175">"<xliff:g id="NUM_SERVICES">%s</xliff:g> атайын мүмкүнчүлүктөр колдонмолорунун түзмөгүңүзгө кирүүгө толук мүмкүнчүлүгү бар"</string>
     <string name="accessibility_service_dialog_bottom_text_single" msgid="1128666197822205958">"<xliff:g id="SERVICE_NAME">%s</xliff:g> экраныңыздагы маалыматты, аракеттерди жана киргизүүлөрдү көрүп, аракеттерди аткарып, дисплейди көзөмөлдөйт."</string>
@@ -332,9 +351,9 @@
     <string name="role_assistant_short_label" msgid="3369003713187703399">"Санариптик жардамчы колдонмосу"</string>
     <string name="role_assistant_description" msgid="6622458130459922952">"Көмөкчү колдонмолор экранда көргөн маалыматыңыздын негизинде сизге жардам бере алат. Айрым колдонмолор жүргүзгүчтү жана айтып киргизүү функциясын да колдоого алат."</string>
     <string name="role_browser_label" msgid="2877796144554070207">"Демейки серепчи"</string>
-    <string name="role_browser_short_label" msgid="6745009127123292296">"\"Серепчи\" колдонмосу"</string>
+    <string name="role_browser_short_label" msgid="6745009127123292296">"Серепчи колдонмосу"</string>
     <string name="role_browser_description" msgid="3465253637499842671">"Сайттарга кирип, шилтемелер боюнча өткөнгө мүмкүнчүлүк берген колдонмолор."</string>
-    <string name="role_browser_request_title" msgid="2895200507835937192">"<xliff:g id="APP_NAME">%1$s</xliff:g> колдонмосун демейки \"серепчи\" колдонмосу катары коёсузбу?"</string>
+    <string name="role_browser_request_title" msgid="2895200507835937192">"<xliff:g id="APP_NAME">%1$s</xliff:g> колдонмосун демейки серепчи колдонмосу катары коёсузбу?"</string>
     <string name="role_browser_request_description" msgid="5888803407905985941">"Уруксаттардын кереги жок"</string>
     <string name="role_dialer_label" msgid="1100224146343237968">"Демейки телефон колдонмосу"</string>
     <string name="role_dialer_short_label" msgid="7186888549465352489">"\"Телефон\" колдонмосу"</string>
@@ -378,6 +397,10 @@
     <string name="role_watch_description" msgid="267003778693177779">"<xliff:g id="APP_NAME">%1$s</xliff:g> билдирмелериңизди көрүп, телефонуңуздун, SMS билдирүүлөрүңүздүн, байланыштырыңыздын жана жылнаамаңыздын уруксаттарын пайдалана алат."</string>
     <string name="role_app_streaming_description" msgid="7341638576226183992">"<xliff:g id="APP_NAME">%1$s</xliff:g> билдирмелериңизди көрүп, колдонмолоруңузду туташкан түзмөктө иштете алат."</string>
     <string name="role_companion_device_computer_description" msgid="416099879217066377">"Бул кызмат телефонуңуздагы сүрөттөрдү, медиа файлдарды жана билдирмелерди башка түзмөктөр менен бөлүшөт."</string>
+    <string name="role_notes_label" msgid="7451627001058089536">"Демейки кыска жазуу колдонмосу"</string>
+    <string name="role_notes_short_label" msgid="8796604147546125285">"Кыска жазуулар колдонмосу"</string>
+    <string name="role_notes_description" msgid="8496852798616883551">"Түзмөгүңүздө кыска жазууларды терүү мүмкүнчүлүгүн берген колдонмолор"</string>
+    <string name="role_notes_search_keywords" msgid="7710756695666744631">"кыска жазуулар"</string>
     <string name="request_role_current_default" msgid="738722892438247184">"Учурдагы демейки колдонмо"</string>
     <string name="request_role_dont_ask_again" msgid="3556017886029520306">"Экинчи суралбасын"</string>
     <string name="request_role_set_as_default" msgid="4253949643984172880">"Демейки катары коюу"</string>
@@ -397,7 +420,7 @@
     <string name="ongoing_usage_dialog_last_separator" msgid="4170995004748832163">" жана "</string>
     <string name="default_app_search_keyword" msgid="8330125736889689743">"демейки колдонмолор"</string>
     <string name="permgroup_list_microphone_and_camera" msgid="962768198001487969">"Микрофон жана камера"</string>
-    <string name="settings_button" msgid="4414988414732479636">"Жөндөөлөр"</string>
+    <string name="settings_button" msgid="4414988414732479636">"Параметрлер"</string>
     <string name="default_apps" msgid="5119201969348748639">"Демейки колдонмолор"</string>
     <string name="no_default_apps" msgid="2593466527182950231">"Демейки колдонмолор жок"</string>
     <string name="default_apps_more" msgid="4078194675848858093">"Кошумча демейки колдонмолор"</string>
@@ -419,28 +442,28 @@
     <string name="incident_report_notification_title" msgid="4635984625656519773">"Мүчүлүштүктөрдү аныктоо дайындары бөлүшүлсүнбү?"</string>
     <string name="incident_report_notification_text" msgid="3376480583513587923">"<xliff:g id="APP_NAME">%1$s</xliff:g> мүчүлүштүктөрдү оңдоо маалыматын жүктөп бергиси келет."</string>
     <string name="incident_report_dialog_title" msgid="669104389325204095">"Мүчүлүштүктөр тууралуу кабарлансынбы?"</string>
-    <string name="incident_report_dialog_intro" msgid="5897733669850951832">"Тутум бир мүчүлүштүктү аныктады."</string>
+    <string name="incident_report_dialog_intro" msgid="5897733669850951832">"Система бир мүчүлүштүктү аныктады."</string>
     <string name="incident_report_dialog_text" msgid="5675553296891757523">"\"<xliff:g id="APP_NAME_0">%1$s</xliff:g>\" колдонмосу ушул түзмөктөн <xliff:g id="DATE">%2$s</xliff:g>, саат <xliff:g id="TIME">%3$s</xliff:g> түзүлгөн мүчүлүштүктөр тууралуу отчетту жүктөп берүүнү сурап жатат. Отчетто колдонуучулардын аттары, жүргөн жерлери, түзмөктүн идентификаторлору жана тармактын дайын-даректери сыяктуу түзмөгүңүздөгү же колдонмолоруңуздагы жеке маалымат камтылышы мүмкүн. Андыктан мүчүлүштүктөр тууралуу отчетту ишенимдүү адамдар жана колдонмолор менен гана бөлүшүңүз. \"<xliff:g id="APP_NAME_1">%4$s</xliff:g>\" колдонмосуна мүчүлүштүк тууралуу отчетту жүктөөгө уруксат бересизби?"</string>
     <string name="incident_report_error_dialog_text" msgid="4189647113387092272">"<xliff:g id="APP_NAME">%1$s</xliff:g> колдонмосундагы мүчүлүштүк тууралуу кабарды иштетүүдө ката кетти. Мүчүлүштүктөрдү аныктоо тууралуу кеңири маалыматтарды бөлүшүү сурамы четке кагылды. Ыңгайсыздык үчүн кечирим сурайбыз."</string>
     <string name="incident_report_dialog_allow_label" msgid="2970242967721155239">"Уруксат берүү"</string>
     <string name="incident_report_dialog_deny_label" msgid="3535314290677579383">"Тыюу салынат"</string>
     <string name="adjust_user_sensitive_title" msgid="4196724451314280527">"Өркүндөтүлгөн жөндөөлөр"</string>
     <string name="menu_adjust_user_sensitive" msgid="6497923610654425780">"Өркүндөтүлгөн жөндөөлөр"</string>
-    <string name="adjust_user_sensitive_globally_title" msgid="8649190949066029174">"Тутум колдонмолорунун колдонгондугун көрсөтүү"</string>
+    <string name="adjust_user_sensitive_globally_title" msgid="8649190949066029174">"Система колдонмолорунун колдонгондугун көрсөтүү"</string>
     <string name="adjust_user_sensitive_globally_summary" msgid="129467818433773912">"Системанын уруксаттарды колдонгондугу абал тилкесинде, куралдар тактасында жана башка жерде көрүнөт"</string>
     <string name="adjust_user_sensitive_per_app_header" msgid="4543506440989005648">"Тандалган колдонмолорду көрсөтүү"</string>
     <string name="assistant_record_audio_user_sensitive_title" msgid="5532123360322362378">"Үн жардамчысынын иштегенин чагылдырган сүрөтчөнү көрсөтүү"</string>
     <string name="assistant_record_audio_user_sensitive_summary" msgid="6482937591816401619">"Үн жардамчысын иштетүү үчүн микрофон колдонулганда, абал тилкесинде сүрөтчө көрүнөт"</string>
     <string name="permgrouprequest_storage_isolated" msgid="4892154224026852295">"&lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; колдонмосу үчүн түзмөгүңүздөгү сүрөттөр менен мультимедиа файлдарын иштетесизби?"</string>
-    <string name="permgrouprequest_contacts" msgid="8391550064551053695">"&lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; колдонмосуна байланыштарыңызды пайдаланууга уруксат бересизби?"</string>
+    <string name="permgrouprequest_contacts" msgid="8391550064551053695">"&lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; колдонмосуна байланыштарыңызды жеткиликтүү кыласызбы?"</string>
     <string name="permgrouprequest_location" msgid="6990232580121067883">"&lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; колдонмосуна бул түзмөктүн жайгашкан жерин көрүүгө уруксат бересизби?"</string>
     <string name="permgrouprequestdetail_location" msgid="2635935335778429894">"Колдонмону колдонуп жаткан маалда гана, ал сиздин кайда жүргөнүңүздү билип турат."</string>
     <string name="permgroupbackgroundrequest_location" msgid="1085680897265734809">"&lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; колдонмосуна бул түзмөктүн жайгашкан жерин көрүүгө уруксат бересизби?"</string>
-    <string name="permgroupbackgroundrequestdetail_location" msgid="8021219324989662957">"Бул колдонмо кайда жүргөнүңүздү ар дайым, колдонмону пайдаланбай турганда да, көрүүгө уруксат сурашы мүмкүн. "<annotation id="link">"Жөндөөлөрдөн уруксат бериңиз."</annotation></string>
+    <string name="permgroupbackgroundrequestdetail_location" msgid="8021219324989662957">"Бул колдонмо кайда жүргөнүңүздү ар дайым, колдонмону пайдаланбай турганда да, көрүүгө уруксат сурашы мүмкүн. "<annotation id="link">"Параметрлерден уруксат бериңиз."</annotation></string>
     <string name="permgroupupgraderequest_location" msgid="8328408946822691636">"&lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; колдонмосу үчүн түзмөктүн жайгашкан жерин пайдалануу мүмкүнчүлүгү өзгөртүлсүнбү?"</string>
-    <string name="permgroupupgraderequestdetail_location" msgid="1550899076845189165">"Бул колдонмо кайда жүргөнүңүздү ар дайым, колдонмону пайдаланбай турганда да, көрүүгө уруксат сурап жатат. "<annotation id="link">"Жөндөөлөрдөн уруксат бериңиз."</annotation></string>
-    <string name="permgrouprequest_nearby_devices" msgid="2272829282660436700">"&lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; колдонмосу жакын жердеги түзмөктөрдү таап, аларга туташып жана абалын аныктай алсынбы?"</string>
-    <string name="permgroupupgraderequestdetail_nearby_devices" msgid="6877531270654738614">"&lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; колдонмосу жакын жердеги түзмөктөрдү таап, аларга туташып жана абалын аныктай алсынбы? "<annotation id="link">"Жөндөөлөрдөн уруксат берүү."</annotation></string>
+    <string name="permgroupupgraderequestdetail_location" msgid="1550899076845189165">"Бул колдонмо кайда жүргөнүңүздү ар дайым, колдонмону пайдаланбай турганда да, көрүүгө уруксат сурап жатат. "<annotation id="link">"Параметрлерден уруксат бериңиз."</annotation></string>
+    <string name="permgrouprequest_nearby_devices" msgid="2272829282660436700">"&lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; жакын жердеги түзмөктөрдү таап, аларга туташып жана абалын аныктай берсинби?"</string>
+    <string name="permgroupupgraderequestdetail_nearby_devices" msgid="6877531270654738614">"&lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; жакын жердеги түзмөктөрдү таап, аларга туташып жана абалын аныктай алсынбы? "<annotation id="link">"Параметрлерден уруксат берүү."</annotation></string>
     <string name="permgrouprequest_fineupgrade" msgid="2334242928821697672">"<xliff:g id="APP_NAME">&lt;b&gt;%1$s&lt;/b&gt;</xliff:g> колдонмосунда жайгашкан жер болжолдуу эмес, так аныкталсынбы?"</string>
     <string name="permgrouprequest_coarselocation" msgid="7244605063736425232">"&lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; колдонмосуна бул түзмөктүн болжолдуу жайгашкан жерин пайдаланууга уруксат берилсинби?"</string>
     <string name="permgrouprequest_finelocation_imagetext" msgid="1313062433398914334">"Так"</string>
@@ -452,6 +475,7 @@
     <string name="permgrouprequest_storage_pre_q" msgid="168130651144569428">"&lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; колдонмосуна ушул түзмөктөгү &lt;b&gt;сүрөттөрдү, видеолорду, ырларды, аудио файлдарды жана башка нерселерди&lt;/b&gt; жеткиликтүү кыласызбы?"</string>
     <string name="permgrouprequest_read_media_aural" msgid="2593365397347577812">"&lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; колдонмосуна ушул түзмөктөгү ырлар менен аудио файлдарды жеткиликтүү кыласызбы?"</string>
     <string name="permgrouprequest_read_media_visual" msgid="5548780620779729975">"&lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; колдонмосуна ушул түзмөктөгү сүрөттөр менен видеолорду жеткиликтүү кыласызбы?"</string>
+    <string name="permgrouprequest_more_photos" msgid="128933814654231321">"&lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; колдонмосуна ушул түзмөктөгү дагы башка сүрөттөр менен видеолорду жеткиликтүү кыласызбы?"</string>
     <string name="permgrouprequest_microphone" msgid="2825208549114811299">"&lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; колдонмосуна аудио файлдарды жаздырганга уруксат бересизби?"</string>
     <string name="permgrouprequestdetail_microphone" msgid="8510456971528228861">"Колдонмону колдонуп жатканда гана, ал аудио жаздыра алат"</string>
     <string name="permgroupbackgroundrequest_microphone" msgid="8874462606796368183">"&lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; колдонмосуна аудио файлдарды жаздырууга уруксат бересизби?"</string>
@@ -468,16 +492,16 @@
     <string name="permgrouprequest_calllog" msgid="2065327180175371397">"&lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; колдонмосуна телефондогу чалуулар тизмесин пайдаланууга уруксат бересизби?"</string>
     <string name="permgrouprequest_phone" msgid="1829234136997316752">"&lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; колдонмосуна телефон чалууга жана чалууларды башкарууга уруксат бересизби?"</string>
     <string name="permgrouprequest_sensors" msgid="4397358316850652235">"&lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; колдонмосуна организмдин абалына көз салган сенсордун көрсөткүчтөрүн көрүүгө уруксат бересизби?"</string>
-    <string name="permgroupupgraderequestdetail_sensors" msgid="6651914048792092835">"Бул колдонмону иштетпей турсаңыз деле, ал такай организмдин негизги көрсөткүчтөрү тууралуу cенсордун дайындарын жаздыра алат. Муну өзгөртүү үчүн "<annotation id="link">"жөндөөлөргө өтүңүз."</annotation></string>
+    <string name="permgroupupgraderequestdetail_sensors" msgid="6651914048792092835">"Бул колдонмону иштетпей турсаңыз деле, ал такай организмдин негизги көрсөткүчтөрү тууралуу cенсордун дайындарын жаздыра алат. Муну өзгөртүү үчүн "<annotation id="link">"параметрлерге өтүңүз."</annotation></string>
     <string name="permgroupbackgroundrequest_sensors" msgid="5661924322018503886">"&lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; колдонмосуна дене-бой сенсорлорунун көрсөткүчтөрүн көрүүгө уруксат бересизби?"</string>
     <string name="permgroupbackgroundrequestdetail_sensors" msgid="7726767635834043501">"Бул колдонмого дене сенсорлорунун көрсөткүчтөрүн көрүү мүмкүнчүлүгүн берүү үчүн (колдонмо колдонулбай турганда да) "<annotation id="link">"параметрлерди өзгөртүңүз."</annotation></string>
     <string name="permgroupupgraderequest_sensors" msgid="7576527638411370468">"&lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; колдонмосу колдонулуп жатканда дене бой сенсорлорунун көрсөткүчтөрүн көрүү мүмкүнчүлүгүн бересизби?"</string>
     <string name="permgrouprequest_notifications" msgid="6396739062335106181">"&lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; колдонмосуна сизге билдирмелерди жөнөтүүгө уруксат бересизби?"</string>
     <string name="auto_granted_permissions" msgid="6009452264824455892">"Көзөмөлдөнгөн уруксаттар"</string>
-    <string name="auto_granted_location_permission_notification_title" msgid="1438871159268985993">"Кайда жүргөнүңүз көрүнүп турат"</string>
-    <string name="auto_granted_permission_notification_body" msgid="6919835973190443695">"IT администраторуңуз <xliff:g id="APP_NAME">%s</xliff:g> колдонмосуна кайда жүргөнүңүздү көрүүгө уруксат берип жатат"</string>
+    <string name="auto_granted_location_permission_notification_title" msgid="7570818224669050377">"<xliff:g id="APP_NAME">%1$s</xliff:g> жүргөн жериңизди аныктай алат"</string>
+    <string name="auto_granted_permission_notification_body" msgid="5040234389205471318">"Уюмуңуз <xliff:g id="APP_NAME">%1$s</xliff:g> колдонмосуна жүргөн жериңизди аныктоого уруксат берет"</string>
     <string name="other_permissions_label" msgid="8986184335503271992">"Башка уруксаттар"</string>
-    <string name="not_used_permissions_label" msgid="3939839426115141264">"Тутум пайдаланган уруксат"</string>
+    <string name="not_used_permissions_label" msgid="3939839426115141264">"Система пайдаланган уруксат"</string>
     <string name="not_used_permissions_description" msgid="7595514824169388718">"Системанын колдонмолору гана пайдаланган уруксаттар."</string>
     <string name="additional_permissions_label" msgid="7693557637462569046">"Кошумча уруксаттар"</string>
     <string name="additional_permissions_description" msgid="2186611950890732112">"Колдонмолор аныктаган уруксаттар."</string>
@@ -496,17 +520,28 @@
     <string name="blocked_sensor_summary" msgid="4443707628305027375">"Колдонмолор жана кызматтар үчүн"</string>
     <string name="blocked_mic_summary" msgid="8960466941528458347">"Кырсыктаганда жардамга келчү кызматка чалганда микрофондогу нерселер өткөрүлүшү мүмкүн"</string>
     <string name="blocked_sensor_button_label" msgid="6742092634984289658">"Өзгөртүү"</string>
-    <string name="safety_center_dashboard_page_title" msgid="7514620345152008005">"Коопсуздук жана купуялык"</string>
-    <string name="safety_center_rescan_button" msgid="8047036829052958144">"Текшерүү"</string>
+    <string name="safety_center_dashboard_page_title" msgid="2810774008694315854">"Коопсуздук жана купуялык"</string>
+    <string name="safety_center_rescan_button" msgid="4517514567809409596">"Түзмөктү текшерүү"</string>
     <string name="safety_center_issue_card_dismiss_button" msgid="5113965506144222402">"Жабуу"</string>
-    <string name="security_settings" msgid="3808106921175271317">"Коопсуздук жөндөөлөрү"</string>
-    <string name="sensor_permissions_qs" msgid="4365989229426201877">"Сенсорду колдонуу уруксаттары"</string>
-    <string name="privacy_controls_qs" msgid="471793881466080745">"Купуялыкты көзөмөлдөө каражаттары"</string>
+    <string name="safety_center_issue_card_dismiss_confirmation_title" msgid="2734809473425036382">"Эскертүүнү жабасызбы?"</string>
+    <string name="safety_center_issue_card_dismiss_confirmation_message" msgid="3775418736671093563">"Купуялык жана коопсуздук параметрлерин каалаган убакта текшерип, өзгөртө аласыз"</string>
+    <string name="safety_center_issue_card_confirm_dismiss_button" msgid="5884137843083634556">"Четке кагуу"</string>
+    <string name="safety_center_issue_card_cancel_dismiss_button" msgid="2874578798877712346">"Жок"</string>
+    <string name="safety_center_entries_category_title" msgid="34356964062813115">"Параметрлер"</string>
+    <string name="safety_status_preference_title_and_summary_content_description" msgid="3511373256505058464">"Коопсуздук жана купуялык статусу. <xliff:g id="OVERALL_SAFETY_STATUS">%1$s</xliff:g>. <xliff:g id="SUMMARY_OF_DEVICE_STATUS">%2$s</xliff:g>"</string>
+    <string name="security_settings" msgid="3808106921175271317">"Коопсуздук параметрлери"</string>
+    <string name="sensor_permissions_qs" msgid="1022267900031317472">"Уруксаттар"</string>
+    <string name="safety_privacy_qs_tile_title" msgid="727301867710374052">"Коопсуздук жана купуялык"</string>
+    <string name="safety_privacy_qs_tile_subtitle" msgid="3621544532041936749">"Статусту текшерүү"</string>
+    <string name="privacy_controls_qs" msgid="5780144882040591169">"Купуялык параметрлери"</string>
+    <string name="security_settings_button_label_qs" msgid="8280343822465962330">"Дагы параметрлер"</string>
+    <string name="camera_toggle_label_qs" msgid="3880261453066157285">"Камераны колдонуу"</string>
+    <string name="microphone_toggle_label_qs" msgid="8132912469813396552">"Микрофонду колдонуу"</string>
     <string name="permissions_removed_qs" msgid="8957319130625294572">"Уруксат өчүрүлдү"</string>
-    <string name="camera_usage_qs" msgid="7943349178368641820">"Камеранын колдонулушун көрүү"</string>
-    <string name="microphone_usage_qs" msgid="2393193350541830472">"Микрофондун колдонулушун көрүү"</string>
-    <string name="remove_camera_qs" msgid="8209716677879809162">"Камераны колдонуу уруксатын өчүрүү"</string>
-    <string name="remove_microphone_qs" msgid="2893536836641560183">"Микрофонду колдонуу уруксатын өчүрүү"</string>
+    <string name="camera_usage_qs" msgid="4394233566086665994">"Камеранын акыркы колдонулушун көрүү"</string>
+    <string name="microphone_usage_qs" msgid="8527666682168170417">"Микрофондун акыркы колдонулушун көрүү"</string>
+    <string name="remove_camera_qs" msgid="3649996161066883350">"Бул колдонмонун уруксатын алып салуу"</string>
+    <string name="remove_microphone_qs" msgid="1276551965129953198">"Бул колдонмонун уруксатын алып салуу"</string>
     <string name="manage_service_qs" msgid="7862555549364153805">"Кызматты башкаруу"</string>
     <string name="manage_permissions_qs" msgid="3780541819763475434">"Уруксаттарды башкаруу"</string>
     <string name="active_call_usage_qs" msgid="8559974395932523391">"Телефон чалууда иштеп жатат"</string>
@@ -517,8 +552,6 @@
     <string name="recent_app_usage_1_qs" msgid="261450184773310741">"Акыркы жолу <xliff:g id="APP_NAME">%1$s</xliff:g> (<xliff:g id="ATTRIBUTION_LABEL">%2$s</xliff:g>) колдонмосунда иштетилди"</string>
     <string name="active_app_usage_2_qs" msgid="6107866785243565283">"<xliff:g id="APP_NAME">%1$s</xliff:g> (<xliff:g id="ATTRIBUTION_LABEL">%2$s</xliff:g> • <xliff:g id="PROXY_LABEL">%3$s</xliff:g>) колдонмосунда иштеп жатат"</string>
     <string name="recent_app_usage_2_qs" msgid="3591205954235694403">"Акыркы жолу <xliff:g id="APP_NAME">%1$s</xliff:g> (<xliff:g id="ATTRIBUTION_LABEL">%2$s</xliff:g> • <xliff:g id="PROXY_LABEL">%3$s</xliff:g>) колдонмосунда иштетилди"</string>
-    <string name="safety_privacy_qs_tile_title" msgid="5431148204168066203">"Коопсуздук жана купуялык"</string>
-    <string name="safety_privacy_qs_tile_subtitle" msgid="3621544532041936749">"Статусту текшерүү"</string>
     <string name="media_confirm_dialog_positive_button" msgid="9020793594051526399">"Ырастоо"</string>
     <string name="media_confirm_dialog_negative_button" msgid="226987376924861785">"Артка"</string>
     <string name="media_confirm_dialog_title_a_to_p_aural_allow" msgid="8560601114044699903">"Башка файлдар да жеткиликтүү болот"</string>
@@ -537,4 +570,53 @@
     <string name="media_confirm_dialog_message_q_to_s_aural_deny" msgid="6832087393653561911">"Бул колдонмо Android\'дин акыркы версиясына жаңырбайт. Эгер ага ырлар менен аудиофайлдар жеткиликсиз болсо, сүрөттөр менен видеолор да жеткиликсиз болот."</string>
     <string name="media_confirm_dialog_message_q_to_s_visual_allow" msgid="3504335060843147760">"Бул колдонмо Android\'дин акыркы версиясына жаңырбайт. Эгер ага сүрөттөр менен видеолор жеткиликсиз болсо, ырлар менен аудио файлдар да жеткиликсиз болот."</string>
     <string name="media_confirm_dialog_message_q_to_s_visual_deny" msgid="2145973462806481992">"Бул колдонмо Android\'дин акыркы версиясына жаңырбайт. Эгер ага ырлар менен аудиофайлдар жеткиликсиз болсо, сүрөттөр менен видеолор да жеткиликсиз болот."</string>
+    <string name="safety_center_background_location_access_notification_title" msgid="8933610618810588237">"Фондук режимде жайгашкан жерди аныктай алган колдонмону караңыз"</string>
+    <string name="safety_center_background_location_access_reminder_notification_content" msgid="4066560182507301022">"<xliff:g id="APP_NAME">%s</xliff:g> жүргөн жериңизди ар дайым, колдонмо жабылып турганда да, көрө алат"</string>
+    <string name="safety_center_background_location_access_reminder_title" msgid="5477847038103863843">"Фондук режимде жайгашкан жерди аныктай алган колдонмону караңыз"</string>
+    <string name="safety_center_background_location_access_reminder_summary" msgid="7431657777510537658">"Бул колдонмо жүргөн жериңизди ар дайым (жабылып турса да) көрө алат.\n\nКоопсуздукту камсыздаган жана кырсыктаганда жардам берген айрым колдонмолор туура иштөө үчүн жүргөн жериңизди фондо көрүп турушу керек."</string>
+    <string name="safety_center_background_location_access_revoked" msgid="6972274943343442213">"Кирүү мүмкүнчүлүгү өзгөрдү"</string>
+    <string name="safety_center_view_recent_location_access" msgid="3524391299490678243">"Жайгашкан жер акыркы жолу качан аныкталганын көрүү"</string>
+    <string name="privacy_controls_title" msgid="7605929972256835199">"Купуялыкты көзөмөлдөө каражаттары"</string>
+    <string name="camera_toggle_title" msgid="1251201397431837666">"Камераны колдонуу"</string>
+    <string name="mic_toggle_title" msgid="2649991093496110162">"Микрофонду колдонуу"</string>
+    <string name="perm_toggle_description" msgid="7801326363741451379">"Колдонмолор жана кызматтар үчүн"</string>
+    <string name="mic_toggle_description" msgid="9163104307990677157">"Кырсыктаганда жардамга келчү кызматка чалганда, микрофондогу нерселер бөлүшүлүшү мүмкүн."</string>
+    <string name="location_settings_subtitle" msgid="2328360561197430695">"Кайда жүргөнүңүздү көрүүгө уруксаты бар колдонмолорду жана кызматтарды көрүү"</string>
+    <string name="show_clip_access_notification_title" msgid="5168467637351109096">"Алмашуу буферин пайдалануу мүмкүнчүлүгүн көрсөтүү"</string>
+    <string name="show_clip_access_notification_summary" msgid="3532020182782112687">"Колдонмолор көчүрүлгөн текстти, сүрөттөрдү же башка нерселерди пайдаланганда билдирүүлөр көрүнөт"</string>
+    <string name="show_password_title" msgid="2877269286984684659">"Сырсөз көрүнсүн"</string>
+    <string name="show_password_summary" msgid="1110166488865981610">"Сырсөз терилип жатканда символдор бир саамга көрүнөт"</string>
+    <string name="permission_rationale_message_location" msgid="2153841534298068414">"Бул колдонмо жайгашкан жер тууралуу маалыматты үчүнчү тараптар менен бөлүшүүгө уруксат сурап жатат"</string>
+    <string name="permission_rationale_location_title" msgid="2404797182678793506">"Маалыматты бөлүшүү жана турган жер"</string>
+    <string name="permission_rationale_data_sharing_source_title" msgid="6874604543125814316">"Бөлүшүп жаткан нерселер кайдан алынат"</string>
+    <string name="permission_rationale_data_sharing_device_manufacturer_message" msgid="7569261218145653185">"Иштеп чыгуучу бул колдонмо маалыматтарды кантип бөлүшкөнүн түзмөктүн өндүрүүчүсүнө билдирди. Иштеп чыгуучу бул маалыматты кийинчерээк жаңыртып турушу мүмкүн."</string>
+    <string name="permission_rationale_data_sharing_source_message" msgid="8330794595417986883">"Иштеп чыгуучу бул колдонмо маалыматтарды кантип бөлүшкөнүн төмөнкүгө билдирди: "<annotation id="link"><annotation id="install_source" example="App Store">"%1$s"</annotation></annotation>". Иштеп чыгуучу бул маалыматты жаңыртып турушу мүмкүн."</string>
+    <string name="permission_rationale_location_purpose_title" msgid="5115877143670012618">"Бул колдонмо турган жериңиз тууралуу маалыматты төмөнкүлөр үчүн бөлүшүшү мүмкүн:"</string>
+    <string name="permission_rationale_permission_data_sharing_varies_title" msgid="9103718980919908316">"Маалымат ар кандай жолдор менен бөлүшүлөт"</string>
+    <string name="permission_rationale_data_sharing_varies_message" msgid="4224469559084489222">"Маалыматтар колдонмонун версиясына, колдонулушуна, жашаган жериңизге жана курагыңызга жараша иштелет. "<annotation id="link">"Маалыматтарды бөлүшүү жөнүндө кеңири маалымат"</annotation></string>
+    <string name="permission_rationale_data_sharing_varies_message_without_link" msgid="4912763761399025094">"Маалыматтарды иштетүү жолдору колдонмоңуздун версиясы, колдонулушу, аймак жана курагыңызга жараша айырмаланышы мүмкүн."</string>
+    <string name="permission_rationale_location_settings_title" msgid="7204145004850190953">"Турган жериңиз"</string>
+    <string name="permission_rationale_permission_settings_message" msgid="631286040979660267">"Бул колдонмонун кирүү мүмкүнчүлүгүн "<annotation id="link">"купуялык параметрлеринен"</annotation>" өзгөртүңүз"</string>
+    <string name="permission_rationale_purpose_app_functionality" msgid="8397736681065841405">"Колдонмонун функциялары"</string>
+    <string name="permission_rationale_purpose_analytics" msgid="2070800501189620712">"Analytics"</string>
+    <string name="permission_rationale_purpose_developer_communications" msgid="6453047018892062374">"Иштеп чыгуучу менен байланышуу"</string>
+    <string name="permission_rationale_purpose_advertising" msgid="7156966429245180236">"Жарнамалоо же маркетинг"</string>
+    <string name="permission_rationale_purpose_fraud_prevention_security" msgid="4262104770357031902">"Шылуундуктан коргонуу, коопсуздук жана шайкештик"</string>
+    <string name="permission_rationale_purpose_personalization" msgid="1589973273682238708">"Жекелештирүү"</string>
+    <string name="permission_rationale_purpose_account_management" msgid="2985772421946688879">"Аккаунтту тескөө"</string>
+    <string name="app_permission_rationale_message" msgid="8511466916077100713">"Маалыматтардын коопсуздугу"</string>
+    <string name="app_location_permission_rationale_title" msgid="925420340572401350">"Турган жериңиз тууралуу маалымат бөлүшүлүп жатышы мүмкүн"</string>
+    <string name="app_location_permission_rationale_subtitle" msgid="6986985722752868692">"Бул колдонмо турган жериңиз тууралуу маалыматты үчүнчү тараптар менен бөлүшүүсү мүмкүн"</string>
+    <string name="data_sharing_updates_title" msgid="7996933386875213859">"Турган жериңизди билдирүү ыкмасын жаңыртуу"</string>
+    <string name="data_sharing_updates_summary" msgid="764113985772233889">"Жүргөн жериңизди көрсөткөн ыкманы өзгөрткөн колдонмолорду карап чыксаңыз болот"</string>
+    <string name="data_sharing_updates_subtitle" msgid="6311537708950632329">"Бул колдонмолор жүргөн жериңиз тууралуу маалыматты бөлүшүү ыкмасын өзгөрттү. Алар бул маалыматты мурда бөлүшпөй же азыр жарнамалоо же маркетинг максаттарында бөлүшүшү мүмкүн."</string>
+    <string name="data_sharing_updates_footer_message" msgid="1582711655172892107">"Бул колдонмолорду иштеп чыгуучулар нерселерди бөлүшүү тууралуу маалыматты колдонмолор дүкөнүнө беришти. Алар бул маалыматты жаңыртып турушу мүмкүн.\n\nМаалыматтарды бөлүшүү ыкмасы колдонмонун версиясына, колдонулушуна, регионго жана курагыңызга жараша айырмаланышы мүмкүн."</string>
+    <string name="learn_about_data_sharing" msgid="4200480587079488045">"Маалыматтарды бөлүшүү жөнүндө кеңири маалымат"</string>
+    <string name="shares_location_with_third_parties" msgid="2278051743742057767">"Жүргөн жериңиз тууралуу маалымат үчүнчү тараптар менен бөлүшүлүп жатат"</string>
+    <string name="shares_location_with_third_parties_for_advertising" msgid="1918588064014480513">"Жүргөн жериңизди үчүнчү тараптар жарнамалоо же маркетинг максатында билип турушат"</string>
+    <string name="updated_in_last_days" msgid="8371811947153042322">"{count,plural, =0{Кечээ жаңыртылды}=1{Кечээ жаңыртылды}other{# күн мурда жаңыртылды}}"</string>
+    <string name="no_updates_at_this_time" msgid="9031085635689982935">"Азырынча жаңыртуулар жок"</string>
+    <string name="safety_label_changes_notification_title" msgid="4479955083472203839">"Маалыматты бөлүшүү жаңыртуулары"</string>
+    <string name="safety_label_changes_notification_desc" msgid="7808764283266234675">"Айрым колдонмолор турган жериңизди билдирүү ыкмасын өзгөрттү"</string>
+    <string name="safety_label_changes_gear_description" msgid="2655887555599138509">"Параметрлер"</string>
 </resources>

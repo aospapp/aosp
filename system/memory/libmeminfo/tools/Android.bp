@@ -27,6 +27,7 @@ cc_binary {
     shared_libs: [
         "libbase",
         "libmeminfo",
+        "libsmapinfo",
     ],
 }
 
@@ -56,6 +57,7 @@ cc_binary {
         "libbase",
         "libmeminfo",
         "libprocinfo",
+        "libsmapinfo",
     ],
 }
 
@@ -71,6 +73,7 @@ cc_binary {
     shared_libs: [
         "libbase",
         "libmeminfo",
+        "libsmapinfo",
     ],
 
     target: {
@@ -91,5 +94,20 @@ cc_binary {
         "libbase",
         "liblog",
         "libmeminfo",
+    ],
+}
+
+cc_binary {
+    name: "bugreport_procdump",
+    cflags: [
+        "-Wall",
+        "-Werror",
+    ],
+
+    srcs: ["bugreport_procdump.cpp"],
+    shared_libs: [
+        "libbase",
+        "libmeminfo",
+        "libsmapinfo",
     ],
 }

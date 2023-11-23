@@ -19,20 +19,19 @@
  *   Functions generated:16
  */
 
-#include <map>
-#include <string>
-
-extern std::map<std::string, int> mock_function_count_map;
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+#include <map>
+#include <string>
 
 #include "btm_api.h"
 #include "hidd_api.h"
 #include "hiddefs.h"
 #include "stack/btm/btm_sec.h"
 #include "stack/hid/hidd_int.h"
+#include "test/common/mock_functions.h"
 #include "types/raw_address.h"
 
 #ifndef UNUSED_ATTR
@@ -42,70 +41,70 @@ extern std::map<std::string, int> mock_function_count_map;
 tHID_STATUS HID_DevAddRecord(uint32_t handle, char* p_name, char* p_description,
                              char* p_provider, uint16_t subclass,
                              uint16_t desc_len, uint8_t* p_desc_data) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return HID_SUCCESS;
 }
 tHID_STATUS HID_DevConnect(void) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return HID_SUCCESS;
 }
 tHID_STATUS HID_DevDeregister(void) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return HID_SUCCESS;
 }
 tHID_STATUS HID_DevDisconnect(void) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return HID_SUCCESS;
 }
 tHID_STATUS HID_DevGetDevice(RawAddress* addr) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return HID_SUCCESS;
 }
 tHID_STATUS HID_DevPlugDevice(const RawAddress& addr) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return HID_SUCCESS;
 }
 tHID_STATUS HID_DevRegister(tHID_DEV_HOST_CALLBACK* host_cback) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return HID_SUCCESS;
 }
 tHID_STATUS HID_DevReportError(uint8_t error) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return HID_SUCCESS;
 }
 tHID_STATUS HID_DevSendReport(uint8_t channel, uint8_t type, uint8_t id,
                               uint16_t len, uint8_t* p_data) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return HID_SUCCESS;
 }
 tHID_STATUS HID_DevSetIncomingPolicy(bool allow) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return HID_SUCCESS;
 }
 tHID_STATUS HID_DevSetIncomingQos(uint8_t service_type, uint32_t token_rate,
                                   uint32_t token_bucket_size,
                                   uint32_t peak_bandwidth, uint32_t latency,
                                   uint32_t delay_variation) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return HID_SUCCESS;
 }
 tHID_STATUS HID_DevSetOutgoingQos(uint8_t service_type, uint32_t token_rate,
                                   uint32_t token_bucket_size,
                                   uint32_t peak_bandwidth, uint32_t latency,
                                   uint32_t delay_variation) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return HID_SUCCESS;
 }
 tHID_STATUS HID_DevUnplugDevice(const RawAddress& addr) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return HID_SUCCESS;
 }
 tHID_STATUS HID_DevVirtualCableUnplug(void) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return HID_SUCCESS;
 }
 uint8_t HID_DevSetTraceLevel(uint8_t new_level) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return 0;
 }
-void HID_DevInit(void) { mock_function_count_map[__func__]++; }
+void HID_DevInit(void) { inc_func_call_count(__func__); }

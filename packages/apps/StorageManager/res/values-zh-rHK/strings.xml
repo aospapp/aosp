@@ -36,10 +36,10 @@
     <!-- no translation found for deletion_helper_downloads_summary_empty (3988054032360371887) -->
     <skip />
     <string name="deletion_helper_clear_dialog_title" msgid="9169670752655850967">"騰出空間"</string>
-    <string name="deletion_helper_clear_dialog_message" msgid="5196490478187120700">"系統將會從您的裝置移除 <xliff:g id="CLEARABLE_BYTES">%1$s</xliff:g> 的內容"</string>
+    <string name="deletion_helper_clear_dialog_message" msgid="5196490478187120700">"系統將會從你的裝置移除 <xliff:g id="CLEARABLE_BYTES">%1$s</xliff:g> 的內容"</string>
     <string name="deletion_helper_clear_dialog_remove" msgid="863575755467985516">"騰出空間"</string>
     <string name="deletion_helper_upsell_title" msgid="8512037674466762017">"要自動管理儲存空間嗎？"</string>
-    <string name="deletion_helper_upsell_summary" msgid="2301597713694474407">"已釋放 <xliff:g id="USED">%1$s</xliff:g>。允許儲存空間管理員自動移除您裝置上的備份内容，以釋放儲存空間嗎？"</string>
+    <string name="deletion_helper_upsell_summary" msgid="2301597713694474407">"已釋放 <xliff:g id="USED">%1$s</xliff:g>。允許儲存空間管理員自動移除你裝置上的備份内容，以釋放儲存空間嗎？"</string>
     <string name="deletion_helper_upsell_cancel" msgid="7084167642850053889">"不用了，多謝"</string>
     <string name="deletion_helper_upsell_activate" msgid="7157360257760895976">"開啟"</string>
     <string name="deletion_helper_apps_group_title" msgid="2578309121350341258">"不常用的應用程式"</string>
@@ -51,15 +51,15 @@
     <string name="automatic_storage_manager_service_label" msgid="648592272375278978">"自動儲存空間管理服務"</string>
     <string name="automatic_storage_manager_notification_title" product="default" msgid="8480483265300964701">"手機的儲存空間不足"</string>
     <string name="automatic_storage_manager_notification_title" product="tablet" msgid="3150907918531844467">"平板電腦的儲存空間不足"</string>
-    <string name="automatic_storage_manager_notification_summary" msgid="2267399886362245822">"當您的手機儲存空間再次即將用盡時，允許儲存空間管理員自動移除備份相片和影片，以釋放儲存空間。"</string>
+    <string name="automatic_storage_manager_notification_summary" msgid="2267399886362245822">"當你的手機儲存空間再次即將用盡時，允許儲存空間管理員自動移除備份相片和影片，以釋放儲存空間。"</string>
     <string name="automatic_storage_manager_cancel_button" msgid="1826365037494962803">"不用了，多謝"</string>
     <string name="automatic_storage_manager_activate_button" msgid="6257070263061898041">"開啟"</string>
     <string name="deletion_helper_photos_loading_title" msgid="2768067991066779772">"已備份的相片和影片"</string>
     <string name="deletion_helper_photos_loading_summary" msgid="8203033249458245854">"正在尋找項目…"</string>
     <string name="deletion_helper_no_threshold" msgid="6943179204098250444">"顯示所有項目"</string>
     <string name="deletion_helper_default_threshold" msgid="8410389370069021113">"隱藏最近的項目"</string>
-    <string name="deletion_helper_clear_dialog_message_first_time" msgid="686530413183529901">"系統將會從您的裝置移除 <xliff:g id="CLEARABLE_BYTES">%1$s</xliff:g> 的內容"</string>
-    <string name="automatic_storage_manager_activation_warning" msgid="7657017408180001078">"您的儲存空間即將由儲存空間管理員管理"</string>
+    <string name="deletion_helper_clear_dialog_message_first_time" msgid="686530413183529901">"系統將會從你的裝置移除 <xliff:g id="CLEARABLE_BYTES">%1$s</xliff:g> 的內容"</string>
+    <string name="automatic_storage_manager_activation_warning" msgid="7657017408180001078">"你的儲存空間即將由儲存空間管理員管理"</string>
     <string name="empty_state_title" msgid="4033285438176545309">"沒有可移除的項目"</string>
     <string name="empty_state_review_items_link" msgid="8411186441239304545">"查看最近的項目"</string>
     <string name="empty_state_summary" msgid="8439893007424243790">"沒有任何可移除的舊檔案。如要騰出儲存空間，請移除最近的相片、影片和應用程式。"</string>

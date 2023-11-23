@@ -29,6 +29,7 @@ import com.android.bluetooth.hid.HidHostService;
 import com.android.bluetooth.le_audio.LeAudioService;
 import com.android.bluetooth.mcp.McpService;
 import com.android.bluetooth.pan.PanService;
+import com.android.bluetooth.tbs.TbsService;
 import com.android.bluetooth.vc.VolumeControlService;
 
 // Factory class to create instances of static services. Useful in mocking the service objects.
@@ -71,6 +72,10 @@ public class ServiceFactory {
 
     public McpService getMcpService() {
         return McpService.getMcpService();
+    }
+
+    public TbsService getTbsService() {
+        return TbsService.getTbsService();
     }
 
     public VolumeControlService getVolumeControlService() {

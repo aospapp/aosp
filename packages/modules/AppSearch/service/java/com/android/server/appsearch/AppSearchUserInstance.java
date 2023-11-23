@@ -17,6 +17,7 @@ package com.android.server.appsearch;
 
 import android.annotation.NonNull;
 
+import com.android.internal.annotations.VisibleForTesting;
 import com.android.server.appsearch.external.localstorage.AppSearchImpl;
 import com.android.server.appsearch.stats.PlatformLogger;
 import com.android.server.appsearch.visibilitystore.VisibilityCheckerImpl;
@@ -28,7 +29,7 @@ import java.util.Objects;
  * the core of the AppSearch system.
  */
 public final class AppSearchUserInstance {
-    private final PlatformLogger mLogger;
+    private volatile PlatformLogger mLogger;
     private final AppSearchImpl mAppSearchImpl;
     private final VisibilityCheckerImpl mVisibilityCheckerImpl;
 
@@ -54,5 +55,10 @@ public final class AppSearchUserInstance {
     @NonNull
     public VisibilityCheckerImpl getVisibilityChecker() {
         return mVisibilityCheckerImpl;
+    }
+
+    @VisibleForTesting
+    void setLoggerForTest(@NonNull PlatformLogger logger) {
+        mLogger = Objects.requireNonNull(logger);
     }
 }

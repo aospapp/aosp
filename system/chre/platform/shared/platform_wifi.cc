@@ -40,14 +40,14 @@ const chrePalWifiCallbacks PlatformWifiBase::sWifiCallbacks = {
 PlatformWifi::~PlatformWifi() {
   if (mWifiApi != nullptr) {
     LOGD("Platform WiFi closing");
-    prePalApiCall();
+    prePalApiCall(PalType::WIFI);
     mWifiApi->close();
     LOGD("Platform WiFi closed");
   }
 }
 
 void PlatformWifi::init() {
-  prePalApiCall();
+  prePalApiCall(PalType::WIFI);
   mWifiApi = chrePalWifiGetApi(CHRE_PAL_WIFI_API_CURRENT_VERSION);
   if (mWifiApi != nullptr) {
     if (!mWifiApi->open(&gChrePalSystemApi, &sWifiCallbacks)) {
@@ -70,7 +70,7 @@ void PlatformWifi::init() {
 
 uint32_t PlatformWifi::getCapabilities() {
   if (mWifiApi != nullptr) {
-    prePalApiCall();
+    prePalApiCall(PalType::WIFI);
     return mWifiApi->getCapabilities();
   } else {
     return CHRE_WIFI_CAPABILITIES_NONE;
@@ -79,7 +79,7 @@ uint32_t PlatformWifi::getCapabilities() {
 
 bool PlatformWifi::configureScanMonitor(bool enable) {
   if (mWifiApi != nullptr) {
-    prePalApiCall();
+    prePalApiCall(PalType::WIFI);
     return mWifiApi->configureScanMonitor(enable);
   } else {
     return false;
@@ -89,7 +89,7 @@ bool PlatformWifi::configureScanMonitor(bool enable) {
 bool PlatformWifi::requestRanging(const struct chreWifiRangingParams *params) {
   if (mWifiApi != nullptr &&
       mWifiApi->moduleVersion >= CHRE_PAL_WIFI_API_V1_2) {
-    prePalApiCall();
+    prePalApiCall(PalType::WIFI);
     return mWifiApi->requestRanging(params);
   } else {
     return false;
@@ -102,7 +102,7 @@ bool PlatformWifi::requestNanRanging(
 #ifdef CHRE_WIFI_NAN_SUPPORT_ENABLED
   if (mWifiApi != nullptr &&
       mWifiApi->moduleVersion >= CHRE_PAL_WIFI_API_V1_6) {
-    prePalApiCall();
+    prePalApiCall(PalType::WIFI);
     success = mWifiApi->requestNanRanging(params);
   }
 #endif
@@ -111,7 +111,7 @@ bool PlatformWifi::requestNanRanging(
 
 bool PlatformWifi::requestScan(const struct chreWifiScanParams *params) {
   if (mWifiApi != nullptr) {
-    prePalApiCall();
+    prePalApiCall(PalType::WIFI);
 
     if (mWifiApi->moduleVersion < CHRE_PAL_WIFI_API_V1_5) {
       const struct chreWifiScanParams paramsCompat =
@@ -126,19 +126,19 @@ bool PlatformWifi::requestScan(const struct chreWifiScanParams *params) {
 }
 
 void PlatformWifi::releaseRangingEvent(struct chreWifiRangingEvent *event) {
-  prePalApiCall();
+  prePalApiCall(PalType::WIFI);
   mWifiApi->releaseRangingEvent(event);
 }
 
 void PlatformWifi::releaseScanEvent(struct chreWifiScanEvent *event) {
-  prePalApiCall();
+  prePalApiCall(PalType::WIFI);
   mWifiApi->releaseScanEvent(event);
 }
 
 void PlatformWifi::releaseNanDiscoveryEvent(
     struct chreWifiNanDiscoveryEvent *event) {
 #ifdef CHRE_WIFI_NAN_SUPPORT_ENABLED
-  prePalApiCall();
+  prePalApiCall(PalType::WIFI);
   mWifiApi->releaseNanDiscoveryEvent(event);
 #else
   UNUSED_VAR(event);
@@ -151,7 +151,7 @@ bool PlatformWifi::nanSubscribe(
 #ifdef CHRE_WIFI_NAN_SUPPORT_ENABLED
   if (mWifiApi != nullptr &&
       mWifiApi->moduleVersion >= CHRE_PAL_WIFI_API_V1_6) {
-    prePalApiCall();
+    prePalApiCall(PalType::WIFI);
     success = mWifiApi->nanSubscribe(config);
   }
 #else
@@ -165,7 +165,7 @@ bool PlatformWifi::nanSubscribeCancel(uint32_t subscriptionId) {
 #ifdef CHRE_WIFI_NAN_SUPPORT_ENABLED
   if (mWifiApi != nullptr &&
       mWifiApi->moduleVersion >= CHRE_PAL_WIFI_API_V1_6) {
-    prePalApiCall();
+    prePalApiCall(PalType::WIFI);
     success = mWifiApi->nanSubscribeCancel(subscriptionId);
   }
 #else

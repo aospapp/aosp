@@ -112,6 +112,7 @@ public class StatsCompanion {
         private static final int CODE_DATA_BROADCAST = 1;
         private static final int CODE_ACTIVE_CONFIGS_BROADCAST = 1;
         private static final int CODE_SUBSCRIBER_BROADCAST = 1;
+        private static final int CODE_RESTRICTED_METRICS_BROADCAST = 1;
 
         private final PendingIntent mPendingIntent;
         private final Context mContext;
@@ -182,6 +183,25 @@ public class StatsCompanion {
                 Log.w(TAG,
                         "Unable to send using PendingIntent from uid " + configUid
                                 + "; presumably it had been cancelled.");
+            }
+        }
+
+        @Override
+        public void sendRestrictedMetricsChangedBroadcast(long[] metricIds) {
+            enforceStatsdCallingUid();
+            Intent intent = new Intent();
+            intent.putExtra(StatsManager.EXTRA_STATS_RESTRICTED_METRIC_IDS, metricIds);
+            try {
+                mPendingIntent.send(mContext, CODE_RESTRICTED_METRICS_BROADCAST, intent, null,
+                        null);
+                if (DEBUG) {
+                    Log.d(TAG,
+                            "Sent restricted metrics broadcast with metric ids " + Arrays.toString(
+                                    metricIds));
+                }
+            } catch (PendingIntent.CanceledException e) {
+                Log.w(TAG,
+                        "Unable to send restricted metrics changed broadcast using PendingIntent");
             }
         }
     }

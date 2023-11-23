@@ -20,14 +20,14 @@ edition = "2018"
 build = "build.rs"
 
 [dependencies]
-futures = "*"
-grpcio = "*"
-protobuf = "*"
+futures = "0.3"
+grpcio = "0.9"
+protobuf = "2.0"
 
 [build-dependencies]
-protoc-rust = "*"
-protoc-grpcio = "*"
-protobuf-codegen = "*"
+protoc-rust = "2.0"
+protoc-grpcio = "2.0"
+protobuf-codegen = "2.0"
 
 [lib]
 crate-types = ["rlib"]

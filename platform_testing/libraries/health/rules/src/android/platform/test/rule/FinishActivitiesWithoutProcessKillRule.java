@@ -41,6 +41,7 @@ public class FinishActivitiesWithoutProcessKillRule extends TestWatcher {
     private String mPkgName;
     private Context mContext;
     private final Pattern mAppActivityRecordPattern;
+    private final boolean mEnableRule;
 
     @VisibleForTesting
     static final String FINISH_ACTIVITY_WITHOUT_PROCESS_KILL =
@@ -52,20 +53,28 @@ public class FinishActivitiesWithoutProcessKillRule extends TestWatcher {
     }
 
     public FinishActivitiesWithoutProcessKillRule(String appPackageName) {
+        this(appPackageName, false);
+    }
+
+    public FinishActivitiesWithoutProcessKillRule(String appPackageName,
+            boolean enableRule) {
         mPkgName = appPackageName;
         mContext = InstrumentationRegistry.getInstrumentation().getContext();
         mAppActivityRecordPattern = Pattern.compile(
                 "ActivityRecord\\{.*"
                         + appPackageName.replace(".", "\\.")
                         + "/.*\\st([0-9]+)\\}");
+        mEnableRule = enableRule;
     }
 
     @Override
     protected void starting(Description description) {
 
-        if (!Boolean.parseBoolean(
-                getArguments().getString(FINISH_ACTIVITY_WITHOUT_PROCESS_KILL, "true"))) {
-            return;
+        if(!mEnableRule) {
+            if (!Boolean.parseBoolean(
+                    getArguments().getString(FINISH_ACTIVITY_WITHOUT_PROCESS_KILL, "true"))) {
+                return;
+            }
         }
 
         if (!getAppActivityMatcher().find()) {
@@ -80,14 +89,18 @@ public class FinishActivitiesWithoutProcessKillRule extends TestWatcher {
             // This will remove all the activities associated with the package name without
             // killing the app.
             mContext.getPackageManager().setApplicationEnabledSetting(mPkgName,
-                    PackageManager.COMPONENT_ENABLED_STATE_DISABLED, PackageManager.DONT_KILL_APP);
+                    PackageManager.COMPONENT_ENABLED_STATE_DISABLED,
+                    PackageManager.DONT_KILL_APP);
 
-            if (!waitUntilActivitiesRemoved()) {
-                throw new IllegalStateException("Activities not removed successfully.");
+            try {
+                if (!waitUntilActivitiesRemoved()) {
+                    throw new IllegalStateException("Activities not removed successfully.");
+                }
+            } finally {
+                mContext.getPackageManager().setApplicationEnabledSetting(mPkgName,
+                        PackageManager.COMPONENT_ENABLED_STATE_ENABLED,
+                        PackageManager.DONT_KILL_APP);
             }
-
-            mContext.getPackageManager().setApplicationEnabledSetting(mPkgName,
-                    PackageManager.COMPONENT_ENABLED_STATE_ENABLED, PackageManager.DONT_KILL_APP);
         } finally {
             InstrumentationRegistry.getInstrumentation().getUiAutomation()
                     .dropShellPermissionIdentity();

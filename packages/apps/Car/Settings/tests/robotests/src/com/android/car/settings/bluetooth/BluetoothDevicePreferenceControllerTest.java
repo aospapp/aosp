@@ -107,6 +107,36 @@ public class BluetoothDevicePreferenceControllerTest {
     }
 
     @Test
+    public void getAvailabilityStatus_disallowConfigBluetooth_disabledForUser_zoneWrite() {
+        getShadowUserManager().setUserRestriction(
+                UserHandle.of(UserHandle.myUserId()), DISALLOW_CONFIG_BLUETOOTH, true);
+        mControllerHelper.getController().setAvailabilityStatusForZone("write");
+
+        assertThat(mControllerHelper.getController().getAvailabilityStatus()).isEqualTo(
+                DISABLED_FOR_PROFILE);
+    }
+
+    @Test
+    public void getAvailabilityStatus_disallowConfigBluetooth_disabledForUser_zoneRead() {
+        getShadowUserManager().setUserRestriction(
+                UserHandle.of(UserHandle.myUserId()), DISALLOW_CONFIG_BLUETOOTH, true);
+        mControllerHelper.getController().setAvailabilityStatusForZone("read");
+
+        assertThat(mControllerHelper.getController().getAvailabilityStatus()).isEqualTo(
+                DISABLED_FOR_PROFILE);
+    }
+
+    @Test
+    public void getAvailabilityStatus_disallowConfigBluetooth_disabledForUser_zoneHidden() {
+        getShadowUserManager().setUserRestriction(
+                UserHandle.of(UserHandle.myUserId()), DISALLOW_CONFIG_BLUETOOTH, true);
+        mControllerHelper.getController().setAvailabilityStatusForZone("hidden");
+
+        assertThat(mControllerHelper.getController().getAvailabilityStatus()).isEqualTo(
+                DISABLED_FOR_PROFILE);
+    }
+
+    @Test
     public void onStart_registersDeviceCallback() {
         mControllerHelper.sendLifecycleEvent(Lifecycle.Event.ON_START);
 

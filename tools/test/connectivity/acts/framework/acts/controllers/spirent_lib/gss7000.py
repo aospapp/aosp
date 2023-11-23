@@ -162,7 +162,7 @@ class GSS7000(AbstractInstGss7000):
                     Type, list.
         """
         root = ET.fromstring(xml)
-        capability_ls = list()
+        capability_ls = []
         sig_cap_list = root.find('data').find('Signal_capabilities').findall(
             'Signal')
         for signal in sig_cap_list:
@@ -203,15 +203,13 @@ class GSS7000(AbstractInstGss7000):
         if scenario == '':
             errmsg = ('Missing scenario file')
             raise GSS7000Error(error=errmsg, command='load_scenario')
-        else:
-            self._logger.debug('Stopped the original scenario')
-            self._query('-,EN,1')
-            cmd = 'SC,' + scenario
-            self._logger.debug('Loading scenario')
-            self._query(cmd)
-            self._logger.debug('Scenario is loaded')
-            return True
-        return False
+        self._logger.debug('Stopped the original scenario')
+        self._query('-,EN,1')
+        cmd = 'SC,' + scenario
+        self._logger.debug('Loading scenario')
+        self._query(cmd)
+        self._logger.debug('Scenario is loaded')
+        return True
 
     def start_scenario(self, scenario=''):
         """Load and Start the running scenario.
@@ -223,6 +221,8 @@ class GSS7000(AbstractInstGss7000):
         if scenario:
             if self.load_scenario(scenario):
                 self._query('RU')
+        # TODO: Need to refactor the logic design to solve the comment in ag/19222896
+        # Track the issue in b/241200605
             else:
                 infmsg = 'No scenario is loaded. Stop running scenario'
                 self._logger.debug(infmsg)
@@ -230,7 +230,7 @@ class GSS7000(AbstractInstGss7000):
             pass
 
         if scenario:
-            infmsg = 'Started running scenario {}'.format(scenario)
+            infmsg = f'Started running scenario {scenario}'
         else:
             infmsg = 'Started running current scenario'
 
@@ -279,12 +279,12 @@ class GSS7000(AbstractInstGss7000):
             GSS7000Error: raise when power offset level is not in [-170, -115] range.
         """
         if not -170 <= ref_dBm <= -115:
-            errmsg = ('"power_offset" must be within [-170, -115], '
-                      'current input is {}').format(str(ref_dBm))
+            errmsg = (f'"power_offset" must be within [-170, -115], '
+                      f'current input is {ref_dBm}')
             raise GSS7000Error(error=errmsg, command='set_ref_power')
-        cmd = 'REF_DBM,{}'.format(str(round(ref_dBm, 1)))
+        cmd = f'REF_DBM,{ref_dBm:.1f}'
         self._query(cmd)
-        infmsg = 'Set reference power level: {}'.format(str(round(ref_dBm, 1)))
+        infmsg = f'Set reference power level: {ref_dBm:.1f}'
         self._logger.debug(infmsg)
 
     def get_status(self, return_txt=False):
@@ -309,8 +309,7 @@ class GSS7000(AbstractInstGss7000):
                      'Waiting for further commands.'
             }
             return status_dict.get(status)
-        else:
-            return int(status)
+        return int(status)
 
     def set_power(self, power_level=-130):
         """Set Power Level of GSS7000 Tx
@@ -331,8 +330,7 @@ class GSS7000(AbstractInstGss7000):
         self.set_power_offset(1, power_offset)
         self.set_power_offset(2, power_offset)
 
-        infmsg = 'Set GSS7000 transmit power to "{}"'.format(
-            round(power_level, 1))
+        infmsg = f'Set GSS7000 transmit power to "{power_level:.1f}"'
         self._logger.debug(infmsg)
 
     def power_lev_offset_cal(self, power_level=-130, sat='GPS', band='L1'):
@@ -418,8 +416,8 @@ class GSS7000(AbstractInstGss7000):
                 f'Satellite system and band ({sat_band}) are not supported.'
                 f'The GSS7000 support list: {self.capability}')
             raise GSS7000Error(error=errmsg, command='set_scenario_power')
-        else:
-            sat_band_tp = tuple(sat_band.split('_'))
+
+        sat_band_tp = tuple(sat_band.split('_'))
 
         return sat_band_tp
 
@@ -436,14 +434,14 @@ class GSS7000(AbstractInstGss7000):
                 Default. -130
             sat_id: set power level for specific satellite identifiers
                 Type, int.
-            sat_system: to set power level for all Satellites
+            sat_system: to set power level for specific system
                 Type, str
                 Option 'GPS/GLO/GAL/BDS'
                 Type, str
                 Default, '', assumed to be GPS.
             freq_band: Frequency band to set the power level
                 Type, str
-                Option 'L1/L5/B1I/B1C/B2A/F1/E5/ALL'
+                Option 'L1/L5/B1I/B1C/B2A/F1/E5'
                 Default, '', assumed to be L1.
         Raises:
             GSS7000Error: raise when power offset is not in [-49, -15] range.
@@ -455,8 +453,7 @@ class GSS7000(AbstractInstGss7000):
             'B1I': 1,
             'B1C': 1,
             'F1': 1,
-            'E5': 2,
-            'ALL': 3
+            'E5': 2
         }
 
         # Convert and check satellite system and band
@@ -464,12 +461,13 @@ class GSS7000(AbstractInstGss7000):
         # Get freq band setting
         band_cmd = band_dict.get(band, 1)
 
+        # When set sat_id --> control specific SV power.
+        # When set is not set --> control all SVs of specific system power.
         if not sat_id:
-            sat_id = 0
+            sat_id = 1
             all_tx_type = 1
         else:
             all_tx_type = 0
-
         # Convert absolute power level to absolute power offset.
         power_offset = self.power_lev_offset_cal(power_level, sat, band)
 
@@ -478,13 +476,10 @@ class GSS7000(AbstractInstGss7000):
                       f'current input is {power_offset}')
             raise GSS7000Error(error=errmsg, command='set_power_offset')
 
+        # If no specific sat_system is set, the default is GPS L1.
         if band_cmd == 1:
             cmd = f'-,POW_LEV,v1_a1,{power_offset},{sat},{sat_id},0,0,0,1,1,{all_tx_type}'
             self._query(cmd)
         elif band_cmd == 2:
             cmd = f'-,POW_LEV,v1_a2,{power_offset},{sat},{sat_id},0,0,0,1,1,{all_tx_type}'
             self._query(cmd)
-        elif band_cmd == 3:
-            cmd = f'-,POW_LEV,v1_a1,{power_offset},{sat},{sat_id},0,0,0,1,1,{all_tx_type}'
-            self._query(cmd)
-            cmd = f'-,POW_LEV,v1_a2,{power_offset},{sat},{sat_id},0,0,0,1,1,{all_tx_type}'

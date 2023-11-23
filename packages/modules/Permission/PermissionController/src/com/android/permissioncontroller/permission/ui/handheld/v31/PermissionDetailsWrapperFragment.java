@@ -38,7 +38,7 @@ public class PermissionDetailsWrapperFragment extends PermissionsCollapsingToolb
     @NonNull
     @Override
     public PreferenceFragmentCompat createPreferenceFragment() {
-        return new PermissionDetailsFragment();
+        return new PermissionUsageDetailsFragment();
     }
 
     /**

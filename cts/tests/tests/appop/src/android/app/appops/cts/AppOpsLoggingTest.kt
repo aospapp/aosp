@@ -29,7 +29,6 @@ import android.app.AppOpsManager.OPSTR_FINE_LOCATION
 import android.app.AppOpsManager.OPSTR_GET_ACCOUNTS
 import android.app.AppOpsManager.OPSTR_GET_USAGE_STATS
 import android.app.AppOpsManager.OPSTR_READ_CONTACTS
-import android.app.AppOpsManager.OPSTR_READ_EXTERNAL_STORAGE
 import android.app.AppOpsManager.OPSTR_RECORD_AUDIO
 import android.app.AppOpsManager.OPSTR_SEND_SMS
 import android.app.AppOpsManager.OPSTR_WRITE_CONTACTS
@@ -38,9 +37,9 @@ import android.app.AppOpsManager.strOpToOp
 import android.app.AsyncNotedAppOp
 import android.app.PendingIntent
 import android.app.SyncNotedAppOp
-import android.app.WallpaperManager
-import android.app.WallpaperManager.FLAG_SYSTEM
 import android.bluetooth.BluetoothManager
+import android.bluetooth.cts.BTAdapterUtils.disableAdapter as disableBTAdapter
+import android.bluetooth.cts.BTAdapterUtils.enableAdapter as enableBTAdapter
 import android.bluetooth.le.ScanCallback
 import android.content.BroadcastReceiver
 import android.content.ComponentName
@@ -51,10 +50,11 @@ import android.content.Intent
 import android.content.Intent.FLAG_ACTIVITY_NEW_TASK
 import android.content.IntentFilter
 import android.content.ServiceConnection
+import android.content.pm.PackageManager
 import android.content.pm.PackageManager.FEATURE_BLUETOOTH
 import android.content.pm.PackageManager.FEATURE_BLUETOOTH_LE
 import android.content.pm.PackageManager.FEATURE_TELEPHONY
-import android.content.pm.PackageManager.GET_ATTRIBUTIONS
+import android.content.pm.PackageManager.GET_ATTRIBUTIONS_LONG
 import android.hardware.camera2.CameraCaptureSession
 import android.hardware.camera2.CameraCharacteristics
 import android.hardware.camera2.CameraDevice
@@ -82,7 +82,12 @@ import android.telephony.TelephonyManager
 import android.util.Log
 import android.util.Size
 import androidx.test.platform.app.InstrumentationRegistry
+import com.android.compatibility.common.util.SystemUtil.waitForBroadcasts
 import com.google.common.truth.Truth.assertThat
+import java.util.concurrent.CompletableFuture
+import java.util.concurrent.Executor
+import java.util.concurrent.TimeUnit.MILLISECONDS
+import java.util.concurrent.TimeoutException
 import org.junit.After
 import org.junit.Assert.fail
 import org.junit.Assume.assumeNoException
@@ -90,12 +95,6 @@ import org.junit.Assume.assumeTrue
 import org.junit.Before
 import org.junit.Ignore
 import org.junit.Test
-import java.util.concurrent.CompletableFuture
-import java.util.concurrent.Executor
-import java.util.concurrent.TimeUnit.MILLISECONDS
-import java.util.concurrent.TimeoutException
-import android.bluetooth.cts.BTAdapterUtils.disableAdapter as disableBTAdapter
-import android.bluetooth.cts.BTAdapterUtils.enableAdapter as enableBTAdapter
 
 private const val TEST_SERVICE_PKG = "android.app.appops.cts.appthatusesappops"
 private const val TIMEOUT_MILLIS = 10000L
@@ -854,26 +853,10 @@ class AppOpsLoggingTest {
     }
 
     /**
-     * Realistic end-to-end test for getting wallpaper
-     */
-    @Test
-    fun getWallpaper() {
-        val wallpaperManager = context.createAttributionContext(TEST_ATTRIBUTION_TAG)
-                .getSystemService(WallpaperManager::class.java)
-        assumeTrue("Device does not support wallpaper",
-                wallpaperManager.isWallpaperSupported())
-
-        wallpaperManager.getWallpaperFile(FLAG_SYSTEM)
-
-        assertThat(noted[0].first.op).isEqualTo(OPSTR_READ_EXTERNAL_STORAGE)
-        assertThat(noted[0].first.attributionTag).isEqualTo(TEST_ATTRIBUTION_TAG)
-        assertThat(noted[0].second.map { it.methodName }).contains("getWallpaper")
-    }
-
-    /**
      * Realistic end-to-end test for sending a SMS message
      */
     @Test
+    @Ignore // TODO(b/244623752): Enable again after the test consistently passes.
     fun sendSms() {
         assumeTrue(context.packageManager.hasSystemFeature(FEATURE_TELEPHONY))
 
@@ -936,11 +919,13 @@ class AppOpsLoggingTest {
         }
 
         val testContext = context.createAttributionContext(TEST_ATTRIBUTION_TAG)
-        testContext.registerReceiver(receiver, IntentFilter(PRIVATE_ACTION))
+        testContext.registerReceiver(receiver, IntentFilter(PRIVATE_ACTION),
+                Context.RECEIVER_EXPORTED)
 
         try {
             context.sendOrderedBroadcast(Intent(PRIVATE_ACTION), READ_CONTACTS, OPSTR_READ_CONTACTS,
                     null, null, RESULT_OK, null, null)
+            waitForBroadcasts()
 
             eventually {
                 assertThat(asyncNoted[0].op).isEqualTo(OPSTR_READ_CONTACTS)
@@ -957,6 +942,7 @@ class AppOpsLoggingTest {
     fun receiveBroadcastManifestReceiver() {
         context.sendOrderedBroadcast(Intent(PUBLIC_ACTION).setPackage(myPackage), READ_CONTACTS,
                 OPSTR_READ_CONTACTS, null, null, RESULT_OK, null, null)
+        waitForBroadcasts()
 
         eventually {
             assertThat(asyncNoted[0].op).isEqualTo(OPSTR_READ_CONTACTS)
@@ -971,6 +957,7 @@ class AppOpsLoggingTest {
     fun sendBroadcastToProtectedReceiver() {
         context.createAttributionContext(TEST_ATTRIBUTION_TAG)
                 .sendBroadcast(Intent(PROTECTED_ACTION).setPackage(myPackage))
+        waitForBroadcasts()
 
         eventually {
             assertThat(asyncNoted[0].op).isEqualTo(OPSTR_READ_CONTACTS)
@@ -981,7 +968,7 @@ class AppOpsLoggingTest {
     @Test
     fun checkAttributionsAreUserVisible() {
         val pi = context.packageManager.getPackageInfo(
-                TEST_SERVICE_PKG, GET_ATTRIBUTIONS)
+                TEST_SERVICE_PKG, PackageManager.PackageInfoFlags.of(GET_ATTRIBUTIONS_LONG))
         assertThat(pi.applicationInfo.areAttributionsUserVisible())
     }
 

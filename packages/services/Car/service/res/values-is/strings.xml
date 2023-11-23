@@ -42,8 +42,6 @@
     <string name="car_permission_desc_projection" msgid="2352178999656292944">"Gerir forriti kleift að varpa viðmóti úr síma yfir á skjá bílsins."</string>
     <string name="car_permission_label_access_projection_status" msgid="4231618890836627402">"fá aðgang að vörpunarstöðu"</string>
     <string name="car_permission_desc_access_projection_status" msgid="8497351979100616278">"Heimila forriti að fá stöðu annarra forrita sem varpa yfir á skjá bílsins."</string>
-    <string name="car_permission_label_bind_projection_service" msgid="5362076216606651526">"binda við vörpunarþjónustu"</string>
-    <string name="car_permission_desc_bind_projection_service" msgid="2282657787853408639">"Heimilar handhafa að bindast efsta viðmótslagi vörpunarþjónustu. Ætti aldrei að vera nauðsynlegt fyrir venjuleg forrit."</string>
     <string name="car_permission_label_audio_volume" msgid="310587969373137690">"stjórna hljóðstyrk í bílnum"</string>
     <string name="car_permission_label_audio_settings" msgid="6524703796944023977">"stjórna stillingum fyrir hljóðkerfi bílsins"</string>
     <string name="car_permission_label_mock_vehicle_hal" msgid="7198852512207405935">"líkja eftir HAL ökutækis"</string>
@@ -62,8 +60,6 @@
     <string name="car_permission_desc_car_cluster_control" msgid="9222776665281176031">"Opna forrit á mælaborði"</string>
     <string name="car_permission_car_monitor_cluster_navigation_state" msgid="7025307242306902441">"Staða leiðsagnar í mælaborði"</string>
     <string name="car_permission_desc_car_monitor_cluster_navigation_state" msgid="8745047153878713339">"Hlusta eftir breytingum á stöðu leiðsagnar í mælaborði"</string>
-    <string name="car_permission_label_bind_instrument_cluster_rendering" msgid="8627480897198377418">"Teiknun mælaborðs"</string>
-    <string name="car_permission_desc_bind_instrument_cluster_rendering" msgid="5073596870485006783">"Fá mælaborðsgögn"</string>
     <string name="car_permission_label_car_ux_restrictions_configuration" msgid="6801393970411049725">"Grunnstilling takmarkana á upplifun notanda"</string>
     <string name="car_permission_desc_car_ux_restrictions_configuration" msgid="5711926927484813777">"Stilla takmarkanir á upplifun notanda"</string>
     <string name="car_permission_label_access_private_display_id" msgid="6712116114341634316">"Lesaðgangur fyrir einkaskjái með auðkenni"</string>
@@ -74,8 +70,12 @@
     <string name="car_permission_desc_read_car_occupant_awareness_state" msgid="188865882598414986">"Leyfir lestur á stöðu og kennslagögnum fyrir Occupant Awareness System"</string>
     <string name="car_permission_label_control_car_occupant_awareness_system" msgid="7163330266691094542">"Stjórna riti fyrir Occupant Awareness System"</string>
     <string name="car_permission_desc_control_car_occupant_awareness_system" msgid="7123482622084531911">"Leyfir stjórnun á kennslariti fyrir Occupant Awareness System"</string>
-    <string name="car_permission_label_bind_input_service" msgid="6698489034024273750">"Inntaksþjónusta bíls"</string>
-    <string name="car_permission_desc_bind_input_service" msgid="1670323419931890170">"Stjórna inntakstilvikum"</string>
+    <string name="car_permission_label_read_driver_monitoring_settings" msgid="5208935577581001710">"Lesa upplýsingar bílsins um ökumannseftirlit"</string>
+    <string name="car_permission_desc_read_driver_monitoring_settings" msgid="3721117607024237175">"Lesa upplýsingar bílsins um ökumannseftirlit."</string>
+    <string name="car_permission_label_control_driver_monitoring_settings" msgid="239453247872865455">"Stjórna upplýsingum bílsins um ökumannseftirlit"</string>
+    <string name="car_permission_desc_control_driver_monitoring_settings" msgid="7244804817277236221">"Stjórna upplýsingum bílsins um ökumannseftirlit."</string>
+    <string name="car_permission_label_read_driver_monitoring_states" msgid="1555412806741155523">"Lesa upplýsingar bílsins um stöðu ökumannseftirlits"</string>
+    <string name="car_permission_desc_read_driver_monitoring_states" msgid="3124328827934661489">"Lesa upplýsingar bílsins um stöðu ökumannseftirlits."</string>
     <string name="car_permission_label_diag_read" msgid="7248894224877702604">"lesa greiningargögn"</string>
     <string name="car_permission_desc_diag_read" msgid="1121426363040966178">"Lesa greiningargögn úr bílnum."</string>
     <string name="car_permission_label_diag_clear" msgid="4783070510879698157">"hreinsa greiningargögn"</string>
@@ -84,8 +84,6 @@
     <string name="car_permission_desc_vms_publisher" msgid="5589489298597386828">"Birta VMS-skilaboð"</string>
     <string name="car_permission_label_vms_subscriber" msgid="5648841182059222299">"VMS-áskrifandi"</string>
     <string name="car_permission_desc_vms_subscriber" msgid="7551009457847673620">"Gerast áskrifandi að VMS-skilaboðum"</string>
-    <string name="car_permission_label_bind_vms_client" msgid="4889732900973280313">"VMS-biðlaraþjónusta"</string>
-    <string name="car_permission_desc_bind_vms_client" msgid="4062835325264330564">"Bindst VMS-biðlara"</string>
     <string name="car_permission_label_storage_monitoring" msgid="2327639346522530549">"Eftirlit með Flash-geymslu"</string>
     <string name="car_permission_desc_storage_monitoring" msgid="2075712271139671318">"Fylgjast með notkun á Flash-geymslu"</string>
     <string name="car_permission_label_driving_state" msgid="7754624599537393650">"hlusta á akstursstöðu"</string>
@@ -118,6 +116,8 @@
     <string name="car_permission_desc_control_car_mirrors" msgid="1224135684068855032">"Stjórna speglum bílsins."</string>
     <string name="car_permission_label_control_car_seats" msgid="1826934820585497135">"stjórna bílsætum"</string>
     <string name="car_permission_desc_control_car_seats" msgid="2407536601226470563">"Stjórna bílsætum."</string>
+    <string name="car_permission_label_control_car_airbags" msgid="6823727183218389617">"stjórna loftpúðum bílsins"</string>
+    <string name="car_permission_desc_control_car_airbags" msgid="6181671903761622348">"Stjórna loftpúðum bílsins."</string>
     <string name="car_permission_label_car_info" msgid="4707513570676492315">"fá aðgang að grunnupplýsingum bílsins"</string>
     <string name="car_permission_desc_car_info" msgid="2118081474543537653">"Fá aðgang að grunnupplýsingum bílsins."</string>
     <string name="car_permission_label_privileged_car_info" msgid="1304018073760220785">"aðgangur að trúnaðarupplýsingum um bílinn"</string>
@@ -126,10 +126,10 @@
     <string name="car_permission_desc_vendor_permission_info" msgid="8152113853528488398">"Fá aðgang að heimildarupplýsingum bílasala."</string>
     <string name="car_permission_label_car_exterior_lights" msgid="541304469604902110">"lesa stöðu ljósa bíls að utanverðu"</string>
     <string name="car_permission_desc_car_exterior_lights" msgid="4038037584100849318">"Fá aðgang að stöðu ljósa bíls að utanverðu."</string>
+    <string name="car_permission_label_control_glove_box" msgid="992118647212706782">"fá aðgang að stöðu hanskahólfs bíls"</string>
+    <string name="car_permission_desc_control_glove_box" msgid="2888062136750123261">"Fá aðgang að stöðu hanskahólfs bíls."</string>
     <string name="car_permission_label_car_epoch_time" msgid="6303397910662625112">"fá aðgang að tímabili bílsins"</string>
     <string name="car_permission_desc_car_epoch_time" msgid="398907082895238558">"Fá aðgang að tímabili bílsins."</string>
-    <string name="car_permission_label_encryption_binding_seed" msgid="4652180636501144684">"fá aðgang að SEED-dulkóðunarbindingu bílsins"</string>
-    <string name="car_permission_desc_encryption_binding_seed" msgid="6290944678417286024">"Fá aðgang að SEED-dulkóðunarbindingu bílsins."</string>
     <string name="car_permission_label_control_car_exterior_lights" msgid="101357531386232141">"lesa ljós bíls að utanverðu"</string>
     <string name="car_permission_desc_control_car_exterior_lights" msgid="6332252612685264180">"Stjórna ljósum bíls að utanverðu."</string>
     <string name="car_permission_label_car_interior_lights" msgid="8506302199784427680">"lesa lýsingu í innanrými bílsins"</string>
@@ -146,6 +146,8 @@
     <string name="car_permission_desc_read_car_display_units" msgid="6891898275208542385">"Lesa skjái."</string>
     <string name="car_permission_label_control_car_display_units" msgid="4975303668183173076">"stjórna skjáum bílsins"</string>
     <string name="car_permission_desc_control_car_display_units" msgid="8744397195158556945">"Stjórna skjáum."</string>
+    <string name="car_permission_label_control_car_powertrain" msgid="234831541490237603">"stjórna upplýsingum um aflrás bíls"</string>
+    <string name="car_permission_desc_control_car_powertrain" msgid="8205110385130069179">"Stjórna upplýsingum um aflrás bíls."</string>
     <string name="car_permission_label_car_powertrain" msgid="4586122326622134886">"lesa upplýsingar um aflrás bílsins"</string>
     <string name="car_permission_desc_car_powertrain" msgid="1116007372551797796">"Fá aðgang að upplýsingum um aflrás bílsins."</string>
     <string name="car_permission_label_car_power" msgid="8111448088314368268">"lesa orkustöðu bílsins"</string>
@@ -172,6 +174,40 @@
     <string name="car_permission_desc_template_renderer" msgid="6047233999260920122">"Teikna sniðmát."</string>
     <string name="car_permission_label_control_car_app_launch" msgid="214632389637409226">"stjórna ræsingu forrita"</string>
     <string name="car_permission_desc_control_car_app_launch" msgid="4245527461733374198">"Stjórna ræsingu forrita."</string>
+    <string name="car_permission_label_manage_thread_priority" msgid="6775846409863509575">"stjórna forgangi þráða"</string>
+    <string name="car_permission_desc_manage_thread_priority" msgid="3833845502119615929">"Stjórna forgangi þráða."</string>
+    <string name="car_permission_label_manage_occupant_zone" msgid="1390420387640478679">"stjórna farþegasvæði"</string>
+    <string name="car_permission_desc_manage_occupant_zone" msgid="1641484205694436465">"Stjórna farþegasvæði."</string>
+    <string name="car_permission_label_use_remote_access" msgid="4192095854784769805">"nota fjaraðgang"</string>
+    <string name="car_permission_desc_use_remote_access" msgid="7287637348044911791">"Nota fjaraðgang"</string>
+    <string name="car_permission_label_control_remote_access" msgid="4247590162299914718">"stjórna fjaraðgangi"</string>
+    <string name="car_permission_desc_control_remote_access" msgid="127215188256669260">"Stjórna fjaraðgangi."</string>
+    <string name="car_permission_label_control_steering_wheel" msgid="6244908950907824488">"stjórna stýri bílsins"</string>
+    <string name="car_permission_desc_control_steering_wheel" msgid="8408970211196600423">"Stjórna stýri bílsins."</string>
+    <string name="car_permission_label_read_adas_settings" msgid="151296373212801328">"lesa upplýsingar um ADAS-stillingar bílsins"</string>
+    <string name="car_permission_desc_read_adas_settings" msgid="8490545343454791279">"Lesa upplýsingar um ADAS-stillingar bílsins."</string>
+    <string name="car_permission_label_control_adas_settings" msgid="2535088218472880855">"stjórna upplýsingum ADAS-stillinga bílsins"</string>
+    <string name="car_permission_desc_control_adas_settings" msgid="8781131640392345285">"Stjórna upplýsingum ADAS-stillinga bílsins."</string>
+    <string name="car_permission_label_read_adas_states" msgid="8968657466958098106">"lesa upplýsingar um ADAS-stöðu bílsins"</string>
+    <string name="car_permission_desc_read_adas_states" msgid="5042430899788416991">"Lesa upplýsingar um ADAS-stöðu bílsins."</string>
+    <string name="car_permission_label_control_adas_states" msgid="758803765406463138">"stjórna upplýsingum um ADAS-stöðu bílsins"</string>
+    <string name="car_permission_desc_control_adas_states" msgid="1893171217779342348">"Stjórna upplýsingum um ADAS-stöðu bílsins."</string>
+    <string name="car_permission_label_read_windshield_wipers" msgid="896867772546890348">"lesa rúðuþurrkur bíls"</string>
+    <string name="car_permission_desc_read_windshield_wipers" msgid="597300271560195986">"Lesa rúðuþurrkur bíls."</string>
+    <string name="car_permission_label_control_windshield_wipers" msgid="7971852482734087493">"stjórna rúðuþurrkum bíls"</string>
+    <string name="car_permission_desc_control_windshield_wipers" msgid="3803429825323199728">"Stjórna rúðuþurrkum bíls."</string>
+    <string name="car_permission_label_manage_remote_device" msgid="1144368625081074994">"fylgjast með stöðu annarra farþegasvæða í bílnum og samskonar forrita (forrit með sama pakkaheiti og hjá hringjanda) sem eru sett upp á viðkomandi svæðum og stjórna rafmagnsnotkun á svæðunum."</string>
+    <string name="car_permission_desc_manage_remote_device" msgid="4802785901453919948">"Fylgjast með stöðu annarra farþegasvæða í bílnum og samskonar forrita (forrit með sama pakkaheiti og hjá hringjanda) sem eru sett upp á viðkomandi svæðum og stjórna rafmagnsnotkun á svæðunum."</string>
+    <string name="car_permission_label_manage_occupant_connection" msgid="6007579379849984187">"koma á tengingu og eiga samskipti við samskonar forrit (forrit með sama pakkaheiti og hjá hringjanda) sem eru sett upp á öðrum farþegasvæðum í bílnum"</string>
+    <string name="car_permission_desc_manage_occupant_connection" msgid="6525045077082552965">"Koma á tengingu og eiga samskipti við samskonar forrit (forrit með sama pakkaheiti og hjá hringjanda) sem eru sett upp á öðrum farþegasvæðum í bílnum."</string>
+    <string name="car_permission_label_access_mirrored_surface" msgid="6235459468766618021">"spegla skjá annarra forrita"</string>
+    <string name="car_permission_desc_access_mirrored_surface" msgid="7701151689600074639">"Spegla skjá annarra forrita."</string>
+    <string name="car_permission_label_mirror_display" msgid="7591958768912962529">"spegla skjá annarra notenda"</string>
+    <string name="car_permission_desc_mirror_display" msgid="2403249980834394896">"Spegla skjá annarra notenda."</string>
+    <string name="car_permission_label_register_car_system_ui_proxy" msgid="4211405049007842422">"Gefa upp staðgengil kerfisviðmóts sem önnur forrit geta notað til að stjórna kerfisviðmótinu og búa til yfirlit verkefna."</string>
+    <string name="car_permission_desc_register_car_system_ui_proxy" msgid="8863676956785764681">"Gefa upp staðgengil kerfisviðmóts sem önnur forrit geta notað til að stjórna kerfisviðmótinu og búa til yfirlit verkefna."</string>
+    <string name="car_permission_label_manage_car_system_ui" msgid="1361615518679353414">"Nota kerfisviðmót bílsins til að búa til yfirlit verkefna eða fá tilkynningar um breytingar á kerfisviðmóti."</string>
+    <string name="car_permission_desc_manage_car_system_ui" msgid="6201733970421818637">"Nota kerfisviðmót bílsins til að búa til yfirlit verkefna eða fá tilkynningar um breytingar á kerfisviðmóti."</string>
     <string name="car_can_bus_failure" msgid="2334035748788283914">"Bilun í CAN-gagnabraut"</string>
     <string name="car_can_bus_failure_desc" msgid="4125516222786484733">"CAN-gagnabraut svarar ekki. Taktu stjórneiningarboxið úr sambandi, settu það aftur í samband og gangsettu bílinn aftur."</string>
     <string name="trust_device_default_name" msgid="4213625926070261253">"Tækið mitt"</string>

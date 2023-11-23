@@ -18,6 +18,7 @@ package android.car;
 
 import android.car.CarOccupantZoneManager;
 import android.car.ICarOccupantZoneCallback;
+import android.os.UserHandle;
 
 /** @hide */
 interface ICarOccupantZone {
@@ -38,4 +39,15 @@ interface ICarOccupantZone {
     void unregisterCallback(in ICarOccupantZoneCallback callback);
     boolean assignProfileUserToOccupantZone(in int occupantZoneId, in int userId);
     int getDisplayIdForDriver(in int displayType);
+
+    int assignVisibleUserToOccupantZone(in int occupantZoneId, in UserHandle user);
+    int unassignOccupantZone(in int occupantZoneId);
+    CarOccupantZoneManager.OccupantZoneInfo getOccupantZoneForUser(in UserHandle user);
+    CarOccupantZoneManager.OccupantZoneInfo getMyOccupantZone();
+    CarOccupantZoneManager.OccupantZoneInfo getOccupantZone(in int type, in int seat);
+    boolean hasDriverZone();
+    boolean hasPassengerZones();
+    int getUserForDisplayId(int displayId);
+    int[] getSupportedInputTypes(in int occupantZoneId, in int inputType);
+    CarOccupantZoneManager.OccupantZoneInfo getOccupantZoneForDisplayId(int displayId);
 }

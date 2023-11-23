@@ -29,4 +29,8 @@ enum PartitionType {
      * The partition is initialized as an instance image which is formatted to hold per-VM secrets
      */
     ANDROID_VM_INSTANCE = 1,
+    /**
+     * The partition is initialized to back encryptedstore disk image formatted to indicate intent
+     */
+    ENCRYPTEDSTORE = 2,
 }

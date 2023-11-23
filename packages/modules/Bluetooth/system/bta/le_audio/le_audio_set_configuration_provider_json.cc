@@ -15,6 +15,7 @@
  *
  */
 
+#include <mutex>
 #include <string>
 #include <string_view>
 
@@ -25,6 +26,7 @@
 #include "flatbuffers/util.h"
 #include "le_audio_set_configuration_provider.h"
 #include "osi/include/log.h"
+#include "osi/include/osi.h"
 
 using le_audio::set_configurations::AudioSetConfiguration;
 using le_audio::set_configurations::AudioSetConfigurations;
@@ -37,7 +39,7 @@ using le_audio::types::LeAudioContextType;
 namespace le_audio {
 using ::le_audio::CodecManager;
 
-#ifdef OS_ANDROID
+#ifdef __ANDROID__
 static const std::vector<
     std::pair<const char* /*schema*/, const char* /*content*/>>
     kLeAudioSetConfigs = {
@@ -64,9 +66,67 @@ static const std::vector<
 
 /** Provides a set configurations for the given context type */
 struct AudioSetConfigurationProviderJson {
+  static constexpr auto kDefaultScenario = "Media";
+
   AudioSetConfigurationProviderJson() {
     ASSERT_LOG(LoadContent(kLeAudioSetConfigs, kLeAudioSetScenarios),
                ": Unable to load le audio set configuration files.");
+  }
+
+  /* Use the same scenario configurations for different contexts to avoid
+   * internal reconfiguration and handover that produces time gap. When using
+   * the same scenario for different contexts, quality and configuration remains
+   * the same while changing to same scenario based context type.
+   */
+  static auto ScenarioToContextTypes(const std::string& scenario) {
+    static const std::multimap<std::string,
+                               ::le_audio::types::LeAudioContextType>
+        scenarios = {
+            {"Media", types::LeAudioContextType::ALERTS},
+            {"Media", types::LeAudioContextType::INSTRUCTIONAL},
+            {"Media", types::LeAudioContextType::NOTIFICATIONS},
+            {"Media", types::LeAudioContextType::EMERGENCYALARM},
+            {"Media", types::LeAudioContextType::UNSPECIFIED},
+            {"Media", types::LeAudioContextType::MEDIA},
+            {"Conversational", types::LeAudioContextType::RINGTONE},
+            {"Conversational", types::LeAudioContextType::CONVERSATIONAL},
+            {"Live", types::LeAudioContextType::LIVE},
+            {"Game", types::LeAudioContextType::GAME},
+            {"VoiceAssistants", types::LeAudioContextType::VOICEASSISTANTS},
+        };
+    return scenarios.equal_range(scenario);
+  }
+
+  static std::string ContextTypeToScenario(
+      ::le_audio::types::LeAudioContextType context_type) {
+    switch (context_type) {
+      case types::LeAudioContextType::ALERTS:
+        FALLTHROUGH_INTENDED;
+      case types::LeAudioContextType::INSTRUCTIONAL:
+        FALLTHROUGH_INTENDED;
+      case types::LeAudioContextType::NOTIFICATIONS:
+        FALLTHROUGH_INTENDED;
+      case types::LeAudioContextType::EMERGENCYALARM:
+        FALLTHROUGH_INTENDED;
+      case types::LeAudioContextType::UNSPECIFIED:
+        FALLTHROUGH_INTENDED;
+      case types::LeAudioContextType::SOUNDEFFECTS:
+        FALLTHROUGH_INTENDED;
+      case types::LeAudioContextType::MEDIA:
+        return "Media";
+      case types::LeAudioContextType::RINGTONE:
+        FALLTHROUGH_INTENDED;
+      case types::LeAudioContextType::CONVERSATIONAL:
+        return "Conversational";
+      case types::LeAudioContextType::LIVE:
+        return "Live";
+      case types::LeAudioContextType::GAME:
+        return "Game";
+      case types::LeAudioContextType::VOICEASSISTANTS:
+        return "VoiceAssistants";
+      default:
+        return kDefaultScenario;
+    }
   }
 
   const AudioSetConfigurations* GetConfigurationsByContextType(
@@ -77,17 +137,16 @@ struct AudioSetConfigurationProviderJson {
     LOG_WARN(": No predefined scenario for the context %d was found.",
              (int)context_type);
 
-    auto fallback_scenario = "Default";
-    context_type = ScenarioToContextType(fallback_scenario);
-
-    if (context_configurations_.count(context_type)) {
-      LOG_WARN(": Using %s scenario by default.", fallback_scenario);
-      return &context_configurations_.at(context_type);
+    auto [it_begin, it_end] = ScenarioToContextTypes(kDefaultScenario);
+    if (it_begin != it_end) {
+      LOG_WARN(": Using '%s' scenario by default.", kDefaultScenario);
+      return &context_configurations_.at(it_begin->second);
     }
 
     LOG_ERROR(
-        ": No fallback configuration for the 'Default' scenario or"
-        " no valid audio set configurations loaded at all.");
+        ": No valid configuration for the default '%s' scenario, or no audio "
+        "set configurations loaded at all.",
+        kDefaultScenario);
     return nullptr;
   };
 
@@ -221,22 +280,24 @@ struct AudioSetConfigurationProviderJson {
             ? static_cast<types::LeAudioConfigurationStrategy>(strategy_int)
             : types::LeAudioConfigurationStrategy::RFU;
 
-    auto target_latency_int =
-        static_cast<int>(flat_subconfig->target_latency());
+    return SetConfiguration(
+        flat_subconfig->direction(), flat_subconfig->device_cnt(),
+        flat_subconfig->ase_cnt(),
+        CodecCapabilitySettingFromFlat(flat_subconfig->codec_id(),
+                                       flat_subconfig->codec_configuration()),
+        qos, strategy);
+  }
+
+  static uint8_t ValidateTargetLatency(int flat_target_latency) {
+    auto target_latency_int = static_cast<int>(flat_target_latency);
 
     bool valid_target_latency =
         (target_latency_int >= (int)types::kTargetLatencyLower &&
          target_latency_int <= (int)types::kTargetLatencyHigherReliability);
 
-    uint8_t target_latency =
-        valid_target_latency ? static_cast<uint8_t>(target_latency_int)
-                             : types::kTargetLatencyBalancedLatencyReliability;
-    return SetConfiguration(
-        flat_subconfig->direction(), flat_subconfig->device_cnt(),
-        flat_subconfig->ase_cnt(), target_latency,
-        CodecCapabilitySettingFromFlat(flat_subconfig->codec_id(),
-                                       flat_subconfig->codec_configuration()),
-        qos, strategy);
+    return valid_target_latency
+               ? static_cast<uint8_t>(target_latency_int)
+               : types::kTargetLatencyBalancedLatencyReliability;
   }
 
   AudioSetConfiguration AudioSetConfigurationFromFlat(
@@ -247,7 +308,7 @@ struct AudioSetConfigurationProviderJson {
     std::string codec_config_key = flat_cfg->codec_config_name()->str();
     auto* qos_config_key_array = flat_cfg->qos_config_name();
 
-    constexpr std::string_view default_qos = "QoS_Config_Server_Preferred";
+    constexpr std::string_view default_qos = "QoS_Config_Balanced_Reliability";
 
     std::string qos_sink_key(default_qos);
     std::string qos_source_key(default_qos);
@@ -263,9 +324,9 @@ struct AudioSetConfigurationProviderJson {
       }
     }
 
-    LOG_INFO("Config name %s, qos_sink %s, qos_source %s",
-             codec_config_key.c_str(), qos_sink_key.c_str(),
-             qos_source_key.c_str());
+    LOG_INFO("Audio set config %s: codec config %s, qos_sink %s, qos_source %s",
+             flat_cfg->name()->c_str(), codec_config_key.c_str(),
+             qos_sink_key.c_str(), qos_source_key.c_str());
 
     const bluetooth::le_audio::QosConfiguration* qos_sink_cfg = nullptr;
     for (auto i = qos_cfgs->begin(); i != qos_cfgs->end(); ++i) {
@@ -285,6 +346,8 @@ struct AudioSetConfigurationProviderJson {
 
     QosConfigSetting qos_sink;
     if (qos_sink_cfg != nullptr) {
+      qos_sink.target_latency =
+          ValidateTargetLatency(qos_sink_cfg->target_latency());
       qos_sink.retransmission_number = qos_sink_cfg->retransmission_number();
       qos_sink.max_transport_latency = qos_sink_cfg->max_transport_latency();
     } else {
@@ -293,6 +356,8 @@ struct AudioSetConfigurationProviderJson {
 
     QosConfigSetting qos_source;
     if (qos_source_cfg != nullptr) {
+      qos_source.target_latency =
+          ValidateTargetLatency(qos_source_cfg->target_latency());
       qos_source.retransmission_number =
           qos_source_cfg->retransmission_number();
       qos_source.max_transport_latency =
@@ -446,9 +511,18 @@ struct AudioSetConfigurationProviderJson {
 
     LOG_DEBUG(": Updating %d scenarios.", flat_scenarios->size());
     for (auto const& scenario : *flat_scenarios) {
-      context_configurations_.insert_or_assign(
-          ScenarioToContextType(scenario->name()->c_str()),
-          AudioSetConfigurationsFromFlatScenario(scenario));
+      LOG_DEBUG("Scenario %s configs:", scenario->name()->c_str());
+      auto configs = AudioSetConfigurationsFromFlatScenario(scenario);
+      for (auto& config : configs) {
+        LOG_DEBUG("\t\t Audio set config: %s", config->name.c_str());
+      }
+
+      auto [it_begin, it_end] =
+          ScenarioToContextTypes(scenario->name()->c_str());
+      for (auto it = it_begin; it != it_end; ++it) {
+        context_configurations_.insert_or_assign(
+            it->second, AudioSetConfigurationsFromFlatScenario(scenario));
+      }
     }
 
     return true;
@@ -467,38 +541,6 @@ struct AudioSetConfigurationProviderJson {
       if (!LoadScenariosFromFiles(schema, content)) return false;
     }
     return true;
-  }
-
-  std::string ContextTypeToScenario(
-      ::le_audio::types::LeAudioContextType context_type) {
-    switch (context_type) {
-      case types::LeAudioContextType::MEDIA:
-        return "Media";
-      case types::LeAudioContextType::CONVERSATIONAL:
-        return "Conversational";
-      case types::LeAudioContextType::VOICEASSISTANTS:
-        return "VoiceAssinstants";
-      case types::LeAudioContextType::RINGTONE:
-        return "Ringtone";
-      default:
-        return "Default";
-    }
-  }
-
-  static ::le_audio::types::LeAudioContextType ScenarioToContextType(
-      std::string scenario) {
-    static const std::map<std::string, ::le_audio::types::LeAudioContextType>
-        scenarios = {
-            {"Media", types::LeAudioContextType::MEDIA},
-            {"Conversational", types::LeAudioContextType::CONVERSATIONAL},
-            {"Ringtone", types::LeAudioContextType::RINGTONE},
-            {"Recording", types::LeAudioContextType::LIVE},
-            {"Game", types::LeAudioContextType::GAME},
-            {"VoiceAssistants", types::LeAudioContextType::VOICEASSISTANTS},
-            {"Default", types::LeAudioContextType::UNSPECIFIED},
-        };
-    return scenarios.count(scenario) ? scenarios.at(scenario)
-                                     : types::LeAudioContextType::RFU;
   }
 };
 
@@ -526,7 +568,7 @@ struct AudioSetConfigurationProvider::impl {
       auto confs = Get()->GetConfigurations(context);
       stream << "\n  === Configurations for context type: " << (int)context
              << ", num: " << (confs == nullptr ? 0 : confs->size()) << " \n";
-      if (confs->size() > 0) {
+      if (confs && confs->size() > 0) {
         for (const auto& conf : *confs) {
           stream << "  name: " << conf->name << " \n";
           for (const auto& ent : conf->confs) {
@@ -536,8 +578,9 @@ struct AudioSetConfigurationProvider::impl {
                            : "Source (mic)\n")
                    << "     number of devices: " << +ent.device_cnt << " \n"
                    << "     number of ASEs: " << +ent.ase_cnt << " \n"
-                   << "     target latency: " << +ent.target_latency << " \n"
                    << "     strategy: " << (int)(ent.strategy) << " \n"
+                   << "     qos->target latency: " << +ent.qos.target_latency
+                   << " \n"
                    << "     qos->retransmission_number: "
                    << +ent.qos.retransmission_number << " \n"
                    << "     qos->max_transport_latency: "
@@ -556,11 +599,13 @@ struct AudioSetConfigurationProvider::impl {
 };
 
 static std::unique_ptr<AudioSetConfigurationProvider> config_provider;
+std::mutex instance_mutex;
 
 AudioSetConfigurationProvider::AudioSetConfigurationProvider()
     : pimpl_(std::make_unique<AudioSetConfigurationProvider::impl>(*this)) {}
 
 void AudioSetConfigurationProvider::Initialize() {
+  std::scoped_lock<std::mutex> lock(instance_mutex);
   if (!config_provider)
     config_provider = std::make_unique<AudioSetConfigurationProvider>();
 
@@ -569,6 +614,7 @@ void AudioSetConfigurationProvider::Initialize() {
 }
 
 void AudioSetConfigurationProvider::DebugDump(int fd) {
+  std::scoped_lock<std::mutex> lock(instance_mutex);
   if (!config_provider || !config_provider->pimpl_->IsRunning()) {
     dprintf(
         fd,
@@ -584,6 +630,7 @@ void AudioSetConfigurationProvider::DebugDump(int fd) {
 }
 
 void AudioSetConfigurationProvider::Cleanup() {
+  std::scoped_lock<std::mutex> lock(instance_mutex);
   if (!config_provider) return;
   if (config_provider->pimpl_->IsRunning()) config_provider->pimpl_->Cleanup();
   config_provider.reset();
@@ -598,7 +645,8 @@ AudioSetConfigurationProvider::GetConfigurations(
     ::le_audio::types::LeAudioContextType content_type) const {
   if (CodecManager::GetInstance()->GetCodecLocation() ==
       types::CodecLocation::ADSP) {
-    LOG_DEBUG("Get offload config for the context type: %d", (int)content_type);
+    LOG_VERBOSE("Get offload config for the context type: %d",
+                (int)content_type);
     const AudioSetConfigurations* offload_confs =
         CodecManager::GetInstance()->GetOffloadCodecConfig(content_type);
 
@@ -610,7 +658,8 @@ AudioSetConfigurationProvider::GetConfigurations(
     // doesn't support.
   }
 
-  LOG_DEBUG("Get software config for the context type: %d", (int)content_type);
+  LOG_VERBOSE("Get software config for the context type: %d",
+              (int)content_type);
 
   if (pimpl_->IsRunning())
     return pimpl_->config_provider_impl_->GetConfigurationsByContextType(

@@ -1,6 +1,6 @@
 @ This file was created from a .asm file
 @  using the ads2gas.pl script.
-	.syntax unified
+.syntax unified
 @
 @  Copyright (c) 2013 The WebM project authors. All Rights Reserved.
 @
@@ -11,18 +11,18 @@
 @  be found in the AUTHORS file in the root of the source tree.
 @
 
-    .global vpx_lpf_horizontal_16_neon 
-	.type vpx_lpf_horizontal_16_neon, function
-    .global vpx_lpf_horizontal_16_dual_neon 
-	.type vpx_lpf_horizontal_16_dual_neon, function
-    .global vpx_lpf_vertical_16_neon 
-	.type vpx_lpf_vertical_16_neon, function
-    .global vpx_lpf_vertical_16_dual_neon 
-	.type vpx_lpf_vertical_16_dual_neon, function
-   .arm
+    .global vpx_lpf_horizontal_16_neon
+    .type vpx_lpf_horizontal_16_neon, function
+    .global vpx_lpf_horizontal_16_dual_neon
+    .type vpx_lpf_horizontal_16_dual_neon, function
+    .global vpx_lpf_vertical_16_neon
+    .type vpx_lpf_vertical_16_neon, function
+    .global vpx_lpf_vertical_16_dual_neon
+    .type vpx_lpf_vertical_16_dual_neon, function
+    .arm
 
-.text
-.p2align 2
+    .text
+    .p2align 2
 
 @ void mb_lpf_horizontal_edge(uint8_t *s, int p,
 @                             const uint8_t *blimit,
@@ -35,8 +35,7 @@
 @ r3    const uint8_t *limit,
 @ sp    const uint8_t *thresh,
 @ r12   int count
-_mb_lpf_horizontal_edge:
-	mb_lpf_horizontal_edge: @ PROC
+mb_lpf_horizontal_edge: @ PROC
     push        {r4-r8, lr}
     vpush       {d8-d15}
     ldr         r4, [sp, #88]              @ load thresh
@@ -126,7 +125,7 @@ h_next:
     vpop        {d8-d15}
     pop         {r4-r8, pc}
 
-	.size mb_lpf_horizontal_edge, .-mb_lpf_horizontal_edge    @ ENDP        @ |mb_lpf_horizontal_edge|
+.size mb_lpf_horizontal_edge, .-mb_lpf_horizontal_edge    @ ENDP        @ |mb_lpf_horizontal_edge|
 
 @ void vpx_lpf_horizontal_16_neon(uint8_t *s, int pitch,
 @                                     const uint8_t *blimit,
@@ -137,11 +136,10 @@ h_next:
 @ r2    const uint8_t *blimit,
 @ r3    const uint8_t *limit,
 @ sp    const uint8_t *thresh
-_vpx_lpf_horizontal_16_neon:
-	vpx_lpf_horizontal_16_neon: @ PROC
+vpx_lpf_horizontal_16_neon: @ PROC
     mov r12, #1
     b mb_lpf_horizontal_edge
-	.size vpx_lpf_horizontal_16_neon, .-vpx_lpf_horizontal_16_neon    @ ENDP        @ |vpx_lpf_horizontal_16_neon|
+.size vpx_lpf_horizontal_16_neon, .-vpx_lpf_horizontal_16_neon    @ ENDP        @ |vpx_lpf_horizontal_16_neon|
 
 @ void vpx_lpf_horizontal_16_dual_neon(uint8_t *s, int pitch,
 @                                      const uint8_t *blimit,
@@ -152,11 +150,10 @@ _vpx_lpf_horizontal_16_neon:
 @ r2    const uint8_t *blimit,
 @ r3    const uint8_t *limit,
 @ sp    const uint8_t *thresh
-_vpx_lpf_horizontal_16_dual_neon:
-	vpx_lpf_horizontal_16_dual_neon: @ PROC
+vpx_lpf_horizontal_16_dual_neon: @ PROC
     mov r12, #2
     b mb_lpf_horizontal_edge
-	.size vpx_lpf_horizontal_16_dual_neon, .-vpx_lpf_horizontal_16_dual_neon    @ ENDP        @ |vpx_lpf_horizontal_16_dual_neon|
+.size vpx_lpf_horizontal_16_dual_neon, .-vpx_lpf_horizontal_16_dual_neon    @ ENDP        @ |vpx_lpf_horizontal_16_dual_neon|
 
 @ void mb_lpf_vertical_edge_w(uint8_t *s, int p, const uint8_t *blimit,
 @                             const uint8_t *limit, const uint8_t *thresh,
@@ -167,8 +164,7 @@ _vpx_lpf_horizontal_16_dual_neon:
 @ r3    const uint8_t *limit,
 @ sp    const uint8_t *thresh,
 @ r12   int count
-_mb_lpf_vertical_edge_w:
-	mb_lpf_vertical_edge_w: @ PROC
+mb_lpf_vertical_edge_w: @ PROC
     push        {r4-r8, lr}
     vpush       {d8-d15}
     ldr         r4, [sp, #88]              @ load thresh
@@ -326,7 +322,7 @@ v_next:
     vpop        {d8-d15}
     pop         {r4-r8, pc}
 
-	.size mb_lpf_vertical_edge_w, .-mb_lpf_vertical_edge_w    @ ENDP        @ |mb_lpf_vertical_edge_w|
+.size mb_lpf_vertical_edge_w, .-mb_lpf_vertical_edge_w    @ ENDP        @ |mb_lpf_vertical_edge_w|
 
 @ void vpx_lpf_vertical_16_neon(uint8_t *s, int p, const uint8_t *blimit,
 @                               const uint8_t *limit, const uint8_t *thresh)
@@ -335,11 +331,10 @@ v_next:
 @ r2    const uint8_t *blimit,
 @ r3    const uint8_t *limit,
 @ sp    const uint8_t *thresh
-_vpx_lpf_vertical_16_neon:
-	vpx_lpf_vertical_16_neon: @ PROC
+vpx_lpf_vertical_16_neon: @ PROC
     mov r12, #1
     b mb_lpf_vertical_edge_w
-	.size vpx_lpf_vertical_16_neon, .-vpx_lpf_vertical_16_neon    @ ENDP        @ |vpx_lpf_vertical_16_neon|
+.size vpx_lpf_vertical_16_neon, .-vpx_lpf_vertical_16_neon    @ ENDP        @ |vpx_lpf_vertical_16_neon|
 
 @ void vpx_lpf_vertical_16_dual_neon(uint8_t *s, int p, const uint8_t *blimit,
 @                                    const uint8_t *limit,
@@ -349,11 +344,10 @@ _vpx_lpf_vertical_16_neon:
 @ r2    const uint8_t *blimit,
 @ r3    const uint8_t *limit,
 @ sp    const uint8_t *thresh
-_vpx_lpf_vertical_16_dual_neon:
-	vpx_lpf_vertical_16_dual_neon: @ PROC
+vpx_lpf_vertical_16_dual_neon: @ PROC
     mov r12, #2
     b mb_lpf_vertical_edge_w
-	.size vpx_lpf_vertical_16_dual_neon, .-vpx_lpf_vertical_16_dual_neon    @ ENDP        @ |vpx_lpf_vertical_16_dual_neon|
+.size vpx_lpf_vertical_16_dual_neon, .-vpx_lpf_vertical_16_dual_neon    @ ENDP        @ |vpx_lpf_vertical_16_dual_neon|
 
 @ void vpx_wide_mbfilter_neon();
 @ This is a helper function for the loopfilters. The invidual functions do the
@@ -379,8 +373,7 @@ _vpx_lpf_vertical_16_dual_neon:
 @ d13   q5
 @ d14   q6
 @ d15   q7
-_vpx_wide_mbfilter_neon:
-	vpx_wide_mbfilter_neon: @ PROC
+vpx_wide_mbfilter_neon: @ PROC
     mov         r7, #0
 
     @ filter_mask
@@ -676,6 +669,6 @@ _vpx_wide_mbfilter_neon:
     vbif        d3, d14, d17               @ oq6 |= q6 & ~(f2 & f & m)
 
     bx          lr
-	.size vpx_wide_mbfilter_neon, .-vpx_wide_mbfilter_neon    @ ENDP        @ |vpx_wide_mbfilter_neon|
+.size vpx_wide_mbfilter_neon, .-vpx_wide_mbfilter_neon    @ ENDP        @ |vpx_wide_mbfilter_neon|
 
-	.section	.note.GNU-stack,"",%progbits
+    .section .note.GNU-stack,"",%progbits

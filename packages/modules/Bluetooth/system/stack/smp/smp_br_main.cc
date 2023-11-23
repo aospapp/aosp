@@ -315,7 +315,6 @@ void smp_br_state_machine_event(tSMP_CB* p_cb, tSMP_BR_EVENT event,
 
   if (p_cb->role > HCI_ROLE_PERIPHERAL) {
     SMP_TRACE_ERROR("%s: invalid role %d", __func__, p_cb->role);
-    android_errorWriteLog(0x534e4554, "80145946");
     return;
   }
 

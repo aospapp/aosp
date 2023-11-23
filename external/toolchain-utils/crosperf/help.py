@@ -1,47 +1,49 @@
 # -*- coding: utf-8 -*-
-# Copyright 2011 The Chromium OS Authors. All rights reserved.
+# Copyright 2011 The ChromiumOS Authors
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
 """Module to print help message."""
 
-from __future__ import print_function
 
 import sys
 import textwrap
+
 from settings_factory import BenchmarkSettings
 from settings_factory import GlobalSettings
 from settings_factory import LabelSettings
 
 
 class Help(object):
-  """The help class."""
+    """The help class."""
 
-  def GetUsage(self):
-    return """%s [OPTIONS] EXPERIMENT_FILE""" % (sys.argv[0])
+    def GetUsage(self):
+        return """%s [OPTIONS] EXPERIMENT_FILE""" % (sys.argv[0])
 
-  def _WrapLine(self, line):
-    return '\n'.join(textwrap.wrap(line, 80))
+    def _WrapLine(self, line):
+        return "\n".join(textwrap.wrap(line, 80))
 
-  def _GetFieldDescriptions(self, fields):
-    res = ''
-    for field_name in fields:
-      field = fields[field_name]
-      res += 'Field:\t\t%s\n' % field.name
-      res += self._WrapLine('Description:\t%s' % field.description) + '\n'
-      res += 'Type:\t\t%s\n' % type(field).__name__.replace('Field', '')
-      res += 'Required:\t%s\n' % field.required
-      if field.default:
-        res += 'Default:\t%s\n' % field.default
-      res += '\n'
-    return res
+    def _GetFieldDescriptions(self, fields):
+        res = ""
+        for field_name in fields:
+            field = fields[field_name]
+            res += "Field:\t\t%s\n" % field.name
+            res += self._WrapLine("Description:\t%s" % field.description) + "\n"
+            res += "Type:\t\t%s\n" % type(field).__name__.replace("Field", "")
+            res += "Required:\t%s\n" % field.required
+            if field.default:
+                res += "Default:\t%s\n" % field.default
+            res += "\n"
+        return res
 
-  def GetHelp(self):
-    global_fields = self._GetFieldDescriptions(GlobalSettings('').fields)
-    benchmark_fields = self._GetFieldDescriptions(BenchmarkSettings('').fields)
-    label_fields = self._GetFieldDescriptions(LabelSettings('').fields)
+    def GetHelp(self):
+        global_fields = self._GetFieldDescriptions(GlobalSettings("").fields)
+        benchmark_fields = self._GetFieldDescriptions(
+            BenchmarkSettings("").fields
+        )
+        label_fields = self._GetFieldDescriptions(LabelSettings("").fields)
 
-    return """%s is a script for running performance experiments on
+        return """%s is a script for running performance experiments on
 ChromeOS. It allows one to run ChromeOS Autotest benchmarks over
 several images and compare the results to determine whether there
 is a performance difference.
@@ -114,5 +116,11 @@ experiment file).  Crosperf runs the experiment and caches the results
 generates and displays a report based on the run, and emails the
 report to the user.  If the results were all read out of the cache,
 then by default no email is generated.
-""" % (sys.argv[0], sys.argv[0], global_fields, benchmark_fields, label_fields,
-       sys.argv[0])
+""" % (
+            sys.argv[0],
+            sys.argv[0],
+            global_fields,
+            benchmark_fields,
+            label_fields,
+            sys.argv[0],
+        )

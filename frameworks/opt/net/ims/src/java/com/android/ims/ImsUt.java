@@ -382,9 +382,9 @@ public class ImsUt implements ImsUtInterface {
             String[] barrList, int serviceClass, String password) {
         if (DBG) {
             if (barrList != null) {
-                String bList = new String();
+                String bList = "";
                 for (int i = 0; i < barrList.length; i++) {
-                    bList.concat(barrList[i] + " ");
+                    bList += barrList[i] + " ";
                 }
                 log("updateCallBarring :: Ut=" + miUt + ", cbType=" + cbType
                         + ", action=" + action + ", serviceClass=" + serviceClass

@@ -16,10 +16,19 @@
 
 package android.car.hardware.property;
 
+import android.annotation.IntDef;
+import android.annotation.NonNull;
 import android.car.annotation.AddedInOrBefore;
+import android.car.annotation.ApiRequirements;
+
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
 
 /**
  * Error codes used in vehicle HAL interface.
+ *
+ * The list of status codes may be extended in future releases to include
+ * additional values.
  * @hide
  */
 public final class VehicleHalStatusCode {
@@ -46,6 +55,99 @@ public final class VehicleHalStatusCode {
     /** Something unexpected has happened in Vehicle HAL */
     @AddedInOrBefore(majorVersion = 33)
     public static final int STATUS_INTERNAL_ERROR = 5;
+
+    /**
+     * For features that are not available because the underlying feature is disabled.
+     *
+     * For platform versions before {@link android.os.Build.VERSION_CODES#UPSIDE_DOWN_CAKE}, this
+     * error will be mapped to {@link #STATUS_NOT_AVAILABLE}.
+     */
+    @ApiRequirements(minCarVersion = ApiRequirements.CarVersion.UPSIDE_DOWN_CAKE_0,
+            minPlatformVersion = ApiRequirements.PlatformVersion.TIRAMISU_0)
+    public static final int STATUS_NOT_AVAILABLE_DISABLED = 6;
+    /**
+     * For features that are not available because the vehicle speed is too low.
+     *
+     * For platform versions before {@link android.os.Build.VERSION_CODES#UPSIDE_DOWN_CAKE}, this
+     * error will be mapped to {@link #STATUS_NOT_AVAILABLE}.
+     */
+    @ApiRequirements(minCarVersion = ApiRequirements.CarVersion.UPSIDE_DOWN_CAKE_0,
+            minPlatformVersion = ApiRequirements.PlatformVersion.TIRAMISU_0)
+    public static final int STATUS_NOT_AVAILABLE_SPEED_LOW = 7;
+    /**
+     * For features that are not available because the vehicle speed is too high.
+     *
+     * For platform versions before {@link android.os.Build.VERSION_CODES#UPSIDE_DOWN_CAKE}, this
+     * error will be mapped to {@link #STATUS_NOT_AVAILABLE}.
+     */
+    @ApiRequirements(minCarVersion = ApiRequirements.CarVersion.UPSIDE_DOWN_CAKE_0,
+            minPlatformVersion = ApiRequirements.PlatformVersion.TIRAMISU_0)
+    public static final int STATUS_NOT_AVAILABLE_SPEED_HIGH = 8;
+    /**
+     * For features that are not available because of bad camera or sensor visibility. Examples
+     * might be bird poop blocking the camera or a bumper cover blocking an ultrasonic sensor.
+     *
+     * For platform versions before {@link android.os.Build.VERSION_CODES#UPSIDE_DOWN_CAKE}, this
+     * error will be mapped to {@link #STATUS_NOT_AVAILABLE}.
+     */
+    @ApiRequirements(minCarVersion = ApiRequirements.CarVersion.UPSIDE_DOWN_CAKE_0,
+            minPlatformVersion = ApiRequirements.PlatformVersion.TIRAMISU_0)
+    public static final int STATUS_NOT_AVAILABLE_POOR_VISIBILITY = 9;
+    /**
+     * The feature cannot be accessed due to safety reasons. Eg. System could be
+     * in a faulty state, an object or person could be blocking the requested
+     * operation such as closing a trunk door, etc.
+     *
+     * For platform versions before {@link android.os.Build.VERSION_CODES#UPSIDE_DOWN_CAKE}, this
+     * error will be mapped to {@link #STATUS_NOT_AVAILABLE}.
+     */
+    @ApiRequirements(minCarVersion = ApiRequirements.CarVersion.UPSIDE_DOWN_CAKE_0,
+            minPlatformVersion = ApiRequirements.PlatformVersion.TIRAMISU_0)
+    public static final int STATUS_NOT_AVAILABLE_SAFETY = 10;
+
+    /**
+     * Returns a user-friendly representation of a {@code VehicleHalStatusCode}.
+     */
+    @NonNull
+    @ApiRequirements(minCarVersion = ApiRequirements.CarVersion.UPSIDE_DOWN_CAKE_0,
+            minPlatformVersion = ApiRequirements.PlatformVersion.TIRAMISU_0)
+    public static String toString(
+            @VehicleHalStatusCodeInt int vehicleHalStatusCode) {
+        switch (vehicleHalStatusCode) {
+            case STATUS_OK:
+                return "STATUS_OK";
+            case STATUS_TRY_AGAIN:
+                return "STATUS_TRY_AGAIN";
+            case STATUS_INVALID_ARG:
+                return "STATUS_INVALID_ARG";
+            case STATUS_NOT_AVAILABLE:
+                return "STATUS_NOT_AVAILABLE";
+            case STATUS_ACCESS_DENIED:
+                return "STATUS_ACCESS_DENIED";
+            case STATUS_INTERNAL_ERROR:
+                return "STATUS_INTERNAL_ERROR";
+            case STATUS_NOT_AVAILABLE_DISABLED:
+                return "STATUS_NOT_AVAILABLE_DISABLED";
+            case STATUS_NOT_AVAILABLE_SPEED_LOW:
+                return "STATUS_NOT_AVAILABLE_SPEED_LOW";
+            case STATUS_NOT_AVAILABLE_SPEED_HIGH:
+                return "STATUS_NOT_AVAILABLE_SPEED_HIGH";
+            case STATUS_NOT_AVAILABLE_POOR_VISIBILITY:
+                return "STATUS_NOT_AVAILABLE_POOR_VISIBILITY";
+            case STATUS_NOT_AVAILABLE_SAFETY:
+                return "STATUS_NOT_AVAILABLE_SAFETY";
+            default:
+                return Integer.toString(vehicleHalStatusCode);
+        }
+    }
+
+    /** @hide */
+    @IntDef({STATUS_OK, STATUS_TRY_AGAIN, STATUS_INVALID_ARG, STATUS_NOT_AVAILABLE,
+        STATUS_ACCESS_DENIED, STATUS_INTERNAL_ERROR, STATUS_NOT_AVAILABLE_DISABLED,
+        STATUS_NOT_AVAILABLE_SPEED_LOW, STATUS_NOT_AVAILABLE_SPEED_HIGH,
+        STATUS_NOT_AVAILABLE_POOR_VISIBILITY, STATUS_NOT_AVAILABLE_SAFETY})
+    @Retention(RetentionPolicy.SOURCE)
+    public @interface VehicleHalStatusCodeInt {}
 
     private VehicleHalStatusCode() {}
 }

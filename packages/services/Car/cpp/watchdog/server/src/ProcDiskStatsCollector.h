@@ -74,7 +74,7 @@ struct DiskStats {
  * Contains methods that should be implemented by the /proc/diskstats reader or any mock reader
  * used in tests.
  */
-class ProcDiskStatsCollectorInterface : public android::RefBase {
+class ProcDiskStatsCollectorInterface : virtual public android::RefBase {
 public:
     using PerPartitionDiskStats = ::std::unordered_set<DiskStats, DiskStats::HashByPartition,
                                                        DiskStats::EqualByPartition>;

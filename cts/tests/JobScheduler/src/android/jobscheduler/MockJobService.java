@@ -16,7 +16,9 @@
 
 package android.jobscheduler;
 
+import android.annotation.NonNull;
 import android.annotation.TargetApi;
+import android.app.Notification;
 import android.app.job.JobInfo;
 import android.app.job.JobParameters;
 import android.app.job.JobScheduler;
@@ -57,12 +59,17 @@ public class MockJobService extends JobService {
 
     private boolean mWaitingForStop;
 
+    private long mEstimatedDownloadBytes = JobInfo.NETWORK_BYTES_UNKNOWN;
+    private long mEstimatedUploadBytes = JobInfo.NETWORK_BYTES_UNKNOWN;
+    private long mTransferredDownloadBytes = JobInfo.NETWORK_BYTES_UNKNOWN;
+    private long mTransferredUploadBytes = JobInfo.NETWORK_BYTES_UNKNOWN;
+
     @Override
     public void onDestroy() {
         super.onDestroy();
         Log.i(TAG, "Destroying test service");
         if (TestEnvironment.getTestEnvironment().getExpectedWork() != null) {
-            TestEnvironment.getTestEnvironment().notifyExecution(mParams, 0, 0, mReceivedWork,
+            TestEnvironment.getTestEnvironment().notifyExecution(this, mParams, 0, 0, mReceivedWork,
                     null);
         }
     }
@@ -81,6 +88,14 @@ public class MockJobService extends JobService {
                 new TestEnvironment.Event(
                         TestEnvironment.Event.EVENT_START_JOB, params.getJobId()));
 
+        final Notification notificationToPost =
+                TestEnvironment.getTestEnvironment().getJobStartNotification();
+        if (notificationToPost != null) {
+            setNotification(params,
+                    TestEnvironment.getTestEnvironment().getJobStartNotificationId(),
+                    notificationToPost,
+                    TestEnvironment.getTestEnvironment().getJobStartNotificationEndPolicy());
+        }
         int permCheckRead = PackageManager.PERMISSION_DENIED;
         int permCheckWrite = PackageManager.PERMISSION_DENIED;
         ClipData clip = params.getClipData();
@@ -95,26 +110,29 @@ public class MockJobService extends JobService {
         if (expectedWork != null) {
             try {
                 if (!TestEnvironment.getTestEnvironment().awaitDoWork()) {
-                    TestEnvironment.getTestEnvironment().notifyExecution(params, permCheckRead,
+                    TestEnvironment.getTestEnvironment().notifyExecution(this,
+                            params, permCheckRead,
                             permCheckWrite, null, "Spent too long waiting to start executing work");
                     return false;
                 }
             } catch (InterruptedException e) {
-                TestEnvironment.getTestEnvironment().notifyExecution(params, permCheckRead,
+                TestEnvironment.getTestEnvironment().notifyExecution(this,
+                        params, permCheckRead,
                         permCheckWrite, null, "Failed waiting for work: " + e);
                 return false;
             }
             JobWorkItem work;
             int index = 0;
             while ((work = params.dequeueWork()) != null) {
-                Log.i(TAG, "Received work #" + index + ": " + work.getIntent());
+                final Intent intent = work.getIntent();
+                Log.i(TAG, "Received work #" + index + ": " + intent);
                 mReceivedWork.add(work);
 
                 int flags = 0;
 
                 if (index < expectedWork.length) {
                     TestWorkItem expected = expectedWork[index];
-                    int grantFlags = work.getIntent().getFlags();
+                    int grantFlags = intent == null ? 0 : intent.getFlags();
                     if (expected.requireUrisGranted != null) {
                         for (int ui = 0; ui < expected.requireUrisGranted.length; ui++) {
                             if ((grantFlags & Intent.FLAG_GRANT_READ_URI_PERMISSION) != 0) {
@@ -122,7 +140,8 @@ public class MockJobService extends JobService {
                                         Process.myPid(), Process.myUid(),
                                         Intent.FLAG_GRANT_READ_URI_PERMISSION)
                                         != PackageManager.PERMISSION_GRANTED) {
-                                    TestEnvironment.getTestEnvironment().notifyExecution(params,
+                                    TestEnvironment.getTestEnvironment().notifyExecution(this,
+                                            params,
                                             permCheckRead, permCheckWrite, null,
                                             "Expected read permission but not granted: "
                                                     + expected.requireUrisGranted[ui]
@@ -135,7 +154,8 @@ public class MockJobService extends JobService {
                                         Process.myPid(), Process.myUid(),
                                         Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
                                         != PackageManager.PERMISSION_GRANTED) {
-                                    TestEnvironment.getTestEnvironment().notifyExecution(params,
+                                    TestEnvironment.getTestEnvironment().notifyExecution(this,
+                                            params,
                                             permCheckRead, permCheckWrite, null,
                                             "Expected write permission but not granted: "
                                                     + expected.requireUrisGranted[ui]
@@ -154,7 +174,8 @@ public class MockJobService extends JobService {
                                         Process.myPid(), Process.myUid(),
                                         Intent.FLAG_GRANT_READ_URI_PERMISSION)
                                         != PackageManager.PERMISSION_DENIED) {
-                                    TestEnvironment.getTestEnvironment().notifyExecution(params,
+                                    TestEnvironment.getTestEnvironment().notifyExecution(this,
+                                            params,
                                             permCheckRead, permCheckWrite, null,
                                             "Not expected read permission but granted: "
                                                     + expected.requireUrisNotGranted[ui]
@@ -167,7 +188,8 @@ public class MockJobService extends JobService {
                                         Process.myPid(), Process.myUid(),
                                         Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
                                         != PackageManager.PERMISSION_DENIED) {
-                                    TestEnvironment.getTestEnvironment().notifyExecution(params,
+                                    TestEnvironment.getTestEnvironment().notifyExecution(this,
+                                            params,
                                             permCheckRead, permCheckWrite, null,
                                             "Not expected write permission but granted: "
                                                     + expected.requireUrisNotGranted[ui]
@@ -189,7 +211,7 @@ public class MockJobService extends JobService {
 
                     if ((flags & TestWorkItem.FLAG_COMPLETE_NEXT) != 0) {
                         if (!processNextPendingCompletion()) {
-                            TestEnvironment.getTestEnvironment().notifyExecution(params,
+                            TestEnvironment.getTestEnvironment().notifyExecution(this, params,
                                     0, 0, null,
                                     "Expected to complete next pending work but there was none: "
                                             + " @ #" + index);
@@ -229,7 +251,7 @@ public class MockJobService extends JobService {
                 // ...and we need to do a final dequeue to complete the job, which should not
                 // return any remaining work.
                 if ((work = params.dequeueWork()) != null) {
-                    TestEnvironment.getTestEnvironment().notifyExecution(params,
+                    TestEnvironment.getTestEnvironment().notifyExecution(this, params,
                             0, 0, null,
                             "Expected no remaining work after dequeue pending, but got: " + work);
                 }
@@ -244,19 +266,25 @@ public class MockJobService extends JobService {
                     = TestEnvironment.getTestEnvironment().handleContinueAfterStart();
             try {
                 if (!TestEnvironment.getTestEnvironment().awaitDoJob()) {
-                    TestEnvironment.getTestEnvironment().notifyExecution(params, permCheckRead,
+                    TestEnvironment.getTestEnvironment().notifyExecution(this,
+                            params, permCheckRead,
                             permCheckWrite, null, "Spent too long waiting to start job");
                     return false;
                 }
             } catch (InterruptedException e) {
-                TestEnvironment.getTestEnvironment().notifyExecution(params, permCheckRead,
+                TestEnvironment.getTestEnvironment().notifyExecution(this, params, permCheckRead,
                         permCheckWrite, null, "Failed waiting to start job: " + e);
                 return false;
             }
-            TestEnvironment.getTestEnvironment().notifyExecution(params, permCheckRead,
+            TestEnvironment.getTestEnvironment().notifyExecution(this, params, permCheckRead,
                     permCheckWrite, null, null);
             return continueAfterStart;
         }
+    }
+
+    @Override
+    public void onNetworkChanged(JobParameters params) {
+        TestEnvironment.getTestEnvironment().notifyNetworkChanged(params);
     }
 
     boolean processNextPendingCompletion() {
@@ -273,7 +301,41 @@ public class MockJobService extends JobService {
     public boolean onStopJob(JobParameters params) {
         Log.i(TAG, "Received stop callback");
         TestEnvironment.getTestEnvironment().notifyStopped(params);
-        return mWaitingForStop;
+        return mWaitingForStop || TestEnvironment.getTestEnvironment().requestReschedule();
+    }
+
+    @Override
+    public long getTransferredDownloadBytes(@NonNull JobParameters params) {
+        return mTransferredDownloadBytes;
+    }
+
+    @Override
+    public long getTransferredUploadBytes(@NonNull JobParameters params) {
+        return mTransferredUploadBytes;
+    }
+
+    @Override
+    public long getTransferredDownloadBytes(@NonNull JobParameters params,
+            @NonNull JobWorkItem item) {
+        return mTransferredDownloadBytes;
+    }
+
+    @Override
+    public long getTransferredUploadBytes(@NonNull JobParameters params,
+            @NonNull JobWorkItem item) {
+        return mTransferredUploadBytes;
+    }
+
+    private void setEstimatedNetworkBytesForTest(long downloadBytes, long uploadBytes) {
+        mEstimatedDownloadBytes = downloadBytes;
+        mEstimatedUploadBytes = uploadBytes;
+        updateEstimatedNetworkBytes(mParams, downloadBytes, uploadBytes);
+    }
+
+    private void setTransferredBytesForTest(long downloadBytes, long uploadBytes) {
+        mTransferredDownloadBytes = downloadBytes;
+        mTransferredUploadBytes = uploadBytes;
+        updateTransferredNetworkBytes(mParams, downloadBytes, uploadBytes);
     }
 
     public static final class TestWorkItem {
@@ -376,15 +438,22 @@ public class MockJobService extends JobService {
         private CountDownLatch mDoJobLatch;
         private CountDownLatch mStoppedLatch;
         private CountDownLatch mDoWorkLatch;
+        private CountDownLatch mNetworkChangeLatch;
         private TestWorkItem[] mExpectedWork;
         private boolean mContinueAfterStart;
+        private boolean mRequestReschedule;
         private JobParameters mExecutedJobParameters;
+        private JobParameters mNetworkChangedJobParameters;
+        private MockJobService mExecutedJobService;
         private int mExecutedPermCheckRead;
         private int mExecutedPermCheckWrite;
         private ArrayList<JobWorkItem> mExecutedReceivedWork;
         private String mExecutedErrorMessage;
         private JobParameters mStopJobParameters;
         private List<Event> mExecutedEvents = new ArrayList<>();
+        private int mJobStartNotificationId;
+        private Notification mJobStartNotification;
+        private int mJobStartNotificationEndPolicy;
 
         public static TestEnvironment getTestEnvironment() {
             if (kTestEnvironment == null) {
@@ -397,12 +466,28 @@ public class MockJobService extends JobService {
             return mExpectedWork;
         }
 
+        private Notification getJobStartNotification() {
+            return mJobStartNotification;
+        }
+
+        private int getJobStartNotificationEndPolicy() {
+            return mJobStartNotificationEndPolicy;
+        }
+
+        private int getJobStartNotificationId() {
+            return mJobStartNotificationId;
+        }
+
         public JobParameters getLastStartJobParameters() {
             return mExecutedJobParameters;
         }
 
         public JobParameters getLastStopJobParameters() {
             return mStopJobParameters;
+        }
+
+        public JobParameters getLastNetworkChangedJobParameters() {
+            return mNetworkChangedJobParameters;
         }
 
         public int getLastPermCheckRead() {
@@ -465,12 +550,18 @@ public class MockJobService extends JobService {
             return mDoJobLatch.await(DEFAULT_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
         }
 
+        public boolean awaitNetworkChange() throws InterruptedException {
+            return mNetworkChangeLatch.await(DEFAULT_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
+        }
+
         public boolean awaitStopped() throws InterruptedException {
             return mStoppedLatch.await(DEFAULT_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
         }
 
-        private void notifyExecution(JobParameters params, int permCheckRead, int permCheckWrite,
+        private void notifyExecution(MockJobService jobService, JobParameters params,
+                int permCheckRead, int permCheckWrite,
                 ArrayList<JobWorkItem> receivedWork, String errorMsg) {
+            mExecutedJobService = jobService;
             mExecutedJobParameters = params;
             mExecutedPermCheckRead = permCheckRead;
             mExecutedPermCheckWrite = permCheckWrite;
@@ -478,6 +569,13 @@ public class MockJobService extends JobService {
             mExecutedErrorMessage = errorMsg;
             if (mLatch != null) {
                 mLatch.countDown();
+            }
+        }
+
+        private void notifyNetworkChanged(JobParameters params) {
+            mNetworkChangedJobParameters = params;
+            if (mNetworkChangeLatch != null) {
+                mNetworkChangeLatch.countDown();
             }
         }
 
@@ -492,6 +590,14 @@ public class MockJobService extends JobService {
             }
         }
 
+        public void setEstimatedNetworkBytes(long downloadBytes, long uploadBytes) {
+            mExecutedJobService.setEstimatedNetworkBytesForTest(downloadBytes, uploadBytes);
+        }
+
+        public void setTransferredNetworkBytes(long downloadBytes, long uploadBytes) {
+            mExecutedJobService.setTransferredBytesForTest(downloadBytes, uploadBytes);
+        }
+
         public void setExpectedExecutions(int numExecutions) {
             // For no executions expected, set count to 1 so we can still block for the timeout.
             if (numExecutions == 0) {
@@ -503,9 +609,12 @@ public class MockJobService extends JobService {
             mDoJobLatch = null;
             mStoppedLatch = null;
             mDoWorkLatch = null;
+            mNetworkChangeLatch = null;
             mExpectedWork = null;
             mContinueAfterStart = false;
+            mRequestReschedule = false;
             mExecutedEvents.clear();
+            mJobStartNotification = null;
         }
 
         public void setExpectedWaitForStop() {
@@ -519,6 +628,18 @@ public class MockJobService extends JobService {
 
         public void setExpectedStopped() {
             mStoppedLatch = new CountDownLatch(1);
+        }
+
+        public void setExpectedNetworkChange() {
+            mNetworkChangeLatch = new CountDownLatch(1);
+        }
+
+        public void setNotificationAtStart(int notificationId,
+                @NonNull Notification notification,
+                @JobEndNotificationPolicy int jobEndNotificationPolicy) {
+            mJobStartNotificationId = notificationId;
+            mJobStartNotification = notification;
+            mJobStartNotificationEndPolicy = jobEndNotificationPolicy;
         }
 
         public void readyToWork() {
@@ -543,10 +664,19 @@ public class MockJobService extends JobService {
             return res;
         }
 
+        public void setRequestReschedule() {
+            mRequestReschedule = true;
+        }
+
+        boolean requestReschedule() {
+            return mRequestReschedule;
+        }
+
         /** Called in each testCase#setup */
         public void setUp() {
             mLatch = null;
             mExecutedJobParameters = null;
+            mExecutedJobService = null;
             mStopJobParameters = null;
         }
 

@@ -53,6 +53,7 @@ class String;
 namespace jit {
 
 class JitCodeCache;
+class JitCompileTask;
 class JitMemoryRegion;
 class JitOptions;
 
@@ -195,6 +196,7 @@ class JitCompilerInterface {
   virtual bool GenerateDebugInfo() = 0;
   virtual void ParseCompilerOptions() = 0;
   virtual bool IsBaselineCompiler() const = 0;
+  virtual void SetDebuggableCompilerOption(bool value) = 0;
 
   virtual std::vector<uint8_t> PackElfFileForJIT(ArrayRef<const JITCodeEntry*> elf_files,
                                                  ArrayRef<const void*> removed_symbols,
@@ -461,6 +463,17 @@ class Jit {
 
   static bool BindCompilerMethods(std::string* error_msg);
 
+  void AddCompileTask(Thread* self,
+                      ArtMethod* method,
+                      CompilationKind compilation_kind,
+                      bool precompile = false);
+
+  bool CompileMethodInternal(ArtMethod* method,
+                             Thread* self,
+                             CompilationKind compilation_kind,
+                             bool prejit)
+      REQUIRES_SHARED(Locks::mutator_lock_);
+
   // JIT compiler
   static void* jit_library_handle_;
   static JitCompilerInterface* jit_compiler_;
@@ -506,6 +519,8 @@ class Jit {
   // Map of hotness counters for methods which we want to share the memory
   // between the zygote and apps.
   std::map<ArtMethod*, uint16_t> shared_method_counters_;
+
+  friend class art::jit::JitCompileTask;
 
   DISALLOW_COPY_AND_ASSIGN(Jit);
 };

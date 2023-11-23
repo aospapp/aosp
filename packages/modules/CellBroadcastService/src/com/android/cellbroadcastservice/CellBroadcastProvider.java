@@ -16,7 +16,7 @@
 
 package com.android.cellbroadcastservice;
 
-import static com.android.cellbroadcastservice.CellBroadcastStatsLog.CELL_BROADCAST_MESSAGE_ERROR__TYPE__FAILED_TO_INSERT_TO_DB;
+import static com.android.cellbroadcastservice.CellBroadcastMetrics.ERR_FAILED_TO_INSERT_TO_DB;
 
 import android.content.ContentProvider;
 import android.content.ContentResolver;
@@ -235,9 +235,8 @@ public class CellBroadcastProvider extends ContentProvider {
                     if (errorString.length() > 1000) {
                         errorString = errorString.substring(0, 1000);
                     }
-                    CellBroadcastStatsLog.write(CellBroadcastStatsLog.CB_MESSAGE_ERROR,
-                            CELL_BROADCAST_MESSAGE_ERROR__TYPE__FAILED_TO_INSERT_TO_DB,
-                            errorString);
+                    CellBroadcastServiceMetrics.getInstance().logMessageError(
+                            ERR_FAILED_TO_INSERT_TO_DB, errorString);
                     Log.e(TAG, "Insert record failed because of unknown reason. " + errorString);
                     return null;
                 }
@@ -248,8 +247,8 @@ public class CellBroadcastProvider extends ContentProvider {
                 if (errorString.length() > 1000) {
                     errorString = errorString.substring(0, 1000);
                 }
-                CellBroadcastStatsLog.write(CellBroadcastStatsLog.CB_MESSAGE_ERROR,
-                        CELL_BROADCAST_MESSAGE_ERROR__TYPE__FAILED_TO_INSERT_TO_DB, errorString);
+                CellBroadcastServiceMetrics.getInstance().logMessageError(
+                        ERR_FAILED_TO_INSERT_TO_DB, errorString);
                 throw new IllegalArgumentException(errorString);
         }
     }

@@ -115,8 +115,8 @@ public class AnalyticsUtilsTest extends AndroidTestCase {
         List<String> provisioningExtras = AnalyticsUtils.getAllProvisioningExtras(intent);
         // THEN a list of valid provisioning extras should be returned.
         assertEquals(2, provisioningExtras.size());
-        provisioningExtras.contains(EXTRA_PROVISIONING_DEVICE_ADMIN_COMPONENT_NAME);
-        provisioningExtras.contains(EXTRA_PROVISIONING_ACCOUNT_TO_MIGRATE);
+        assertThat(provisioningExtras.contains(EXTRA_PROVISIONING_DEVICE_ADMIN_COMPONENT_NAME)).isTrue();
+        assertThat(provisioningExtras.contains(EXTRA_PROVISIONING_ACCOUNT_TO_MIGRATE)).isTrue();
     }
 
     public void testGetProvisioningTime_shouldReturnDiff() {

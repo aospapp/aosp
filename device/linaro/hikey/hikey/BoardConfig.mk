@@ -10,20 +10,6 @@ BOARD_KERNEL_CMDLINE := androidboot.hardware=hikey firmware_class.path=/vendor/f
 BOARD_KERNEL_CMDLINE += androidboot.boot_devices=soc/f723d000.dwmmc0
 BOARD_KERNEL_CMDLINE += console=ttyAMA3,115200 androidboot.console=ttyAMA3
 
-# On kernels before 4.14, enable dtb fstab with android-verity. On kernels >=
-# 4.14, both dtb fstab and android-verity are deprecated, so until we have
-# avb2 support in the bootloader, don't enable either feature. The ramdisk
-# fstab needed for the new mechanism will be installed unconditionally; if
-# dtb fstab is present, it will override it automatically.
-ifneq ($(TARGET_KERNEL_USE),4.19)
-ifneq ($(TARGET_KERNEL_USE),4.14)
-BOARD_KERNEL_CMDLINE += overlay_mgr.overlay_dt_entry=hardware_cfg_enable_android_fstab_v2
-BOARD_KERNEL_CMDLINE += rootwait ro root=/dev/dm-0
-BOARD_KERNEL_CMDLINE += dm=\"system none ro,0 1 android-verity 179:9\"
-BOARD_BUILD_SYSTEM_ROOT_IMAGE := true
-endif
-endif
-
 ifneq ($(TARGET_SENSOR_MEZZANINE),)
 BOARD_KERNEL_CMDLINE += overlay_mgr.overlay_dt_entry=hardware_cfg_$(TARGET_SENSOR_MEZZANINE)
 endif

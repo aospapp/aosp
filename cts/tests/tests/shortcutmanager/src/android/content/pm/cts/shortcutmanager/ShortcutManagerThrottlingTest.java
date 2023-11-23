@@ -27,13 +27,14 @@ import android.content.Intent;
 import android.content.pm.cts.shortcutmanager.common.Constants;
 import android.content.pm.cts.shortcutmanager.common.ReplyUtil;
 import android.permission.cts.PermissionUtils;
-import android.support.test.uiautomator.By;
-import android.support.test.uiautomator.UiDevice;
-import android.support.test.uiautomator.UiObject2;
-import android.support.test.uiautomator.Until;
 import android.test.suitebuilder.annotation.SmallTest;
 import android.test.suitebuilder.annotation.Suppress;
 import android.view.KeyEvent;
+
+import androidx.test.uiautomator.By;
+import androidx.test.uiautomator.UiDevice;
+import androidx.test.uiautomator.UiObject2;
+import androidx.test.uiautomator.Until;
 
 import com.android.compatibility.common.util.CddTest;
 

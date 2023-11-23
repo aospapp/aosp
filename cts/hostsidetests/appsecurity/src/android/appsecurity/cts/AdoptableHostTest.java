@@ -16,6 +16,7 @@
 
 package android.appsecurity.cts;
 
+import com.android.tradefed.util.RunUtil;
 import static android.appsecurity.cts.SplitTests.ABI_TO_APK;
 import static android.appsecurity.cts.SplitTests.APK;
 import static android.appsecurity.cts.SplitTests.APK_mdpi;
@@ -76,8 +77,8 @@ public class AdoptableHostTest extends BaseHostJUnit4Test {
             int attempt = 0;
             boolean hasVirtualDisk = false;
             String result = "";
-            while (!hasVirtualDisk && attempt++ < 20) {
-                Thread.sleep(1000);
+            while (!hasVirtualDisk && attempt++ < 50) {
+                RunUtil.getDefault().sleep(1000);
                 result = getDevice().executeShellCommand("sm list-disks adoptable").trim();
                 hasVirtualDisk = result.startsWith("disk:");
             }
@@ -99,7 +100,7 @@ public class AdoptableHostTest extends BaseHostJUnit4Test {
             boolean hasVirtualDisk = true;
             String result = "";
             while (hasVirtualDisk && attempt++ < 20) {
-                Thread.sleep(1000);
+                RunUtil.getDefault().sleep(1000);
                 result = getDevice().executeShellCommand("sm list-disks adoptable").trim();
                 hasVirtualDisk = result.startsWith("disk:");
             }
@@ -112,7 +113,7 @@ public class AdoptableHostTest extends BaseHostJUnit4Test {
             boolean volumeStateRecovered = false;
             result = "";
             while (!volumeStateRecovered && attempt++ < 20) {
-                Thread.sleep(1000);
+                RunUtil.getDefault().sleep(1000);
                 result = getDevice().executeShellCommand("sm list-volumes");
                 volumeStateRecovered = mListVolumesInitialState.equals(result);
             }
@@ -144,7 +145,7 @@ public class AdoptableHostTest extends BaseHostJUnit4Test {
         while (!noCheckingEjecting && attempt++ < 60) {
             result = getDevice().executeShellCommand("sm list-volumes");
             noCheckingEjecting = !result.contains("ejecting") && !result.contains("checking");
-            Thread.sleep(100);
+            RunUtil.getDefault().sleep(100);
         }
         assertTrue("Volumes are not ready: " + result, noCheckingEjecting);
     }
@@ -418,7 +419,7 @@ public class AdoptableHostTest extends BaseHostJUnit4Test {
         int attempt = 0;
         String disks = getDevice().executeShellCommand("sm list-disks adoptable");
         while ((disks == null || disks.isEmpty()) && attempt++ < 15) {
-            Thread.sleep(1000);
+            RunUtil.getDefault().sleep(1000);
             disks = getDevice().executeShellCommand("sm list-disks adoptable");
         }
 
@@ -452,7 +453,7 @@ public class AdoptableHostTest extends BaseHostJUnit4Test {
                     }
                 }
             }
-            Thread.sleep(1000);
+            RunUtil.getDefault().sleep(1000);
         }
         throw new AssertionError("Expected private volume; found " + Arrays.toString(lines));
     }
@@ -463,7 +464,7 @@ public class AdoptableHostTest extends BaseHostJUnit4Test {
             if (getDevice().executeShellCommand("dumpsys package volumes").contains(vol.volId)) {
                 return vol;
             }
-            Thread.sleep(1000);
+            RunUtil.getDefault().sleep(1000);
         }
         throw new AssertionError("Volume not ready " + vol.volId);
     }
@@ -479,7 +480,7 @@ public class AdoptableHostTest extends BaseHostJUnit4Test {
         int attempt = 0;
         String pkgInstr = getDevice().executeShellCommand("pm list instrumentation");
         while ((pkgInstr == null || !pkgInstr.contains(PKG)) && attempt++ < 15) {
-            Thread.sleep(1000);
+            RunUtil.getDefault().sleep(1000);
             pkgInstr = getDevice().executeShellCommand("pm list instrumentation");
         }
 

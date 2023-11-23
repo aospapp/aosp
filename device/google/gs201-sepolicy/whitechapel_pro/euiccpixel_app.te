@@ -1,0 +1,26 @@
+# EuiccSupportPixel app
+
+type euiccpixel_app, domain;
+app_domain(euiccpixel_app)
+
+allow euiccpixel_app app_api_service:service_manager find;
+allow euiccpixel_app radio_service:service_manager find;
+allow euiccpixel_app nfc_service:service_manager find;
+allow euiccpixel_app sysfs_st33spi:dir search;
+allow euiccpixel_app sysfs_st33spi:file rw_file_perms;
+
+set_prop(euiccpixel_app, vendor_secure_element_prop)
+set_prop(euiccpixel_app, vendor_modem_prop)
+get_prop(euiccpixel_app, dck_prop)
+
+userdebug_or_eng(`
+    net_domain(euiccpixel_app)
+
+    # Access to directly upgrade firmware on st54spi_device used for engineering devices
+    typeattribute st54spi_device mlstrustedobject;
+    allow euiccpixel_app st54spi_device:chr_file rw_file_perms;
+    # Access to directly upgrade firmware on st33spi_device used for engineering devices
+    typeattribute st33spi_device mlstrustedobject;
+    allow euiccpixel_app st33spi_device:chr_file rw_file_perms;
+')
+

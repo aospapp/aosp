@@ -14,6 +14,7 @@ TEST_CATEGORY = "Functional"
 TEST_CLASS = "display"
 TEST_TYPE = "server"
 DEPENDENCIES = 'chameleon'
+PY_VERSION = 3
 
 DOC = """
 This test remotely tests display resolution functions, by switching EDIDs

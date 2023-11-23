@@ -76,8 +76,7 @@ public class InstrumentedTestUtilities {
 
     grantInteractAcrossUsers(packageName);
 
-    ProfileAvailabilityPoll.blockUntilProfileRunningAndUnlocked(
-        context, getWorkProfileUserHandle());
+    ProfileAvailabilityPoll.blockUntilUserRunningAndUnlocked(context, getWorkProfileUserHandle());
   }
 
   private UserHandle getWorkProfileUserHandle() {
@@ -222,7 +221,7 @@ public class InstrumentedTestUtilities {
           }
         };
 
-    connector.registerConnectionListener(connectionListener);
+    connector.addConnectionListener(connectionListener);
     connectionListener.connectionChanged();
 
     try {
@@ -231,7 +230,7 @@ public class InstrumentedTestUtilities {
       throw new AssertionError("Error waiting to disconnect", e);
     }
 
-    connector.unregisterConnectionListener(connectionListener);
+    connector.removeConnectionListener(connectionListener);
   }
 
   /**
@@ -249,7 +248,7 @@ public class InstrumentedTestUtilities {
           }
         };
 
-    connector.registerConnectionListener(connectionListener);
+    connector.addConnectionListener(connectionListener);
     connectionListener.connectionChanged();
 
     try {
@@ -258,7 +257,7 @@ public class InstrumentedTestUtilities {
       throw new AssertionError("Error waiting to connect", e);
     }
 
-    connector.unregisterConnectionListener(connectionListener);
+    connector.removeConnectionListener(connectionListener);
   }
 
   private static String runCommandWithOutput(String command) {

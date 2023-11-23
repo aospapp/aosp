@@ -146,11 +146,13 @@ bssl::UniquePtr<EVP_PKEY> wrap_rsa(std::shared_ptr<Keystore2KeyBackend> key_back
         return nullptr;
     }
 
-    rsa->n = BN_dup(public_rsa->n);
-    rsa->e = BN_dup(public_rsa->e);
-    if (rsa->n == nullptr || rsa->e == nullptr) {
+    bssl::UniquePtr<BIGNUM> n(BN_dup(RSA_get0_n(public_rsa)));
+    bssl::UniquePtr<BIGNUM> e(BN_dup(RSA_get0_e(public_rsa)));
+    if (n == nullptr || e == nullptr || !RSA_set0_key(rsa.get(), n.get(), e.get(), nullptr)) {
         return nullptr;
     }
+    OWNERSHIP_TRANSFERRED(n);
+    OWNERSHIP_TRANSFERRED(e);
 
     bssl::UniquePtr<EVP_PKEY> result(EVP_PKEY_new());
     if (result.get() == nullptr || !EVP_PKEY_assign_RSA(result.get(), rsa.get())) {
@@ -420,19 +422,19 @@ extern "C" EVP_PKEY* EVP_PKEY_from_keystore2(const char* key_id) {
         Keystore2KeyBackend{response.metadata.key, response.iSecurityLevel});
 
     bssl::UniquePtr<EVP_PKEY> result;
-    switch (EVP_PKEY_type(pkey->type)) {
+    switch (EVP_PKEY_id(pkey.get())) {
     case EVP_PKEY_RSA: {
-        bssl::UniquePtr<RSA> public_rsa(EVP_PKEY_get1_RSA(pkey.get()));
-        result = wrap_rsa(key_backend, public_rsa.get());
+        RSA* public_rsa = EVP_PKEY_get0_RSA(pkey.get());
+        result = wrap_rsa(key_backend, public_rsa);
         break;
     }
     case EVP_PKEY_EC: {
-        bssl::UniquePtr<EC_KEY> public_ecdsa(EVP_PKEY_get1_EC_KEY(pkey.get()));
-        result = wrap_ecdsa(key_backend, public_ecdsa.get());
+        EC_KEY* public_ecdsa = EVP_PKEY_get0_EC_KEY(pkey.get());
+        result = wrap_ecdsa(key_backend, public_ecdsa);
         break;
     }
     default:
-        LOG(ERROR) << AT << "Unsupported key type " << EVP_PKEY_type(pkey->type);
+        LOG(ERROR) << AT << "Unsupported key type " << EVP_PKEY_id(pkey.get());
         return nullptr;
     }
 

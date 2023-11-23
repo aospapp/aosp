@@ -1,4 +1,4 @@
-// Copyright 2019 The Chromium OS Authors. All rights reserved.
+// Copyright 2019 The ChromiumOS Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -76,7 +76,7 @@ func runCmdWithTimeout(env env, cmd *command, t time.Duration) error {
 	cmdCtx.Stderr = env.stderr()
 
 	if err := cmdCtx.Start(); err != nil {
-		return newErrorwithSourceLocf("exec error: %v", err)
+		return fmt.Errorf("exec error: %w", err)
 	}
 	err := cmdCtx.Wait()
 	if ctx.Err() == nil {
@@ -260,6 +260,21 @@ func (builder *commandBuilder) transformArgs(transform func(arg builderArg) stri
 				value:    newArg,
 				fromUser: arg.fromUser,
 			})
+		}
+	}
+	builder.args = newArgs
+}
+
+// Allows to filter arg pairs, useful for eg when having adjacent unsupported args
+// like "-Wl,-z -Wl,defs"
+func (builder *commandBuilder) filterArgPairs(keepPair func(arg1, arg2 builderArg) bool) {
+	newArgs := builder.args[:0]
+	for i := 0; i < len(builder.args); i++ {
+		if i == len(builder.args)-1 || keepPair(builder.args[i], builder.args[i+1]) {
+			newArgs = append(newArgs, builder.args[i])
+		} else {
+			// skip builder.args[i]) as well as next item
+			i++
 		}
 	}
 	builder.args = newArgs

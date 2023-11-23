@@ -97,7 +97,7 @@ public class DownloadManagerTest extends BaseTestCase {
         });
         try {
             IntentFilter filter = new IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE);
-            getContext().registerReceiver(receiver, filter);
+            getContext().registerReceiver(receiver, filter, Context.RECEIVER_EXPORTED);
             new Thread(serverFuture).start();
             String host = (https ? "https" : "http") + "://localhost";
             Uri destination = Uri.parse(host + ":" + serverSocket.getLocalPort());

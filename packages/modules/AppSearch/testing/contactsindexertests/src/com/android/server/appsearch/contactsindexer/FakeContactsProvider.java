@@ -134,6 +134,9 @@ public class FakeContactsProvider extends ContentProvider {
     private long mMostRecentContactLastUpdatedTimestampMillis;
     private long mMostRecentDeletedContactTimestampMillis;
 
+    // Data Query delay in millis added for testing
+    private long mDataQueryDelayMs = 0;
+
     // Only odd contactIds should have additional data.
     private static boolean shouldhaveAdditionalData(long contactId) {
         return (contactId & 1) > 0;
@@ -280,6 +283,10 @@ public class FakeContactsProvider extends ContentProvider {
         this(ApplicationProvider.getApplicationContext().getResources());
     }
 
+    public void setDataQueryDelayMs(long dataQueryDelayMs) {
+        mDataQueryDelayMs = dataQueryDelayMs;
+    }
+
     FakeContactsProvider(Resources resources) {
         mResources = resources;
     }
@@ -320,6 +327,14 @@ public class FakeContactsProvider extends ContentProvider {
     // together. We only process CONTACTS_DATA_ORDER_BY.
     protected Cursor manageDataQuery(
             String[] projection, String selection, String[] selectionArgs, String orderBy) {
+        if (mDataQueryDelayMs > 0) {
+             try {
+                Thread.sleep(mDataQueryDelayMs);
+            } catch (InterruptedException e) {
+                Log.d(TAG, "Got exception while applying data query delay.", e);
+            }
+        }
+
         MatrixCursor cursor = null;
         // Details in id list.
         if (CONTACTS_DATA_ORDER_BY.equals(orderBy) && (projection != null)) {

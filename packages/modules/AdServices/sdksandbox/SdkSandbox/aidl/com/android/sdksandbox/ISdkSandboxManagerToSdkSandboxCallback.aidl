@@ -19,8 +19,10 @@ package com.android.sdksandbox;
 import android.os.Bundle;
 import android.os.IBinder;
 
+import com.android.sdksandbox.IRequestSurfacePackageFromSdkCallback;
+import com.android.sdksandbox.SandboxLatencyInfo;
+
 /** @hide */
 oneway interface ISdkSandboxManagerToSdkSandboxCallback {
-    void onSurfacePackageRequested(in IBinder hostToken, int displayId, in Bundle extraParams);
+    void onSurfacePackageRequested(in IBinder hostToken, int displayId, int width, int height, in Bundle extraParams, in SandboxLatencyInfo sandboxLatencyInfo, IRequestSurfacePackageFromSdkCallback callback);
 }
-

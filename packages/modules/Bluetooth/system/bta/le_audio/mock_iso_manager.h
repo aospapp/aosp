@@ -35,6 +35,8 @@ struct MockIsoManager {
               (bluetooth::hci::iso_manager::CigCallbacks * callbacks), (const));
   MOCK_METHOD((void), RegisterBigCallbacks,
               (bluetooth::hci::iso_manager::BigCallbacks * callbacks), (const));
+  MOCK_METHOD((void), RegisterOnIsoTrafficActiveCallbacks,
+              (void callbacks(bool)), (const));
   MOCK_METHOD(
       (void), CreateCig,
       (uint8_t cig_id,
@@ -43,7 +45,7 @@ struct MockIsoManager {
       (void), ReconfigureCig,
       (uint8_t cig_id,
        struct bluetooth::hci::iso_manager::cig_create_params cig_params));
-  MOCK_METHOD((void), RemoveCig, (uint8_t cig_id));
+  MOCK_METHOD((void), RemoveCig, (uint8_t cig_id, bool force));
   MOCK_METHOD(
       (void), EstablishCis,
       (struct bluetooth::hci::iso_manager::cis_establish_params conn_params));

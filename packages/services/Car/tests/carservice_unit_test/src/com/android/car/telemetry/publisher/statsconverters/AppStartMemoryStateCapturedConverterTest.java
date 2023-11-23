@@ -24,6 +24,7 @@ import static com.android.car.telemetry.AtomsProto.AppStartMemoryStateCaptured.P
 import static com.android.car.telemetry.AtomsProto.AppStartMemoryStateCaptured.RSS_IN_BYTES_FIELD_NUMBER;
 import static com.android.car.telemetry.AtomsProto.AppStartMemoryStateCaptured.SWAP_IN_BYTES_FIELD_NUMBER;
 import static com.android.car.telemetry.AtomsProto.AppStartMemoryStateCaptured.UID_FIELD_NUMBER;
+import static com.android.car.telemetry.publisher.Constants.STATS_BUNDLE_KEY_PREFIX;
 
 import static com.google.common.truth.Truth.assertThat;
 
@@ -119,24 +120,36 @@ public class AppStartMemoryStateCapturedConverterTest {
                 dimensionsValuesList, HASH_STR_MAP);
 
         assertThat(bundle.size()).isEqualTo(8);
-        assertThat(bundle.getIntArray(accessorMap.get(UID_FIELD_NUMBER).getFieldName()))
+        assertThat(bundle.getIntArray(
+                    STATS_BUNDLE_KEY_PREFIX + accessorMap.get(UID_FIELD_NUMBER).getFieldName()))
             .asList().containsExactly(1000, 2000).inOrder();
-        assertThat(Arrays.asList(
-                bundle.getStringArray(accessorMap.get(PROCESS_NAME_FIELD_NUMBER).getFieldName())))
+        assertThat(Arrays.asList(bundle.getStringArray(
+                    STATS_BUNDLE_KEY_PREFIX + accessorMap.get(PROCESS_NAME_FIELD_NUMBER)
+                            .getFieldName())))
             .containsExactly("process.name.1", "process.name.2").inOrder();
-        assertThat(Arrays.asList(
-                bundle.getStringArray(accessorMap.get(ACTIVITY_NAME_FIELD_NUMBER).getFieldName())))
+        assertThat(Arrays.asList(bundle.getStringArray(
+                    STATS_BUNDLE_KEY_PREFIX + accessorMap.get(ACTIVITY_NAME_FIELD_NUMBER)
+                            .getFieldName())))
             .containsExactly("activityName1", "activityName2").inOrder();
-        assertThat(bundle.getLongArray(accessorMap.get(PAGE_FAULT_FIELD_NUMBER).getFieldName()))
+        assertThat(bundle.getLongArray(
+                    STATS_BUNDLE_KEY_PREFIX + accessorMap.get(PAGE_FAULT_FIELD_NUMBER)
+                            .getFieldName()))
             .asList().containsExactly(59L, 99L).inOrder();
         assertThat(bundle.getLongArray(
-                        accessorMap.get(PAGE_MAJOR_FAULT_FIELD_NUMBER).getFieldName()))
+                    STATS_BUNDLE_KEY_PREFIX + accessorMap.get(PAGE_MAJOR_FAULT_FIELD_NUMBER)
+                            .getFieldName()))
             .asList().containsExactly(34L, 55L).inOrder();
-        assertThat(bundle.getLongArray(accessorMap.get(RSS_IN_BYTES_FIELD_NUMBER).getFieldName()))
+        assertThat(bundle.getLongArray(
+                    STATS_BUNDLE_KEY_PREFIX + accessorMap.get(RSS_IN_BYTES_FIELD_NUMBER)
+                            .getFieldName()))
             .asList().containsExactly(1234L, 2345L).inOrder();
-        assertThat(bundle.getLongArray(accessorMap.get(CACHE_IN_BYTES_FIELD_NUMBER).getFieldName()))
+        assertThat(bundle.getLongArray(
+                    STATS_BUNDLE_KEY_PREFIX + accessorMap.get(CACHE_IN_BYTES_FIELD_NUMBER)
+                            .getFieldName()))
             .asList().containsExactly(234L, 345L).inOrder();
-        assertThat(bundle.getLongArray(accessorMap.get(SWAP_IN_BYTES_FIELD_NUMBER).getFieldName()))
+        assertThat(bundle.getLongArray(
+                    STATS_BUNDLE_KEY_PREFIX + accessorMap.get(SWAP_IN_BYTES_FIELD_NUMBER)
+                            .getFieldName()))
             .asList().containsExactly(111L, 222L).inOrder();
     }
 

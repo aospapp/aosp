@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-#include <cpu-features.h>
 #include <cutils/log.h>
 #include <cutils/properties.h>
 #include <jni.h>

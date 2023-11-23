@@ -19,8 +19,13 @@
 
 DEFINE_INTERCEPTABLE_STUB_FUNCTION(_Z13eglBeginFramePvS_);
 DEFINE_INTERCEPTABLE_STUB_FUNCTION(_ZN7android11egl_cache_t10initializeEPNS_13egl_display_tE);
+DEFINE_INTERCEPTABLE_STUB_FUNCTION(_ZN7android11egl_cache_t10updateModeEv);
+DEFINE_INTERCEPTABLE_STUB_FUNCTION(_ZN7android11egl_cache_t12getCacheSizeEv);
+DEFINE_INTERCEPTABLE_STUB_FUNCTION(_ZN7android11egl_cache_t12setCacheModeENS0_12EGLCacheModeE);
+DEFINE_INTERCEPTABLE_STUB_FUNCTION(_ZN7android11egl_cache_t13setCacheLimitEx);
 DEFINE_INTERCEPTABLE_STUB_FUNCTION(_ZN7android11egl_cache_t16setCacheFilenameEPKc);
 DEFINE_INTERCEPTABLE_STUB_FUNCTION(_ZN7android11egl_cache_t18getBlobCacheLockedEv);
+DEFINE_INTERCEPTABLE_STUB_FUNCTION(_ZN7android11egl_cache_t27getMultifileBlobCacheLockedEv);
 DEFINE_INTERCEPTABLE_STUB_FUNCTION(_ZN7android11egl_cache_t3getEv);
 DEFINE_INTERCEPTABLE_STUB_FUNCTION(_ZN7android11egl_cache_t7getBlobEPKvlPvl);
 DEFINE_INTERCEPTABLE_STUB_FUNCTION(_ZN7android11egl_cache_t7setBlobEPKvlS2_l);
@@ -133,8 +138,13 @@ DEFINE_INTERCEPTABLE_STUB_FUNCTION(eglWaitSyncKHR);
 static void __attribute__((constructor(0))) init_stub_library() {
   INIT_INTERCEPTABLE_STUB_FUNCTION("libEGL.so", _Z13eglBeginFramePvS_);
   INIT_INTERCEPTABLE_STUB_FUNCTION("libEGL.so", _ZN7android11egl_cache_t10initializeEPNS_13egl_display_tE);
+  INIT_INTERCEPTABLE_STUB_FUNCTION("libEGL.so", _ZN7android11egl_cache_t10updateModeEv);
+  INIT_INTERCEPTABLE_STUB_FUNCTION("libEGL.so", _ZN7android11egl_cache_t12getCacheSizeEv);
+  INIT_INTERCEPTABLE_STUB_FUNCTION("libEGL.so", _ZN7android11egl_cache_t12setCacheModeENS0_12EGLCacheModeE);
+  INIT_INTERCEPTABLE_STUB_FUNCTION("libEGL.so", _ZN7android11egl_cache_t13setCacheLimitEx);
   INIT_INTERCEPTABLE_STUB_FUNCTION("libEGL.so", _ZN7android11egl_cache_t16setCacheFilenameEPKc);
   INIT_INTERCEPTABLE_STUB_FUNCTION("libEGL.so", _ZN7android11egl_cache_t18getBlobCacheLockedEv);
+  INIT_INTERCEPTABLE_STUB_FUNCTION("libEGL.so", _ZN7android11egl_cache_t27getMultifileBlobCacheLockedEv);
   INIT_INTERCEPTABLE_STUB_FUNCTION("libEGL.so", _ZN7android11egl_cache_t3getEv);
   INIT_INTERCEPTABLE_STUB_FUNCTION("libEGL.so", _ZN7android11egl_cache_t7getBlobEPKvlPvl);
   INIT_INTERCEPTABLE_STUB_FUNCTION("libEGL.so", _ZN7android11egl_cache_t7setBlobEPKvlS2_l);

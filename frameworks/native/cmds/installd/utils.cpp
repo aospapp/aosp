@@ -523,7 +523,6 @@ int calculate_tree_size(const std::string& path, int64_t* size,
  */
 bool is_valid_package_name(const std::string& packageName) {
     // This logic is borrowed from PackageParser.java
-    bool hasSep = false;
     bool front = true;
 
     auto it = packageName.begin();
@@ -539,7 +538,6 @@ bool is_valid_package_name(const std::string& packageName) {
             }
         }
         if (c == '.') {
-            hasSep = true;
             front = true;
             continue;
         }
@@ -1184,8 +1182,8 @@ static int wait_child(pid_t pid) {
 int wait_child_with_timeout(pid_t pid, int timeout_ms) {
     int pidfd = pidfd_open(pid, /*flags=*/0);
     if (pidfd < 0) {
-        PLOG(ERROR) << "pidfd_open failed for pid " << pid;
-        kill(pid, SIGKILL);
+        PLOG(ERROR) << "pidfd_open failed for pid " << pid
+                    << ", waiting for child process without timeout";
         return wait_child(pid);
     }
 

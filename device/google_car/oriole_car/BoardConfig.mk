@@ -19,11 +19,4 @@
 #
 # * TARGET_SCREEN_DENSITY is scaled down by 1.75x
 
-TARGET_BOARD_INFO_FILE := device/google/raviole/board-info.txt
-TARGET_BOOTLOADER_BOARD_NAME := oriole
 TARGET_SCREEN_DENSITY := 240
-USES_DEVICE_GOOGLE_RAVIOLE := true
-
-include device/google/gs101/BoardConfig-common.mk
--include vendor/google_devices/gs101/prebuilts/BoardConfigVendor.mk
--include vendor/google_devices/oriole/proprietary/BoardConfigVendor.mk

@@ -17,9 +17,19 @@
 package android.car.cts.builtin.apps.simple;
 
 import android.app.Activity;
+import android.content.Intent;
 
 /**
  * A very simple activity for testing PackageManagerHelper.
  */
 public final class SimpleActivity extends Activity {
+    private static final String ACTIVITY_LAUNCHED_ACTION =
+            "android.car.cts.builtin.apps.simple.SimpleActivity.LAUNCHED_ACTION";
+
+    @Override
+    public void onStart() {
+        super.onStart();
+        Intent reply = new Intent(ACTIVITY_LAUNCHED_ACTION);
+        sendBroadcast(reply);
+    }
 }

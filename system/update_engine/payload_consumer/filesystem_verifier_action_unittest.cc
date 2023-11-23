@@ -37,7 +37,6 @@
 #include "update_engine/common/mock_dynamic_partition_control.h"
 #include "update_engine/common/test_utils.h"
 #include "update_engine/common/utils.h"
-#include "update_engine/payload_consumer/fake_file_descriptor.h"
 #include "update_engine/payload_consumer/install_plan.h"
 #include "update_engine/payload_consumer/verity_writer_android.h"
 

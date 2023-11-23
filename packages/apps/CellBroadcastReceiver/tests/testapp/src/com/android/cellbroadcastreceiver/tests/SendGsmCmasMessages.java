@@ -26,6 +26,7 @@ import android.provider.Telephony;
 import android.telephony.SmsCbCmasInfo;
 import android.telephony.SmsCbLocation;
 import android.telephony.SmsCbMessage;
+import android.text.TextUtils;
 
 import com.android.internal.telephony.CellBroadcastUtils;
 import com.android.internal.telephony.gsm.SmsCbConstants;
@@ -65,16 +66,34 @@ public class SendGsmCmasMessages {
                 AppOpsManager.OP_RECEIVE_EMERGECY_SMS, null, null, Activity.RESULT_OK, null, null);
     }
 
+    public static void testSendCmasAlertWithServiceCategory(
+            Context context, int serviceCategory, int serialNumber, String messageBody,
+            String languageCode, boolean isAdditionalLang) {
+        SmsCbMessage cbMessage =
+                createCmasSmsMessage(
+                        serviceCategory,
+                        serialNumber,
+                        TextUtils.isEmpty(languageCode) ? "en" : languageCode,
+                        TextUtils.isEmpty(messageBody) ? "This is an alert" : messageBody,
+                        SmsCbCmasInfo.CMAS_SEVERITY_EXTREME,
+                        SmsCbCmasInfo.CMAS_URGENCY_EXPECTED,
+                        SmsCbCmasInfo.CMAS_CERTAINTY_LIKELY,
+                        SmsCbMessage.MESSAGE_PRIORITY_EMERGENCY);
+
+        sendBroadcast(context, cbMessage);
+    }
+
     public static void testSendCmasPresAlert(
-            Context context, int serialNumber, boolean isAdditionalLang) {
+            Context context, int serialNumber, String messageBody, String languageCode,
+            boolean isAdditionalLang) {
         SmsCbMessage cbMessage =
                 createCmasSmsMessage(
                         isAdditionalLang
                                 ? SmsCbConstants.MESSAGE_ID_CMAS_ALERT_PRESIDENTIAL_LEVEL_LANGUAGE
                                 : SmsCbConstants.MESSAGE_ID_CMAS_ALERT_PRESIDENTIAL_LEVEL,
                         serialNumber,
-                        "en",
-                        PRES_ALERT,
+                        TextUtils.isEmpty(languageCode) ? "en" : languageCode,
+                        TextUtils.isEmpty(messageBody) ? PRES_ALERT : messageBody,
                         SmsCbCmasInfo.CMAS_SEVERITY_EXTREME,
                         SmsCbCmasInfo.CMAS_URGENCY_EXPECTED,
                         SmsCbCmasInfo.CMAS_CERTAINTY_LIKELY,
@@ -84,7 +103,8 @@ public class SendGsmCmasMessages {
     }
 
     public static void testSendCmasExtremeAlert(
-            Context context, int serialNumber, boolean isAdditionalLang) {
+            Context context, int serialNumber, String messageBody, String languageCode,
+            boolean isAdditionalLang) {
         SmsCbMessage cbMessage =
                 createCmasSmsMessage(
                         isAdditionalLang
@@ -92,8 +112,8 @@ public class SendGsmCmasMessages {
                                         .MESSAGE_ID_CMAS_ALERT_EXTREME_IMMEDIATE_OBSERVED_LANGUAGE
                                 : SmsCbConstants.MESSAGE_ID_CMAS_ALERT_EXTREME_IMMEDIATE_OBSERVED,
                         serialNumber,
-                        "en",
-                        EXTREME_ALERT,
+                        TextUtils.isEmpty(languageCode) ? "en" : languageCode,
+                        TextUtils.isEmpty(messageBody) ? EXTREME_ALERT : messageBody,
                         SmsCbCmasInfo.CMAS_SEVERITY_EXTREME,
                         SmsCbCmasInfo.CMAS_URGENCY_EXPECTED,
                         SmsCbCmasInfo.CMAS_CERTAINTY_OBSERVED,
@@ -103,7 +123,8 @@ public class SendGsmCmasMessages {
     }
 
     public static void testSendCmasSevereAlert(
-            Context context, int serialNumber, boolean isAdditionalLang) {
+            Context context, int serialNumber, String messageBody, String languageCode,
+            boolean isAdditionalLang) {
         SmsCbMessage cbMessage =
                 createCmasSmsMessage(
                         isAdditionalLang
@@ -111,8 +132,8 @@ public class SendGsmCmasMessages {
                                         .MESSAGE_ID_CMAS_ALERT_SEVERE_EXPECTED_OBSERVED_LANGUAGE
                                 : SmsCbConstants.MESSAGE_ID_CMAS_ALERT_SEVERE_EXPECTED_OBSERVED,
                         serialNumber,
-                        "en",
-                        SEVERE_ALERT,
+                        TextUtils.isEmpty(languageCode) ? "en" : languageCode,
+                        TextUtils.isEmpty(messageBody) ? SEVERE_ALERT : messageBody,
                         SmsCbCmasInfo.CMAS_SEVERITY_SEVERE,
                         SmsCbCmasInfo.CMAS_URGENCY_IMMEDIATE,
                         SmsCbCmasInfo.CMAS_CERTAINTY_LIKELY,
@@ -122,7 +143,8 @@ public class SendGsmCmasMessages {
     }
 
     public static void testSendCmasAmberAlert(
-            Context context, int serialNumber, boolean isAdditionalLang) {
+            Context context, int serialNumber, String messageBody, String languageCode,
+            boolean isAdditionalLang) {
         SmsCbMessage cbMessage =
                 createCmasSmsMessage(
                         isAdditionalLang
@@ -130,8 +152,8 @@ public class SendGsmCmasMessages {
                                         .MESSAGE_ID_CMAS_ALERT_CHILD_ABDUCTION_EMERGENCY_LANGUAGE
                                 : SmsCbConstants.MESSAGE_ID_CMAS_ALERT_CHILD_ABDUCTION_EMERGENCY,
                         serialNumber,
-                        "en",
-                        AMBER_ALERT,
+                        TextUtils.isEmpty(languageCode) ? "en" : languageCode,
+                        TextUtils.isEmpty(messageBody) ? AMBER_ALERT : messageBody,
                         SmsCbCmasInfo.CMAS_SEVERITY_UNKNOWN,
                         SmsCbCmasInfo.CMAS_URGENCY_UNKNOWN,
                         SmsCbCmasInfo.CMAS_CERTAINTY_UNKNOWN,
@@ -141,7 +163,8 @@ public class SendGsmCmasMessages {
     }
 
     public static void testSendCmasMonthlyTest(
-            Context context, int serialNumber, boolean isAdditionalLang) {
+            Context context, int serialNumber, String messageBody, String languageCode,
+            boolean isAdditionalLang) {
         SmsCbMessage cbMessage =
                 createCmasSmsMessage(
                         isAdditionalLang
@@ -149,8 +172,8 @@ public class SendGsmCmasMessages {
                                         .MESSAGE_ID_CMAS_ALERT_REQUIRED_MONTHLY_TEST_LANGUAGE
                                 : SmsCbConstants.MESSAGE_ID_CMAS_ALERT_REQUIRED_MONTHLY_TEST,
                         serialNumber,
-                        "en",
-                        MONTHLY_TEST_ALERT,
+                        TextUtils.isEmpty(languageCode) ? "en" : languageCode,
+                        TextUtils.isEmpty(messageBody) ? MONTHLY_TEST_ALERT : messageBody,
                         SmsCbCmasInfo.CMAS_SEVERITY_UNKNOWN,
                         SmsCbCmasInfo.CMAS_URGENCY_UNKNOWN,
                         SmsCbCmasInfo.CMAS_CERTAINTY_UNKNOWN,
@@ -160,7 +183,8 @@ public class SendGsmCmasMessages {
     }
 
     public static void testSendCmasExerciseTest(
-            Context context, int serialNumber, boolean isAdditionalLang) {
+            Context context, int serialNumber, String messageBody, String languageCode,
+            boolean isAdditionalLang) {
         SmsCbMessage cbMessage =
                 createCmasSmsMessage(
                         isAdditionalLang
@@ -168,8 +192,8 @@ public class SendGsmCmasMessages {
                                 .MESSAGE_ID_CMAS_ALERT_EXERCISE_LANGUAGE
                                 : SmsCbConstants.MESSAGE_ID_CMAS_ALERT_EXERCISE,
                         serialNumber,
-                        "en",
-                        MONTHLY_TEST_ALERT,
+                        TextUtils.isEmpty(languageCode) ? "en" : languageCode,
+                        TextUtils.isEmpty(messageBody) ? MONTHLY_TEST_ALERT : messageBody,
                         SmsCbCmasInfo.CMAS_SEVERITY_UNKNOWN,
                         SmsCbCmasInfo.CMAS_URGENCY_UNKNOWN,
                         SmsCbCmasInfo.CMAS_CERTAINTY_UNKNOWN,
@@ -179,15 +203,16 @@ public class SendGsmCmasMessages {
     }
 
     public static void testSendPublicSafetyMessagesAlert(
-            Context context, int serialNumber, boolean isAdditionalLang) {
+            Context context, int serialNumber, String messageBody, String languageCode,
+            boolean isAdditionalLang) {
         SmsCbMessage cbMessage =
                 createCmasSmsMessage(
                         isAdditionalLang
                                 ? SmsCbConstants.MESSAGE_ID_CMAS_ALERT_PUBLIC_SAFETY_LANGUAGE
                                 : SmsCbConstants.MESSAGE_ID_CMAS_ALERT_PUBLIC_SAFETY,
                         serialNumber,
-                        "en",
-                        PUBLIC_SAFETY_MESSAGE,
+                        TextUtils.isEmpty(languageCode) ? "en" : languageCode,
+                        TextUtils.isEmpty(messageBody) ? PUBLIC_SAFETY_MESSAGE : messageBody,
                         SmsCbCmasInfo.CMAS_SEVERITY_UNKNOWN,
                         SmsCbCmasInfo.CMAS_URGENCY_UNKNOWN,
                         SmsCbCmasInfo.CMAS_CERTAINTY_UNKNOWN,
@@ -197,15 +222,16 @@ public class SendGsmCmasMessages {
     }
 
     public static void testSendStateLocalTestAlert(
-            Context context, int serialNumber, boolean isAdditionalLang) {
+            Context context, int serialNumber, String messageBody, String languageCode,
+            boolean isAdditionalLang) {
         SmsCbMessage cbMessage =
                 createCmasSmsMessage(
                         isAdditionalLang
                                 ? SmsCbConstants.MESSAGE_ID_CMAS_ALERT_STATE_LOCAL_TEST_LANGUAGE
                                 : SmsCbConstants.MESSAGE_ID_CMAS_ALERT_STATE_LOCAL_TEST,
                         serialNumber,
-                        "en",
-                        STATE_LOCAL_ALERT,
+                        TextUtils.isEmpty(languageCode) ? "en" : languageCode,
+                        TextUtils.isEmpty(messageBody) ? STATE_LOCAL_ALERT : messageBody,
                         SmsCbCmasInfo.CMAS_SEVERITY_UNKNOWN,
                         SmsCbCmasInfo.CMAS_URGENCY_UNKNOWN,
                         SmsCbCmasInfo.CMAS_CERTAINTY_UNKNOWN,

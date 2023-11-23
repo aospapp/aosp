@@ -24,6 +24,7 @@ class LocalNetwork : public Network {
 public:
     explicit LocalNetwork(unsigned netId);
     virtual ~LocalNetwork();
+    Permission getPermission() const { return PERMISSION_SYSTEM; };
 
 private:
     std::string getTypeString() const override { return "LOCAL"; };

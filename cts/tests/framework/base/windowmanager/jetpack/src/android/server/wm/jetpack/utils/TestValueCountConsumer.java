@@ -17,14 +17,18 @@
 package android.server.wm.jetpack.utils;
 
 import androidx.annotation.Nullable;
+import androidx.window.extensions.core.util.function.Consumer;
 
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
-import java.util.function.Consumer;
 
 /**
  * Consumer that provides a simple way to wait for a specific count of values to be received within
  * a timeout and then return the last value.
+ *
+ * It requires the vendor API version at least {@link ExtensionUtil#EXTENSION_VERSION_2} because
+ * it uses extensions core version of {@link Consumer} instead of
+ * {@link java.util.function.Consumer Java 8 version Consumer}.
  */
 public class TestValueCountConsumer<T> implements Consumer<T> {
 
@@ -56,6 +60,11 @@ public class TestValueCountConsumer<T> implements Consumer<T> {
         }
         mLastReportedValue = value;
         return value;
+    }
+
+    // Doesn't change the count.
+    public void clearQueue() {
+        mLinkedBlockingQueue.clear();
     }
 
     @Nullable

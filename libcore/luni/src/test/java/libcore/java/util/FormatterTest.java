@@ -16,7 +16,14 @@
 
 package libcore.java.util;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
+
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.OutputStream;
 import java.math.BigDecimal;
+import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.text.DecimalFormat;
 import java.text.DecimalFormatSymbols;
 import java.text.NumberFormat;
@@ -27,6 +34,15 @@ import java.util.Locale;
 import java.util.TimeZone;
 
 public class FormatterTest extends junit.framework.TestCase {
+
+    private File aFile;
+
+    @Override
+    protected void setUp() throws Exception {
+        aFile = File.createTempFile("libcore_java_util_FormatterTest-test-file", null);
+        aFile.deleteOnExit();
+    }
+
     public void test_numberLocalization() throws Exception {
         Locale arabic = new Locale("ar");
 
@@ -206,5 +222,74 @@ public class FormatterTest extends junit.framework.TestCase {
         Formatter formatter = new Formatter(localeWithoutGrouping);
         formatter.format("%,d", 123456789);
         // No exception expected
+    }
+
+    public void testConstructor_Ljava_io_OutputStreamLjava_nio_charset_CharsetLjava_util_Locale()
+            throws Exception {
+        try {
+            new Formatter((OutputStream) null, UTF_8, Locale.getDefault());
+            fail("Should throw NPE");
+        } catch (NullPointerException ignored) {
+            // expected
+        }
+
+        try (var os = new FileOutputStream(aFile)) {
+            new Formatter(os, (Charset) null, Locale.getDefault());
+            fail("Should throw NPE");
+        } catch (NullPointerException ignored) {
+            // expected
+        }
+
+        try (var os = new FileOutputStream(aFile)) {
+            var formatter = new Formatter(os, UTF_8, (Locale) null);
+            assertNull(formatter.locale());
+        }
+
+        try (var os = new FileOutputStream(aFile)) {
+            var locale = Locale.getDefault();
+            var formatter = new Formatter(os, UTF_8, locale);
+            assertEquals(locale, formatter.locale());
+        }
+    }
+
+    public void testConstructor_Ljava_io_FileLjava_nio_charset_CharsetLjava_util_Locale()
+            throws Exception {
+        try {
+            new Formatter((File) null, UTF_8, Locale.getDefault());
+            fail("Should throw NPE");
+        } catch (NullPointerException ignored) {
+            // expected
+        }
+
+        try {
+            new Formatter(aFile, (Charset) null, Locale.getDefault());
+            fail("Should throw NPE");
+        } catch (NullPointerException ignored) {
+            // expected
+        }
+
+        var formatter = new Formatter(aFile, UTF_8, (Locale) null);
+        assertNull(formatter.locale());
+
+        var locale = Locale.getDefault();
+        formatter = new Formatter(aFile, UTF_8, locale);
+        assertEquals(locale, formatter.locale());
+    }
+
+    public void testConstructor_Ljava_lang_StringLjava_nio_charset_CharsetLjava_util_Locale()
+            throws Exception {
+        try {
+            new Formatter((String) null, UTF_8, Locale.getDefault());
+            fail("Should throw NPE");
+        } catch (NullPointerException ignored) {
+            // expected
+        }
+
+        try {
+            new Formatter(aFile.getName(), (Charset) null, Locale.getDefault());
+            fail("Should throw NPE");
+        } catch (NullPointerException ignored) {
+            // expected
+        }
     }
 }

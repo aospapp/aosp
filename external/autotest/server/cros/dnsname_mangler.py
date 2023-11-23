@@ -14,6 +14,9 @@ DEFAULT_FAILURE_MESSAGE = (
 ATTENUATOR_FAILURE_MESSAGE = (
         'Cannot infer DNS name of WiFi variable attenuator from a client IP '
         'address.  Use --atten_addr=<ip or dns name>')
+BTATTENUATOR_FAILURE_MESSAGE = (
+        'Cannot infer DNS name of Bluetooth variable attenuator from a client IP '
+        'address.  Use --btatten_addr=<ip or dns name>')
 ROUTER_FAILURE_MESSAGE = (
         'Cannot infer DNS name of WiFi router from a client IP address.')
 PCAP_FAILURE_MESSAGE = (
@@ -125,4 +128,27 @@ def get_attenuator_addr(client_hostname,
             '-attenuator',
             cmdline_override=cmdline_override,
             not_dnsname_msg=ATTENUATOR_FAILURE_MESSAGE,
+            allow_failure=allow_failure)
+
+
+def get_btattenuator_addr(client_hostname,
+                          cmdline_override=None,
+                          allow_failure=False):
+    """Build a hostname for a Bluetooth variable attenuator from the client hostname.
+
+    Optionally override that hostname with the provided command line hostname.
+
+    @param client_hostname: string DNS name of the client.
+    @param cmdline_override: string DNS name of the variable attenuator
+            controller provided via commandline arguments.
+    @param allow_failure: boolean True iff we should return None on failure to
+            infer a DNS name.
+    @return usable DNS name for attenuator controller.
+
+    """
+    return get_companion_device_addr(
+            client_hostname,
+            '-btattenuator',
+            cmdline_override=cmdline_override,
+            not_dnsname_msg=BTATTENUATOR_FAILURE_MESSAGE,
             allow_failure=allow_failure)

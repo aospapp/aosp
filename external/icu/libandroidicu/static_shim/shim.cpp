@@ -194,6 +194,9 @@ void ubidi_close_android(UBiDi * pBiDi) {
 int32_t ubidi_countRuns_android(UBiDi * pBiDi, UErrorCode * pErrorCode) {
   return ubidi_countRuns(pBiDi, pErrorCode);
 }
+UBiDiDirection ubidi_getDirection_android(const UBiDi * pBiDi) {
+  return ubidi_getDirection(pBiDi);
+}
 int32_t ubidi_getLength_android(const UBiDi * pBiDi) {
   return ubidi_getLength(pBiDi);
 }
@@ -221,6 +224,9 @@ void ubidi_setClassCallback_android(UBiDi * pBiDi, UBiDiClassCallback * newFn, c
 void ubidi_setPara_android(UBiDi * pBiDi, const UChar * text, int32_t length, UBiDiLevel paraLevel, UBiDiLevel * embeddingLevels, UErrorCode * pErrorCode) {
   ubidi_setPara(pBiDi, text, length, paraLevel, embeddingLevels, pErrorCode);
 }
+UBreakIterator * ubrk_clone_android(const UBreakIterator * bi, UErrorCode * status) {
+  return ubrk_clone(bi, status);
+}
 void ubrk_close_android(UBreakIterator * bi) {
   ubrk_close(bi);
 }
@@ -247,6 +253,9 @@ UBreakIterator * ubrk_open_android(UBreakIteratorType type, const char * locale,
 }
 int32_t ubrk_preceding_android(UBreakIterator * bi, int32_t offset) {
   return ubrk_preceding(bi, offset);
+}
+void ubrk_setText_android(UBreakIterator * bi, const UChar * text, int32_t textLength, UErrorCode * status) {
+  ubrk_setText(bi, text, textLength, status);
 }
 void ubrk_setUText_android(UBreakIterator * bi, UText * text, UErrorCode * status) {
   ubrk_setUText(bi, text, status);

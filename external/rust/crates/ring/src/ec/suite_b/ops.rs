@@ -38,13 +38,13 @@ pub struct Point {
     // `ops.num_limbs` elements are the X coordinate, the next
     // `ops.num_limbs` elements are the Y coordinate, and the next
     // `ops.num_limbs` elements are the Z coordinate. This layout is dictated
-    // by the requirements of the GFp_nistz256 code.
+    // by the requirements of the nistz256 code.
     xyz: [Limb; 3 * MAX_LIMBS],
 }
 
 impl Point {
-    pub fn new_at_infinity() -> Point {
-        Point {
+    pub fn new_at_infinity() -> Self {
+        Self {
             xyz: [0; 3 * MAX_LIMBS],
         }
     }
@@ -66,7 +66,6 @@ pub struct CommonOps {
     pub b: Elem<R>,
 
     // In all cases, `r`, `a`, and `b` may all alias each other.
-    elem_add_impl: unsafe extern "C" fn(r: *mut Limb, a: *const Limb, b: *const Limb),
     elem_mul_mont: unsafe extern "C" fn(r: *mut Limb, a: *const Limb, b: *const Limb),
     elem_sqr_mont: unsafe extern "C" fn(r: *mut Limb, a: *const Limb),
 
@@ -76,7 +75,12 @@ pub struct CommonOps {
 impl CommonOps {
     #[inline]
     pub fn elem_add<E: Encoding>(&self, a: &mut Elem<E>, b: &Elem<E>) {
-        binary_op_assign(self.elem_add_impl, a, b)
+        let num_limbs = self.num_limbs;
+        limbs_add_assign_mod(
+            &mut a.limbs[..num_limbs],
+            &b.limbs[..num_limbs],
+            &self.q.p[..num_limbs],
+        );
     }
 
     #[inline]
@@ -287,23 +291,14 @@ impl PublicScalarOps {
         }
     }
 
-    pub fn elem_equals(&self, a: &Elem<Unencoded>, b: &Elem<Unencoded>) -> bool {
-        for i in 0..self.public_key_ops.common.num_limbs {
-            if a.limbs[i] != b.limbs[i] {
-                return false;
-            }
-        }
-        true
+    pub fn elem_equals_vartime(&self, a: &Elem<Unencoded>, b: &Elem<Unencoded>) -> bool {
+        a.limbs[..self.public_key_ops.common.num_limbs]
+            == b.limbs[..self.public_key_ops.common.num_limbs]
     }
 
     pub fn elem_less_than(&self, a: &Elem<Unencoded>, b: &Elem<Unencoded>) -> bool {
         let num_limbs = self.public_key_ops.common.num_limbs;
         limbs_less_than_limbs_vartime(&a.limbs[..num_limbs], &b.limbs[..num_limbs])
-    }
-
-    #[inline]
-    pub fn elem_sum(&self, a: &Elem<Unencoded>, b: &Elem<Unencoded>) -> Elem<Unencoded> {
-        binary_op(self.public_key_ops.common.elem_add_impl, a, b)
     }
 }
 
@@ -425,7 +420,7 @@ fn parse_big_endian_fixed_consttime<M>(
     Ok(r)
 }
 
-extern "C" {
+prefixed_extern! {
     fn LIMBS_add_mod(
         r: *mut Limb,
         a: *const Limb,
@@ -501,17 +496,17 @@ mod tests {
         })
     }
 
-    // XXX: There's no `GFp_nistz256_sub` in *ring*; it's logic is inlined into
+    // XXX: There's no `p256_sub` in *ring*; it's logic is inlined into
     // the point arithmetic functions. Thus, we can't test it.
 
     #[test]
     fn p384_elem_sub_test() {
-        extern "C" {
-            fn GFp_p384_elem_sub(r: *mut Limb, a: *const Limb, b: *const Limb);
+        prefixed_extern! {
+            fn p384_elem_sub(r: *mut Limb, a: *const Limb, b: *const Limb);
         }
         elem_sub_test(
             &p384::COMMON_OPS,
-            GFp_p384_elem_sub,
+            p384_elem_sub,
             test_file!("ops/p384_elem_sum_tests.txt"),
         );
     }
@@ -552,17 +547,17 @@ mod tests {
         })
     }
 
-    // XXX: There's no `GFp_nistz256_div_by_2` in *ring*; it's logic is inlined
+    // XXX: There's no `p256_div_by_2` in *ring*; it's logic is inlined
     // into the point arithmetic functions. Thus, we can't test it.
 
     #[test]
     fn p384_elem_div_by_2_test() {
-        extern "C" {
-            fn GFp_p384_elem_div_by_2(r: *mut Limb, a: *const Limb);
+        prefixed_extern! {
+            fn p384_elem_div_by_2(r: *mut Limb, a: *const Limb);
         }
         elem_div_by_2_test(
             &p384::COMMON_OPS,
-            GFp_p384_elem_div_by_2,
+            p384_elem_div_by_2,
             test_file!("ops/p384_elem_div_by_2_tests.txt"),
         );
     }
@@ -588,27 +583,28 @@ mod tests {
         })
     }
 
-    // TODO: Add test vectors that test the range of values above `q`.
+    // There is no `nistz256_neg` on other targets.
+    #[cfg(target_arch = "x86_64")]
     #[test]
     fn p256_elem_neg_test() {
-        extern "C" {
-            fn GFp_nistz256_neg(r: *mut Limb, a: *const Limb);
+        prefixed_extern! {
+            fn nistz256_neg(r: *mut Limb, a: *const Limb);
         }
         elem_neg_test(
             &p256::COMMON_OPS,
-            GFp_nistz256_neg,
+            nistz256_neg,
             test_file!("ops/p256_elem_neg_tests.txt"),
         );
     }
 
     #[test]
     fn p384_elem_neg_test() {
-        extern "C" {
-            fn GFp_p384_elem_neg(r: *mut Limb, a: *const Limb);
+        prefixed_extern! {
+            fn p384_elem_neg(r: *mut Limb, a: *const Limb);
         }
         elem_neg_test(
             &p384::COMMON_OPS,
-            GFp_p384_elem_neg,
+            p384_elem_neg,
             test_file!("ops/p384_elem_neg_tests.txt"),
         );
     }
@@ -702,18 +698,18 @@ mod tests {
 
     #[test]
     fn p256_scalar_square_test() {
-        extern "C" {
-            fn GFp_p256_scalar_sqr_rep_mont(r: *mut Limb, a: *const Limb, rep: Limb);
+        prefixed_extern! {
+            fn p256_scalar_sqr_rep_mont(r: *mut Limb, a: *const Limb, rep: Limb);
         }
         scalar_square_test(
             &p256::SCALAR_OPS,
-            GFp_p256_scalar_sqr_rep_mont,
+            p256_scalar_sqr_rep_mont,
             test_file!("ops/p256_scalar_square_tests.txt"),
         );
     }
 
     // XXX: There's no `p384_scalar_square_test()` because there's no dedicated
-    // `GFp_p384_scalar_sqr_rep_mont()`.
+    // `p384_scalar_sqr_rep_mont()`.
 
     fn scalar_square_test(
         ops: &ScalarOps,
@@ -790,14 +786,10 @@ mod tests {
         });
     }
 
-    // Keep this in sync with the logic for defining `GFp_USE_LARGE_TABLE` and
-    // with the corresponding code in p256.rs that decides which base point
-    // multiplication to use.
-    #[cfg(any(target_arch = "aarch64", target_arch = "x86", target_arch = "x86_64"))]
     #[test]
     fn p256_point_sum_mixed_test() {
-        extern "C" {
-            fn GFp_nistz256_point_add_affine(
+        prefixed_extern! {
+            fn p256_point_add_affine(
                 r: *mut Limb,   // [p256::COMMON_OPS.num_limbs*3]
                 a: *const Limb, // [p256::COMMON_OPS.num_limbs*3]
                 b: *const Limb, // [p256::COMMON_OPS.num_limbs*2]
@@ -805,14 +797,13 @@ mod tests {
         }
         point_sum_mixed_test(
             &p256::PRIVATE_KEY_OPS,
-            GFp_nistz256_point_add_affine,
+            p256_point_add_affine,
             test_file!("ops/p256_point_sum_mixed_tests.txt"),
         );
     }
 
-    // XXX: There is no `GFp_nistz384_point_add_affine()`.
+    // XXX: There is no `nistz384_point_add_affine()`.
 
-    #[cfg(any(target_arch = "aarch64", target_arch = "x86", target_arch = "x86_64"))]
     fn point_sum_mixed_test(
         ops: &PrivateKeyOps,
         point_add_affine: unsafe extern "C" fn(
@@ -842,30 +833,30 @@ mod tests {
 
     #[test]
     fn p256_point_double_test() {
-        extern "C" {
-            fn GFp_nistz256_point_double(
+        prefixed_extern! {
+            fn p256_point_double(
                 r: *mut Limb,   // [p256::COMMON_OPS.num_limbs*3]
                 a: *const Limb, // [p256::COMMON_OPS.num_limbs*3]
             );
         }
         point_double_test(
             &p256::PRIVATE_KEY_OPS,
-            GFp_nistz256_point_double,
+            p256_point_double,
             test_file!("ops/p256_point_double_tests.txt"),
         );
     }
 
     #[test]
     fn p384_point_double_test() {
-        extern "C" {
-            fn GFp_nistz384_point_double(
+        prefixed_extern! {
+            fn nistz384_point_double(
                 r: *mut Limb,   // [p384::COMMON_OPS.num_limbs*3]
                 a: *const Limb, // [p384::COMMON_OPS.num_limbs*3]
             );
         }
         point_double_test(
             &p384::PRIVATE_KEY_OPS,
-            GFp_nistz384_point_double,
+            nistz384_point_double,
             test_file!("ops/p384_point_double_tests.txt"),
         );
     }
@@ -1048,12 +1039,10 @@ mod tests {
         p
     }
 
-    #[cfg(any(target_arch = "aarch64", target_arch = "x86", target_arch = "x86_64"))]
     struct AffinePoint {
         xy: [Limb; 2 * MAX_LIMBS],
     }
 
-    #[cfg(any(target_arch = "aarch64", target_arch = "x86", target_arch = "x86_64"))]
     fn consume_affine_point(
         ops: &PrivateKeyOps,
         test_case: &mut test::TestCase,
@@ -1118,15 +1107,19 @@ mod tests {
         actual: &[Limb; MAX_LIMBS],
         expected: &[Limb; MAX_LIMBS],
     ) {
-        for i in 0..ops.num_limbs {
-            if actual[i] != expected[i] {
-                let mut s = alloc::string::String::new();
-                for j in 0..ops.num_limbs {
-                    let formatted = format!("{:016x}", actual[ops.num_limbs - j - 1]);
-                    s.push_str(&formatted);
-                }
-                panic!("Actual != Expected,\nActual = {}", s);
+        if actual[..ops.num_limbs] != expected[..ops.num_limbs] {
+            let mut actual_s = alloc::string::String::new();
+            let mut expected_s = alloc::string::String::new();
+            for j in 0..ops.num_limbs {
+                let formatted = format!("{:016x}", actual[ops.num_limbs - j - 1]);
+                actual_s.push_str(&formatted);
+                let formatted = format!("{:016x}", expected[ops.num_limbs - j - 1]);
+                expected_s.push_str(&formatted);
             }
+            panic!(
+                "Actual != Expected,\nActual = {}, Expected = {}",
+                actual_s, expected_s
+            );
         }
     }
 

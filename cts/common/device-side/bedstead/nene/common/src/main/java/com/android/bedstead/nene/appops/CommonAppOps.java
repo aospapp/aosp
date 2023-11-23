@@ -274,4 +274,10 @@ public class CommonAppOps {
     /** See {@code AppOpsManager#OPSTR_ACCESS_RESTRICTED_SETTINGS}. */
     public static final String OPSTR_ACCESS_RESTRICTED_SETTINGS =
             "android:access_restricted_settings";
+    /** See {@code AppOpsManager#OPSTR_SYSTEM_EXEMPT_FROM_SUSPENSION}. */
+    public static final String OPSTR_SYSTEM_EXEMPT_FROM_SUSPENSION =
+            "android:system_exempt_from_suspension";
+    /** See {@code AppOpsManager#OPSTR_SYSTEM_EXEMPT_FROM_POWER_RESTRICTIONS}. */
+    public static final String OPSTR_SYSTEM_EXEMPT_FROM_POWER_RESTRICTIONS =
+            "android:system_exempt_from_power_restrictions";
 }

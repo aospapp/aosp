@@ -25,6 +25,8 @@
 #ifndef SDP_INT_H
 #define SDP_INT_H
 
+#include <base/strings/stringprintf.h>
+
 #include <cstdint>
 
 #include "bt_target.h"
@@ -122,17 +124,65 @@ typedef struct {
                            attributes in the responses */
 } tSDP_CONT_INFO;
 
-/* Define the SDP Connection Control Block */
-typedef struct {
-#define SDP_STATE_IDLE 0
-#define SDP_STATE_CONN_SETUP 1
-#define SDP_STATE_CFG_SETUP 2
-#define SDP_STATE_CONNECTED 3
-  uint8_t con_state;
+enum : uint8_t {
+  SDP_STATE_IDLE = 0,
+  SDP_STATE_CONN_SETUP = 1,
+  SDP_STATE_CFG_SETUP = 2,
+  SDP_STATE_CONNECTED = 3,
+  SDP_STATE_CONN_PEND = 4,
+};
+typedef uint8_t tSDP_STATE;
 
-#define SDP_FLAGS_IS_ORIG 0x01
-#define SDP_FLAGS_HIS_CFG_DONE 0x02
-#define SDP_FLAGS_MY_CFG_DONE 0x04
+#ifndef CASE_RETURN_TEXT
+#define CASE_RETURN_TEXT(code) \
+  case code:                   \
+    return #code
+#endif
+
+inline std::string sdp_state_text(const tSDP_STATE& state) {
+  switch (state) {
+    CASE_RETURN_TEXT(SDP_STATE_IDLE);
+    CASE_RETURN_TEXT(SDP_STATE_CONN_SETUP);
+    CASE_RETURN_TEXT(SDP_STATE_CFG_SETUP);
+    CASE_RETURN_TEXT(SDP_STATE_CONNECTED);
+    CASE_RETURN_TEXT(SDP_STATE_CONN_PEND);
+    default:
+      return std::string("UNKNOWN[") + std::to_string(state) + std::string("]");
+  }
+}
+
+enum : uint8_t {
+  SDP_FLAGS_IS_ORIG = 0x01,
+  SDP_FLAGS_HIS_CFG_DONE = 0x02,
+  SDP_FLAGS_MY_CFG_DONE = 0x04,
+};
+typedef uint8_t tSDP_FLAGS;
+
+inline std::string sdp_flags_text(const tSDP_FLAGS& flags) {
+  switch (flags) {
+    CASE_RETURN_TEXT(SDP_FLAGS_IS_ORIG);
+    CASE_RETURN_TEXT(SDP_FLAGS_HIS_CFG_DONE);
+    CASE_RETURN_TEXT(SDP_FLAGS_MY_CFG_DONE);
+    default:
+      return std::string("UNKNOWN[") + std::to_string(flags) + std::string("]");
+  }
+}
+
+#undef CASE_RETURN_TEXT
+
+enum : uint8_t {
+  SDP_DISC_WAIT_CONN = 0,
+  SDP_DISC_WAIT_HANDLES = 1,
+  SDP_DISC_WAIT_ATTR = 2,
+  SDP_DISC_WAIT_SEARCH_ATTR = 3,
+  SDP_DISC_WAIT_UNUSED4 = 4,
+  SDP_DISC_WAIT_CANCEL = 5,
+};
+typedef uint8_t tSDP_DISC_WAIT;
+
+/* Define the SDP Connection Control Block */
+struct tCONN_CB {
+  uint8_t con_state;
   uint8_t con_flags;
 
   RawAddress device_address;
@@ -140,6 +190,8 @@ typedef struct {
   uint16_t rem_mtu_size;
   uint16_t connection_id;
   uint16_t list_len; /* length of the response in the GKI buffer */
+  uint16_t pse_dynamic_attributes_len; /* length of the attributes need to be
+                             added in final sdp response len */
   uint8_t* rsp_list; /* pointer to GKI buffer holding response */
 
   tSDP_DISCOVERY_DB* p_db; /* Database to save info into   */
@@ -154,20 +206,37 @@ typedef struct {
   uint16_t transaction_id;
   uint16_t disconnect_reason; /* Disconnect reason            */
 
-#define SDP_DISC_WAIT_CONN 0
-#define SDP_DISC_WAIT_HANDLES 1
-#define SDP_DISC_WAIT_ATTR 2
-#define SDP_DISC_WAIT_SEARCH_ATTR 3
-#define SDP_DISC_WAIT_CANCEL 5
-
   uint8_t disc_state;
-  uint8_t is_attr_search;
+  bool is_attr_search;
 
   uint16_t cont_offset;     /* Continuation state data in the server response */
   tSDP_CONT_INFO cont_info; /* structure to hold continuation information for
                                the server response */
+  tCONN_CB() = default;
 
-} tCONN_CB;
+ private:
+  tCONN_CB(const tCONN_CB&) = delete;
+};
+
+#ifndef CASE_RETURN_TEXT
+#define CASE_RETURN_TEXT(code) \
+  case code:                   \
+    return #code
+#endif
+
+inline std::string sdp_disc_wait_text(const tSDP_DISC_WAIT& state) {
+  switch (state) {
+    CASE_RETURN_TEXT(SDP_DISC_WAIT_CONN);
+    CASE_RETURN_TEXT(SDP_DISC_WAIT_HANDLES);
+    CASE_RETURN_TEXT(SDP_DISC_WAIT_ATTR);
+    CASE_RETURN_TEXT(SDP_DISC_WAIT_SEARCH_ATTR);
+    CASE_RETURN_TEXT(SDP_DISC_WAIT_CANCEL);
+    default:
+      return base::StringPrintf("UNKNOWN[%d]", state);
+  }
+}
+
+#undef CASE_RETURN_TEXT
 
 /*  The main SDP control block */
 typedef struct {
@@ -184,71 +253,94 @@ typedef struct {
 extern tSDP_CB sdp_cb;
 
 /* Functions provided by sdp_main.cc */
-extern void sdp_init(void);
-extern void sdp_free(void);
-extern void sdp_disconnect(tCONN_CB* p_ccb, tSDP_REASON reason);
+void sdp_init(void);
+void sdp_free(void);
+void sdp_disconnect(tCONN_CB* p_ccb, tSDP_REASON reason);
 
-extern void sdp_conn_timer_timeout(void* data);
+void sdp_conn_timer_timeout(void* data);
 
-extern tCONN_CB* sdp_conn_originate(const RawAddress& p_bd_addr);
+tCONN_CB* sdp_conn_originate(const RawAddress& p_bd_addr);
 
 /* Functions provided by sdp_utils.cc
  */
-extern void sdpu_log_attribute_metrics(const RawAddress& bda,
-                                       tSDP_DISCOVERY_DB* p_db);
-extern tCONN_CB* sdpu_find_ccb_by_cid(uint16_t cid);
-extern tCONN_CB* sdpu_find_ccb_by_db(const tSDP_DISCOVERY_DB* p_db);
-extern tCONN_CB* sdpu_allocate_ccb(void);
-extern void sdpu_release_ccb(tCONN_CB* p_ccb);
+void sdpu_log_attribute_metrics(const RawAddress& bda, tSDP_DISCOVERY_DB* p_db);
+tCONN_CB* sdpu_find_ccb_by_cid(uint16_t cid);
+tCONN_CB* sdpu_find_ccb_by_db(const tSDP_DISCOVERY_DB* p_db);
+tCONN_CB* sdpu_allocate_ccb(void);
+void sdpu_release_ccb(tCONN_CB& p_ccb);
 
-extern uint8_t* sdpu_build_attrib_seq(uint8_t* p_out, uint16_t* p_attr,
-                                      uint16_t num_attrs);
-extern uint8_t* sdpu_build_attrib_entry(uint8_t* p_out,
-                                        const tSDP_ATTRIBUTE* p_attr);
-extern void sdpu_build_n_send_error(tCONN_CB* p_ccb, uint16_t trans_num,
-                                    uint16_t error_code, char* p_error_text);
+uint8_t* sdpu_build_attrib_seq(uint8_t* p_out, uint16_t* p_attr,
+                               uint16_t num_attrs);
+uint8_t* sdpu_build_attrib_entry(uint8_t* p_out, const tSDP_ATTRIBUTE* p_attr);
+void sdpu_build_n_send_error(tCONN_CB* p_ccb, uint16_t trans_num,
+                             uint16_t error_code, char* p_error_text);
 
-extern uint8_t* sdpu_extract_attr_seq(uint8_t* p, uint16_t param_len,
-                                      tSDP_ATTR_SEQ* p_seq);
-extern uint8_t* sdpu_extract_uid_seq(uint8_t* p, uint16_t param_len,
-                                     tSDP_UUID_SEQ* p_seq);
+uint8_t* sdpu_extract_attr_seq(uint8_t* p, uint16_t param_len,
+                               tSDP_ATTR_SEQ* p_seq);
+uint8_t* sdpu_extract_uid_seq(uint8_t* p, uint16_t param_len,
+                              tSDP_UUID_SEQ* p_seq);
 
-extern uint8_t* sdpu_get_len_from_type(uint8_t* p, uint8_t* p_end, uint8_t type,
-                                       uint32_t* p_len);
-extern bool sdpu_is_base_uuid(uint8_t* p_uuid);
-extern bool sdpu_compare_uuid_arrays(const uint8_t* p_uuid1, uint32_t len1,
-                                     const uint8_t* p_uuid2, uint16_t len2);
-extern bool sdpu_compare_uuid_with_attr(const bluetooth::Uuid& uuid,
-                                        tSDP_DISC_ATTR* p_attr);
+uint8_t* sdpu_get_len_from_type(uint8_t* p, uint8_t* p_end, uint8_t type,
+                                uint32_t* p_len);
+bool sdpu_is_base_uuid(uint8_t* p_uuid);
+bool sdpu_compare_uuid_arrays(const uint8_t* p_uuid1, uint32_t len1,
+                              const uint8_t* p_uuid2, uint16_t len2);
+bool sdpu_compare_uuid_with_attr(const bluetooth::Uuid& uuid,
+                                 tSDP_DISC_ATTR* p_attr);
 
-extern void sdpu_sort_attr_list(uint16_t num_attr, tSDP_DISCOVERY_DB* p_db);
-extern uint16_t sdpu_get_list_len(tSDP_UUID_SEQ* uid_seq,
-                                  tSDP_ATTR_SEQ* attr_seq);
-extern uint16_t sdpu_get_attrib_seq_len(const tSDP_RECORD* p_rec,
-                                        const tSDP_ATTR_SEQ* attr_seq);
-extern uint16_t sdpu_get_attrib_entry_len(const tSDP_ATTRIBUTE* p_attr);
-extern uint8_t* sdpu_build_partial_attrib_entry(uint8_t* p_out,
-                                                const tSDP_ATTRIBUTE* p_attr,
-                                                uint16_t len, uint16_t* offset);
-extern uint16_t sdpu_is_avrcp_profile_description_list(
-    const tSDP_ATTRIBUTE* p_attr);
+void sdpu_sort_attr_list(uint16_t num_attr, tSDP_DISCOVERY_DB* p_db);
+uint16_t sdpu_get_list_len(tSDP_UUID_SEQ* uid_seq, tSDP_ATTR_SEQ* attr_seq);
+uint16_t sdpu_get_attrib_seq_len(const tSDP_RECORD* p_rec,
+                                 const tSDP_ATTR_SEQ* attr_seq);
+uint16_t sdpu_get_attrib_entry_len(const tSDP_ATTRIBUTE* p_attr);
+uint8_t* sdpu_build_partial_attrib_entry(uint8_t* p_out,
+                                         const tSDP_ATTRIBUTE* p_attr,
+                                         uint16_t len, uint16_t* offset);
+bool SDP_AddAttributeToRecord(tSDP_RECORD* p_rec, uint16_t attr_id,
+                              uint8_t attr_type, uint32_t attr_len,
+                              uint8_t* p_val);
+bool SDP_AddProfileDescriptorListToRecord(tSDP_RECORD* p_rec,
+                                          uint16_t profile_uuid,
+                                          uint16_t version);
+bool SDP_DeleteAttributeFromRecord(tSDP_RECORD* p_rec, uint16_t attr_id);
+uint16_t sdpu_is_avrcp_profile_description_list(const tSDP_ATTRIBUTE* p_attr);
+bool sdpu_is_service_id_avrc_target(const tSDP_ATTRIBUTE* p_attr);
+bool spdu_is_avrcp_version_valid(const uint16_t version);
+void sdpu_set_avrc_target_version(const tSDP_ATTRIBUTE* p_attr,
+                                  const RawAddress* bdaddr);
+void sdpu_set_avrc_target_features(const tSDP_ATTRIBUTE* p_attr,
+                                   const RawAddress* bdaddr,
+                                   uint16_t profile_version);
+uint16_t sdpu_get_active_ccb_cid(const RawAddress& remote_bd_addr);
+bool sdpu_process_pend_ccb_same_cid(tCONN_CB& ccb);
+bool sdpu_process_pend_ccb_new_cid(tCONN_CB& ccb);
+void sdpu_clear_pend_ccb(tCONN_CB& ccb);
+void sdpu_callback(tCONN_CB& ccb, tSDP_REASON reason);
 
 /* Functions provided by sdp_db.cc
  */
-extern const tSDP_RECORD* sdp_db_service_search(const tSDP_RECORD* p_rec,
-                                                const tSDP_UUID_SEQ* p_seq);
-extern tSDP_RECORD* sdp_db_find_record(uint32_t handle);
-extern const tSDP_ATTRIBUTE* sdp_db_find_attr_in_rec(const tSDP_RECORD* p_rec,
-                                                     uint16_t start_attr,
-                                                     uint16_t end_attr);
+const tSDP_RECORD* sdp_db_service_search(const tSDP_RECORD* p_rec,
+                                         const tSDP_UUID_SEQ* p_seq);
+tSDP_RECORD* sdp_db_find_record(uint32_t handle);
+const tSDP_ATTRIBUTE* sdp_db_find_attr_in_rec(const tSDP_RECORD* p_rec,
+                                              uint16_t start_attr,
+                                              uint16_t end_attr);
 
 /* Functions provided by sdp_server.cc
  */
-extern void sdp_server_handle_client_req(tCONN_CB* p_ccb, BT_HDR* p_msg);
+void sdp_server_handle_client_req(tCONN_CB* p_ccb, BT_HDR* p_msg);
 
 /* Functions provided by sdp_discovery.cc
  */
-extern void sdp_disc_connected(tCONN_CB* p_ccb);
-extern void sdp_disc_server_rsp(tCONN_CB* p_ccb, BT_HDR* p_msg);
+void sdp_disc_connected(tCONN_CB* p_ccb);
+void sdp_disc_server_rsp(tCONN_CB* p_ccb, BT_HDR* p_msg);
+
+void update_pce_entry_to_interop_database(RawAddress remote_addr);
+bool is_sdp_pbap_pce_disabled(RawAddress remote_addr);
+void sdp_save_local_pse_record_attributes(int32_t rfcomm_channel_number,
+                                          int32_t l2cap_psm,
+                                          int32_t profile_version,
+                                          uint32_t supported_features,
+                                          uint32_t supported_repositories);
 
 #endif

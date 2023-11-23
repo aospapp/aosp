@@ -52,15 +52,16 @@ class BusStreamProvider {
   // 2. Returns DummyBusOutputStream otherwise.
   // This function always return a non null BusOutputStream.
   std::shared_ptr<BusOutputStream> openOutputStream(
-      const std::string& address, const AidlAudioConfig& config, int32_t flags);
+      const std::string& address, const AidlAudioConfig& config, int32_t flags,
+      int64_t bufferSizeBytes, int32_t latencyMs);
 
   // Clear closed StreamOut and return number of opened StreamOut.
   size_t cleanAndCountStreamOuts();
 
  private:
   std::shared_ptr<BusOutputStream> openOutputStream_Locked(
-      const std::string& address, const AidlAudioConfig& config, int32_t flags)
-      REQUIRES(mLock);
+      const std::string& address, const AidlAudioConfig& config, int32_t flags,
+      int64_t bufferSizeBytes, int32_t latencyMs) REQUIRES(mLock);
 
   // Remove the dead dead from mStreamOutList.
   void cleanStreamOutList_Locked() REQUIRES(mLock);

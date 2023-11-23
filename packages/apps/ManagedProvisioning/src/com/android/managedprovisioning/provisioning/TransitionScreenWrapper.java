@@ -20,33 +20,70 @@ import android.annotation.DrawableRes;
 import android.annotation.RawRes;
 import android.annotation.StringRes;
 
+import com.android.managedprovisioning.util.LazyStringResource;
+import com.android.managedprovisioning.util.LazyStringResource.Empty;
+
 /**
  * A wrapper describing the contents of an education screen.
  */
 final class TransitionScreenWrapper {
-    public final @StringRes int header;
-    public final @StringRes int description;
+    public final LazyStringResource header;
+    public final LazyStringResource description;
     public final @RawRes int drawable;
-    public final @StringRes int subHeaderTitle;
-    public final @StringRes int subHeader;
+    public final LazyStringResource subHeaderTitle;
+    public final LazyStringResource subHeader;
     public final @DrawableRes int subHeaderIcon;
     public final boolean shouldLoop;
-    public final @StringRes int secondarySubHeaderTitle;
-    public final @StringRes int secondarySubHeader;
+    public final LazyStringResource secondarySubHeaderTitle;
+    public final LazyStringResource secondarySubHeader;
     public final @DrawableRes int secondarySubHeaderIcon;
 
-    TransitionScreenWrapper(@StringRes int header, @RawRes int drawable) {
-        this(header, /* description= */ 0, drawable, /* shouldLoop */ true);
+    TransitionScreenWrapper(LazyStringResource header, @RawRes int drawable) {
+        this(header, /* description= */ Empty.INSTANCE, drawable, /* shouldLoop= */ true);
     }
 
-    TransitionScreenWrapper(@StringRes int header, @StringRes int description,
-            @RawRes int drawable, boolean shouldLoop) {
-        this(header, /* description= */ description, drawable, 0, 0, 0, shouldLoop, 0, 0, 0);
+    TransitionScreenWrapper(@StringRes int headerId, @RawRes int drawable) {
+        this(LazyStringResource.of(headerId), drawable);
     }
 
-    private TransitionScreenWrapper(int header, int description, int drawable, int subHeaderTitle,
-            int subHeader, int subHeaderIcon, boolean shouldLoop,
-            int secondarySubHeaderTitle, int secondarySubHeader, int secondarySubHeaderIcon) {
+    TransitionScreenWrapper(
+            LazyStringResource header,
+            LazyStringResource description,
+            @RawRes int drawable,
+            boolean shouldLoop) {
+        this(
+                header,
+                description,
+                drawable,
+                /* subHeaderTitle= */ Empty.INSTANCE,
+                /* subHeader= */ Empty.INSTANCE,
+                /* subHeaderIcon= */ 0,
+                shouldLoop,
+                /* secondarySubHeaderTitle= */ Empty.INSTANCE,
+                /* secondarySubHeader= */ Empty.INSTANCE,
+                /* secondarySubHeaderIcon= */ 0);
+    }
+
+    TransitionScreenWrapper(
+            @StringRes int headerId,
+            @StringRes int descriptionId,
+            @RawRes int drawable,
+            boolean shouldLoop) {
+        this(LazyStringResource.of(headerId), LazyStringResource.of(descriptionId),
+                drawable, shouldLoop);
+    }
+
+    private TransitionScreenWrapper(
+            LazyStringResource header,
+            LazyStringResource description,
+            int drawable,
+            LazyStringResource subHeaderTitle,
+            LazyStringResource subHeader,
+            int subHeaderIcon,
+            boolean shouldLoop,
+            LazyStringResource secondarySubHeaderTitle,
+            LazyStringResource secondarySubHeader,
+            int secondarySubHeaderIcon) {
         this.header = header;
         this.description = description;
         this.drawable = drawable;
@@ -63,87 +100,121 @@ final class TransitionScreenWrapper {
 
     private void validateFields() {
         final boolean isItemProvided =
-                subHeader != 0
+                !(subHeader instanceof Empty)
                         || subHeaderIcon != 0
-                        || subHeaderTitle != 0
-                        || secondarySubHeader != 0
+                        || !(subHeaderTitle instanceof Empty)
+                        || !(secondarySubHeader instanceof Empty)
                         || secondarySubHeaderIcon != 0
-                        || secondarySubHeaderTitle != 0;
+                        || !(secondarySubHeaderTitle instanceof Empty);
         if (isItemProvided && drawable != 0) {
-            throw new IllegalArgumentException(
-                    "Cannot show items and animation at the same time.");
+            throw new IllegalArgumentException("Cannot show items and animation at the same time.");
         }
-        if (header == 0) {
+        if (header instanceof Empty) {
             throw new IllegalArgumentException("Header resource id must be a positive number.");
         }
     }
 
     public static final class Builder {
-        @StringRes int mHeader;
-        @StringRes int mDescription;
-        @RawRes int mDrawable;
-        @StringRes private int mSubHeaderTitle;
-        @StringRes int mSubHeader;
-        @DrawableRes int mSubHeaderIcon;
-        boolean mShouldLoop;
-        @StringRes int mSecondarySubHeaderTitle;
-        @StringRes int mSecondarySubHeader;
-        @DrawableRes int mSecondarySubHeaderIcon;
+        private LazyStringResource mHeader = Empty.INSTANCE;
+        private LazyStringResource mDescription = Empty.INSTANCE;
+        @RawRes
+        private int mDrawable;
+        private LazyStringResource mSubHeaderTitle = Empty.INSTANCE;
+        private LazyStringResource mSubHeader = Empty.INSTANCE;
+        @DrawableRes
+        private int mSubHeaderIcon;
+        private boolean mShouldLoop;
+        private LazyStringResource mSecondarySubHeaderTitle = Empty.INSTANCE;
+        private LazyStringResource mSecondarySubHeader = Empty.INSTANCE;
+        @DrawableRes
+        private int mSecondarySubHeaderIcon;
 
-        public Builder setHeader(int header) {
-            mHeader = header;
+        public Builder setHeader(LazyStringResource header) {
+            this.mHeader = header;
             return this;
         }
 
-        public Builder setDescription(int description) {
-            mDescription = description;
+        public Builder setHeader(@StringRes int headerId) {
+            return setHeader(LazyStringResource.of(headerId));
+        }
+
+        public Builder setDescription(LazyStringResource description) {
+            this.mDescription = description;
             return this;
+        }
+
+        public Builder setDescription(@StringRes int descriptionId) {
+            return setDescription(LazyStringResource.of(descriptionId));
         }
 
         public Builder setAnimation(int drawable) {
-            mDrawable = drawable;
+            this.mDrawable = drawable;
             return this;
         }
 
-        public Builder setSubHeaderTitle(int subHeaderTitle) {
-            mSubHeaderTitle = subHeaderTitle;
+        public Builder setSubHeaderTitle(LazyStringResource subHeaderTitle) {
+            this.mSubHeaderTitle = subHeaderTitle;
             return this;
         }
 
-        public Builder setSubHeader(int subHeader) {
-            mSubHeader = subHeader;
+        public Builder setSubHeaderTitle(@StringRes int subHeaderTitleId) {
+            return setSubHeaderTitle(LazyStringResource.of(subHeaderTitleId));
+        }
+
+        public Builder setSubHeader(LazyStringResource subHeader) {
+            this.mSubHeader = subHeader;
             return this;
+        }
+
+        public Builder setSubHeader(@StringRes int subHeaderId) {
+            return setSubHeader(LazyStringResource.of(subHeaderId));
         }
 
         public Builder setSubHeaderIcon(int subHeaderIcon) {
-            mSubHeaderIcon = subHeaderIcon;
+            this.mSubHeaderIcon = subHeaderIcon;
             return this;
         }
 
         public Builder setShouldLoop(boolean shouldLoop) {
-            mShouldLoop = shouldLoop;
+            this.mShouldLoop = shouldLoop;
             return this;
         }
 
-        public Builder setSecondarySubHeaderTitle(int secondarySubHeaderTitle) {
-            mSecondarySubHeaderTitle = secondarySubHeaderTitle;
+        public Builder setSecondarySubHeaderTitle(LazyStringResource secondarySubHeaderTitle) {
+            this.mSecondarySubHeaderTitle = secondarySubHeaderTitle;
             return this;
         }
 
-        public Builder setSecondarySubHeader(int secondarySubHeader) {
-            mSecondarySubHeader = secondarySubHeader;
+        public Builder setSecondarySubHeaderTitle(@StringRes int secondarySubHeaderTitleId) {
+            return setSecondarySubHeaderTitle(LazyStringResource.of(secondarySubHeaderTitleId));
+        }
+
+        public Builder setSecondarySubHeader(LazyStringResource secondarySubHeader) {
+            this.mSecondarySubHeader = secondarySubHeader;
             return this;
+        }
+
+        public Builder setSecondarySubHeader(@StringRes int secondarySubHeaderId) {
+            return setSecondarySubHeader(LazyStringResource.of(secondarySubHeaderId));
         }
 
         public Builder setSecondarySubHeaderIcon(int secondarySubHeaderIcon) {
-            mSecondarySubHeaderIcon = secondarySubHeaderIcon;
+            this.mSecondarySubHeaderIcon = secondarySubHeaderIcon;
             return this;
         }
 
         public TransitionScreenWrapper build() {
-            return new TransitionScreenWrapper(mHeader, mDescription, mDrawable, mSubHeaderTitle,
-                    mSubHeader, mSubHeaderIcon, mShouldLoop, mSecondarySubHeaderTitle,
-                    mSecondarySubHeader, mSecondarySubHeaderIcon);
+            return new TransitionScreenWrapper(
+                    mHeader,
+                    mDescription,
+                    mDrawable,
+                    mSubHeaderTitle,
+                    mSubHeader,
+                    mSubHeaderIcon,
+                    mShouldLoop,
+                    mSecondarySubHeaderTitle,
+                    mSecondarySubHeader,
+                    mSecondarySubHeaderIcon);
         }
     }
 }

@@ -236,7 +236,9 @@ public class DownloadService extends Service {
         return mBinder;
     }
 
-    class DownloadServiceBinder extends Binder {
+    // The class needs to be at least protected for Mockito to create mocks
+    @VisibleForTesting(otherwise = VisibleForTesting.PACKAGE_PRIVATE)
+    protected class DownloadServiceBinder extends Binder {
         public int requestDownload(Network network, String userAgent, String url, String filename,
                 Uri outFile, Context context, String mimeType) {
             return enqueueDownloadTask(network, userAgent, url, filename, outFile, context,
@@ -334,7 +336,7 @@ public class DownloadService extends Service {
 
                 downloadSuccess = true;
                 updateNotification(nm, NOTE_DOWNLOAD_DONE, task.mMimeType,
-                        makeDoneNotification(task.mId, task.mDisplayName, task.mOutFile));
+                        makeDoneNotification(task));
             } catch (IOException e) {
                 Log.e(DownloadService.class.getSimpleName(), "Download error", e);
                 updateNotification(nm, NOTE_DOWNLOAD_DONE, task.mMimeType,
@@ -478,19 +480,18 @@ public class DownloadService extends Service {
     }
 
     @NonNull
-    private Notification makeDoneNotification(int taskId, @NonNull String displayName,
-            @NonNull Uri outFile) {
+    private Notification makeDoneNotification(@NonNull DownloadTask task) {
         final Intent intent = new Intent(Intent.ACTION_VIEW)
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                 .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                .setData(outFile)
-                .setIdentifier(String.valueOf(taskId));
+                .setDataAndType(task.mOutFile, task.mMimeType)
+                .setIdentifier(String.valueOf(task.mId));
 
         final PendingIntent pendingIntent = PendingIntent.getActivity(
                 this, 0 /* requestCode */, intent, PendingIntent.FLAG_IMMUTABLE);
         return new Notification.Builder(this, CHANNEL_DOWNLOADS)
                 .setContentTitle(getResources().getString(R.string.download_completed))
-                .setContentText(displayName)
+                .setContentText(task.mDisplayName)
                 .setSmallIcon(R.drawable.ic_cloud_download)
                 .setContentIntent(pendingIntent)
                 .setAutoCancel(true)

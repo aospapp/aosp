@@ -198,6 +198,71 @@ func check_errata_1952683
 	b	cpu_rev_var_ls
 endfunc check_errata_1952683
 
+/* --------------------------------------------------
+ * Errata Workaround for Cortex A78 Errata 2132060.
+ * This applies to revisions r0p0, r1p0, r1p1, and r1p2.
+ * It is still open.
+ * x0: variant[4:7] and revision[0:3] of current cpu.
+ * Shall clobber: x0-x1, x17
+ * --------------------------------------------------
+ */
+func errata_a78_2132060_wa
+	/* Check revision. */
+	mov	x17, x30
+	bl	check_errata_2132060
+	cbz	x0, 1f
+
+	/* Apply the workaround. */
+	mrs	x1, CORTEX_A78_CPUECTLR_EL1
+	mov	x0, #CORTEX_A78_CPUECTLR_EL1_PF_MODE_CNSRV
+	bfi	x1, x0, #CPUECTLR_EL1_PF_MODE_LSB, #CPUECTLR_EL1_PF_MODE_WIDTH
+	msr	CORTEX_A78_CPUECTLR_EL1, x1
+1:
+	ret	x17
+endfunc errata_a78_2132060_wa
+
+func check_errata_2132060
+	/* Applies to r0p0, r0p1, r1p1, and r1p2 */
+	mov	x1, #0x12
+	b	cpu_rev_var_ls
+endfunc check_errata_2132060
+
+/* --------------------------------------------------------------------
+ * Errata Workaround for A78 Erratum 2242635.
+ * This applies to revisions r1p0, r1p1, and r1p2 of the Cortex A78
+ * processor and is still open.
+ * The issue also exists in r0p0 but there is no fix in that revision.
+ * x0: variant[4:7] and revision[0:3] of current cpu.
+ * Shall clobber: x0-x17
+ * --------------------------------------------------------------------
+ */
+func errata_a78_2242635_wa
+	/* Compare x0 against revisions r1p0 - r1p2 */
+	mov	x17, x30
+	bl	check_errata_2242635
+	cbz	x0, 1f
+
+	ldr	x0, =0x5
+	msr	S3_6_c15_c8_0, x0 /* CPUPSELR_EL3 */
+	ldr	x0, =0x10F600E000
+	msr	S3_6_c15_c8_2, x0 /* CPUPOR_EL3 */
+	ldr	x0, =0x10FF80E000
+	msr	S3_6_c15_c8_3, x0 /* CPUPMR_EL3 */
+	ldr	x0, =0x80000000003FF
+	msr	S3_6_c15_c8_1, x0 /* CPUPCR_EL3 */
+
+	isb
+1:
+	ret	x17
+endfunc errata_a78_2242635_wa
+
+func check_errata_2242635
+	/* Applies to revisions r1p0 through r1p2. */
+	mov	x1, #CPU_REV(1, 0)
+	mov	x2, #CPU_REV(1, 2)
+	b	cpu_rev_var_range
+endfunc check_errata_2242635
+
 	/* -------------------------------------------------
 	 * The CPU Ops reset function for Cortex-A78
 	 * -------------------------------------------------
@@ -230,6 +295,16 @@ func cortex_a78_reset_func
 #if ERRATA_A78_1952683
 	mov	x0, x18
 	bl	errata_a78_1952683_wa
+#endif
+
+#if ERRATA_A78_2132060
+	mov	x0, x18
+	bl	errata_a78_2132060_wa
+#endif
+
+#if ERRATA_A78_2242635
+	mov	x0, x18
+	bl	errata_a78_2242635_wa
 #endif
 
 #if ENABLE_AMU
@@ -291,6 +366,8 @@ func cortex_a78_errata_report
 	report_errata ERRATA_A78_1951500, cortex_a78, 1951500
 	report_errata ERRATA_A78_1821534, cortex_a78, 1821534
 	report_errata ERRATA_A78_1952683, cortex_a78, 1952683
+	report_errata ERRATA_A78_2132060, cortex_a78, 2132060
+	report_errata ERRATA_A78_2242635, cortex_a78, 2242635
 
 	ldp	x8, x30, [sp], #16
 	ret

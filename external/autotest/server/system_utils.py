@@ -13,28 +13,20 @@ import copy
 import common
 from autotest_lib.client.common_lib import global_config
 from autotest_lib.client.common_lib import utils
-from autotest_lib.site_utils import server_manager_utils
 
 
 def get_drones():
     """Get a list of drones from server database or global config.
     """
-    if server_manager_utils.use_server_db():
-        return server_manager_utils.get_drones()
-    else:
-        return []
+    return []
 
 
 def get_shards():
     """Get a list of shards from server database or global config.
     """
-    if server_manager_utils.use_server_db():
-        return server_manager_utils.get_shards()
-    else:
-        config = global_config.global_config
-        shards = config.get_config_value(
-                'SERVER', 'shards', default='')
-        return [hostname.strip() for hostname in shards.split(',')]
+    config = global_config.global_config
+    shards = config.get_config_value('SERVER', 'shards', default='')
+    return [hostname.strip() for hostname in shards.split(',')]
 
 
 class DroneCache(object):

@@ -24,7 +24,7 @@ import android.widget.ArrayAdapter;
 import android.widget.ListView;
 
 /**
-* Activity for testing the UiAutomatoin APIs.
+* Activity for testing the UiAutomation APIs.
 */
 public class UiAutomationTestSecondActivity extends Activity {
     @Override

@@ -92,7 +92,6 @@
 syntax = "proto2";
 
 package chromeos_update_engine;
-option optimize_for = LITE_RUNTIME;
 
 // Data is packed into blocks on disk, always starting from the beginning
 // of the block. If a file's data is too large for one block, it overflows
@@ -331,6 +330,11 @@ message DynamicPartitionGroup {
   repeated string partition_names = 3;
 }
 
+message VABCFeatureSet {
+  optional bool threaded = 1;
+  optional bool batch_writes = 2;
+}
+
 // Metadata related to all dynamic partitions.
 message DynamicPartitionMetadata {
   // All updatable groups present in |partitions| of this DeltaArchiveManifest.
@@ -361,6 +365,9 @@ message DynamicPartitionMetadata {
   // COW version used by VABC. The represents the major version in the COW
   // header
   optional uint32 cow_version = 5;
+
+  // A collection of knobs to tune Virtual AB Compression
+  optional VABCFeatureSet vabc_feature_set = 6;
 }
 
 // Definition has been duplicated from
@@ -423,4 +430,8 @@ message DeltaArchiveManifest {
   // Information on compressed APEX to figure out how much space is required for
   // their decompression
   repeated ApexInfo apex_info = 17;
+
+  // Security patch level of the device, usually in the format of
+  // yyyy-mm-dd
+  optional string security_patch_level = 18;
 }

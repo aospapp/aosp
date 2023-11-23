@@ -16,6 +16,8 @@
 
 #include <keymaster/km_openssl/rsa_key_factory.h>
 
+#include <utility>
+
 #include <keymaster/keymaster_context.h>
 #include <keymaster/km_openssl/openssl_err.h>
 #include <keymaster/km_openssl/openssl_utils.h>
@@ -101,9 +103,9 @@ keymaster_error_t RsaKeyFactory::GenerateKey(const AuthorizationSet& key_descrip
     if (context_.GetKmVersion() < KmVersion::KEYMINT_1) return KM_ERROR_OK;
     if (!cert_chain) return KM_ERROR_UNEXPECTED_NULL_POINTER;
 
-    RsaKey key(*hw_enforced, *sw_enforced, this, move(rsa_key));
+    RsaKey key(*hw_enforced, *sw_enforced, this, std::move(rsa_key));
     if (key_description.Contains(TAG_ATTESTATION_CHALLENGE)) {
-        *cert_chain = context_.GenerateAttestation(key, key_description, move(attest_key),
+        *cert_chain = context_.GenerateAttestation(key, key_description, std::move(attest_key),
                                                    issuer_subject, &error);
     } else if (attest_key.get() != nullptr) {
         return KM_ERROR_ATTESTATION_CHALLENGE_MISSING;
@@ -148,9 +150,9 @@ keymaster_error_t RsaKeyFactory::ImportKey(const AuthorizationSet& key_descripti
     RSA_Ptr rsa_key(EVP_PKEY_get1_RSA(pkey.get()));
     if (!rsa_key.get()) return KM_ERROR_INVALID_ARGUMENT;
 
-    RsaKey key(*hw_enforced, *sw_enforced, this, move(rsa_key));
+    RsaKey key(*hw_enforced, *sw_enforced, this, std::move(rsa_key));
     if (key_description.Contains(KM_TAG_ATTESTATION_CHALLENGE)) {
-        *cert_chain = context_.GenerateAttestation(key, key_description, move(attest_key),
+        *cert_chain = context_.GenerateAttestation(key, key_description, std::move(attest_key),
                                                    issuer_subject, &error);
     } else if (attest_key.get() != nullptr) {
         return KM_ERROR_ATTESTATION_CHALLENGE_MISSING;
@@ -212,7 +214,7 @@ keymaster_error_t RsaKeyFactory::UpdateImportKeyDescription(const AuthorizationS
 keymaster_error_t RsaKeyFactory::CreateEmptyKey(AuthorizationSet&& hw_enforced,
                                                 AuthorizationSet&& sw_enforced,
                                                 UniquePtr<AsymmetricKey>* key) const {
-    key->reset(new (std::nothrow) RsaKey(move(hw_enforced), move(sw_enforced), this));
+    key->reset(new (std::nothrow) RsaKey(std::move(hw_enforced), std::move(sw_enforced), this));
     if (!(*key)) return KM_ERROR_MEMORY_ALLOCATION_FAILED;
     return KM_ERROR_OK;
 }

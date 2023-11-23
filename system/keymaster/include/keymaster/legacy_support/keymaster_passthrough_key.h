@@ -17,6 +17,8 @@
 
 #pragma once
 
+#include <utility>
+
 #include <keymaster/android_keymaster_utils.h>
 #include <keymaster/authorization_set.h>
 #include <keymaster/key.h>
@@ -84,9 +86,9 @@ class KeymasterPassthroughKey : public Key {
                             AuthorizationSet&& sw_enforced, const KeyFactory* key_factory,
                             keymaster_error_t* error, const AuthorizationSet& additional_parameters,
                             const KeymasterPassthroughEngine* engine)
-        : Key(move(hw_enforced), move(sw_enforced), key_factory),
+        : Key(std::move(hw_enforced), std::move(sw_enforced), key_factory),
           additional_parameters_(additional_parameters), engine_(engine) {
-        key_material_ = move(key_material);
+        key_material_ = std::move(key_material);
         if (*error != KM_ERROR_OK) return;
         if (additional_parameters.is_valid() != additional_parameters_.is_valid() &&
             additional_parameters_.is_valid() == AuthorizationSet::ALLOCATION_FAILURE) {

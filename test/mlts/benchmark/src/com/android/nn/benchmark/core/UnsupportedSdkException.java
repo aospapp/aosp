@@ -20,4 +20,4 @@ public class UnsupportedSdkException extends Exception {
   public UnsupportedSdkException(String message) {
     super(message);
   }
-};
+}

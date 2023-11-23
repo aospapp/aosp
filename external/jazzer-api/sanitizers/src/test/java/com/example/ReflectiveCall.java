@@ -15,7 +15,6 @@
 package com.example;
 
 import com.code_intelligence.jazzer.api.FuzzedDataProvider;
-import java.lang.reflect.InvocationTargetException;
 
 public class ReflectiveCall {
   public static void fuzzerTestOneInput(FuzzedDataProvider data) {
@@ -23,9 +22,8 @@ public class ReflectiveCall {
     if (input.startsWith("@")) {
       String className = input.substring(1);
       try {
-        Class.forName(className).getConstructor().newInstance();
-      } catch (InstantiationException | IllegalAccessException | InvocationTargetException
-          | NoSuchMethodException | ClassNotFoundException ignored) {
+        Class.forName(className);
+      } catch (ClassNotFoundException ignored) {
       }
     }
   }

@@ -39,6 +39,7 @@ bootstrap_go_package {
     pkgPath: "github.com/google/blueprint",
     srcs: [
         "context.go",
+        "levenshtein.go",
         "glob.go",
         "live_tracker.go",
         "mangle.go",
@@ -54,6 +55,7 @@ bootstrap_go_package {
     ],
     testSrcs: [
         "context_test.go",
+        "levenshtein_test.go",
         "glob_test.go",
         "module_ctx_test.go",
         "ninja_strings_test.go",
@@ -184,8 +186,12 @@ blueprint_go_binary {
 
 blueprint_go_binary {
     name: "bpmodify",
-    deps: ["blueprint-parser"],
+    deps: [
+        "blueprint-parser",
+        "blueprint-proptools",
+    ],
     srcs: ["bpmodify/bpmodify.go"],
+    testSrcs: ["bpmodify/bpmodify_test.go"],
 }
 
 blueprint_go_binary {

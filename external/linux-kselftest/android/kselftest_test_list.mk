@@ -21,13 +21,16 @@ kselftest_modules += \
   kselftest_efivarfs_tests_create-read \
   kselftest_efivarfs_tests_open-unlink \
   kselftest_exec_test_execveat \
-  kselftest_futex_tests_futex_requeue_pi \
   kselftest_futex_tests_futex_requeue_pi_mismatched_ops \
   kselftest_futex_tests_futex_requeue_pi_signal_restart \
+  kselftest_futex_tests_futex_requeue_pi \
+  kselftest_futex_tests_futex_requeue \
   kselftest_futex_tests_futex_wait_private_mapped_file \
   kselftest_futex_tests_futex_wait_timeout \
   kselftest_futex_tests_futex_wait_uninitialized_heap \
   kselftest_futex_tests_futex_wait_wouldblock \
+  kselftest_futex_tests_futex_wait \
+  kselftest_futex_tests_futex_waitv \
   kselftest_intel_pstate_tests_aperf \
   kselftest_intel_pstate_tests_msr \
   kselftest_kcmp_tests_kcmp_test \
@@ -51,9 +54,15 @@ kselftest_modules += \
   kselftest_timer_tests_set-timer-lat \
   kselftest_timer_tests_threadtest \
   kselftest_timer_tests_valid-adjtimex \
-  kselftest_vdso_test \
+  kselftest_vdso_test_abi \
+  kselftest_vdso_test_clock_getres \
+  kselftest_vdso_test_correctness \
+  kselftest_vdso_test_getcpu \
+  kselftest_vdso_test_gettimeofday \
   kselftest_vm_tests_mlock2-tests \
   kselftest_vm_tests_on-fault-limit \
+  kselftest_vm_tests_mremap_dontunmap \
+  kselftest_vm_tests_mremap_test \
   kselftest_vm_tests_userfaultfd \
   kselftest_vm64_tests_virtual_address_range \
   kselftest_x86_ptrace_syscall \

@@ -2154,7 +2154,7 @@ public class WifiManagerFacade extends RpcReceiver {
 
             if (bandList != null) {
                 // Build a JSON array of bands represented as operating classes
-                Log.d("onFailure list of supported bands: " + bandList);
+                Log.d("onFailure list of supported bands: " + Arrays.toString(bandList));
                 JSONArray formattedBandList = new JSONArray();
                 for (int i = 0; i < bandList.length; i++) {
                     formattedBandList.put(bandList[i]);

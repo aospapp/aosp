@@ -22,6 +22,7 @@
 
 #include <memory>
 #include <string>
+#include <utility>
 
 #include "perfetto/base/build_config.h"
 #include "perfetto/base/export.h"
@@ -66,14 +67,15 @@ enum class SockFamily { kUnix = 200, kInet, kInet6 };
 // Controls the getsockopt(SO_PEERCRED) behavior, which allows to obtain the
 // peer credentials.
 enum class SockPeerCredMode {
-  // Obtain the peer credentials immediatley after connection and cache them.
+  // Obtain the peer credentials immediately after connection and cache them.
   kReadOnConnect = 0,
 
   // Don't read peer credentials at all. Calls to peer_uid()/peer_pid() will
   // hit a DCHECK and return kInvalidUid/Pid in release builds.
   kIgnore = 1,
 
-#if PERFETTO_BUILDFLAG(PERFETTO_OS_WIN)
+#if PERFETTO_BUILDFLAG(PERFETTO_OS_WIN) || \
+    PERFETTO_BUILDFLAG(PERFETTO_OS_FUCHSIA)
   kDefault = kIgnore,
 #else
   kDefault = kReadOnConnect,
@@ -115,7 +117,7 @@ class UnixSocketRaw {
   void Shutdown();
   void SetBlocking(bool);
   void DcheckIsBlocking(bool expected) const;  // No-op on release and Win.
-  void RetainOnExec();
+  void SetRetainOnExec(bool retain);
   SockType type() const { return type_; }
   SockFamily family() const { return family_; }
   SocketHandle fd() const { return *fd_; }
@@ -217,13 +219,22 @@ class UnixSocketRaw {
 //                             | (failure or Shutdown())
 //                             V
 //                       OnDisconnect()
-class PERFETTO_EXPORT UnixSocket {
+class PERFETTO_EXPORT_COMPONENT UnixSocket {
  public:
   class EventListener {
    public:
+    EventListener() = default;
     virtual ~EventListener();
 
+    EventListener(const EventListener&) = delete;
+    EventListener& operator=(const EventListener&) = delete;
+
+    EventListener(EventListener&&) noexcept = default;
+    EventListener& operator=(EventListener&&) noexcept = default;
+
     // After Listen().
+    // |self| may be null if the connection was not accepted via a listen
+    // socket.
     virtual void OnNewIncomingConnection(
         UnixSocket* self,
         std::unique_ptr<UnixSocket> new_connection);
@@ -355,7 +366,8 @@ class PERFETTO_EXPORT UnixSocket {
   // User ID of the peer, as returned by the kernel. If the client disconnects
   // and the socket goes into the kDisconnected state, it retains the uid of
   // the last peer.
-#if !PERFETTO_BUILDFLAG(PERFETTO_OS_WIN)
+#if !PERFETTO_BUILDFLAG(PERFETTO_OS_WIN) && \
+    !PERFETTO_BUILDFLAG(PERFETTO_OS_FUCHSIA)
   uid_t peer_uid_posix(bool skip_check_for_testing = false) const {
     PERFETTO_DCHECK((!is_listening() && peer_uid_ != kInvalidUid) ||
                     skip_check_for_testing);
@@ -409,7 +421,8 @@ class PERFETTO_EXPORT UnixSocket {
   State state_ = State::kDisconnected;
   SockPeerCredMode peer_cred_mode_ = SockPeerCredMode::kDefault;
 
-#if !PERFETTO_BUILDFLAG(PERFETTO_OS_WIN)
+#if !PERFETTO_BUILDFLAG(PERFETTO_OS_WIN) && \
+    !PERFETTO_BUILDFLAG(PERFETTO_OS_FUCHSIA)
   uid_t peer_uid_ = kInvalidUid;
 #endif
 #if PERFETTO_BUILDFLAG(PERFETTO_OS_LINUX) || \

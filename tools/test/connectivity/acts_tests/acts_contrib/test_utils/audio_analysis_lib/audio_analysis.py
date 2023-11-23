@@ -50,12 +50,10 @@ PEAK_WINDOW_SIZE_HZ = 20
 
 class RMSTooSmallError(Exception):
     """Error when signal RMS is too small."""
-    pass
 
 
 class EmptyDataError(Exception):
     """Error when signal is empty."""
-    pass
 
 
 def normalize_signal(signal, saturate_value):
@@ -234,8 +232,8 @@ def peak_detection(array, window_size):
         # Check the right half window and also record next candidate.
         # Favor the larger index for next_peak_candidate_index.
         for index in range(int(right), int(mid), -1):
-            if (next_peak_candidate_index is None or
-                    array[index] > array[next_peak_candidate_index]):
+            if (next_peak_candidate_index is None
+                    or array[index] > array[next_peak_candidate_index]):
                 next_peak_candidate_index = index
 
         if array[next_peak_candidate_index] >= value_mid:
@@ -355,14 +353,14 @@ def get_anomaly_durations(signal,
         return bounds
     end = anoms[0]
     start = anoms[0]
-    for i in range(len(anoms)-1):
+    for i in range(len(anoms) - 1):
         end = anoms[i]
-        sample_diff = abs(anoms[i] - anoms[i+1]) * rate
+        sample_diff = abs(anoms[i] - anoms[i + 1]) * rate
         # We require a tolerance because sample_diff may be slightly off due to
         # float rounding errors in Python.
         if sample_diff > block_size / 2 + tolerance:
             bounds.append((start, end))
-            start = anoms[i+1]
+            start = anoms[i + 1]
     bounds.append((start, end))
     return bounds
 
@@ -393,8 +391,9 @@ def _generate_golden_pattern(rate, freq, block_size):
     """
     samples_in_a_period = int(rate / freq) + 1
     samples_in_golden_pattern = samples_in_a_period + block_size
-    golden_x = numpy.linspace(0.0, (samples_in_golden_pattern - 1) * 1.0 /
-                              rate, samples_in_golden_pattern)
+    golden_x = numpy.linspace(0.0,
+                              (samples_in_golden_pattern - 1) * 1.0 / rate,
+                              samples_in_golden_pattern)
     golden_y = numpy.sin(freq * 2.0 * numpy.pi * golden_x)
     return golden_y
 
@@ -448,12 +447,10 @@ def _moving_pattern_matching(golden_signal, test_signal, threshold):
 
 class GoldenSignalNormTooSmallError(Exception):
     """Exception when golden signal norm is too small."""
-    pass
 
 
 class TestSignalNormTooSmallError(Exception):
     """Exception when test signal norm is too small."""
-    pass
 
 
 def _get_correlation_index(golden_signal, test_signal):
@@ -574,16 +571,18 @@ def get_file_THDN(filename, q, freq=None):
     audio_file = soundfile.SoundFile(filename)
     channel_results = []
     if audio_file.channels == 1:
-        channel_results.append(THDN(signal=audio_file.read(),
-                                    rate=audio_file.samplerate,
-                                    q=q,
-                                    freq=freq))
+        channel_results.append(
+            THDN(signal=audio_file.read(),
+                 rate=audio_file.samplerate,
+                 q=q,
+                 freq=freq))
     else:
         for ch_no, channel in enumerate(audio_file.read().transpose()):
-            channel_results.append(THDN(signal=channel,
-                                        rate=audio_file.samplerate,
-                                        q=q,
-                                        freq=freq))
+            channel_results.append(
+                THDN(signal=channel,
+                     rate=audio_file.samplerate,
+                     q=q,
+                     freq=freq))
     return channel_results
 
 
@@ -605,24 +604,27 @@ def get_file_max_THDN(filename, step_size, window_size, q, freq=None):
     audio_file = soundfile.SoundFile(filename)
     channel_results = []
     if audio_file.channels == 1:
-        channel_results.append(max_THDN(signal=audio_file.read(),
-                                        rate=audio_file.samplerate,
-                                        step_size=step_size,
-                                        window_size=window_size,
-                                        q=q,
-                                        freq=freq))
+        channel_results.append(
+            max_THDN(signal=audio_file.read(),
+                     rate=audio_file.samplerate,
+                     step_size=step_size,
+                     window_size=window_size,
+                     q=q,
+                     freq=freq))
     else:
         for ch_no, channel in enumerate(audio_file.read().transpose()):
-            channel_results.append(max_THDN(signal=channel,
-                                            rate=audio_file.samplerate,
-                                            step_size=step_size,
-                                            window_size=window_size,
-                                            q=q,
-                                            freq=freq))
+            channel_results.append(
+                max_THDN(signal=channel,
+                         rate=audio_file.samplerate,
+                         step_size=step_size,
+                         window_size=window_size,
+                         q=q,
+                         freq=freq))
     return channel_results
 
 
-def get_file_anomaly_durations(filename, freq=None,
+def get_file_anomaly_durations(filename,
+                               freq=None,
                                block_size=ANOMALY_DETECTION_BLOCK_SIZE,
                                threshold=PATTERN_MATCHING_THRESHOLD,
                                tolerance=ANOMALY_GROUPING_TOLERANCE):
@@ -648,20 +650,20 @@ def get_file_anomaly_durations(filename, freq=None,
     freq = freq or fundamental_freq(signal, audio_file.samplerate)
     channel_results = []
     if audio_file.channels == 1:
-        channel_results.append(get_anomaly_durations(
-            signal=signal,
-            rate=audio_file.samplerate,
-            freq=freq,
-            block_size=block_size,
-            threshold=threshold,
-            tolerance=tolerance))
+        channel_results.append(
+            get_anomaly_durations(signal=signal,
+                                  rate=audio_file.samplerate,
+                                  freq=freq,
+                                  block_size=block_size,
+                                  threshold=threshold,
+                                  tolerance=tolerance))
     else:
         for ch_no, channel in enumerate(signal.transpose()):
-            channel_results.append(get_anomaly_durations(
-                signal=channel,
-                rate=audio_file.samplerate,
-                freq=freq,
-                block_size=block_size,
-                threshold=threshold,
-                tolerance=tolerance))
+            channel_results.append(
+                get_anomaly_durations(signal=channel,
+                                      rate=audio_file.samplerate,
+                                      freq=freq,
+                                      block_size=block_size,
+                                      threshold=threshold,
+                                      tolerance=tolerance))
     return channel_results

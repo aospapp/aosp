@@ -31,14 +31,12 @@ void LiveEffectEngine::setPlaybackDeviceId(int32_t deviceId) {
     mPlaybackDeviceId = deviceId;
 }
 
-bool LiveEffectEngine::isAAudioSupported() {
-    oboe::AudioStreamBuilder builder;
-    return builder.isAAudioSupported();
+bool LiveEffectEngine::isAAudioRecommended() {
+    return oboe::AudioStreamBuilder::isAAudioRecommended();
 }
 
 bool LiveEffectEngine::setAudioApi(oboe::AudioApi api) {
     if (mIsEffectOn) return false;
-
     mAudioApi = api;
     return true;
 }
@@ -86,6 +84,7 @@ oboe::Result  LiveEffectEngine::openStreams() {
     setupPlaybackStreamParameters(&outBuilder);
     oboe::Result result = outBuilder.openStream(mPlayStream);
     if (result != oboe::Result::OK) {
+        LOGE("Failed to open output stream. Error %s", oboe::convertToText(result));
         mSampleRate = oboe::kUnspecified;
         return result;
     } else {
@@ -97,6 +96,7 @@ oboe::Result  LiveEffectEngine::openStreams() {
     setupRecordingStreamParameters(&inBuilder, mSampleRate);
     result = inBuilder.openStream(mRecordingStream);
     if (result != oboe::Result::OK) {
+        LOGE("Failed to open input stream. Error %s", oboe::convertToText(result));
         closeStream(mPlayStream);
         return result;
     }
@@ -155,6 +155,7 @@ oboe::AudioStreamBuilder *LiveEffectEngine::setupCommonStreamParameters(
     // mode.
     builder->setAudioApi(mAudioApi)
         ->setFormat(mFormat)
+        ->setFormatConversionAllowed(true)
         ->setSharingMode(oboe::SharingMode::Exclusive)
         ->setPerformanceMode(oboe::PerformanceMode::LowLatency);
     return builder;

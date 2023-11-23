@@ -17,9 +17,8 @@
  *****************************************************************************
  * Originally developed and contributed by Ittiam Systems Pvt. Ltd, Bangalore
  */
-
-#ifndef _LT_PREDICT_
-#define _LT_PREDICT_
+#ifndef IXHEAACD_LT_PREDICT_H
+#define IXHEAACD_LT_PREDICT_H
 
 #define MAX_SFB 51
 #define MAX_LTP_SFB 40
@@ -46,10 +45,10 @@ typedef struct {
 
 VOID ixheaacd_init_ltp_object(ltp_info *ltp);
 
-VOID ixheaacd_lt_update_state(WORD16 *lt_pred_stat, WORD16 *time,
-                              WORD32 *overlap, WORD32 frame_len,
-                              WORD32 object_type, WORD32 stride,
-                              WORD16 window_sequence, WORD16 *p_window_next);
+VOID ixheaacd_lt_update_state(WORD16 *lt_pred_stat, VOID *time, WORD32 *overlap,
+                              WORD32 frame_len, WORD32 object_type,
+                              WORD32 stride, WORD16 window_sequence,
+                              WORD16 *p_window_next, WORD slot_element);
 
 VOID ixheaacd_filter_bank_ltp(ia_aac_dec_tables_struct *aac_tables_ptr,
                               WORD16 window_sequence, WORD16 win_shape,
@@ -57,4 +56,4 @@ VOID ixheaacd_filter_bank_ltp(ia_aac_dec_tables_struct *aac_tables_ptr,
                               WORD32 *out_mdct, UWORD32 object_type,
                               UWORD32 frame_len);
 
-#endif
+#endif /* IXHEAACD_LT_PREDICT_H */

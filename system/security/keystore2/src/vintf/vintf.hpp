@@ -18,9 +18,5 @@
 
 #include "rust/cxx.h"
 
-rust::Vec<rust::String> get_hal_names();
-rust::Vec<rust::String> get_hal_names_and_versions();
 rust::Vec<rust::String> get_hidl_instances(rust::Str package, size_t major_version,
                                            size_t minor_version, rust::Str interfaceName);
-rust::Vec<rust::String> get_aidl_instances(rust::Str package, size_t version,
-                                           rust::Str interfaceName);

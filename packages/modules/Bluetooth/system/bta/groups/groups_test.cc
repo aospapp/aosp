@@ -20,10 +20,9 @@
 #include <gtest/gtest.h>
 
 #include "bta_groups.h"
+#include "test/common/mock_functions.h"
 #include "types/bluetooth/uuid.h"
 #include "types/raw_address.h"
-
-std::map<std::string, int> mock_function_count_map;
 
 namespace bluetooth {
 namespace groups {
@@ -77,7 +76,7 @@ class MockGroupsCallbacks : public DeviceGroupsCallbacks {
 class GroupsTest : public ::testing::Test {
  protected:
   void SetUp() override {
-    mock_function_count_map.clear();
+    reset_mock_function_count_map();
     callbacks.reset(new MockGroupsCallbacks());
   }
 
@@ -247,24 +246,24 @@ TEST_F(GroupsTest, test_group_id_assign) {
 }
 
 TEST_F(GroupsTest, test_storage_calls) {
-  ASSERT_EQ(0, mock_function_count_map["btif_storage_load_bonded_groups"]);
+  ASSERT_EQ(0, get_func_call_count("btif_storage_load_bonded_groups"));
   DeviceGroups::Initialize(callbacks.get());
-  ASSERT_EQ(1, mock_function_count_map["btif_storage_load_bonded_groups"]);
+  ASSERT_EQ(1, get_func_call_count("btif_storage_load_bonded_groups"));
 
-  ASSERT_EQ(0, mock_function_count_map["btif_storage_add_groups"]);
+  ASSERT_EQ(0, get_func_call_count("btif_storage_add_groups"));
   DeviceGroups::Get()->AddDevice(GetTestAddress(1), Uuid::kEmpty, 7);
   DeviceGroups::Get()->AddDevice(GetTestAddress(1), Uuid::kEmpty, 8);
-  ASSERT_EQ(2, mock_function_count_map["btif_storage_add_groups"]);
+  ASSERT_EQ(2, get_func_call_count("btif_storage_add_groups"));
 
   DeviceGroups::Get()->AddDevice(GetTestAddress(2), Uuid::kEmpty, 7);
   DeviceGroups::Get()->AddDevice(GetTestAddress(3), Uuid::kEmpty, 7);
-  ASSERT_EQ(4, mock_function_count_map["btif_storage_add_groups"]);
+  ASSERT_EQ(4, get_func_call_count("btif_storage_add_groups"));
 
-  ASSERT_EQ(0, mock_function_count_map["btif_storage_remove_groups"]);
+  ASSERT_EQ(0, get_func_call_count("btif_storage_remove_groups"));
   DeviceGroups::Get()->RemoveDevice(GetTestAddress(1));
   DeviceGroups::Get()->RemoveDevice(GetTestAddress(2));
   DeviceGroups::Get()->RemoveDevice(GetTestAddress(3));
-  ASSERT_EQ(3, mock_function_count_map["btif_storage_remove_groups"]);
+  ASSERT_EQ(3, get_func_call_count("btif_storage_remove_groups"));
 
   DeviceGroups::CleanUp(callbacks.get());
 }

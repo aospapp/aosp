@@ -1,0 +1,12 @@
+name: "MPAndroidChart"
+description: "A powerful & easy to use chart library for Android"
+
+third_party {
+  url {
+    type: GIT
+    value: "https://github.com/PhilJay/MPAndroidChart"
+  }
+  version: "v3.1.0"
+  last_upgrade_date { year: 2022 month: 11 day: 1 }
+  license_type: NOTICE
+}

@@ -54,7 +54,7 @@ class firmware_ConsecutiveLidSwitch(FirmwareTest):
 
         original_boot_id = host.get_boot_id()
 
-        for i in xrange(self.faft_iterations):
+        for i in range(self.faft_iterations):
             logging.info('======== Running FAFT ITERATION %d/%d ========',
                          i + 1, self.faft_iterations)
 

@@ -41,6 +41,12 @@
 #define USE_READ_BARRIER
 #endif
 
+// Reserve marking register (and its refreshing logic) for all GCs as nterp
+// requires it. In the future if and when nterp is made independent of
+// read-barrier, we can switch back to the current behavior by making this
+// definition conditional on USE_BAKER_READ_BARRIER and setting
+// kReserveMarkingRegister to kUseBakerReadBarrier.
+#define RESERVE_MARKING_REGISTER
 
 // C++-specific configuration part..
 
@@ -56,23 +62,34 @@ static constexpr bool kUseBakerReadBarrier = true;
 static constexpr bool kUseBakerReadBarrier = false;
 #endif
 
+// Read comment for RESERVE_MARKING_REGISTER above
+static constexpr bool kReserveMarkingRegister = true;
+
 #ifdef USE_TABLE_LOOKUP_READ_BARRIER
 static constexpr bool kUseTableLookupReadBarrier = true;
 #else
 static constexpr bool kUseTableLookupReadBarrier = false;
 #endif
 
-static constexpr bool kUseReadBarrier = kUseBakerReadBarrier || kUseTableLookupReadBarrier;
-
-// Debugging flag that forces the generation of read barriers, but
-// does not trigger the use of the concurrent copying GC.
-//
-// TODO: Remove this flag when the read barriers compiler
-// instrumentation is completed.
-static constexpr bool kForceReadBarrier = false;
-// TODO: Likewise, remove this flag when kForceReadBarrier is removed
-// and replace it with kUseReadBarrier.
-static constexpr bool kEmitCompilerReadBarrier = kForceReadBarrier || kUseReadBarrier;
+// Only if read-barrier isn't forced (see build/art.go) but is selected, that we need
+// to see if we support userfaultfd GC. All the other cases can be constexpr here.
+#ifdef ART_FORCE_USE_READ_BARRIER
+constexpr bool gUseReadBarrier = kUseBakerReadBarrier || kUseTableLookupReadBarrier;
+constexpr bool gUseUserfaultfd = !gUseReadBarrier;
+static_assert(!gUseUserfaultfd);
+#else
+#ifndef ART_USE_READ_BARRIER
+constexpr bool gUseReadBarrier = false;
+#ifdef ART_DEFAULT_GC_TYPE_IS_CMC
+constexpr bool gUseUserfaultfd = true;
+#else
+constexpr bool gUseUserfaultfd = false;
+#endif
+#else
+extern const bool gUseReadBarrier;
+extern const bool gUseUserfaultfd;
+#endif
+#endif
 
 // Disabled for performance reasons.
 static constexpr bool kCheckDebugDisallowReadBarrierCount = kIsDebugBuild;

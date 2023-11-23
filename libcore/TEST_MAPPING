@@ -1,4 +1,9 @@
 {
+  "presubmit": [
+    {
+      "name": "luni-host-tests"
+    }
+  ],
   "presubmit-large": [
     {
       "name": "CtsLibcoreTestCases",
@@ -83,6 +88,17 @@
         },
         {
           "exclude-filter": "tests.java.sql.StressTest"
+        }
+      ]
+    }
+  ],
+  "kernel-presubmit": [
+    {
+      "name": "CtsLibcoreTestCases",
+      "options": [
+        {
+          // TODO(b/194105624)
+          "exclude-filter": "libcore.java.net.InetAddressTest#test_isReachable_by_ICMP"
         }
       ]
     }

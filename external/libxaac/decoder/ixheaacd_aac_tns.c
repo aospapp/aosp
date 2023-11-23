@@ -38,6 +38,9 @@
 
 #include "ixheaacd_lt_predict.h"
 
+#include "ixheaacd_cnst.h"
+#include "ixheaacd_ec_defines.h"
+#include "ixheaacd_ec_struct_def.h"
 #include "ixheaacd_channelinfo.h"
 #include "ixheaacd_drc_dec.h"
 #include "ixheaacd_sbrdecoder.h"
@@ -213,9 +216,9 @@ VOID ixheaacd_tns_ar_filter_fixed_dec(WORD32 *spectrum, WORD32 size, WORD32 inc,
     }
     lpc[i] = 0;
     order = ((order & 0xfffffffc) + 4);
+    order = order & 31;
   }
   {
-    WORD32 temp_lo = 0;
     for (i = 0; i < order; i++) {
       y = ixheaacd_shl32_sat((*spectrum), scale_spec);
       acc = 0;
@@ -230,7 +233,6 @@ VOID ixheaacd_tns_ar_filter_fixed_dec(WORD32 *spectrum, WORD32 size, WORD32 inc,
       *spectrum = y >> scale_spec;
       spectrum += inc;
     }
-    temp_lo = 0;
     for (i = order; i < size; i++) {
       y = ixheaacd_shl32_sat((*spectrum), scale_spec);
       acc = 0;
@@ -264,7 +266,6 @@ VOID ixheaacd_tns_ar_filter_fixed_non_neon_armv7(WORD32 *spectrum, WORD32 size,
     order = ((order & 0xfffffffc) + 4);
   }
   {
-    WORD32 temp_lo = 0;
     for (i = 0; i < order; i++) {
       y = ixheaacd_shl32_sat((*spectrum), scale_spec);
       acc = 0;
@@ -279,7 +280,6 @@ VOID ixheaacd_tns_ar_filter_fixed_non_neon_armv7(WORD32 *spectrum, WORD32 size,
       *spectrum = y >> scale_spec;
       spectrum += inc;
     }
-    temp_lo = 0;
     for (i = order; i < size; i++) {
       WORD64 acc = 0;
       WORD32 acc1;
@@ -314,7 +314,6 @@ VOID ixheaacd_tns_ar_filter_fixed_armv8(WORD32 *spectrum, WORD32 size,
     order = ((order & 0xfffffffc) + 4);
   }
   {
-    WORD32 temp_lo = 0;
     for (i = 0; i < order; i++) {
       y = ixheaacd_shl32_sat((*spectrum), scale_spec);
       acc = 0;
@@ -329,7 +328,6 @@ VOID ixheaacd_tns_ar_filter_fixed_armv8(WORD32 *spectrum, WORD32 size,
       *spectrum = y >> scale_spec;
       spectrum += inc;
     }
-    temp_lo = 0;
     for (i = order; i < size; i++) {
       WORD64 acc = 0;
       WORD32 acc1;

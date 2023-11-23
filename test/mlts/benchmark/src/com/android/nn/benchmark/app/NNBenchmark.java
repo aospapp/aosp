@@ -50,6 +50,7 @@ public class NNBenchmark extends Activity implements Processor.Callback {
 
     private boolean mUseNnApiSupportLibrary = false;
     private boolean mExtractNnApiSupportLibrary = false;
+    private String mNnApiSupportLibraryVendor = "";
 
     private Processor mProcessor;
     private final ExecutorService executorService = Executors.newSingleThreadExecutor();
@@ -83,6 +84,11 @@ public class NNBenchmark extends Activity implements Processor.Callback {
     public void setUseNnApiSupportLibrary(boolean value) {
         mUseNnApiSupportLibrary = value;
         mProcessor.setUseNnApiSupportLibrary(mUseNnApiSupportLibrary);
+    }
+
+    public void setNnApiSupportLibraryVendor(String value) {
+        mNnApiSupportLibraryVendor = value;
+        mProcessor.setNnApiSupportLibraryVendor(mNnApiSupportLibraryVendor);
     }
 
     public void setExtractNnApiSupportLibrary(boolean value) {
@@ -145,6 +151,7 @@ public class NNBenchmark extends Activity implements Processor.Callback {
             mProcessor.setTfLiteBackend(!i.getBooleanExtra(EXTRA_DISABLE_NNAPI, false) ? TfLiteBackend.NNAPI : TfLiteBackend.CPU);
             mProcessor.setMaxRunIterations(i.getIntExtra(EXTRA_MAX_ITERATIONS, 0));
             mProcessor.setUseNnApiSupportLibrary(mUseNnApiSupportLibrary);
+            mProcessor.setNnApiSupportLibraryVendor(mNnApiSupportLibraryVendor);
             mProcessor.setExtractNnApiSupportLibrary(mExtractNnApiSupportLibrary);
             executorService.submit(mProcessor);
         } else {

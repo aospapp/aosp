@@ -17,54 +17,100 @@
 package android.platform.helpers;
 
 import android.app.Instrumentation;
+import android.platform.helpers.ScrollUtility.ScrollActions;
+import android.platform.helpers.ScrollUtility.ScrollDirection;
 import android.platform.helpers.exceptions.UnknownUiException;
-import android.support.test.uiautomator.By;
-import android.support.test.uiautomator.UiObject2;
 
-import android.os.SystemClock;
+import androidx.test.uiautomator.BySelector;
+import androidx.test.uiautomator.UiObject2;
 
-public class ContactDetailsHelperImpl extends AbstractAutoStandardAppHelper
+public class ContactDetailsHelperImpl extends AbstractStandardAppHelper
         implements IAutoDialContactDetailsHelper {
     private static final String LOG_TAG = DialHelperImpl.class.getSimpleName();
 
+    private ScrollUtility mScrollUtility;
+    private ScrollActions mScrollAction;
+    private BySelector mBackwardButtonSelector;
+    private BySelector mForwardButtonSelector;
+    private BySelector mScrollableElementSelector;
+    private ScrollDirection mScrollDirection;
+
     public ContactDetailsHelperImpl(Instrumentation instr) {
         super(instr);
+        mScrollUtility = ScrollUtility.getInstance(getSpectatioUiUtil());
+        mScrollAction =
+                ScrollActions.valueOf(
+                        getActionFromConfig(
+                                AutomotiveConfigConstants.CONTACT_DETAILS_SCROLL_ACTION));
+        mBackwardButtonSelector =
+                getUiElementFromConfig(AutomotiveConfigConstants.CONTACT_DETAILS_SCROLL_BACKWARD);
+        mForwardButtonSelector =
+                getUiElementFromConfig(AutomotiveConfigConstants.CONTACT_DETAILS_SCROLL_FORWARD);
+        mScrollableElementSelector =
+                getUiElementFromConfig(AutomotiveConfigConstants.CONTACT_DETAILS_SCROLL_ELEMENT);
+        mScrollDirection =
+                ScrollDirection.valueOf(
+                        getActionFromConfig(
+                                AutomotiveConfigConstants.CONTACT_DETAILS_SCROLL_DIRECTION));
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void dismissInitialDialogs() {
+        UiObject2 dialogBox =
+                getSpectatioUiUtil()
+                        .findUiObject(
+                                getUiElementFromConfig(
+                                        AutomotiveConfigConstants.CONTACTS_DIALOG_BOX));
+        if (dialogBox != null) {
+            executeWorkflow(AutomotiveConfigConstants.APPS_INITIAL_DIALOGS);
+        }
     }
 
     /** {@inheritDoc} */
     @Override
     public String getPackage() {
-        return getApplicationConfig(AutoConfigConstants.DIAL_PACKAGE);
+        return getPackageFromConfig(AutomotiveConfigConstants.DIAL_PACKAGE);
     }
 
     /** {@inheritDoc} */
     public void open() {
-        pressHome();
-        waitForIdle();
-        String phone_launch_command =
-                "am start -n " + getApplicationConfig(AutoConfigConstants.PHONE_ACTIVITY);
-        executeShellCommand(phone_launch_command);
+        getSpectatioUiUtil().pressHome();
+        getSpectatioUiUtil().wait1Second();
+        getSpectatioUiUtil()
+                .executeShellCommand(
+                        getCommandFromConfig(
+                                AutomotiveConfigConstants.OPEN_PHONE_ACTIVITY_COMMAND));
+        getSpectatioUiUtil().wait1Second();
     }
 
     /** {@inheritDoc} */
     @Override
     public String getLauncherName() {
-        return "Phone";
+        throw new UnsupportedOperationException("Operation not supported.");
     }
 
     /** {@inheritDoc} */
     public void addRemoveFavoriteContact() {
-        UiObject2 favoriteButton =
-                findUiObject(
-                        getResourceFromConfig(
-                                AutoConfigConstants.PHONE,
-                                AutoConfigConstants.CONTACTS_VIEW,
-                                AutoConfigConstants.ADD_CONTACT_TO_FAVORITE));
-        if (favoriteButton != null) {
-            clickAndWaitForIdleScreen(favoriteButton);
-        } else {
-            throw new UnknownUiException("Unable to find add favorite button");
-        }
+        BySelector favoriteButtonSelector =
+                getUiElementFromConfig(AutomotiveConfigConstants.ADD_CONTACT_TO_FAVORITE);
+        UiObject2 favoriteButton = getSpectatioUiUtil().findUiObject(favoriteButtonSelector);
+        validateUiObject(favoriteButton, AutomotiveConfigConstants.ADD_CONTACT_TO_FAVORITE);
+        getSpectatioUiUtil().clickAndWait(favoriteButton);
+    }
+
+    private UiObject2 getNumberByContactType(String type) {
+        UiObject2 contactByType =
+                mScrollUtility.scrollAndFindUiObject(
+                        mScrollAction,
+                        mScrollDirection,
+                        mForwardButtonSelector,
+                        mBackwardButtonSelector,
+                        mScrollableElementSelector,
+                        getUiElementFromConfig(type),
+                        String.format("scroll to find %s", type));
+            validateUiObject(contactByType, String.format("Given type %s", type));
+            return contactByType;
     }
 
     /** {@inheritDoc} */
@@ -72,37 +118,19 @@ public class ContactDetailsHelperImpl extends AbstractAutoStandardAppHelper
         UiObject2 number = null;
         switch (contactType) {
             case HOME:
-                number =
-                        findUiObject(
-                                getResourceFromConfig(
-                                        AutoConfigConstants.PHONE,
-                                        AutoConfigConstants.CONTACTS_VIEW,
-                                        AutoConfigConstants.CONTACT_TYPE_HOME));
+                number = getNumberByContactType(AutomotiveConfigConstants.CONTACT_TYPE_HOME);
                 break;
             case WORK:
-                number =
-                        findUiObject(
-                                getResourceFromConfig(
-                                        AutoConfigConstants.PHONE,
-                                        AutoConfigConstants.CONTACTS_VIEW,
-                                        AutoConfigConstants.CONTACT_TYPE_WORK));
+                number = getNumberByContactType(AutomotiveConfigConstants.CONTACT_TYPE_WORK);
                 break;
             case MOBILE:
-                number =
-                        findUiObject(
-                                getResourceFromConfig(
-                                        AutoConfigConstants.PHONE,
-                                        AutoConfigConstants.CONTACTS_VIEW,
-                                        AutoConfigConstants.CONTACT_TYPE_MOBILE));
+                number = getNumberByContactType(AutomotiveConfigConstants.CONTACT_TYPE_MOBILE);
                 break;
             default:
-                number = findUiObject(By.text("undefined"));
+                number = getSpectatioUiUtil().findUiObject("undefined");
         }
-        if (number != null) {
-            clickAndWaitForIdleScreen(number.getParent());
-        } else {
-            throw new UnknownUiException("Unable to find number in contact details");
-        }
+        validateUiObject(number, String.format("Contact Type %s", contactType));
+        getSpectatioUiUtil().clickAndWait(number);
     }
 
     /** {@inheritDoc} */
@@ -111,17 +139,21 @@ public class ContactDetailsHelperImpl extends AbstractAutoStandardAppHelper
         // after exiting settings application
         int count = 5;
         while (count > 0
-                && findUiObject(
-                                By.clickable(true)
-                                        .hasDescendant(
-                                                getResourceFromConfig(
-                                                        AutoConfigConstants.PHONE,
-                                                        AutoConfigConstants.DIAL_PAD_VIEW,
-                                                        AutoConfigConstants.DIAL_PAD_MENU)))
+                && getSpectatioUiUtil()
+                                .findUiObject(
+                                        getUiElementFromConfig(
+                                                AutomotiveConfigConstants.DIAL_PAD_MENU))
                         == null) {
-            pressBack();
-            SystemClock.sleep(3000); // to avoid stale object error
+            getSpectatioUiUtil().pressBack();
+            getSpectatioUiUtil().wait5Seconds();
             count--;
+        }
+    }
+
+    private void validateUiObject(UiObject2 uiObject, String action) {
+        if (uiObject == null) {
+            throw new UnknownUiException(
+                    String.format("Unable to find UI Element for %s.", action));
         }
     }
 }

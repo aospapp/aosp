@@ -24,12 +24,12 @@
 #include <base/logging.h>
 #include <log/log.h>
 #include <string.h>
-#include "bt_types.h"
-#include "nfc_target.h"
 
+#include "bt_types.h"
 #include "gki.h"
 #include "nfc_api.h"
 #include "nfc_int.h"
+#include "nfc_target.h"
 #include "rw_api.h"
 #include "rw_int.h"
 #include "tags_int.h"
@@ -397,7 +397,7 @@ static tNFC_STATUS rw_mfc_writeBlock(int block) {
       } else {
         UINT8_TO_BE_STREAM(p, 0x03);
         UINT8_TO_BE_STREAM(p, 0xFF);
-        UINT8_TO_BE_STREAM(p, (uint8_t)(p_mfc->ndef_length >>8));
+        UINT8_TO_BE_STREAM(p, (uint8_t)(p_mfc->ndef_length >> 8));
         UINT8_TO_BE_STREAM(p, (uint8_t)(p_mfc->ndef_length & 0xFF));
         index = index + 4;
       }
@@ -474,6 +474,7 @@ static void rw_mfc_handle_write_op() {
   if (p_mfc->work_offset >= p_mfc->ndef_length) {
     evt_data.status = NFC_STATUS_OK;
     evt_data.p_data = NULL;
+    rw_mfc_handle_op_complete();
     (*rw_cb.p_cback)(RW_MFC_NDEF_WRITE_CPLT_EVT, (tRW_DATA*)&evt_data);
   } else {
     p_mfc->last_block_accessed.block = p_mfc->current_block;
@@ -502,6 +503,7 @@ static void rw_mfc_handle_write_op() {
     if (rw_mfc_writeBlock(p_mfc->next_block.block) != NFC_STATUS_OK) {
       evt_data.status = NFC_STATUS_FAILED;
       evt_data.p_data = NULL;
+      rw_mfc_handle_op_complete();
       (*rw_cb.p_cback)(RW_MFC_NDEF_WRITE_FAIL_EVT, (tRW_DATA*)&evt_data);
     }
   }
@@ -1035,13 +1037,12 @@ static void rw_mfc_handle_read_op(uint8_t* data) {
       saved_length = p_mfc->ndef_length;
 
       if (p_mfc->work_offset == 0) {
-        /* The Ndef Message offset may be present in the read 16 bytes */
-        offset = p_mfc->ndef_start_pos;
-
         if (!rw_nfc_decodeTlv(data)) {
           failed = true;
           DLOG_IF(INFO, nfc_debug_enabled) << __func__ << " FAILED finding TLV";
         }
+        /* Ndef message offset update post response TLV decode */
+        offset = p_mfc->ndef_start_pos;
       }
 
       if (!failed && saved_length >= p_mfc->ndef_length) {
@@ -1255,6 +1256,7 @@ static void rw_mfc_handle_op_complete(void) {
 
   p_mfc->last_block_accessed.auth = false;
   p_mfc->next_block.auth = false;
+  p_mfc->current_block = 0;
   p_mfc->state = RW_MFC_STATE_IDLE;
   p_mfc->substate = RW_MFC_SUBSTATE_NONE;
   return;

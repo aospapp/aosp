@@ -27,22 +27,19 @@ use std::convert::TryInto;
 use std::fs::File;
 use std::io;
 use std::os::unix::fs::FileExt;
-use std::os::unix::io::{AsRawFd, FromRawFd, RawFd};
+use std::os::unix::io::{AsFd, AsRawFd, BorrowedFd, FromRawFd, OwnedFd};
 use std::path::{Component, Path, PathBuf, MAIN_SEPARATOR};
 use std::sync::{Arc, RwLock};
 
-use crate::common::OwnedFd;
-use crate::fsverity;
 use authfs_aidl_interface::aidl::com::android::virt::fs::IVirtFdService::{
     BnVirtFdService, FsStat::FsStat, IVirtFdService, MAX_REQUESTING_DATA,
-};
-use authfs_aidl_interface::binder::{
-    BinderFeatures, ExceptionCode, Interface, Result as BinderResult, Status, StatusCode, Strong,
 };
 use authfs_fsverity_metadata::{
     get_fsverity_metadata_path, parse_fsverity_metadata, FSVerityMetadata,
 };
-use binder_common::{new_binder_exception, new_binder_service_specific_error};
+use binder::{
+    BinderFeatures, ExceptionCode, Interface, Result as BinderResult, Status, StatusCode, Strong,
+};
 
 /// Bitflags of forbidden file mode, e.g. setuid, setgid and sticky bit.
 const FORBIDDEN_MODES: Mode = Mode::from_bits_truncate(!0o777);
@@ -107,9 +104,12 @@ impl FdService {
             entry.insert(new_fd_config);
             Ok(new_fd)
         } else {
-            Err(new_binder_exception(
+            Err(Status::new_exception_str(
                 ExceptionCode::ILLEGAL_STATE,
-                format!("The newly created FD {} is already in the pool unexpectedly", new_fd),
+                Some(format!(
+                    "The newly created FD {} is already in the pool unexpectedly",
+                    new_fd
+                )),
             ))
         }
     }
@@ -173,9 +173,9 @@ impl IVirtFdService for FdService {
                     if let Some(signature) = &metadata.signature {
                         Ok(signature.clone())
                     } else {
-                        Err(new_binder_exception(
-                            ExceptionCode::SERVICE_SPECIFIC,
-                            "metadata doesn't contain a signature",
+                        Err(Status::new_service_specific_error_str(
+                            -1,
+                            Some("metadata doesn't contain a signature"),
                         ))
                     }
                 } else {
@@ -265,10 +265,10 @@ impl IVirtFdService for FdService {
 
         self.insert_new_fd(dir_fd, |config| match config {
             FdConfig::InputDir(dir) => {
-                let file = open_readonly_at(dir.as_raw_fd(), &path_buf).map_err(new_errno_error)?;
+                let file = open_readonly_at(dir.as_fd(), &path_buf).map_err(new_errno_error)?;
 
                 let metadata_path_buf = get_fsverity_metadata_path(&path_buf);
-                let metadata = open_readonly_at(dir.as_raw_fd(), &metadata_path_buf)
+                let metadata = open_readonly_at(dir.as_fd(), &metadata_path_buf)
                     .ok()
                     .and_then(|f| parse_fsverity_metadata(f).ok());
 
@@ -395,11 +395,11 @@ fn read_into_buf(file: &File, max_size: usize, offset: u64) -> io::Result<Vec<u8
 }
 
 fn new_errno_error(errno: Errno) -> Status {
-    new_binder_service_specific_error(errno as i32, errno.desc())
+    Status::new_service_specific_error_str(errno as i32, Some(errno.desc()))
 }
 
-fn open_readonly_at(dir_fd: RawFd, path: &Path) -> nix::Result<File> {
-    let new_fd = openat(dir_fd, path, OFlag::O_RDONLY, Mode::empty())?;
+fn open_readonly_at(dir_fd: BorrowedFd, path: &Path) -> nix::Result<File> {
+    let new_fd = openat(dir_fd.as_raw_fd(), path, OFlag::O_RDONLY, Mode::empty())?;
     // SAFETY: new_fd is just created successfully and not owned.
     let new_file = unsafe { File::from_raw_fd(new_fd) };
     Ok(new_file)

@@ -21,7 +21,6 @@
 
 #include "btm_ble_api.h"
 #include "stack/btm/btm_int_types.h"
-#include "utils/include/bt_utils.h"
 
 extern tBTM_CB btm_cb;
 

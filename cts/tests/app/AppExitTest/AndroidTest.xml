@@ -14,34 +14,40 @@
      limitations under the License.
 -->
 <configuration description="Config for CTS App test cases">
-    <option name="test-suite-tag" value="cts" />
-    <option name="config-descriptor:metadata" key="component" value="framework" />
-    <option name="config-descriptor:metadata" key="parameter" value="instant_app" />
-    <option name="config-descriptor:metadata" key="parameter" value="not_multi_abi" />
-    <option name="config-descriptor:metadata" key="parameter" value="secondary_user" />
-    <option name="config-descriptor:metadata" key="parameter" value="no_foldable_states" />
+    <option name="test-suite-tag" value="cts"/>
+    <option name="config-descriptor:metadata" key="component" value="framework"/>
+    <option name="config-descriptor:metadata" key="parameter" value="instant_app"/>
+    <option name="config-descriptor:metadata" key="parameter" value="not_multi_abi"/>
+    <option name="config-descriptor:metadata" key="parameter" value="secondary_user"/>
+    <option name="config-descriptor:metadata" key="parameter" value="no_foldable_states"/>
+    <option name="config-descriptor:metadata" key="parameter" value="run_on_sdk_sandbox"/>
     <target_preparer class="com.android.tradefed.targetprep.suite.SuiteApkInstaller">
         <option name="force-install-mode" value="FULL"/>
-        <option name="cleanup-apks" value="true" />
-        <option name="test-file-name" value="CtsSimpleApp.apk" />
-        <option name="test-file-name" value="CtsExternalServiceService.apk" />
-        <option name="test-file-name" value="CtsAppTestStubs.apk" />
-        <option name="test-file-name" value="CtsAppExitTestCases.apk" />
+        <option name="cleanup-apks" value="true"/>
+        <option name="test-file-name" value="CtsSimpleApp.apk"/>
+        <option name="test-file-name" value="CtsExternalServiceService.apk"/>
+        <option name="test-file-name" value="CtsAppTestStubs.apk"/>
+        <option name="test-file-name" value="CtsAppExitTestCases.apk"/>
+    </target_preparer>
+    <target_preparer class="com.android.tradefed.targetprep.PushFilePreparer">
+        <option name="cleanup" value="true"/>
+        <option name="push-file" key="CtsSimpleApp.apk"
+                value="/data/local/tmp/cts/content/CtsSimpleApp.apk"/>
     </target_preparer>
     <target_preparer class="com.android.tradefed.targetprep.RunCommandTargetPreparer">
         <option name="run-command"
-            value="pm grant android.app.cts.appexit android.permission.PACKAGE_USAGE_STATS" />
+                value="pm grant android.app.cts.appexit android.permission.PACKAGE_USAGE_STATS"/>
         <option name="run-command"
-            value="pm grant android.app.cts.appexit android.permission.READ_LOGS" />
+                value="pm grant android.app.cts.appexit android.permission.READ_LOGS"/>
         <option name="teardown-command"
-            value="pm revoke android.app.cts.appexit android.permission.PACKAGE_USAGE_STATS"/>
+                value="pm revoke android.app.cts.appexit android.permission.PACKAGE_USAGE_STATS"/>
         <option name="teardown-command"
-            value="pm revoke android.app.cts.appexit android.permission.READ_LOGS"/>
+                value="pm revoke android.app.cts.appexit android.permission.READ_LOGS"/>
     </target_preparer>
-    <test class="com.android.tradefed.testtype.AndroidJUnitTest" >
-        <option name="runner" value="androidx.test.runner.AndroidJUnitRunner" />
-        <option name="package" value="android.app.cts.appexit" />
-        <option name="runtime-hint" value="2m39s" />
+    <test class="com.android.tradefed.testtype.AndroidJUnitTest">
+        <option name="runner" value="androidx.test.runner.AndroidJUnitRunner"/>
+        <option name="package" value="android.app.cts.appexit"/>
+        <option name="runtime-hint" value="2m39s"/>
         <option name="hidden-api-checks" value="false"/>
     </test>
 

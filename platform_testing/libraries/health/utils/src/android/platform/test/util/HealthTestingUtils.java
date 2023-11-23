@@ -16,11 +16,11 @@
 
 package android.platform.test.util;
 
-import android.os.SystemClock;
+import android.platform.uiautomator_helpers.WaitUtils;
 
-import org.junit.Assert;
+import androidx.test.uiautomator.StaleObjectException;
 
-import java.util.Objects;
+import java.time.Duration;
 import java.util.Optional;
 import java.util.function.Supplier;
 
@@ -28,7 +28,6 @@ import java.util.function.Supplier;
 public class HealthTestingUtils {
 
     private static final String TAG = "HealthTestingUtils";
-    private static final int SLEEP_MS = 100;
     private static final int WAIT_TIME_MS = 10000;
     private static final int DEFAULT_SETTLE_TIME_MS = 3000;
 
@@ -83,6 +82,29 @@ public class HealthTestingUtils {
     }
 
     /**
+     * Waits for a result to be produced without throwing a {@link StaleObjectException}.
+     *
+     * <p>This is useful in case of dealing with containers that change or go out of screen during
+     * the test, to reduce flakiness.
+     *
+     * @param errorMessage message thrown when resultProduces fails after the maximum number of
+     *     retries.
+     * @param resultProducer produces the output. Might throw {@link StaleObjectException}.
+     */
+    public static <T> T waitForValueCatchingStaleObjectExceptions(
+            Supplier<String> errorMessage, Supplier<T> resultProducer) {
+        return waitForValuePresent(
+                errorMessage,
+                () -> {
+                    try {
+                        return Optional.ofNullable(resultProducer.get());
+                    } catch (StaleObjectException e) {
+                        return Optional.empty();
+                    }
+                });
+    }
+
+    /**
      * Waits for a condition and fails if it doesn't become true within 10 sec.
      *
      * @param message Supplier of the error message.
@@ -101,28 +123,18 @@ public class HealthTestingUtils {
      */
     public static void waitForCondition(
             Supplier<String> message, Condition condition, long timeoutMs) {
-        final long startTime = SystemClock.uptimeMillis();
-        while (SystemClock.uptimeMillis() < startTime + timeoutMs) {
-            try {
-                if (condition.isTrue()) {
-                    return;
-                }
-            } catch (Throwable t) {
-                throw new RuntimeException(t);
-            }
-            SystemClock.sleep(SLEEP_MS);
-        }
 
-        // Check once more before failing.
-        try {
-            if (condition.isTrue()) {
-                return;
-            }
-        } catch (Throwable t) {
-            throw new RuntimeException(t);
-        }
-
-        Assert.fail(message.get());
+        WaitUtils.ensureThat(
+                "waitForCondition",
+                /* timeout= */ Duration.ofMillis(timeoutMs),
+                /* errorProvider= */ message::get,
+                /* condition= */ () -> {
+                    try {
+                        return condition.isTrue();
+                    } catch (Throwable t) {
+                        throw new RuntimeException(t);
+                    }
+                });
     }
 
     /** @see HealthTestingUtils#waitForValueToSettle */
@@ -146,26 +158,11 @@ public class HealthTestingUtils {
             Supplier<T> supplier,
             long minimumSettleTime,
             long timeoutMs) {
-        final long startTime = SystemClock.uptimeMillis();
-        long settledSince = startTime;
-        T previousValue = null;
-
-        while (SystemClock.uptimeMillis() < startTime + timeoutMs) {
-            T newValue = supplier.get();
-            final long currentTime = SystemClock.uptimeMillis();
-
-            if (!Objects.equals(previousValue, newValue)) {
-                settledSince = currentTime;
-                previousValue = newValue;
-            } else if (currentTime >= settledSince + minimumSettleTime) {
-                return previousValue;
-            }
-
-            SystemClock.sleep(SLEEP_MS);
-        }
-
-        Assert.fail(errorMessage.get());
-
-        return null;
+        return WaitUtils.waitForNullableValueToSettle(
+                "waitForValueToSettle",
+                /* minimumSettleTime= */ Duration.ofMillis(minimumSettleTime),
+                /* timeout= */ Duration.ofMillis(timeoutMs),
+                /* errorProvider= */ errorMessage::get,
+                /* supplier */ supplier::get);
     }
 }

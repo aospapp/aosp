@@ -1,0 +1,7 @@
+{
+  "avf-presubmit" : [
+    {
+      "name" : "libavb_bindgen_test"
+    }
+  ]
+}

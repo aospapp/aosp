@@ -82,6 +82,7 @@ import java.util.concurrent.TimeUnit;
 @RunWith(AndroidJUnit4.class)
 public class GridViewTest {
     private Instrumentation mInstrumentation;
+    private CtsKeyEventUtil mCtsKeyEventUtil;
     private Activity mActivity;
     private GridView mGridView;
 
@@ -92,6 +93,7 @@ public class GridViewTest {
     @Before
     public void setup() {
         mInstrumentation = InstrumentationRegistry.getInstrumentation();
+        mCtsKeyEventUtil = new CtsKeyEventUtil(mInstrumentation.getTargetContext());
         mActivity = mActivityRule.getActivity();
         mGridView = (GridView) mActivity.findViewById(R.id.gridview);
 
@@ -599,13 +601,13 @@ public class GridViewTest {
         assertEquals("test sanity", 0, theView.mOnDetachCount);
         while(theView.getParent() != null) {
             assertEquals("the view should NOT be detached", 0, theView.mOnDetachCount);
-            CtsKeyEventUtil.sendKeys(mInstrumentation, mGridView, KeyEvent.KEYCODE_DPAD_DOWN);
+            mCtsKeyEventUtil.sendKeys(mInstrumentation, mGridView, KeyEvent.KEYCODE_DPAD_DOWN);
             WidgetTestUtils.runOnMainAndDrawSync(mActivityRule, mGridView, null);
         }
         assertEquals("the view should be detached", 1, theView.mOnDetachCount);
         assertFalse(theView.isTemporarilyDetached());
         while(theView.getParent() == null) {
-            CtsKeyEventUtil.sendKeys(mInstrumentation, mGridView, KeyEvent.KEYCODE_DPAD_UP);
+            mCtsKeyEventUtil.sendKeys(mInstrumentation, mGridView, KeyEvent.KEYCODE_DPAD_UP);
             WidgetTestUtils.runOnMainAndDrawSync(mActivityRule, mGridView, null);
         }
         assertEquals("the view should be re-attached", 2, theView.mOnAttachCount);

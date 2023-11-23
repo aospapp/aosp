@@ -8,16 +8,17 @@
 #endif
 
 #if defined(__x86_64__) && !defined(OPENSSL_NO_ASM)
+#include "ring_core_generated/prefix_symbols_asm.h"
 .text	
 
-.extern	GFp_ia32cap_P
-.hidden GFp_ia32cap_P
+.extern	OPENSSL_ia32cap_P
+.hidden OPENSSL_ia32cap_P
 
-.globl	GFp_bn_mul_mont
-.hidden GFp_bn_mul_mont
-.type	GFp_bn_mul_mont,@function
+.globl	bn_mul_mont
+.hidden bn_mul_mont
+.type	bn_mul_mont,@function
 .align	16
-GFp_bn_mul_mont:
+bn_mul_mont:
 .cfi_startproc	
 	movl	%r9d,%r9d
 	movq	%rsp,%rax
@@ -26,7 +27,7 @@ GFp_bn_mul_mont:
 	jnz	.Lmul_enter
 	cmpl	$8,%r9d
 	jb	.Lmul_enter
-	movl	GFp_ia32cap_P+8(%rip),%r11d
+	movl	OPENSSL_ia32cap_P+8(%rip),%r11d
 	cmpq	%rsi,%rdx
 	jne	.Lmul4x_enter
 	testl	$7,%r9d
@@ -266,7 +267,7 @@ GFp_bn_mul_mont:
 .Lmul_epilogue:
 	.byte	0xf3,0xc3
 .cfi_endproc	
-.size	GFp_bn_mul_mont,.-GFp_bn_mul_mont
+.size	bn_mul_mont,.-bn_mul_mont
 .type	bn_mul4x_mont,@function
 .align	16
 bn_mul4x_mont:
@@ -701,10 +702,10 @@ bn_mul4x_mont:
 	.byte	0xf3,0xc3
 .cfi_endproc	
 .size	bn_mul4x_mont,.-bn_mul4x_mont
-.extern	GFp_bn_sqrx8x_internal
-.hidden GFp_bn_sqrx8x_internal
-.extern	GFp_bn_sqr8x_internal
-.hidden GFp_bn_sqr8x_internal
+.extern	bn_sqrx8x_internal
+.hidden bn_sqrx8x_internal
+.extern	bn_sqr8x_internal
+.hidden bn_sqr8x_internal
 
 .type	bn_sqr8x_mont,@function
 .align	32
@@ -787,12 +788,12 @@ bn_sqr8x_mont:
 	pxor	%xmm0,%xmm0
 .byte	102,72,15,110,207
 .byte	102,73,15,110,218
-	movl	GFp_ia32cap_P+8(%rip),%eax
+	movl	OPENSSL_ia32cap_P+8(%rip),%eax
 	andl	$0x80100,%eax
 	cmpl	$0x80100,%eax
 	jne	.Lsqr8x_nox
 
-	call	GFp_bn_sqrx8x_internal
+	call	bn_sqrx8x_internal
 
 
 
@@ -806,7 +807,7 @@ bn_sqr8x_mont:
 
 .align	32
 .Lsqr8x_nox:
-	call	GFp_bn_sqr8x_internal
+	call	bn_sqr8x_internal
 
 
 

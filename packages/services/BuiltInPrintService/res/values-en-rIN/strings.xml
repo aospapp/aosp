@@ -17,7 +17,7 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="app_name" msgid="3551052199033657984">"Default Print Service"</string>
+    <string name="app_name" msgid="3551052199033657984">"Default print service"</string>
     <string name="printer_busy" msgid="8604311528104955859">"Busy"</string>
     <string name="printer_out_of_paper" msgid="4882186432807703877">"Out of paper"</string>
     <string name="printer_out_of_ink" msgid="7361897651097675464">"Out of ink"</string>

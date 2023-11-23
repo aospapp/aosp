@@ -18,10 +18,12 @@
 #define ANDROID_INCLUDE_BT_GATT_H
 
 #include <stdint.h>
+
 #include "ble_advertiser.h"
 #include "ble_scanner.h"
 #include "bt_gatt_client.h"
 #include "bt_gatt_server.h"
+#include "distance_measurement_interface.h"
 
 __BEGIN_DECLS
 
@@ -64,6 +66,9 @@ typedef struct {
 
   /** Pointer to the advertiser interface methods.*/
   BleAdvertiserInterface* advertiser;
+
+  /** Pointer to the distance measurement interface methods.*/
+  DistanceMeasurementInterface* distance_measurement_manager;
 } btgatt_interface_t;
 
 __END_DECLS

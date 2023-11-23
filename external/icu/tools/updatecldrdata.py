@@ -123,14 +123,6 @@ def main():
   shutil.copy(localeCanonicalization_src, os.path.join(
     icu_dir, 'icu4j/main/tests/core/src/com/ibm/icu/dev/data/unicode/localeCanonicalization.txt'))
 
-  # Apply a patch on icu4c/source/data/brkitr/ja.txt because we didn't
-  # cherry-pick the data to CLDR, but only to ICU.
-  # See https://r.android.com/1985568
-  # This patch will not needed when ICU is upgraded to version 71.
-  os.chdir(icu_dir)
-  subprocess.check_call(['patch', '-p0', '-s', '-i',
-                         'tools/data_patches/brkitr/ja.txt.patch'])
-
   print('Look in %s for new data source files' % icu4c_data_source_dir)
   sys.exit(0)
 

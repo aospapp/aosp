@@ -18,6 +18,7 @@
 #define LOG_TAG "gpuservice_unittest"
 
 #include <android-base/stringprintf.h>
+#define BPF_MAP_MAKE_VISIBLE_FOR_TESTING
 #include <bpf/BpfMap.h>
 #include <gmock/gmock.h>
 #include <gpumem/GpuMem.h>
@@ -65,11 +66,11 @@ public:
         mTestableGpuMem = TestableGpuMem(mGpuMem.get());
         mTestableGpuMem.setInitialized();
         errno = 0;
-        mTestMap = bpf::BpfMap<uint64_t, uint64_t>(BPF_MAP_TYPE_HASH, TEST_MAP_SIZE,
-                                                   BPF_F_NO_PREALLOC);
+        mTestMap = std::move(bpf::BpfMap<uint64_t, uint64_t>(BPF_MAP_TYPE_HASH,
+                                                             TEST_MAP_SIZE,
+                                                             BPF_F_NO_PREALLOC));
 
         EXPECT_EQ(0, errno);
-        EXPECT_LE(0, mTestMap.getMap().get());
         EXPECT_TRUE(mTestMap.isValid());
     }
 
@@ -89,8 +90,8 @@ TEST_F(GpuMemTest, validGpuMemTotalBpfPaths) {
     EXPECT_EQ(mTestableGpuMem.getGpuMemTraceGroup(), "gpu_mem");
     EXPECT_EQ(mTestableGpuMem.getGpuMemTotalTracepoint(), "gpu_mem_total");
     EXPECT_EQ(mTestableGpuMem.getGpuMemTotalProgPath(),
-              "/sys/fs/bpf/prog_gpu_mem_tracepoint_gpu_mem_gpu_mem_total");
-    EXPECT_EQ(mTestableGpuMem.getGpuMemTotalMapPath(), "/sys/fs/bpf/map_gpu_mem_gpu_mem_total_map");
+              "/sys/fs/bpf/prog_gpuMem_tracepoint_gpu_mem_gpu_mem_total");
+    EXPECT_EQ(mTestableGpuMem.getGpuMemTotalMapPath(), "/sys/fs/bpf/map_gpuMem_gpu_mem_total_map");
 }
 
 TEST_F(GpuMemTest, bpfInitializationFailed) {

@@ -18,7 +18,7 @@
 
 #pragma once
 
-#include <base/callback.h>
+#include <base/functional/callback.h>
 #include <base/location.h>
 
 #include "osi/include/future.h"

@@ -1,0 +1,16 @@
+rust_library_rlib {
+    name: "libtinyvec_nostd",
+    crate_name: "tinyvec",
+    cargo_env_compat: true,
+    cargo_pkg_version: "1.5.1",
+    srcs: ["src/lib.rs"],
+    edition: "2018",
+    prefer_rlib: true,
+    no_stdlibs: true,
+    stdlibs: [
+        "libcompiler_builtins.rust_sysroot",
+        "libcore.rust_sysroot",
+    ],
+    vendor_available: true,
+    min_sdk_version: "29",
+}

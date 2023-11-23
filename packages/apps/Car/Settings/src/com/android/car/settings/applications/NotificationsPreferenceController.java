@@ -18,6 +18,7 @@ package com.android.car.settings.applications;
 
 import android.car.drivingstate.CarUxRestrictions;
 import android.content.Context;
+import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageInfo;
 
 import androidx.preference.TwoStatePreference;
@@ -36,6 +37,7 @@ public class NotificationsPreferenceController extends
 
     private String mPackageName;
     private int mUid;
+    private ApplicationInfo mAppInfo;
 
     public NotificationsPreferenceController(Context context, String preferenceKey,
             FragmentController fragmentController, CarUxRestrictions uxRestrictions) {
@@ -48,6 +50,7 @@ public class NotificationsPreferenceController extends
     public void setPackageInfo(PackageInfo packageInfo) {
         mPackageName = packageInfo.packageName;
         mUid = packageInfo.applicationInfo.uid;
+        mAppInfo = packageInfo.applicationInfo;
     }
 
     @Override
@@ -58,6 +61,7 @@ public class NotificationsPreferenceController extends
     @Override
     protected void updateState(TwoStatePreference preference) {
         preference.setChecked(areNotificationsEnabled(mPackageName, mUid));
+        preference.setEnabled(areNotificationsChangeable(mAppInfo));
     }
 
     @Override

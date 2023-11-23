@@ -18,4 +18,13 @@
         xmlns:androidprv="http://schemas.android.com/apk/prv/res/android"
         package="android.car" >
     <uses-sdk android:minSdkVersion="23" android:targetSdkVersion="23" />
+
+    <!-- Allows car service (CarOccupantConnectionService) to bind to the AbstractReceiverService in
+         apps. Should never be needed for normal apps.
+         <p>Protection level: signature
+    -->
+    <permission android:name="android.car.occupantconnection.permission.BIND_RECEIVER_SERVICE"
+                android:protectionLevel="signature"
+                android:label="@string/car_permission_label_bind_receiver_service"
+                android:description="@string/car_permission_desc_bind_receiver_service"/>
 </manifest>

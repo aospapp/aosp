@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+# Lint as: python2, python3
 # Copyright (c) 2014 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -8,10 +8,18 @@
 # |pseudomodem_context| module that provides a way to launch pseudomodem in a
 # child process.
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
 import argparse
 import dbus
 import dbus.mainloop.glib
-import gobject
+# AU tests use ToT client code, but ToT -3 client version.
+try:
+    from gi.repository import GObject
+except ImportError:
+    import gobject as GObject
 import imp
 import json
 import logging
@@ -19,18 +27,19 @@ import os
 import os.path
 import signal
 import sys
-import testing
 import traceback
-
-import logging_setup
-import modem_cdma
-import modem_3gpp
-import modemmanager
-import sim
-import state_machine_factory as smf
+from six.moves import range
 
 import common
+
 from autotest_lib.client.cros.cellular import mm1_constants
+from autotest_lib.client.cros.cellular.pseudomodem import testing
+from autotest_lib.client.cros.cellular.pseudomodem import logging_setup
+from autotest_lib.client.cros.cellular.pseudomodem import modem_cdma
+from autotest_lib.client.cros.cellular.pseudomodem import modem_3gpp
+from autotest_lib.client.cros.cellular.pseudomodem import modemmanager
+from autotest_lib.client.cros.cellular.pseudomodem import sim
+from autotest_lib.client.cros.cellular.pseudomodem import state_machine_factory as smf
 
 # Flags used by pseudomodem modules only that are defined below in
 # ParserArguments.
@@ -82,7 +91,7 @@ class PseudoModemManager(object):
         context.
 
         """
-        self._mainloop = gobject.MainLoop()
+        self._mainloop = GObject.MainLoop()
         self._mainloop.run()
 
 
@@ -146,7 +155,7 @@ class PseudoModemManager(object):
                         '00100' + str(i + 1),
                         network_available,
                         technology_gsm)
-                        for i in xrange(self._opts.roaming_networks)]
+                        for i in range(self._opts.roaming_networks)]
                 # TODO(armansito): Support "not activated" initialization option
                 # for 3GPP carriers.
                 self._modem = modem_3gpp.Modem3gpp(
@@ -425,7 +434,7 @@ def ParseArguments(arg_string=None):
 
     opts = parser.parse_args(arg_string)
 
-    # Extra sanity checks.
+    # Extra confidence checks.
     if opts.family == 'CDMA' and opts.roaming_networks > 0:
         raise argparse.ArgumentTypeError('CDMA networks do not support '
                                          'roaming networks.')
@@ -518,7 +527,7 @@ def _DumpExitError(dump_file_path, exc):
                       dump_file_path, str(e))
         return
 
-    dump_file.write(str(exc) + '\n')
+    dump_file.write((str(exc) + '\n').encode('utf-8'))
     dump_file.writelines(traceback.format_exc())
     dump_file.close()
 

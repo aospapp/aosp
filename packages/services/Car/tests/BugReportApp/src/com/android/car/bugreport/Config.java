@@ -66,6 +66,12 @@ final class Config {
      */
     private static final String PROP_FORCE_ENABLE = "android.car.bugreport.force_enable";
 
+    /**
+     * A system property to override GCS bucket name that is defined in {@code configs.xml}.
+     */
+
+    private static final String PROP_GCS_BUCKET = "android.car.bugreport.gcs_bucket";
+
     /*
      * Enable uploading new bugreports to GCS for these devices. If the device is not in this list,
      * {@link #KEY_UPLOAD_DESTINATION} flag will be used instead.
@@ -103,8 +109,13 @@ final class Config {
         return Build.IS_DEBUGGABLE || SystemProperties.getBoolean(PROP_FORCE_ENABLE, false);
     }
 
+    /** Returns GCS bucket system property. */
+    static String getPropGcsBucket() {
+        return SystemProperties.get(PROP_GCS_BUCKET, "");
+    }
+
     /** If new bugreports should be scheduled for uploading. */
-    boolean getAutoUpload() {
+    boolean isAutoUpload() {
         // TODO(b/144851443): Enable auto-upload only if upload destination is Gcs until
         //                    we create a way to allow implementing OEMs custom upload logic.
         return isUploadDestinationGcs();
@@ -148,7 +159,7 @@ final class Config {
         pw.print(prefix + "  ");
         pw.print("getAutoUpload");
         pw.print("=");
-        pw.println(getAutoUpload() ? "true" : "false");
+        pw.println(isAutoUpload() ? "true" : "false");
 
         pw.print(prefix + "  ");
         pw.print("getUploadDestination");

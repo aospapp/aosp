@@ -16,6 +16,7 @@
 
 package com.android.bedstead.nene.users;
 
+import android.annotation.SuppressLint;
 import android.annotation.TargetApi;
 import android.os.Build;
 
@@ -31,6 +32,7 @@ import java.util.Map;
 @TargetApi(Build.VERSION_CODES.O)
 interface AdbUserParser {
 
+    @SuppressLint("NewApi")
     static AdbUserParser get(int sdkVersion) {
         if (sdkVersion >= 31) {
             return new AdbUserParser31();

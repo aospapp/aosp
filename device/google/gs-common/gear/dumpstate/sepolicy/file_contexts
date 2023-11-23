@@ -1,0 +1,5 @@
+# generic dumpstate for pixel
+/vendor/bin/hw/android\.hardware\.dumpstate-service        u:object_r:hal_dumpstate_default_exec:s0
+
+/data/vendor/radio(/.*)?                                   u:object_r:radio_vendor_data_file:s0
+

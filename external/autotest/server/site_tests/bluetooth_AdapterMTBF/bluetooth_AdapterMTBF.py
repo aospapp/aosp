@@ -211,7 +211,7 @@ class bluetooth_AdapterMTBF(BluetoothAdapterBetterTogether,
         """Test the device can connect after suspending and resuming"""
         boot_id = self.host.get_boot_id()
         suspend = self.suspend_async(suspend_time=15)
-        start_time = self.bluetooth_facade.get_device_time()
+        start_time = self.bluetooth_facade.get_device_utc_time()
 
         self.test_device_set_discoverable(mouse, False)
 
@@ -235,30 +235,8 @@ class bluetooth_AdapterMTBF(BluetoothAdapterBetterTogether,
         """Test the device can be waken up by the mouse"""
         if self.skip_wake_test:
             return
-        boot_id = self.host.get_boot_id()
-        suspend = self.suspend_async(
-            suspend_time=60, expect_bt_wake=True)
-        start_time = self.bluetooth_facade.get_device_time()
 
-        self.test_adapter_wake_enabled()
-        self.test_suspend_and_wait_for_sleep(
-            suspend, sleep_timeout=5)
-
-        # Trigger peer wakeup
-        peer_wake = self.device_connect_async('BLE_MOUSE', mouse,
-                                              self.bluetooth_facade.address)
-        peer_wake.start()
-
-        # Expect a quick resume. If a timeout occurs, test fails.
-        self.test_wait_for_resume(boot_id,
-                                  suspend,
-                                  resume_timeout=20,
-                                  test_start_time=start_time,
-                                  fail_on_timeout=True)
-
-        # Finish peer wake process
-        peer_wake.join()
-
+        self.run_peer_wakeup_device('MOUSE', mouse, should_pair=False)
         # Make sure we're actually connected
         self.test_device_is_connected(mouse.address)
         self.test_hid_device_created(mouse.address)

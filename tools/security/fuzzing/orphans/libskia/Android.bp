@@ -5,6 +5,10 @@ package {
 cc_fuzz {
   name: "libskia_image_processor_fuzzer",
 
+  defaults: [
+    "skia_deps",
+  ],
+
   srcs: [
     "libskia_image_processor_fuzzer.cpp",
   ],

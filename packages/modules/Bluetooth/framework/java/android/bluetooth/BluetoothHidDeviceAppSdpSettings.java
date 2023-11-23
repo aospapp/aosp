@@ -16,6 +16,7 @@
 
 package android.bluetooth;
 
+import android.annotation.NonNull;
 import android.os.Parcel;
 import android.os.Parcelable;
 import android.util.EventLog;
@@ -92,25 +93,23 @@ public final class BluetoothHidDeviceAppSdpSettings implements Parcelable {
         return 0;
     }
 
-    public static final @android.annotation.NonNull Parcelable.Creator<BluetoothHidDeviceAppSdpSettings> CREATOR =
-            new Parcelable.Creator<BluetoothHidDeviceAppSdpSettings>() {
+    @NonNull
+    public static final Creator<BluetoothHidDeviceAppSdpSettings> CREATOR = new Creator<>() {
+        @Override
+        public BluetoothHidDeviceAppSdpSettings createFromParcel(Parcel in) {
+            return new BluetoothHidDeviceAppSdpSettings(
+                    in.readString(),
+                    in.readString(),
+                    in.readString(),
+                    in.readByte(),
+                    in.createByteArray());
+        }
 
-                @Override
-                public BluetoothHidDeviceAppSdpSettings createFromParcel(Parcel in) {
-
-                    return new BluetoothHidDeviceAppSdpSettings(
-                            in.readString(),
-                            in.readString(),
-                            in.readString(),
-                            in.readByte(),
-                            in.createByteArray());
-                }
-
-                @Override
-                public BluetoothHidDeviceAppSdpSettings[] newArray(int size) {
-                    return new BluetoothHidDeviceAppSdpSettings[size];
-                }
-            };
+        @Override
+        public BluetoothHidDeviceAppSdpSettings[] newArray(int size) {
+            return new BluetoothHidDeviceAppSdpSettings[size];
+        }
+    };
 
     @Override
     public void writeToParcel(Parcel out, int flags) {

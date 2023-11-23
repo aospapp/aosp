@@ -20,6 +20,7 @@
 #include <android-base/file.h>
 #include <android-base/properties.h>
 #include <android-base/unique_fd.h>
+#include <android/binder_auto_utils.h>
 #include <android/hardware/thermal/2.0/IThermal.h>
 #include <android/hardware/thermal/2.0/IThermalChangedCallback.h>
 #include <android/hardware/thermal/2.0/types.h>
@@ -82,6 +83,9 @@ class ZoneInfo {
     ZoneInfo(const TemperatureType &type, const string &name, const ThrottlingSeverity &severity);
 };
 
+/**
+ * TODO: Create an AIDL version of this and move to hidl/
+ */
 class UsbOverheatEvent : public IServiceNotification, public IThermalChangedCallback {
   private:
     // To wake up thread to record max temperature
@@ -103,24 +107,44 @@ class UsbOverheatEvent : public IServiceNotification, public IThermalChangedCall
     unique_ptr<thread> monitor_;
     // Maximum overheat temperature recorded
     float max_overheat_temp_;
-    // Reference to thermal service
+    // Reference to Thermal service
     ::android::sp<IThermal> thermal_service_;
+    // Mutex lock for Thermal service
+    std::mutex thermal_hal_mutex_;
+    // Death recipient for Thermal AIDL service
+    ndk::ScopedAIBinder_DeathRecipient thermal_aidl_death_recipient_;
+    // Whether the Thermal callback is successfully registered
+    bool is_thermal_callback_registered_;
     // Thread that polls temperature to record max temp
     static void *monitorThread(void *param);
     // Register service notification listener
     bool registerListener();
     // Helper function to wakeup monitor thread
     void wakeupMonitor();
-    // Thermal ServiceNotification listener
+    // Thermal HIDL Service Notification listener
     Return<void> onRegistration(const hidl_string & /*fully_qualified_name*/,
                                 const hidl_string & /*instance_name*/,
                                 bool /*pre_existing*/) override;
     // Thermal service callback
     Return<void> notifyThrottling(const Temperature &temperature) override;
+    // Register Thermal callback
+    bool registerThermalCallback(const string &service_str);
+    // Connect Thermal AIDL service
+    bool connectAidlThermalService();
+    // Unregister Thermal callback
+    void unregisterThermalCallback();
+    // Callback for Thermal AIDL service death recipient
+    static void onThermalAidlBinderDied(void *cookie) {
+        if (cookie) {
+            auto *e = static_cast<UsbOverheatEvent *>(cookie);
+            e->connectAidlThermalService();
+        }
+    }
 
   public:
     UsbOverheatEvent(const ZoneInfo &monitored_zone, const std::vector<ZoneInfo> &queried_zones,
                      const int &monitor_interval_sec);
+    ~UsbOverheatEvent();
     // Start monitoring thermal zone for maximum temperature
     bool startRecording();
     // Stop monitoring thermal zone

@@ -2,7 +2,7 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-AUTHOR = "Chrome OS Team"
+AUTHOR = "ChromeOS Team"
 NAME = "power_LoadTest.single_page"
 PURPOSE = "Measure power draw when system is under load."
 CRITERIA = "This test is a benchmark."
@@ -10,6 +10,7 @@ TIME = "MEDIUM"
 TEST_CATEGORY = "Benchmark"
 TEST_CLASS = "power"
 TEST_TYPE = "client"
+PY_VERSION = 3
 
 DOC = """
 This test measures the power of a single webpage including stats such as
@@ -50,19 +51,21 @@ loop_count = 1
 # The duration and delay are scaled by 1/12 due to the loop time being 300
 # instead of 3600 seconds. This is why duration is minutes(60) instead of
 # minutes(5) and delay is minutes(12) instead of minutes(1).
-tasks='[{' + \
-'    type: \'cycle\',' + \
-'    name: \'web\',' + \
-'    start: seconds(1),' + \
-'    duration: minutes(60),' + \
-'    delay: minutes(12),' + \
-'    timeout: seconds(10),' + \
-'    focus: true,' + \
-'    urls: [' + \
-'\'' + \
-args[0] + \
-'\'' + \
-']}]'
+#
+tasks = """
+[
+  {
+    type: 'cycle',
+    name: 'web',
+    start: seconds(1),
+    duration: minutes(60),
+    delay: minutes(12),
+    timeout: seconds(10),
+    focus: true,
+    urls: ['%s'],
+  },
+]
+""" % (args[0])
 
 args_dict = utils.args_to_dict(args)
 pdash_note = args_dict.get('pdash_note', '')

@@ -38,20 +38,26 @@ cc_defaults {
   stl: "none",
 }
 
+cc_binary_host {
+  name: "strgen",
+  local_include_dirs: ["include"],
+  srcs: ["gen/strgen.c"],
+}
+
 genrule {
   name: "bc-lib.c",
   srcs: ["gen/lib.bc"],
   out: ["gen/lib.c"],
-  tool_files: ["gen/strgen.sh"],
-  cmd: "$(location gen/strgen.sh) $(in) $(out) bc_lib bc_lib_name BC_ENABLED",
+  tools: ["strgen"],
+  cmd: "$(location strgen) $(in) $(out) 0 bc_lib bc_lib_name BC_ENABLED 1",
 }
 
 genrule {
   name: "bc-bc_help.c",
   srcs: ["gen/bc_help.txt"],
   out: ["gen/bc_help.c"],
-  tool_files: ["gen/strgen.sh"],
-  cmd: "$(location gen/strgen.sh) $(in) $(out) bc_help '' BC_ENABLED",
+  tools: ["strgen"],
+  cmd: "$(location strgen) $(in) $(out) 0 bc_help '' BC_ENABLED",
 }
 
 genrule {
@@ -86,7 +92,7 @@ sh_test {
   host_supported: true,
   device_supported: false,
   data: [
-    "scripts/functions.sh",
+    "scripts/*.sh",
     "tests/**/*",
   ],
 }

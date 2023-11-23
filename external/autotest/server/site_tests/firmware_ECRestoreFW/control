@@ -4,7 +4,7 @@
 
 from autotest_lib.server import utils
 
-AUTHOR = "Chrome OS Team"
+AUTHOR = "ChromeOS Team"
 NAME = "firmware_ECRestoreFW"
 PURPOSE = "Verify the FW restoration capability even from a bad state."
 ATTRIBUTES = ""
@@ -12,13 +12,15 @@ TIME = "MEDIUM"
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "firmware"
 TEST_TYPE = "server"
-DEPENDENCIES = "ec:cros"
+JOB_RETRIES = 0
+DEPENDENCIES = "ec:cros, servo_state:WORKING"
+PY_VERSION = 3
 
 DOC = """
 This test flashes a wrong EC RW firmware and checks FW gets restored.
 
-If you want to have any specific fake board name (e.g. coral) to test against,
-add --args="board_as=coral" to test_that command line.
+If you want to use a local tarball file to test,
+add --args="local_tarball=<path>" to test_that command line.
 """
 
 if 'args_dict' not in locals():

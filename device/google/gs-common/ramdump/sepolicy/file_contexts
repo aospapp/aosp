@@ -1,0 +1,2 @@
+# dumpstate
+/vendor/bin/dump/dump_ramdump           u:object_r:dump_ramdump_exec:s0

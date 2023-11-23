@@ -1,0 +1,1 @@
+allow system_server sysfs_touch_gti:file r_file_perms;

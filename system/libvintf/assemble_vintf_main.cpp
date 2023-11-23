@@ -82,8 +82,7 @@ int main(int argc, char** argv) {
     std::string outFilePath;
     auto assembleVintf = AssembleVintf::newInstance();
     int res;
-    int optind;
-    while ((res = getopt_long(argc, argv, "hi:o:mc:nl", longopts, &optind)) >= 0) {
+    while ((res = getopt_long(argc, argv, "hi:o:mc:nl", longopts, nullptr)) >= 0) {
         switch (res) {
             case 'i': {
                 for (const auto& inFilePath : ::android::base::Split(optarg, ":")) {

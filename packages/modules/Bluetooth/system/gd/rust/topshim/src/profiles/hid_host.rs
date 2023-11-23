@@ -1,12 +1,16 @@
 use crate::bindings::root as bindings;
-use crate::btif::{BluetoothInterface, BtStatus, RawAddress, SupportedProfiles};
+use crate::btif::{BluetoothInterface, BtStatus, RawAddress, SupportedProfiles, ToggleableProfile};
+use crate::ccall;
 use crate::profiles::hid_host::bindings::bthh_interface_t;
 use crate::topstack::get_dispatchers;
-use crate::{cast_to_ffi_address, ccall, deref_ffi_address};
+use crate::utils::LTCheckedPtrMut;
 
+use num_derive::{FromPrimitive, ToPrimitive};
 use num_traits::cast::{FromPrimitive, ToPrimitive};
 use std::sync::{Arc, Mutex};
-use topshim_macros::cb_variant;
+use topshim_macros::{cb_variant, profile_enabled_or};
+
+use log::warn;
 
 #[derive(Debug, FromPrimitive, PartialEq, PartialOrd)]
 #[repr(u32)]
@@ -97,6 +101,7 @@ fn convert_report(count: i32, raw: *mut u8) -> Vec<u8> {
     return v;
 }
 
+#[derive(Debug)]
 pub enum HHCallbacks {
     ConnectionState(RawAddress, BthhConnectionState),
     VirtualUnplug(RawAddress, BthhStatus),
@@ -111,40 +116,37 @@ pub struct HHCallbacksDispatcher {
     pub dispatch: Box<dyn Fn(HHCallbacks) + Send>,
 }
 
-// Export the raw address type directly from the bindings
-type FfiAddress = bindings::RawAddress;
-
 type HHCb = Arc<Mutex<HHCallbacksDispatcher>>;
 
 cb_variant!(HHCb, connection_state_cb -> HHCallbacks::ConnectionState,
-*mut FfiAddress, bindings::bthh_connection_state_t -> BthhConnectionState, {
-    let _0 = unsafe { deref_ffi_address!(_0) };
+*mut RawAddress, bindings::bthh_connection_state_t -> BthhConnectionState, {
+    let _0 = unsafe { *_0 };
 });
 cb_variant!(HHCb, virtual_unplug_cb -> HHCallbacks::VirtualUnplug,
-*mut FfiAddress, bindings::bthh_status_t -> BthhStatus, {
-    let _0 = unsafe { deref_ffi_address!(_0) };
+*mut RawAddress, bindings::bthh_status_t -> BthhStatus, {
+    let _0 = unsafe { *_0 };
 });
 cb_variant!(HHCb, hid_info_cb -> HHCallbacks::HidInfo,
-*mut FfiAddress, bindings::bthh_hid_info_t -> BthhHidInfo, {
-    let _0 = unsafe { deref_ffi_address!(_0) };
+*mut RawAddress, bindings::bthh_hid_info_t -> BthhHidInfo, {
+    let _0 = unsafe { *_0 };
 });
 cb_variant!(HHCb, protocol_mode_cb -> HHCallbacks::ProtocolMode,
-*mut FfiAddress, bindings::bthh_status_t -> BthhStatus,
+*mut RawAddress, bindings::bthh_status_t -> BthhStatus,
 bindings::bthh_protocol_mode_t -> BthhProtocolMode, {
-    let _0 = unsafe { deref_ffi_address!(_0) };
+    let _0 = unsafe { *_0 };
 });
 cb_variant!(HHCb, idle_time_cb -> HHCallbacks::IdleTime,
-*mut FfiAddress, bindings::bthh_status_t -> BthhStatus, i32, {
-    let _0 = unsafe { deref_ffi_address!(_0) };
+*mut RawAddress, bindings::bthh_status_t -> BthhStatus, i32, {
+    let _0 = unsafe { *_0 };
 });
 cb_variant!(HHCb, get_report_cb -> HHCallbacks::GetReport,
-*mut FfiAddress, bindings::bthh_status_t -> BthhStatus, *mut u8, i32, {
-    let _0 = unsafe { deref_ffi_address!(_0) };
+*mut RawAddress, bindings::bthh_status_t -> BthhStatus, *mut u8, i32, {
+    let _0 = unsafe { *_0 };
     let _2 = convert_report(_3, _2);
 });
 cb_variant!(HHCb, handshake_cb -> HHCallbacks::Handshake,
-*mut FfiAddress, bindings::bthh_status_t -> BthhStatus, {
-    let _0 = unsafe { deref_ffi_address!(_0) };
+*mut RawAddress, bindings::bthh_status_t -> BthhStatus, {
+    let _0 = unsafe { *_0 };
 });
 
 struct RawHHWrapper {
@@ -157,8 +159,34 @@ unsafe impl Send for RawHHWrapper {}
 pub struct HidHost {
     internal: RawHHWrapper,
     is_init: bool,
+    _is_enabled: bool,
+    pub is_hogp_activated: bool,
+    pub is_hidp_activated: bool,
+    pub is_profile_updated: bool,
     // Keep callback object in memory (underlying code doesn't make copy)
     callbacks: Option<Box<bindings::bthh_callbacks_t>>,
+}
+
+impl ToggleableProfile for HidHost {
+    fn is_enabled(&self) -> bool {
+        self._is_enabled
+    }
+
+    fn enable(&mut self) -> bool {
+        let cb_ptr = LTCheckedPtrMut::from(self.callbacks.as_mut().unwrap());
+
+        let init = ccall!(self, init, cb_ptr.into());
+        self.is_init = BtStatus::from(init) == BtStatus::Success;
+        self._is_enabled = self.is_init;
+        true
+    }
+
+    #[profile_enabled_or(false)]
+    fn disable(&mut self) -> bool {
+        ccall!(self, cleanup);
+        self._is_enabled = false;
+        true
+    }
 }
 
 impl HidHost {
@@ -167,6 +195,10 @@ impl HidHost {
         HidHost {
             internal: RawHHWrapper { raw: r as *const bthh_interface_t },
             is_init: false,
+            _is_enabled: false,
+            is_hogp_activated: false,
+            is_hidp_activated: false,
+            is_profile_updated: false,
             callbacks: None,
         }
     }
@@ -181,7 +213,7 @@ impl HidHost {
             panic!("Tried to set dispatcher for HHCallbacks but it already existed");
         }
 
-        let mut callbacks = Box::new(bindings::bthh_callbacks_t {
+        let callbacks = Box::new(bindings::bthh_callbacks_t {
             size: 8 * 8,
             connection_state_cb: Some(connection_state_cb),
             hid_info_cb: Some(hid_info_cb),
@@ -192,65 +224,70 @@ impl HidHost {
             handshake_cb: Some(handshake_cb),
         });
 
-        let rawcb = &mut *callbacks;
-
-        let init = ccall!(self, init, rawcb);
-        self.is_init = BtStatus::from(init) == BtStatus::Success;
         self.callbacks = Some(callbacks);
 
-        return self.is_init;
+        true
     }
 
+    #[profile_enabled_or(BtStatus::NotReady)]
     pub fn connect(&self, addr: &mut RawAddress) -> BtStatus {
-        let ffi_addr = cast_to_ffi_address!(addr as *mut RawAddress);
-        BtStatus::from(ccall!(self, connect, ffi_addr))
+        let addr_ptr = LTCheckedPtrMut::from_ref(addr);
+        BtStatus::from(ccall!(self, connect, addr_ptr.into()))
     }
 
+    #[profile_enabled_or(BtStatus::NotReady)]
     pub fn disconnect(&self, addr: &mut RawAddress) -> BtStatus {
-        let ffi_addr = cast_to_ffi_address!(addr as *mut RawAddress);
-        BtStatus::from(ccall!(self, disconnect, ffi_addr))
+        let addr_ptr = LTCheckedPtrMut::from_ref(addr);
+        BtStatus::from(ccall!(self, disconnect, addr_ptr.into()))
     }
 
+    #[profile_enabled_or(BtStatus::NotReady)]
     pub fn virtual_unplug(&self, addr: &mut RawAddress) -> BtStatus {
-        let ffi_addr = cast_to_ffi_address!(addr as *mut RawAddress);
-        BtStatus::from(ccall!(self, virtual_unplug, ffi_addr))
+        let addr_ptr = LTCheckedPtrMut::from_ref(addr);
+        BtStatus::from(ccall!(self, virtual_unplug, addr_ptr.into()))
     }
 
+    #[profile_enabled_or(BtStatus::NotReady)]
     pub fn set_info(&self, addr: &mut RawAddress, info: BthhHidInfo) -> BtStatus {
-        let ffi_addr = cast_to_ffi_address!(addr as *mut RawAddress);
-        BtStatus::from(ccall!(self, set_info, ffi_addr, info))
+        let addr_ptr = LTCheckedPtrMut::from_ref(addr);
+        BtStatus::from(ccall!(self, set_info, addr_ptr.into(), info))
     }
 
+    #[profile_enabled_or(BtStatus::NotReady)]
     pub fn get_protocol(&self, addr: &mut RawAddress, mode: BthhProtocolMode) -> BtStatus {
-        let ffi_addr = cast_to_ffi_address!(addr as *mut RawAddress);
+        let addr_ptr = LTCheckedPtrMut::from_ref(addr);
         BtStatus::from(ccall!(
             self,
             get_protocol,
-            ffi_addr,
+            addr_ptr.into(),
             bindings::bthh_protocol_mode_t::from(mode)
         ))
     }
 
+    #[profile_enabled_or(BtStatus::NotReady)]
     pub fn set_protocol(&self, addr: &mut RawAddress, mode: BthhProtocolMode) -> BtStatus {
-        let ffi_addr = cast_to_ffi_address!(addr as *mut RawAddress);
+        let addr_ptr = LTCheckedPtrMut::from_ref(addr);
         BtStatus::from(ccall!(
             self,
             set_protocol,
-            ffi_addr,
+            addr_ptr.into(),
             bindings::bthh_protocol_mode_t::from(mode)
         ))
     }
 
+    #[profile_enabled_or(BtStatus::NotReady)]
     pub fn get_idle_time(&self, addr: &mut RawAddress) -> BtStatus {
-        let ffi_addr = cast_to_ffi_address!(addr as *mut RawAddress);
-        BtStatus::from(ccall!(self, get_idle_time, ffi_addr))
+        let addr_ptr = LTCheckedPtrMut::from_ref(addr);
+        BtStatus::from(ccall!(self, get_idle_time, addr_ptr.into()))
     }
 
+    #[profile_enabled_or(BtStatus::NotReady)]
     pub fn set_idle_time(&self, addr: &mut RawAddress, idle_time: u8) -> BtStatus {
-        let ffi_addr = cast_to_ffi_address!(addr as *mut RawAddress);
-        BtStatus::from(ccall!(self, set_idle_time, ffi_addr, idle_time))
+        let addr_ptr = LTCheckedPtrMut::from_ref(addr);
+        BtStatus::from(ccall!(self, set_idle_time, addr_ptr.into(), idle_time))
     }
 
+    #[profile_enabled_or(BtStatus::NotReady)]
     pub fn get_report(
         &self,
         addr: &mut RawAddress,
@@ -258,34 +295,96 @@ impl HidHost {
         report_id: u8,
         buffer_size: i32,
     ) -> BtStatus {
-        let ffi_addr = cast_to_ffi_address!(addr as *mut RawAddress);
+        let addr_ptr = LTCheckedPtrMut::from_ref(addr);
         BtStatus::from(ccall!(
             self,
             get_report,
-            ffi_addr,
+            addr_ptr.into(),
             bindings::bthh_report_type_t::from(report_type),
             report_id,
             buffer_size
         ))
     }
 
+    #[profile_enabled_or(BtStatus::NotReady)]
+    pub fn get_report_reply(
+        &self,
+        addr: &mut RawAddress,
+        status: BthhStatus,
+        report: &mut [u8],
+        size: u16,
+    ) -> BtStatus {
+        let addr_ptr = LTCheckedPtrMut::from_ref(addr);
+        BtStatus::from(ccall!(
+            self,
+            get_report_reply,
+            addr_ptr.into(),
+            status as bindings::bthh_status_t,
+            report.as_mut_ptr() as *mut std::os::raw::c_char,
+            size
+        ))
+    }
+
+    #[profile_enabled_or(BtStatus::NotReady)]
     pub fn set_report(
         &self,
         addr: &mut RawAddress,
         report_type: BthhReportType,
         report: &mut [u8],
     ) -> BtStatus {
-        let ffi_addr = cast_to_ffi_address!(addr as *mut RawAddress);
+        let addr_ptr = LTCheckedPtrMut::from_ref(addr);
+        let report_ptr = LTCheckedPtrMut::from(report);
         BtStatus::from(ccall!(
             self,
             set_report,
-            ffi_addr,
+            addr_ptr.into(),
             bindings::bthh_report_type_t::from(report_type),
-            report.as_mut_ptr() as *mut std::os::raw::c_char
+            report_ptr.cast_into::<std::os::raw::c_char>()
         ))
     }
 
-    pub fn cleanup(&self) {
+    #[profile_enabled_or(BtStatus::NotReady)]
+    pub fn send_data(&mut self, addr: &mut RawAddress, data: &mut [u8]) -> BtStatus {
+        let addr_ptr = LTCheckedPtrMut::from_ref(addr);
+        let data_ptr = LTCheckedPtrMut::from(data);
+        BtStatus::from(ccall!(
+            self,
+            send_data,
+            addr_ptr.into(),
+            data_ptr.cast_into::<std::os::raw::c_char>()
+        ))
+    }
+
+    /// return true if we need to restart hh
+    pub fn configure_enabled_profiles(&mut self) -> bool {
+        let needs_restart = self.is_profile_updated;
+        if self.is_profile_updated {
+            ccall!(
+                self,
+                configure_enabled_profiles,
+                self.is_hidp_activated,
+                self.is_hogp_activated
+            );
+            self.is_profile_updated = false;
+        }
+        needs_restart
+    }
+
+    pub fn activate_hogp(&mut self, active: bool) {
+        if self.is_hogp_activated != active {
+            self.is_hogp_activated = active;
+            self.is_profile_updated = true;
+        }
+    }
+
+    pub fn activate_hidp(&mut self, active: bool) {
+        if self.is_hidp_activated != active {
+            self.is_hidp_activated = active;
+            self.is_profile_updated = true;
+        }
+    }
+    #[profile_enabled_or]
+    pub fn cleanup(&mut self) {
         ccall!(self, cleanup)
     }
 }

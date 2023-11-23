@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2018, 2021, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -22,17 +22,20 @@
  */
 package test.java.io.InputStream;
 
-import java.io.ByteArrayOutputStream;
-import java.io.InputStream;
-import java.io.IOException;
-import org.testng.annotations.AfterGroups;
-import org.testng.annotations.BeforeGroups;
+import org.testng.annotations.AfterClass;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
+
+import java.io.ByteArrayOutputStream;
+import java.io.EOFException;
+import java.io.IOException;
+import java.io.InputStream;
+
 import static org.testng.Assert.*;
 
 /*
  * @test
- * @bug 4358774 8139206
+ * @bug 4358774 6516099 8139206
  * @run testng NullInputStream
  * @summary Check for expected behavior of InputStream.nullInputStream().
  */
@@ -40,22 +43,18 @@ public class NullInputStream {
     private static InputStream openStream;
     private static InputStream closedStream;
 
-    @BeforeGroups(groups="open")
-    public static void openStream() {
+    @BeforeClass
+    public static void setup() {
         openStream = InputStream.nullInputStream();
-    }
-
-    @BeforeGroups(groups="closed")
-    public static void openAndCloseStream() {
         closedStream = InputStream.nullInputStream();
         try {
-            closedStream.close();
+           closedStream.close();
         } catch (IOException e) {
             fail("Unexpected IOException");
         }
     }
 
-    @AfterGroups(groups="open")
+    @AfterClass
     public static void closeStream() {
         try {
             openStream.close();
@@ -64,12 +63,12 @@ public class NullInputStream {
         }
     }
 
-    @Test(groups = "open")
+    @Test
     public static void testOpen() {
         assertNotNull(openStream, "InputStream.nullInputStream() returned null");
     }
 
-    @Test(groups = "open")
+    @Test
     public static void testAvailable() {
         try {
             assertEquals(0, openStream.available(), "available() != 0");
@@ -78,7 +77,7 @@ public class NullInputStream {
         }
     }
 
-    @Test(groups = "open")
+    @Test
     public static void testRead() {
         try {
             assertEquals(-1, openStream.read(), "read() != -1");
@@ -87,41 +86,41 @@ public class NullInputStream {
         }
     }
 
-    @Test(groups = "open")
+    @Test
     public static void testReadBII() {
         try {
             assertEquals(-1, openStream.read(new byte[1], 0, 1),
-                    "read(byte[],int,int) != -1");
+                "read(byte[],int,int) != -1");
         } catch (IOException ioe) {
             fail("Unexpected IOException");
         }
     }
 
-    @Test(groups = "open")
+    @Test
     public static void testReadAllBytes() {
         try {
             assertEquals(0, openStream.readAllBytes().length,
-                    "readAllBytes().length != 0");
+                "readAllBytes().length != 0");
         } catch (IOException ioe) {
             fail("Unexpected IOException");
         }
     }
 
-    @Test(groups = "open")
+    @Test
     public static void testReadNBytes() {
         try {
             assertEquals(0, openStream.readNBytes(new byte[1], 0, 1),
-                    "readNBytes(byte[],int,int) != 0");
+                "readNBytes(byte[],int,int) != 0");
         } catch (IOException ioe) {
             fail("Unexpected IOException");
         }
     }
 
-    @Test(groups = "open")
+    @Test
     public static void testReadNBytesWithLength() {
         try {
             assertEquals(0, openStream.readNBytes(-1).length,
-                    "readNBytes(-1) != 0");
+                "readNBytes(-1) != 0");
             fail("Expected IllegalArgumentException not thrown");
         } catch (IllegalArgumentException iae) {
         } catch (IOException ioe) {
@@ -129,15 +128,15 @@ public class NullInputStream {
         }
         try {
             assertEquals(0, openStream.readNBytes(0).length,
-                    "readNBytes(0, false) != 0");
+                "readNBytes(0, false) != 0");
             assertEquals(0, openStream.readNBytes(1).length,
-                    "readNBytes(1, false) != 0");
+                "readNBytes(1, false) != 0");
         } catch (IOException ioe) {
             fail("Unexpected IOException");
         }
     }
 
-    @Test(groups = "open")
+    @Test
     public static void testSkip() {
         try {
             assertEquals(0, openStream.skip(1), "skip() != 0");
@@ -146,17 +145,32 @@ public class NullInputStream {
         }
     }
 
-    @Test(groups = "open")
-    public static void testTransferTo() {
+    @Test
+    public static void testSkipNBytes() {
         try {
-            assertEquals(0, openStream.transferTo(new ByteArrayOutputStream(7)),
-                    "transferTo() != 0");
+            openStream.skipNBytes(-1);
+            openStream.skipNBytes(0);
         } catch (IOException ioe) {
             fail("Unexpected IOException");
         }
     }
 
-    @Test(groups = "closed")
+    @Test(expectedExceptions = EOFException.class)
+    public static void testSkipNBytesEOF() throws IOException {
+        openStream.skipNBytes(1);
+    }
+
+    @Test
+    public static void testTransferTo() {
+        try {
+            assertEquals(0, openStream.transferTo(new ByteArrayOutputStream(7)),
+                "transferTo() != 0");
+        } catch (IOException ioe) {
+            fail("Unexpected IOException");
+        }
+    }
+
+    @Test
     public static void testAvailableClosed() {
         try {
             closedStream.available();
@@ -165,7 +179,7 @@ public class NullInputStream {
         }
     }
 
-    @Test(groups = "closed")
+    @Test
     public static void testReadClosed() {
         try {
             closedStream.read();
@@ -174,7 +188,7 @@ public class NullInputStream {
         }
     }
 
-    @Test(groups = "closed")
+    @Test
     public static void testReadBIIClosed() {
         try {
             closedStream.read(new byte[1], 0, 1);
@@ -183,7 +197,7 @@ public class NullInputStream {
         }
     }
 
-    @Test(groups = "closed")
+    @Test
     public static void testReadAllBytesClosed() {
         try {
             closedStream.readAllBytes();
@@ -192,7 +206,7 @@ public class NullInputStream {
         }
     }
 
-    @Test(groups = "closed")
+    @Test
     public static void testReadNBytesClosed() {
         try {
             closedStream.readNBytes(new byte[1], 0, 1);
@@ -201,7 +215,7 @@ public class NullInputStream {
         }
     }
 
-    @Test(groups = "closed")
+    @Test
     public static void testReadNBytesWithLengthClosed() {
         try {
             closedStream.readNBytes(1);
@@ -210,7 +224,7 @@ public class NullInputStream {
         }
     }
 
-    @Test(groups = "closed")
+    @Test
     public static void testSkipClosed() {
         try {
             closedStream.skip(1);
@@ -219,7 +233,16 @@ public class NullInputStream {
         }
     }
 
-    @Test(groups = "closed")
+    @Test
+    public static void testSkipNBytesClosed() {
+        try {
+            closedStream.skipNBytes(1);
+            fail("Expected IOException not thrown");
+        } catch (IOException e) {
+        }
+    }
+
+    @Test
     public static void testTransferToClosed() {
         try {
             closedStream.transferTo(new ByteArrayOutputStream(7));

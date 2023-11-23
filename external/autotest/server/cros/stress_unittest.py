@@ -5,7 +5,9 @@
 import threading
 import unittest
 
-import stress
+import common
+
+from autotest_lib.server.cros import stress
 
 
 class StopThreadForTesting(Exception):

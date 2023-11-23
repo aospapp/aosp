@@ -24,7 +24,6 @@ import com.google.common.collect.ImmutableCollection;
 import com.google.common.collect.ImmutableSet;
 import com.squareup.javapoet.ClassName;
 import java.util.Optional;
-import javax.annotation.processing.ProcessingEnvironment;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.TypeElement;
 
@@ -43,18 +42,15 @@ public abstract class ValidatorCrossProfileConfigurationInfo {
   public abstract Optional<TypeElement> connector();
 
   public static ImmutableSet<ValidatorCrossProfileConfigurationInfo> createMultipleFromElement(
-      ProcessingEnvironment processingEnvironment, TypeElement annotatedElement) {
+      Context context, TypeElement annotatedElement) {
     ImmutableSet<CrossProfileConfigurationAnnotationInfo> infos =
-        AnnotationFinder.extractCrossProfileConfigurationsAnnotationInfo(
-                annotatedElement,
-                processingEnvironment.getTypeUtils(),
-                processingEnvironment.getElementUtils())
+        AnnotationFinder.extractCrossProfileConfigurationsAnnotationInfo(context, annotatedElement)
             .configurations();
     ImmutableSet.Builder<ValidatorCrossProfileConfigurationInfo> configurations =
         ImmutableSet.builder();
 
     if (infos.isEmpty()) {
-      configurations.add(createFromElement(processingEnvironment, annotatedElement));
+      configurations.add(createFromElement(context, annotatedElement));
     } else {
       for (CrossProfileConfigurationAnnotationInfo info : infos) {
         configurations.add(createFromAnnotationInfo(info, annotatedElement));
@@ -65,9 +61,9 @@ public abstract class ValidatorCrossProfileConfigurationInfo {
   }
 
   public static ValidatorCrossProfileConfigurationInfo createFromElement(
-      ProcessingEnvironment processingEnv, TypeElement annotatedElement) {
+      Context context, TypeElement annotatedElement) {
     CrossProfileConfigurationAnnotationInfo annotationInfo =
-        extractFromCrossProfileConfigurationAnnotation(annotatedElement, processingEnv);
+        extractFromCrossProfileConfigurationAnnotation(context, annotatedElement);
 
     return createFromAnnotationInfo(annotationInfo, annotatedElement);
   }
@@ -117,9 +113,8 @@ public abstract class ValidatorCrossProfileConfigurationInfo {
   }
 
   private static CrossProfileConfigurationAnnotationInfo
-      extractFromCrossProfileConfigurationAnnotation(
-          Element annotatedElement, ProcessingEnvironment processingEnv) {
+      extractFromCrossProfileConfigurationAnnotation(Context context, Element annotatedElement) {
     return AnnotationFinder.extractCrossProfileConfigurationAnnotationInfo(
-        annotatedElement, processingEnv.getTypeUtils(), processingEnv.getElementUtils());
+        context, annotatedElement);
   }
 }

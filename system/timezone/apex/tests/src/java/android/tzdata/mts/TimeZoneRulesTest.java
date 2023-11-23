@@ -61,7 +61,10 @@ public class TimeZoneRulesTest {
     public void getDisplayNameShort_nonHourOffsets() {
         TimeZone iranTz = TimeZone.getTimeZone("Asia/Tehran");
         assertEquals("GMT+03:30", iranTz.getDisplayName(false, TimeZone.SHORT, Locale.UK));
-        assertEquals("GMT+04:30", iranTz.getDisplayName(true, TimeZone.SHORT, Locale.UK));
+
+        TimeZone chathamTz = TimeZone.getTimeZone("Pacific/Chatham");
+        assertEquals("GMT+12:45", chathamTz.getDisplayName(false, TimeZone.SHORT, Locale.UK));
+        assertEquals("GMT+13:45", chathamTz.getDisplayName(true, TimeZone.SHORT, Locale.UK));
     }
 
     @Test

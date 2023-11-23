@@ -21,6 +21,7 @@
     <option name="config-descriptor:metadata" key="parameter" value="not_multi_abi" />
     <option name="config-descriptor:metadata" key="parameter" value="secondary_user" />
     <option name="config-descriptor:metadata" key="parameter" value="no_foldable_states" />
+    <option name="config-descriptor:metadata" key="parameter" value="run_on_sdk_sandbox" />
 
     <target_preparer class="com.android.tradefed.targetprep.suite.SuiteApkInstaller">
         <option name="cleanup-apks" value="true" />
@@ -35,6 +36,11 @@
         <!-- This is done to bring the app out of the stopped state -->
         <option name="run-command" value="am start -a com.android.suspendapps.suspendtestapp.action.FINISH_TEST_ACTIVITY com.android.suspendapps.suspendtestapp/.SuspendTestActivity" />
     </target_preparer>
+
+    <metrics_collector class="com.android.tradefed.device.metric.FilePullerLogCollector">
+        <option name="directory-keys" value="/data/user/0/android.suspendapps.cts/files" />
+        <option name="collect-on-run-ended-only" value="true" />
+    </metrics_collector>
 
     <test class="com.android.tradefed.testtype.AndroidJUnitTest" >
         <option name="package" value="android.suspendapps.cts" />

@@ -18,6 +18,7 @@
 
 #include <cstring>
 #include <fstream>
+#include <type_traits>
 #include <vector>
 
 #ifdef _WIN32
@@ -184,10 +185,51 @@ unique_ptr<CodeWriter> IoDelegate::GetCodeWriter(
 }
 
 #ifdef _WIN32
-Result<vector<string>> IoDelegate::ListFiles(const string&) const {
-  return Error() << "File listing not implemented on Windows";
-}
 
+static Result<void> add_list_files(const string& dirname, vector<string>* result) {
+  AIDL_FATAL_IF(result == nullptr, dirname);
+
+  WIN32_FIND_DATA find_data;
+  // Look up the first file.
+  // See https://stackoverflow.com/a/14841564/112950 for why we use remove_pointer_t
+  // here.
+  // Note: we need to use a wildcard expression like `\*` to ensure we traverse
+  // the directory. Otherwise Find{First,Next}File will only return the directory
+  // itself and stop.
+  const string path(dirname + "\\*");
+  std::unique_ptr<std::remove_pointer_t<HANDLE>, decltype(&FindClose)> search_handle(
+      FindFirstFile(path.c_str(), &find_data), FindClose);
+
+  if (search_handle.get() == INVALID_HANDLE_VALUE) {
+    return Error() << "Failed to read directory '" << dirname << "': " << GetLastError();
+  }
+
+  bool has_more_files = true;
+  do {
+    const bool skip = !strcmp(find_data.cFileName, ".") || !strcmp(find_data.cFileName, "..");
+
+    if (!skip) {
+      if (find_data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
+        if (auto ret = add_list_files(dirname + OS_PATH_SEPARATOR + find_data.cFileName, result);
+            !ret.ok()) {
+          return ret;
+        }
+      } else {
+        result->emplace_back(dirname + OS_PATH_SEPARATOR + find_data.cFileName);
+      }
+    }
+
+    has_more_files = FindNextFile(search_handle.get(), &find_data);
+    if (!has_more_files) {
+      const DWORD err = GetLastError();
+      if (err != ERROR_NO_MORE_FILES) {
+        return Error() << "Failed to read directory entry in '" << dirname << "': " << err;
+      }
+    }
+  } while (has_more_files);
+
+  return Result<void>();
+}
 #else
 static Result<void> add_list_files(const string& dirname, vector<string>* result) {
   AIDL_FATAL_IF(result == nullptr, dirname);
@@ -222,6 +264,7 @@ static Result<void> add_list_files(const string& dirname, vector<string>* result
 
   return Result<void>();
 }
+#endif
 
 Result<vector<string>> IoDelegate::ListFiles(const string& dir) const {
   vector<string> result;
@@ -230,7 +273,6 @@ Result<vector<string>> IoDelegate::ListFiles(const string& dir) const {
   }
   return result;
 }
-#endif
 
 string IoDelegate::CleanPath(const string& path) {
   if (base::StartsWith(path, string{'.', OS_PATH_SEPARATOR})) {

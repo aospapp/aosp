@@ -345,12 +345,11 @@ public class SupplicantP2pIfaceCallbackHidlImplTest extends WifiBaseTest {
     public void testOnGroupStarted_success() throws Exception {
         String fakeName = "group name";
         String fakePassphrase = "secret";
-        ArrayList<Byte> fakeSsidBytesList = new ArrayList<Byte>() {{
-                add((byte) 0x30);
-                add((byte) 0x31);
-                add((byte) 0x32);
-                add((byte) 0x33);
-            }};
+        ArrayList<Byte> fakeSsidBytesList = new ArrayList<>();
+        fakeSsidBytesList.add((byte) 0x30);
+        fakeSsidBytesList.add((byte) 0x31);
+        fakeSsidBytesList.add((byte) 0x32);
+        fakeSsidBytesList.add((byte) 0x33);
         String fakeSsidString = "0123";
         HashSet<String> passwords = new HashSet<String>();
 
@@ -388,12 +387,12 @@ public class SupplicantP2pIfaceCallbackHidlImplTest extends WifiBaseTest {
     public void testOnGroupStarted_invalidArguments() throws Exception {
         String fakeName = "group name";
         String fakePassphrase = "secret";
-        ArrayList<Byte> fakeSsidBytesList = new ArrayList<Byte>() {{
-                add((byte) 0x30);
-                add((byte) 0x31);
-                add((byte) 0x32);
-                add((byte) 0x33);
-            }};
+        ArrayList<Byte> fakeSsidBytesList = new ArrayList<>();
+        fakeSsidBytesList.add((byte) 0x30);
+        fakeSsidBytesList.add((byte) 0x31);
+        fakeSsidBytesList.add((byte) 0x32);
+        fakeSsidBytesList.add((byte) 0x33);
+
         String fakeSsidString = "0123";
 
         mDut.onGroupStarted(

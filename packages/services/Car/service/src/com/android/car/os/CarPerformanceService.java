@@ -20,26 +20,31 @@ import static com.android.car.internal.ExcludeFromCodeCoverageGeneratedReport.DU
 
 import android.car.Car;
 import android.car.builtin.util.Slogf;
-import android.car.os.CpuAvailabilityMonitoringConfig;
 import android.car.os.ICarPerformanceService;
-import android.car.os.ICpuAvailabilityChangeListener;
+import android.car.os.ThreadPolicyWithPriority;
 import android.content.Context;
+import android.os.Binder;
+import android.os.RemoteException;
 import android.util.Log;
 
+import com.android.car.CarLocalServices;
 import com.android.car.CarLog;
 import com.android.car.CarServiceBase;
 import com.android.car.CarServiceUtils;
 import com.android.car.internal.ExcludeFromCodeCoverageGeneratedReport;
 import com.android.car.internal.util.IndentingPrintWriter;
+import com.android.car.watchdog.CarWatchdogService;
 
 /**
  * Service to implement CarPerformanceManager API.
  */
 public final class CarPerformanceService extends ICarPerformanceService.Stub
         implements CarServiceBase {
-    private static final String TAG = CarLog.tagFor(CarPerformanceService.class);
+    static final String TAG = CarLog.tagFor(CarPerformanceService.class);
+
     private static final boolean DEBUG = Slogf.isLoggable(TAG, Log.DEBUG);
 
+    private CarWatchdogService mCarWatchdogService;
     private final Context mContext;
 
     public CarPerformanceService(Context context) {
@@ -48,47 +53,71 @@ public final class CarPerformanceService extends ICarPerformanceService.Stub
 
     @Override
     public void init() {
-        // TODO(b/156400843): Connect to the watchdog daemon helper instance for the thread priority
-        // API. CarPerformanceService and CarWatchdogService must use the same watchdog daemon
-        // helper instance.
+        mCarWatchdogService = CarLocalServices.getService(CarWatchdogService.class);
         if (DEBUG) {
             Slogf.d(TAG, "CarPerformanceService is initialized");
         }
     }
 
     @Override
-    public void release() {
-        // TODO(b/156400843): Disconnect from the watchdog daemon helper instance.
-    }
+    public void release() {}
 
     @Override
     @ExcludeFromCodeCoverageGeneratedReport(reason = DUMP_INFO)
     public void dump(IndentingPrintWriter writer) {
         writer.printf("*%s*\n", getClass().getSimpleName());
         writer.increaseIndent();
-        // TODO(b/217422127): Dump CPU availability info.
+        writer.printf("DEBUG=%s", DEBUG);
         writer.decreaseIndent();
     }
 
     /**
-     * Adds {@link android.car.performance.ICpuAvailabilityChangeListener} for CPU availability
-     * change notifications.
+     * Sets the thread priority for a specific thread.
+     *
+     * The thread must belong to the calling process.
+     *
+     * @throws IllegalArgumentException If the given policy/priority is not valid.
+     * @throws IllegalStateException If the provided tid does not belong to the calling process.
+     * @throws RemoteException If binder error happens.
+     * @throws SecurityException If permission check failed.
+     * @throws ServiceSpecificException If the operation failed.
+     * @throws UnsupportedOperationException If the current android release doesn't support the API.
      */
     @Override
-    public void addCpuAvailabilityChangeListener(CpuAvailabilityMonitoringConfig config,
-            ICpuAvailabilityChangeListener listener) {
-        CarServiceUtils.assertPermission(mContext, Car.PERMISSION_COLLECT_CAR_CPU_INFO);
-        // TODO(b/217422127): Implement this.
-        throw new UnsupportedOperationException("Not yet implemented");
+    public void setThreadPriority(int tid, ThreadPolicyWithPriority threadPolicyWithPriority)
+            throws RemoteException {
+        CarServiceUtils.assertPermission(mContext, Car.PERMISSION_MANAGE_THREAD_PRIORITY);
+
+        int pid = Binder.getCallingPid();
+        int uid = Binder.getCallingUid();
+        mCarWatchdogService.setThreadPriority(pid, tid, uid, threadPolicyWithPriority.getPolicy(),
+                threadPolicyWithPriority.getPriority());
     }
 
     /**
-     * Removes the previously added {@link android.car.performance.ICpuAvailabilityChangeListener}.
+     * Gets the thread scheduling policy and priority for the specified thread.
+     *
+     * The thread must belong to the calling process.
+     *
+     * @throws IllegalStateException If the operation failed or the provided tid does not belong to
+     *         the calling process.
+     * @throws RemoteException If binder error happens.
+     * @throws SecurityException If permission check failed.
+     * @throws UnsupportedOperationException If the current android release doesn't support the API.
      */
     @Override
-    public void removeCpuAvailabilityChangeListener(ICpuAvailabilityChangeListener listener) {
-        CarServiceUtils.assertPermission(mContext, Car.PERMISSION_COLLECT_CAR_CPU_INFO);
-        // TODO(b/217422127): Implement this.
-        throw new UnsupportedOperationException("Not yet implemented");
+    public ThreadPolicyWithPriority getThreadPriority(int tid) throws RemoteException {
+        CarServiceUtils.assertPermission(mContext, Car.PERMISSION_MANAGE_THREAD_PRIORITY);
+
+        int pid = Binder.getCallingPid();
+        int uid = Binder.getCallingUid();
+        try {
+            int[] result = mCarWatchdogService.getThreadPriority(pid, tid, uid);
+            return new ThreadPolicyWithPriority(result[0], result[1]);
+        } catch (IllegalArgumentException e) {
+            throw new IllegalStateException(
+                    "current scheduling policy doesn't support getting priority, cause: "
+                    + e.getCause(), e);
+        }
     }
 }

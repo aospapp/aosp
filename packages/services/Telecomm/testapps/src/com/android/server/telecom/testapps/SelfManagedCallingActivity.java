@@ -43,8 +43,6 @@ import android.widget.RadioButton;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import com.android.server.telecom.testapps.R;
-
 import java.util.Objects;
 
 /**
@@ -66,6 +64,7 @@ public class SelfManagedCallingActivity extends Activity {
     private Button mDisableCarMode;
     private RadioButton mUseAcct1Button;
     private RadioButton mUseAcct2Button;
+    private RadioButton mUseAcct3Button;
     private CheckBox mHoldableCheckbox;
     private CheckBox mVideoCallCheckbox;
     private EditText mNumber;
@@ -165,6 +164,7 @@ public class SelfManagedCallingActivity extends Activity {
         }));
         mUseAcct1Button = findViewById(R.id.useAcct1Button);
         mUseAcct2Button = findViewById(R.id.useAcct2Button);
+        mUseAcct3Button = findViewById(R.id.useAcct3Button);
         mHasFocus = findViewById(R.id.hasFocus);
         mVideoCallCheckbox = findViewById(R.id.videoCall);
         mHoldableCheckbox = findViewById(R.id.holdable);
@@ -183,6 +183,8 @@ public class SelfManagedCallingActivity extends Activity {
             return mCallList.getPhoneAccountHandle(SelfManagedCallList.SELF_MANAGED_ACCOUNT_1);
         } else if (mUseAcct2Button.isChecked()) {
             return mCallList.getPhoneAccountHandle(SelfManagedCallList.SELF_MANAGED_ACCOUNT_2);
+        } else if (mUseAcct3Button.isChecked()) {
+            return mCallList.getPhoneAccountHandle(SelfManagedCallList.SELF_MANAGED_ACCOUNT_3);
         }
         return null;
     }
@@ -214,8 +216,7 @@ public class SelfManagedCallingActivity extends Activity {
 
     private void placeSelfManagedOutgoingCall() {
         TelecomManager tm = TelecomManager.from(this);
-        PhoneAccountHandle phoneAccountHandle = mCallList.getPhoneAccountHandle(
-                SelfManagedCallList.SELF_MANAGED_ACCOUNT_3);
+        PhoneAccountHandle phoneAccountHandle = getSelectedPhoneAccountHandle();
 
         if (mCheckIfPermittedBeforeCalling.isChecked()) {
             Toast.makeText(this, R.string.outgoingCallNotPermitted, Toast.LENGTH_SHORT).show();
@@ -264,7 +265,7 @@ public class SelfManagedCallingActivity extends Activity {
     private void placeSelfManagedIncomingCall() {
         TelecomManager tm = TelecomManager.from(this);
         PhoneAccountHandle phoneAccountHandle = mCallList.getPhoneAccountHandle(
-                SelfManagedCallList.SELF_MANAGED_ACCOUNT_3);
+                SelfManagedCallList.SELF_MANAGED_ACCOUNT_1A);
 
         if (mCheckIfPermittedBeforeCalling.isChecked()) {
             if (!tm.isIncomingCallPermitted(phoneAccountHandle)) {

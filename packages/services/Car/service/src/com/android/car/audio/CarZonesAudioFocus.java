@@ -16,6 +16,7 @@
 
 package com.android.car.audio;
 
+import static com.android.car.audio.FocusInteraction.AUDIO_FOCUS_NAVIGATION_REJECTED_DURING_CALL_URI;
 import static com.android.car.internal.ExcludeFromCodeCoverageGeneratedReport.DUMP_INFO;
 
 import android.annotation.NonNull;
@@ -28,11 +29,14 @@ import android.media.AudioFocusInfo;
 import android.media.AudioManager;
 import android.media.audiopolicy.AudioPolicy;
 import android.os.Bundle;
+import android.util.ArraySet;
 import android.util.SparseArray;
 
+import com.android.car.CarLocalServices;
 import com.android.car.CarLog;
 import com.android.car.internal.ExcludeFromCodeCoverageGeneratedReport;
 import com.android.car.internal.util.IndentingPrintWriter;
+import com.android.car.oem.CarOemProxyService;
 import com.android.internal.annotations.VisibleForTesting;
 import com.android.internal.util.Preconditions;
 
@@ -54,17 +58,19 @@ final class CarZonesAudioFocus extends AudioPolicy.AudioPolicyFocusListener {
 
     private final SparseArray<CarAudioFocus> mFocusZones;
 
-    public static CarZonesAudioFocus createCarZonesAudioFocus(@NonNull AudioManager audioManager,
-            @NonNull PackageManager packageManager,
-            @NonNull SparseArray<CarAudioZone> carAudioZones,
-            @NonNull CarAudioSettings carAudioSettings,
-            CarFocusCallback carFocusCallback) {
-        Objects.requireNonNull(audioManager, "AudioManager cannot be null");
-        Objects.requireNonNull(packageManager, "PackageManager cannot be null");
-        Objects.requireNonNull(carAudioZones, "CarAudioZones cannot be null");
+    public static CarZonesAudioFocus createCarZonesAudioFocus(AudioManager audioManager,
+            PackageManager packageManager,
+            SparseArray<CarAudioZone> carAudioZones,
+            CarAudioSettings carAudioSettings,
+            CarFocusCallback carFocusCallback,
+            CarVolumeInfoWrapper carVolumeInfoWrapper) {
+        Objects.requireNonNull(audioManager, "Audio manager cannot be null");
+        Objects.requireNonNull(packageManager, "Package manager cannot be null");
+        Objects.requireNonNull(carAudioZones, "Car audio zones cannot be null");
         Preconditions.checkArgument(carAudioZones.size() != 0,
                 "There must be a minimum of one audio zone");
-        Objects.requireNonNull(carAudioSettings, "CarAudioSettings cannot be null");
+        Objects.requireNonNull(carAudioSettings, "Car audio settings cannot be null");
+        Objects.requireNonNull(carVolumeInfoWrapper, "Car volume info cannot be null");
 
         SparseArray<CarAudioFocus> audioFocusPerZone = new SparseArray<>();
 
@@ -73,9 +79,12 @@ final class CarZonesAudioFocus extends AudioPolicy.AudioPolicyFocusListener {
             CarAudioZone audioZone = carAudioZones.valueAt(i);
             int audioZoneId = audioZone.getId();
             Slogf.d(TAG, "Adding new zone %d", audioZoneId);
-            CarAudioFocus zoneFocusListener =
-                    new CarAudioFocus(audioManager, packageManager,
-                            new FocusInteraction(carAudioSettings));
+
+            CarAudioFocus zoneFocusListener = new CarAudioFocus(audioManager,
+                    packageManager, new FocusInteraction(carAudioSettings,
+                    new ContentObserverFactory(AUDIO_FOCUS_NAVIGATION_REJECTED_DURING_CALL_URI),
+                    audioZone.getCarAudioContext()),
+                    audioZone.getCarAudioContext(), carVolumeInfoWrapper, audioZoneId);
             audioFocusPerZone.put(audioZoneId, zoneFocusListener);
         }
         return new CarZonesAudioFocus(audioFocusPerZone, carFocusCallback);
@@ -109,17 +118,61 @@ final class CarZonesAudioFocus extends AudioPolicy.AudioPolicyFocusListener {
         return focus.getAudioFocusHoldersForUid(uid);
     }
 
+
+    /**
+     * For the zone queried, transiently lose all active focus entries
+     * @param zoneId zone id where all focus entries should be lost
+     * @return focus entries lost in the zone.
+     */
+    List<AudioFocusInfo> transientlyLoseAllFocusHoldersInZone(int zoneId) {
+        CarAudioFocus focus = mFocusZones.get(zoneId);
+        List<AudioFocusInfo> activeFocusInfos = focus.getAudioFocusHolders();
+        if (!activeFocusInfos.isEmpty()) {
+            transientlyLoseInFocusInZone(activeFocusInfos, zoneId);
+        }
+        return activeFocusInfos;
+    }
+
     /**
      * For each entry in list, transiently lose focus
      * @param afiList list of audio focus entries
-     * @param zoneId zone id where focus should should be lost
+     * @param zoneId zone id where focus should be lost
      */
-    void transientlyLoseInFocusInZone(@NonNull ArrayList<AudioFocusInfo> afiList, int zoneId) {
+    void transientlyLoseInFocusInZone(List<AudioFocusInfo> afiList, int zoneId) {
         CarAudioFocus focus = mFocusZones.get(zoneId);
 
-        for (AudioFocusInfo info : afiList) {
+        transientlyLoseInFocusInZone(afiList, focus);
+    }
+
+    private void transientlyLoseInFocusInZone(List<AudioFocusInfo> audioFocusInfos,
+            CarAudioFocus focus) {
+        for (int index = 0; index < audioFocusInfos.size(); index++) {
+            AudioFocusInfo info = audioFocusInfos.get(index);
             focus.removeAudioFocusInfoAndTransientlyLoseFocus(info);
         }
+    }
+
+    /**
+     * For each entry in list, reevaluate and regain focus and notify focus listener of its zone
+     *
+     * @param audioFocusInfos list of audio focus entries to reevaluate and regain
+     * @return list of results for regaining focus
+     */
+    List<Integer> reevaluateAndRegainAudioFocusList(List<AudioFocusInfo> audioFocusInfos) {
+        List<Integer> res = new ArrayList<>(audioFocusInfos.size());
+        ArraySet<Integer> zoneIds = new ArraySet<>();
+        for (int index = 0; index < audioFocusInfos.size(); index++) {
+            AudioFocusInfo afi = audioFocusInfos.get(index);
+            int zoneId = getAudioZoneIdForAudioFocusInfo(afi);
+            res.add(getCarAudioFocusForZoneId(zoneId).reevaluateAndRegainAudioFocus(afi));
+            zoneIds.add(zoneId);
+        }
+        int[] zoneIdArray = new int[zoneIds.size()];
+        for (int zoneIdIndex = 0; zoneIdIndex < zoneIds.size(); zoneIdIndex++) {
+            zoneIdArray[zoneIdIndex] = zoneIds.valueAt(zoneIdIndex);
+        }
+        notifyFocusListeners(zoneIdArray);
+        return res;
     }
 
     int reevaluateAndRegainAudioFocus(AudioFocusInfo afi) {
@@ -151,14 +204,14 @@ final class CarZonesAudioFocus extends AudioPolicy.AudioPolicyFocusListener {
             zoneIds[i] = mFocusZones.keyAt(i);
             mFocusZones.valueAt(i).setRestrictFocus(isFocusRestricted);
         }
-        notifyFocusCallback(zoneIds);
+        notifyFocusListeners(zoneIds);
     }
 
     @Override
     public void onAudioFocusRequest(AudioFocusInfo afi, int requestResult) {
         int zoneId = getAudioZoneIdForAudioFocusInfo(afi);
         getCarAudioFocusForZoneId(zoneId).onAudioFocusRequest(afi, requestResult);
-        notifyFocusCallback(new int[]{zoneId});
+        notifyFocusListeners(new int[]{zoneId});
     }
 
     /**
@@ -170,16 +223,15 @@ final class CarZonesAudioFocus extends AudioPolicy.AudioPolicyFocusListener {
     public void onAudioFocusAbandon(AudioFocusInfo afi) {
         int zoneId = getAudioZoneIdForAudioFocusInfo(afi);
         getCarAudioFocusForZoneId(zoneId).onAudioFocusAbandon(afi);
-        notifyFocusCallback(new int[]{zoneId});
+        notifyFocusListeners(new int[]{zoneId});
     }
 
-    @NonNull
     private CarAudioFocus getCarAudioFocusForZoneId(int zoneId) {
         return mFocusZones.get(zoneId);
     }
 
     private int getAudioZoneIdForAudioFocusInfo(AudioFocusInfo afi) {
-        int zoneId = mCarAudioService.getZoneIdForUid(afi.getClientUid());
+        int zoneId = mCarAudioService.getZoneIdForAudioFocusInfo(afi);
 
         // If the bundle attribute for AUDIOFOCUS_EXTRA_REQUEST_ZONE_ID has been assigned
         // Use zone id from that instead.
@@ -204,18 +256,29 @@ final class CarZonesAudioFocus extends AudioPolicy.AudioPolicyFocusListener {
         return zoneId;
     }
 
-    private void notifyFocusCallback(int[] zoneIds) {
+    private void notifyFocusListeners(int[] zoneIds) {
+        SparseArray<List<AudioFocusInfo>> focusHoldersByZoneId = new SparseArray<>(zoneIds.length);
+        for (int i = 0; i < zoneIds.length; i++) {
+            int zoneId = zoneIds[i];
+            focusHoldersByZoneId.put(zoneId, mFocusZones.get(zoneId).getAudioFocusHolders());
+            sendFocusChangeToOemService(getCarAudioFocusForZoneId(zoneId), zoneId);
+        }
+
         if (mCarFocusCallback == null) {
             return;
         }
-        SparseArray<List<AudioFocusInfo>> focusHoldersByZoneId = new SparseArray<>();
-        for (int i = 0; i < zoneIds.length; i++) {
-            int zoneId = zoneIds[i];
-            List<AudioFocusInfo> focusHolders = mFocusZones.get(zoneId).getAudioFocusHolders();
-            focusHoldersByZoneId.put(zoneId, focusHolders);
+        mCarFocusCallback.onFocusChange(zoneIds, focusHoldersByZoneId);
+    }
+
+    private void sendFocusChangeToOemService(CarAudioFocus carAudioFocus, int zoneId) {
+        CarOemProxyService proxy = CarLocalServices.getService(CarOemProxyService.class);
+        if (!proxy.isOemServiceEnabled() || !proxy.isOemServiceReady()
+                || proxy.getCarOemAudioFocusService() == null) {
+            return;
         }
 
-        mCarFocusCallback.onFocusChange(zoneIds, focusHoldersByZoneId);
+        proxy.getCarOemAudioFocusService().notifyAudioFocusChange(
+                carAudioFocus.getAudioFocusHolders(), carAudioFocus.getAudioFocusLosers(), zoneId);
     }
 
     @ExcludeFromCodeCoverageGeneratedReport(reason = DUMP_INFO)
@@ -239,6 +302,68 @@ final class CarZonesAudioFocus extends AudioPolicy.AudioPolicyFocusListener {
         Preconditions.checkArgument(mCarAudioService.isAudioZoneIdValid(audioZoneId),
                 "Invalid zoneId %d", audioZoneId);
         mFocusZones.get(audioZoneId).getFocusInteraction().setUserIdForSettings(userId);
+    }
+
+    AudioFocusStack transientlyLoseMediaAudioFocusForUser(int userId, int zoneId) {
+        AudioAttributes audioAttributes =
+                new AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_MEDIA).build();
+        CarAudioFocus carAudioFocus = mFocusZones.get(zoneId);
+        List<AudioFocusInfo> activeFocusInfos = carAudioFocus
+                .getActiveAudioFocusForUserAndAudioAttributes(audioAttributes, userId);
+        List<AudioFocusInfo> inactiveFocusInfos = carAudioFocus
+                .getInactiveAudioFocusForUserAndAudioAttributes(audioAttributes, userId);
+
+        return transientlyLoserFocusForFocusStack(carAudioFocus, activeFocusInfos,
+                inactiveFocusInfos);
+    }
+
+    AudioFocusStack transientlyLoseAudioFocusForZone(int zoneId) {
+        CarAudioFocus carAudioFocus = mFocusZones.get(zoneId);
+        List<AudioFocusInfo> activeFocusInfos = carAudioFocus.getAudioFocusHolders();
+        List<AudioFocusInfo> inactiveFocusInfos = carAudioFocus.getAudioFocusLosers();
+
+        return transientlyLoserFocusForFocusStack(carAudioFocus, activeFocusInfos,
+                inactiveFocusInfos);
+    }
+
+    private AudioFocusStack transientlyLoserFocusForFocusStack(CarAudioFocus carAudioFocus,
+            List<AudioFocusInfo> activeFocusInfos, List<AudioFocusInfo> inactiveFocusInfos) {
+        // Order matters here: Remove the focus losers first
+        // then do the current holder to prevent loser from popping up while
+        // the focus is being removed for current holders
+        // Remove focus for current focus losers
+        if (!inactiveFocusInfos.isEmpty()) {
+            transientlyLoseInFocusInZone(inactiveFocusInfos, carAudioFocus);
+        }
+
+        if (!activeFocusInfos.isEmpty()) {
+            transientlyLoseInFocusInZone(activeFocusInfos, carAudioFocus);
+        }
+
+        return new AudioFocusStack(activeFocusInfos, inactiveFocusInfos);
+    }
+
+    void regainMediaAudioFocusInZone(AudioFocusStack mediaFocusStack, int zoneId) {
+        CarAudioFocus carAudioFocus = mFocusZones.get(zoneId);
+
+        // Order matters here: Regain focus for
+        // previously lost focus holders then regain
+        // focus for holders that had it last.
+        // Regain focus for the focus losers from previous zone.
+        if (!mediaFocusStack.getInactiveFocusList().isEmpty()) {
+            regainMediaAudioFocusInZone(mediaFocusStack.getInactiveFocusList(), carAudioFocus);
+        }
+
+        if (!mediaFocusStack.getActiveFocusList().isEmpty()) {
+            regainMediaAudioFocusInZone(mediaFocusStack.getActiveFocusList(), carAudioFocus);
+        }
+    }
+
+    private void regainMediaAudioFocusInZone(List<AudioFocusInfo> focusInfos,
+            CarAudioFocus carAudioFocus) {
+        for (int index = 0; index < focusInfos.size(); index++) {
+            carAudioFocus.reevaluateAndRegainAudioFocus(focusInfos.get(index));
+        }
     }
 
     /**

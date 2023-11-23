@@ -34,6 +34,7 @@ import android.graphics.drawable.Drawable;
 import android.widget.ImageButton;
 
 import androidx.test.ext.junit.runners.AndroidJUnit4;
+import androidx.test.filters.Suppress;
 import androidx.test.platform.app.InstrumentationRegistry;
 import androidx.test.rule.ActivityTestRule;
 
@@ -48,6 +49,7 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
+@Suppress // To be ignored until b/224978827 is fixed
 @RunWith(AndroidJUnit4.class)
 public class HomeCardFragmentTest {
 

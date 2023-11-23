@@ -136,6 +136,41 @@ public class XmlUtilTest extends WifiBaseTest {
     }
 
     /**
+     * Verify that a wep WifiConfiguration is serialized & deserialized correctly.
+     */
+    @Test
+    public void testWepWifiConfigurationSerializeDeserializeWithEncryption()
+            throws IOException, XmlPullParserException {
+        mWifiConfigStoreEncryptionUtil = mock(WifiConfigStoreEncryptionUtil.class);
+        WifiConfiguration wepNetwork = WifiConfigurationTestUtil.createWepNetwork();
+        for (int i = 0; i < wepNetwork.wepKeys.length; i++) {
+            EncryptedData encryptedData = new EncryptedData(new byte[]{(byte) i},
+                    new byte[]{(byte) i});
+            when(mWifiConfigStoreEncryptionUtil.encrypt(wepNetwork.wepKeys[i].getBytes()))
+                    .thenReturn(encryptedData);
+            when(mWifiConfigStoreEncryptionUtil.decrypt(encryptedData))
+                    .thenReturn(wepNetwork.wepKeys[i].getBytes());
+        }
+        serializeDeserializeWifiConfiguration(wepNetwork);
+    }
+
+    /**
+     * Verify that a wep WifiConfiguration is serialized & deserialized correctly when encryption
+     * failed.
+     */
+    @Test
+    public void testWepWifiConfigurationSerializeDeserializeWithEncryptionFailed()
+            throws IOException, XmlPullParserException {
+        mWifiConfigStoreEncryptionUtil = mock(WifiConfigStoreEncryptionUtil.class);
+        WifiConfiguration wepNetwork = WifiConfigurationTestUtil.createWepNetwork();
+        for (int i = 0; i < wepNetwork.wepKeys.length; i++) {
+            when(mWifiConfigStoreEncryptionUtil.encrypt(wepNetwork.wepKeys[i].getBytes()))
+                    .thenReturn(null);
+        }
+        serializeDeserializeWifiConfiguration(wepNetwork);
+    }
+
+    /**
      * Verify that a psk hidden WifiConfiguration is serialized & deserialized correctly.
      */
     @Test
@@ -788,5 +823,70 @@ public class XmlUtilTest extends WifiBaseTest {
                 deserializeWifiEnterpriseConfig(serializeWifiEnterpriseConfig(config));
         WifiConfigurationTestUtil.assertWifiEnterpriseConfigEqualForConfigStore(
                 config, retrievedConfig);
+    }
+
+    private void testConfigStoreWithEncryptedPreSharedKey(boolean hasBeenEncrypted,
+            boolean isChanged) throws IOException, XmlPullParserException {
+        mWifiConfigStoreEncryptionUtil = mock(WifiConfigStoreEncryptionUtil.class);
+        WifiConfiguration configuration = WifiConfigurationTestUtil.createPskNetwork();
+        EncryptedData encryptedData = new EncryptedData(new byte[]{1, 2, 3, 4},
+                new byte[]{5, 6, 7, 8});
+        when(mWifiConfigStoreEncryptionUtil.encrypt(configuration.preSharedKey.getBytes()))
+                .thenReturn(encryptedData);
+        when(mWifiConfigStoreEncryptionUtil.decrypt(encryptedData))
+                .thenReturn(configuration.preSharedKey.getBytes());
+        assertEquals(0, configuration.getEncryptedPreSharedKey().length);
+        assertEquals(0, configuration.getEncryptedPreSharedKeyIv().length);
+        if (hasBeenEncrypted) {
+            configuration.setEncryptedPreSharedKey(encryptedData.getEncryptedData(),
+                    encryptedData.getIv());
+        }
+        boolean shouldEncrypt = !hasBeenEncrypted || isChanged;
+        //Serialize
+        configuration.setHasPreSharedKeyChanged(isChanged);
+        byte[] xmlData = serializeWifiConfigurationForConfigStore(configuration);
+        if (shouldEncrypt) {
+            verify(mWifiConfigStoreEncryptionUtil).encrypt(configuration.preSharedKey.getBytes());
+            assertEquals(configuration.getEncryptedPreSharedKey(),
+                    encryptedData.getEncryptedData());
+            assertEquals(configuration.getEncryptedPreSharedKeyIv(), encryptedData.getIv());
+        } else {
+            verify(mWifiConfigStoreEncryptionUtil, never()).encrypt(
+                    configuration.preSharedKey.getBytes());
+        }
+        //Deserialize
+        Pair<String, WifiConfiguration> deserializedConfiguration =
+                deserializeWifiConfiguration(xmlData, false);
+        verify(mWifiConfigStoreEncryptionUtil).decrypt(encryptedData);
+        assertEquals(configuration.preSharedKey, deserializedConfiguration.second.preSharedKey);
+    }
+
+    /**
+     * Verify that a WifiConfiguration is encrypted when serialized for the first time
+     */
+    @Test
+    public void testConfigurationSerializeForConfigStoreWithEncryptedPreSharedKey()
+            throws IOException, XmlPullParserException {
+        testConfigStoreWithEncryptedPreSharedKey(false, false);
+    }
+
+    /**
+     * Verify that a WifiConfiguration is not encrypted when it's already encrypted and
+     * the presharedkey not changed.
+     */
+    @Test
+    public void testConfigurationSerializeForConfigStoreWithEncryptedPreSharedKeyShouldNotEncrypt()
+            throws IOException, XmlPullParserException {
+        testConfigStoreWithEncryptedPreSharedKey(true, false);
+    }
+
+    /**
+     * Verify that a WifiConfiguration is encrypted when it's already encrypted but
+     * the presharedkey has changed.
+     */
+    @Test
+    public void testConfigurationSerializeForConfigStoreWithEncryptedPreSharedKeyShouldEncrypt()
+            throws IOException, XmlPullParserException {
+        testConfigStoreWithEncryptedPreSharedKey(true, true);
     }
 }

@@ -1,6 +1,11 @@
+# Lint as: python2, python3
 # Copyright (c) 2012 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
+
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
 
 import collections
 import contextlib
@@ -25,14 +30,12 @@ from autotest_lib.client.common_lib.cros import retry
 from autotest_lib.client.common_lib.utils import poll_for_condition_ex
 from autotest_lib.client.cros import kernel_trace
 from autotest_lib.client.cros.power import power_utils
+from collections import namedtuple
+from six.moves import range
+from six.moves import zip
 
 BatteryDataReportType = autotest_enum.AutotestEnum('CHARGE', 'ENERGY')
 
-# For devices whose full capacity is significantly lower than design full
-# capacity, scale down their design full capacity.
-BATTERY_DESIGN_FULL_SCALE = {'jinlon': 0.95, # b/161307060
-                             'berknip': 0.94, # b/172625511
-                             }
 # battery data reported at 1e6 scale
 BATTERY_DATA_SCALE = 1e6
 # number of times to retry reading the battery in the case of bad data
@@ -56,7 +59,7 @@ class DevStat(object):
         """
         Reset all class fields to None to mark their status as unknown.
         """
-        for field in self.fields.iterkeys():
+        for field in self.fields.keys():
             setattr(self, field, None)
 
 
@@ -79,7 +82,7 @@ class DevStat(object):
     def read_all_vals(self):
         """Read all values.
         """
-        for field, prop in self.fields.iteritems():
+        for field, prop in self.fields.items():
             if prop[0]:
                 val = self.read_val(prop[0], prop[1])
                 setattr(self, field, val)
@@ -123,6 +126,26 @@ class ThermalStatACPI(DevStat):
         # Browse the thermal folder for trip point fields.
         self.num_trip_points = 0
 
+        if path is None:
+            path = ThermalStatACPI.path
+
+        self.zones = {}
+        thermal_zones = glob.glob(path)
+        for (i, zone) in enumerate(thermal_zones):
+            desc_path = os.path.join(zone, 'device/description')
+            desc = ''
+            if os.path.exists(desc_path):
+                desc = utils.read_one_line(desc_path)
+
+            # If there's no description then use the type to create a description
+            if desc == '':
+                domain_path = os.path.join(zone, 'type')
+                domain = utils.read_one_line(domain_path)
+                desc = '%s%d' % (domain, i)
+
+            desc = desc.replace(' ', '_')
+            self.zones[desc] = os.path.join(zone, 'temp')
+
         thermal_fields = glob.glob(path + '/*')
         for file in thermal_fields:
             field = file[len(path + '/'):]
@@ -157,7 +180,8 @@ class ThermalStatACPI(DevStat):
 
 class ThermalStatHwmon(DevStat):
     """
-    hwmon-based thermal status.
+    hwmon-based thermal status. Excludes overlaps with thermal zones by default
+    since thermal zones generally provide a more usable description.
 
     Fields:
     int   <tname>_temp<num>_input: Current temperature in millidegrees Celsius
@@ -169,7 +193,17 @@ class ThermalStatHwmon(DevStat):
     path = '/sys/class/hwmon'
 
     thermal_fields = {}
-    def __init__(self, rootpath=None):
+
+    def __init__(self, rootpath=None, exclude_tz=True):
+        excluded_domains = set()
+        if exclude_tz:
+            thermal_zones = glob.glob('/sys/class/thermal/thermal_zone*')
+            for zone in thermal_zones:
+                domain_path = os.path.join(zone, 'type')
+                domain = utils.read_one_line(domain_path)
+
+                excluded_domains.add(domain)
+
         if not rootpath:
             rootpath = self.path
         for subpath1 in glob.glob('%s/hwmon*' % rootpath):
@@ -179,10 +213,13 @@ class ThermalStatHwmon(DevStat):
                     bname = os.path.basename(gpath)
                     field_path = os.path.join(subpath1, subpath2, bname)
 
-                    tname_path = os.path.join(os.path.dirname(gpath), "name")
-                    tname = utils.read_one_line(tname_path)
+                    domain_path = os.path.join(os.path.dirname(gpath), "name")
+                    domain = utils.read_one_line(domain_path)
 
-                    field_key = "%s_%s" % (tname, bname)
+                    if domain in excluded_domains:
+                        continue
+
+                    field_key = "%s_%s" % (domain, bname)
                     self.thermal_fields[field_key] = [field_path, int]
 
         super(ThermalStatHwmon, self).__init__(self.thermal_fields, rootpath)
@@ -255,34 +292,44 @@ class BatteryStat(DevStat):
     float charge_full_design: Full capacity by design [Ah]
     float charge_now:         Remaining charge [Ah]
     float current_now:        Battery discharge rate [A]
+    int   cycle_count:        Battery cycle count
     float energy:             Current battery charge [Wh]
     float energy_full:        Last full capacity reached [Wh]
     float energy_full_design: Full capacity by design [Wh]
     float energy_rate:        Battery discharge rate [W]
+    str   manufacturer:       Battery manufacturer
+    str   model_name:         Battery model name
     float power_now:          Battery discharge rate [W]
+    int   present:            Whether battery is present
     float remaining_time:     Remaining discharging time [h]
+    str   serial_number:      Battery serial number
+    str   status:             Charging status
     float voltage_min_design: Minimum voltage by design [V]
     float voltage_max_design: Maximum voltage by design [V]
     float voltage_now:        Voltage now [V]
     """
 
     battery_fields = {
-        'status':               ['status', str],
-        'charge_full':          ['charge_full', float],
-        'charge_full_design':   ['charge_full_design', float],
-        'charge_now':           ['charge_now', float],
-        'current_now':          ['current_now', float],
-        'voltage_min_design':   ['voltage_min_design', float],
-        'voltage_max_design':   ['voltage_max_design', float],
-        'voltage_now':          ['voltage_now', float],
-        'energy':               ['energy_now', float],
-        'energy_full':          ['energy_full', float],
-        'energy_full_design':   ['energy_full_design', float],
-        'power_now':            ['power_now', float],
-        'present':              ['present', int],
-        'energy_rate':          ['', ''],
-        'remaining_time':       ['', '']
-        }
+            'status': ['status', str],
+            'charge_full': ['charge_full', float],
+            'charge_full_design': ['charge_full_design', float],
+            'charge_now': ['charge_now', float],
+            'current_now': ['current_now', float],
+            'cycle_count': ['cycle_count', int],
+            'voltage_min_design': ['voltage_min_design', float],
+            'voltage_max_design': ['voltage_max_design', float],
+            'voltage_now': ['voltage_now', float],
+            'energy': ['energy_now', float],
+            'energy_full': ['energy_full', float],
+            'energy_full_design': ['energy_full_design', float],
+            'power_now': ['power_now', float],
+            'present': ['present', int],
+            'manufacturer': ['manufacturer', str],
+            'model_name': ['model_name', str],
+            'serial_number': ['serial_number', str],
+            'energy_rate': ['', ''],
+            'remaining_time': ['', '']
+    }
 
     def __init__(self, path=None):
         super(BatteryStat, self).__init__(self.battery_fields, path)
@@ -290,14 +337,14 @@ class BatteryStat(DevStat):
 
 
     def update(self):
-        for _ in xrange(BATTERY_RETRY_COUNT):
+        for _ in range(BATTERY_RETRY_COUNT):
             try:
                 self._read_battery()
                 return
             except error.TestError as e:
-                logging.warn(e)
-                for field, prop in self.battery_fields.iteritems():
-                    logging.warn(field + ': ' + repr(getattr(self, field)))
+                logging.warning(e)
+                for field, prop in self.battery_fields.items():
+                    logging.warning(field + ': ' + repr(getattr(self, field)))
                 continue
         raise error.TestError('Failed to read battery state')
 
@@ -319,12 +366,6 @@ class BatteryStat(DevStat):
             raise error.TestError('Failed to determine battery voltage')
 
         battery_design_full_scale = 1
-        model = utils.get_platform()
-        if model in BATTERY_DESIGN_FULL_SCALE:
-            battery_design_full_scale = BATTERY_DESIGN_FULL_SCALE.get(model)
-            logging.info(
-                    'Apply %f scale to design full battery capacity for model '
-                    '%s', battery_design_full_scale, model)
 
         # Since charge data is present, calculate parameters based upon
         # reported charge data.
@@ -390,10 +431,10 @@ class BatteryStat(DevStat):
             raise error.TestError('Unreasonable charge_now value')
 
 
-class LineStatDummy(DevStat):
+class LineStatPlaceholder(DevStat):
     """
-    Dummy line stat for devices which don't provide power_supply related sysfs
-    interface.
+    Placeholder line stat for devices which don't provide power_supply related
+    sysfs interface.
     """
     def __init__(self):
         self.online = True
@@ -485,7 +526,7 @@ class SysStat(object):
         for path in self.linepower_path:
             self.linepower.append(LineStat(path))
         if not self.linepower:
-            self.linepower = [ LineStatDummy() ]
+            self.linepower = [ LineStatPlaceholder() ]
 
         temp_str = self.thermal.get_temps()
         if temp_str:
@@ -518,7 +559,7 @@ class SysStat(object):
                 return True
 
         if not self.battery_path:
-            logging.warn('Unable to determine battery charge status')
+            logging.warning('Unable to determine battery charge status')
             return False
 
         return self.battery.status.rstrip() == 'Charging'
@@ -529,7 +570,7 @@ class SysStat(object):
         Returns true if battery is currently discharging or false otherwise.
         """
         if not self.battery_path:
-            logging.warn('Unable to determine battery discharge status')
+            logging.warning('Unable to determine battery discharge status')
             return False
 
         return self.battery.status.rstrip() == 'Discharging'
@@ -539,7 +580,7 @@ class SysStat(object):
         Returns true if battery is currently full or false otherwise.
         """
         if not self.battery_path:
-            logging.warn('Unable to determine battery fullness status')
+            logging.warning('Unable to determine battery fullness status')
             return False
 
         return self.battery.status.rstrip() == 'Full'
@@ -680,10 +721,10 @@ class AbstractStats(object):
         """
         Turns a dict with absolute time values into a dict with percentages.
         """
-        total = sum(stats.itervalues())
+        total = sum(stats.values())
         if total == 0:
             return {k: 0 for k in stats}
-        return dict((k, v * 100.0 / total) for (k, v) in stats.iteritems())
+        return dict((k, v * 100.0 / total) for (k, v) in stats.items())
 
 
     @staticmethod
@@ -691,7 +732,7 @@ class AbstractStats(object):
         """
         Returns a dict with value deltas from two dicts with matching keys.
         """
-        return dict((k, new[k] - old.get(k, 0)) for k in new.iterkeys())
+        return dict((k, new[k] - old.get(k, 0)) for k in new.keys())
 
 
     @staticmethod
@@ -739,11 +780,11 @@ class AbstractStats(object):
         if self.incremental:
             stats = self.do_diff(stats, self._first_stats)
 
-        total = sum(stats.itervalues())
+        total = sum(stats.values())
         if total == 0:
             return None
 
-        return sum(float(k) * v / total for k, v in stats.iteritems())
+        return sum(float(k) * v / total for k, v in stats.items())
 
     def _supports_automatic_weighted_average(self):
         """
@@ -935,10 +976,10 @@ class CPUCStateStats(AbstractStats):
         Turns a dict with absolute time values into a dict with percentages.
         Ignore the |non_c0_stat_name| which is aggegate stat in the total count.
         """
-        total = sum(v for k, v in stats.iteritems() if k != self._non_c0_stat)
+        total = sum(v for k, v in stats.items() if k != self._non_c0_stat)
         if total == 0:
             return {k: 0 for k in stats}
-        return {k: v * 100.0 / total for k, v in stats.iteritems()}
+        return {k: v * 100.0 / total for k, v in stats.items()}
 
 
 class CPUIdleStats(CPUCStateStats):
@@ -1040,6 +1081,7 @@ class CPUPackageStats(CPUCStateStats):
                 'Silvermont':   self.SILVERMONT,
                 'Skylake':      self.BROADWELL,
                 'Tiger Lake':   self.BROADWELL,
+                'Alder Lake':   self.BROADWELL,
                 'Tremont':      self.GOLDMONT,
                 'Westmere':     self.NEHALEM,
                 }.get(cpu_uarch, None)
@@ -1067,7 +1109,7 @@ class CPUPackageStats(CPUCStateStats):
             packages.add(package)
 
             stats['C0_C1'] += utils.rdmsr(0x10, cpu) # TSC
-            for (state, msr) in self._platform_states.iteritems():
+            for (state, msr) in self._platform_states.items():
                 ticks = utils.rdmsr(msr, cpu)
                 stats[state] += ticks
                 stats['non-C0_C1'] += ticks
@@ -1244,7 +1286,8 @@ class GPUFreqStats(AbstractStats):
                         max_mhz = result[0]
                         continue
                 if min_mhz and max_mhz:
-                    for i in xrange(int(min_mhz), int(max_mhz) + 1):
+                    real_min_mhz = min(int(min_mhz), int(cur_mhz))
+                    for i in range(real_min_mhz, int(max_mhz) + 1):
                         if i % 100 in self._I915_FREQ_STEPS:
                             self._freqs.append(str(i))
 
@@ -1438,7 +1481,8 @@ def get_available_cpu_stats():
     cpufreq_stat_class = CPUFreqStats
     # assumes cpufreq driver for CPU0 is the same as the others.
     cpufreq_driver = '/sys/devices/system/cpu/cpu0/cpufreq/scaling_driver'
-    if utils.read_one_line(cpufreq_driver) == 'intel_pstate':
+    if (os.path.exists(cpufreq_driver) and
+        utils.read_one_line(cpufreq_driver) == 'intel_pstate'):
         logging.debug('intel_pstate driver active')
         cpufreq_stat_class = CPUFreqStatsPState
 
@@ -1484,7 +1528,7 @@ class StatoMatic(object):
             if stat_obj.name is 'gpu':
                 # TODO(tbroch) remove this once GPU freq stats have proved
                 # reliable
-                stats_secs = sum(stat_obj._stats.itervalues())
+                stats_secs = sum(stat_obj._stats.values())
                 if stats_secs < (tot_secs * 0.9) or \
                         stats_secs > (tot_secs * 1.1):
                     logging.warning('%s stats dont look right.  Not publishing.',
@@ -1701,7 +1745,7 @@ class CheckpointLogger(object):
             start_time = self._start_time
 
         checkpoint_dict = {}
-        for tname, tlist in self.checkpoint_data.iteritems():
+        for tname, tlist in self.checkpoint_data.items():
             checkpoint_dict[tname] = [(tstart - start_time, tend - start_time)
                     for tstart, tend in tlist]
 
@@ -1715,7 +1759,7 @@ class CheckpointLogger(object):
             fname: String, name of file to write results to
         """
         fname = os.path.join(resultsdir, fname)
-        with file(fname, 'wt') as f:
+        with open(fname, 'wt') as f:
             json.dump(self.checkpoint_data, f, indent=4, separators=(',', ': '))
 
     def load_checkpoint_data(self, resultsdir,
@@ -1733,8 +1777,9 @@ class CheckpointLogger(object):
                                                  object_hook=to_checkpoint_data)
                 # Set start time to the earliest start timestamp in file.
                 self._start_time = min(
-                        ts_pair[0] for ts_pair in itertools.chain.from_iterable(
-                                self.checkpoint_data.itervalues()))
+                        ts_pair[0]
+                        for ts_pair in itertools.chain.from_iterable(
+                                list(self.checkpoint_data.values())))
         except Exception as exc:
             logging.warning('Failed to load checkpoint data from json file %s, '
                             'see exception: %s', fname, exc)
@@ -1749,7 +1794,7 @@ class CheckpointLogger(object):
             fname: String, name of file to load results from
         """
         fname = os.path.join(resultsdir, fname)
-        with file(fname, 'r') as f:
+        with open(fname, 'r') as f:
             checkpoint_data = json.load(f)
         return checkpoint_data
 
@@ -1763,7 +1808,7 @@ def to_checkpoint_data(json_dict):
         a defaultdict in CheckpointLogger data format
     """
     checkpoint_data = collections.defaultdict(list)
-    for tname, tlist in json_dict.iteritems():
+    for tname, tlist in json_dict.items():
         checkpoint_data[tname].extend([tuple(ts_pair) for ts_pair in tlist])
     return checkpoint_data
 
@@ -1882,8 +1927,9 @@ class MeasurementLogger(threading.Thread):
 
     def run(self):
         """Threads run method."""
-        loop = 0
+        loop = 1
         start_time = time.time()
+        time.sleep(self.seconds_period)
         while(not self.done):
             # TODO (dbasehore): We probably need proper locking in this file
             # since there have been race conditions with modifying and accessing
@@ -1972,7 +2018,8 @@ class MeasurementLogger(threading.Thread):
                               ', '.join(self.domains))
                 raise
 
-            for tname, tlist in self._checkpoint_logger.checkpoint_data.iteritems():
+            for tname, tlist in \
+                    self._checkpoint_logger.checkpoint_data.items():
                 if tname:
                     prefix = '%s_%s' % (tname, domain)
                 else:
@@ -1988,7 +2035,7 @@ class MeasurementLogger(threading.Thread):
                     # is not fixed.
                     try:
                         masks.append(numpy.logical_and(tstart < t, t < tend))
-                    except ValueError, e:
+                    except ValueError as e:
                         logging.debug('Error logging measurements: %s', str(e))
                         logging.debug('timestamps %d %s', t.len, t)
                         logging.debug('timestamp start, end %f %f', tstart, tend)
@@ -2073,20 +2120,23 @@ class CPUStatsLogger(MeasurementLogger):
         self._stats = get_available_cpu_stats()
         self._stats.append(GPUFreqStats())
         self.domains = []
+        self._refresh_count = 0
+        self._last_wavg = collections.defaultdict(int)
+
+    def _set_domains(self):
+        self.domains = []
         for stat in self._stats:
             self.domains.extend([stat.name + '_' + str(state_name)
                                  for state_name in stat.refresh()])
             if stat.weighted_average():
                 self.domains.append('wavg_' + stat.name)
-        self._refresh_count = 0
-        self._last_wavg = collections.defaultdict(int)
 
     def refresh(self):
         self._refresh_count += 1
         count = self._refresh_count
         ret = []
         for stat in self._stats:
-            ret.extend(stat.refresh().values())
+            ret.extend(list(stat.refresh().values()))
             wavg = stat.weighted_average()
             if wavg:
                 if stat.incremental:
@@ -2100,6 +2150,15 @@ class CPUStatsLogger(MeasurementLogger):
                     ret.append(wavg * count - last_wavg * (count - 1))
                 else:
                     ret.append(wavg)
+        if not self.domains:
+            self._set_domains()
+        elif len(self.domains) != len(ret):
+            # This would make data jumble but better than IndexError.
+            # Add the log to help detecting the root cause.
+            logging.warning('b:162610351 len(self.domains) != len(ret)')
+            logging.warning('old_domains: (%s)', ', '.join(self.domains))
+            self._set_domains()
+            logging.warning('new_domains: (%s)', ', '.join(self.domains))
         return ret
 
     def save_results(self, resultsdir, fname_prefix=None):
@@ -2186,7 +2245,26 @@ class BatteryTempMeasurement(TempMeasurement):
             float, temperature in degrees Celsius.
         """
         result = utils.run(self._path, timeout=5, ignore_status=True)
-        return float(result.stdout)
+
+        value = float(result.stdout)
+
+        # `battery_temp` return in celsius unit.
+        if 0 < value < 100:
+            return round(value, 1)
+
+        # `battery_temp` return in kelvin unit.
+        if 273 < value < 373:
+            return round(value - 273.15, 1)
+
+        # `battery_temp` return in millicelsius unit.
+        if 1000 < value < 100000:
+            return round(value / 1000., 1)
+
+        # The command return value in millikelvin unit.
+        if 273150 < value < 373150:
+            return round(value / 1000. - 273.15, 1)
+
+        raise ValueError
 
 
 def has_battery_temp():
@@ -2219,37 +2297,26 @@ class TempLogger(MeasurementLogger):
 
     def create_measurements(self):
         """Create measurements for TempLogger."""
-        domains = set()
         measurements = []
+
+        zstats = ThermalStatACPI()
+        for desc, fpath in zstats.zones.items():
+            new_meas = TempMeasurement(desc, fpath)
+            measurements.append(new_meas)
+
         tstats = ThermalStatHwmon()
         for kname in tstats.fields:
             match = re.match(r'(\S+)_temp(\d+)_input', kname)
             if not match:
                 continue
-            domain = match.group(1) + '-t' + match.group(2)
+            desc = match.group(1) + '-t' + match.group(2)
             fpath = tstats.fields[kname][0]
-            new_meas = TempMeasurement(domain, fpath)
+            new_meas = TempMeasurement(desc, fpath)
             measurements.append(new_meas)
-            domains.add(domain)
 
         if has_battery_temp():
             measurements.append(BatteryTempMeasurement())
 
-        sysfs_paths = '/sys/class/thermal/thermal_zone*'
-        paths = glob.glob(sysfs_paths)
-        for path in paths:
-            domain_path = os.path.join(path, 'type')
-            temp_path = os.path.join(path, 'temp')
-
-            domain = utils.read_one_line(domain_path)
-
-            # Skip when thermal_zone and hwmon have same domain.
-            if domain in domains:
-                continue
-
-            domain = domain.replace(' ', '_')
-            new_meas = TempMeasurement(domain, temp_path)
-            measurements.append(new_meas)
         return measurements
 
     def save_results(self, resultsdir, fname_prefix=None):
@@ -2282,7 +2349,7 @@ class VideoFpsLogger(MeasurementLogger):
             float, number of seconds elasped until condition met.
 
         Raises:
-            py_utils.TimeoutException if condition are not met by timeout.
+            error.TestFail if condition are not met by timeout.
         """
         start_time = time.time()
 
@@ -2294,7 +2361,21 @@ class VideoFpsLogger(MeasurementLogger):
         c = ('Math.min(...Array.from(document.getElementsByTagName("video"))'
              '.map(v => v.currentTime)) >= 0.001')
         timeout_left = timeout - (time.time() - start_time)
-        tab.WaitForJavaScriptCondition(c, timeout=timeout_left)
+        try:
+            tab.WaitForJavaScriptCondition(c, timeout=timeout_left)
+        # Broad exception because py_utils.TimeoutException require libchrome
+        except Exception:
+            times = tab.EvaluateJavaScript(
+                    'Array.from(document.getElementsByTagName("video"))'
+                    '.map(v => v.currentTime)')
+            # Not timeout exception, re-raise original exception
+            if min(times) > 0.001:
+                raise
+            videos = tab.EvaluateJavaScript(
+                    'Array.from(document.getElementsByTagName("video"))'
+                    '.map(v => v.id)')
+            failed_videos = [v for v, t in zip(videos, times) if t < 0.001]
+            raise error.TestFail('Media playback failed: %s' % failed_videos)
         return time.time() - start_time
 
     def __init__(self, tab, seconds_period=1.0, checkpoint_logger=None):
@@ -2400,6 +2481,31 @@ class FanRpmLogger(MeasurementLogger):
         return super(FanRpmLogger, self).calc(mtype)
 
 
+class FreeMemoryLogger(MeasurementLogger):
+    """Class to measure free memory from /proc/meminfo in KB unit."""
+
+    def __init__(self, seconds_period=1.0, checkpoint_logger=None):
+        """Initialize a FreeMemoryLogger."""
+        super(FreeMemoryLogger, self).__init__([], seconds_period,
+                                               checkpoint_logger)
+        self.domains = ['MemFree', 'MemAvailable']
+        self.refresh()
+
+    def refresh(self):
+        return [
+                utils.read_from_meminfo('MemFree'),
+                utils.read_from_meminfo('MemAvailable')
+        ]
+
+    def save_results(self, resultsdir, fname_prefix=None):
+        if not fname_prefix:
+            fname_prefix = 'free_memory_results_%.0f' % time.time()
+        super(FreeMemoryLogger, self).save_results(resultsdir, fname_prefix)
+
+    def calc(self, mtype='kB'):
+        return super(FreeMemoryLogger, self).calc(mtype)
+
+
 def create_measurement_loggers(seconds_period=20.0, checkpoint_logger=None):
     """Create loggers for power test that is not test-specific.
 
@@ -2411,9 +2517,10 @@ def create_measurement_loggers(seconds_period=20.0, checkpoint_logger=None):
         list of loggers created.
     """
     loggers = [
-        PowerLogger(None, seconds_period, checkpoint_logger),
-        TempLogger(None, seconds_period, checkpoint_logger),
-        CPUStatsLogger(seconds_period, checkpoint_logger),
+            PowerLogger(None, seconds_period, checkpoint_logger),
+            TempLogger(None, seconds_period, checkpoint_logger),
+            CPUStatsLogger(seconds_period, checkpoint_logger),
+            FreeMemoryLogger(seconds_period, checkpoint_logger),
     ]
     if has_fan():
         loggers.append(FanRpmLogger(seconds_period, checkpoint_logger))
@@ -2521,7 +2628,7 @@ class DiskStateLogger(threading.Thread):
         try:
             with open(self._device_path, 'r') as dev:
                 result = fcntl.ioctl(dev, 0x2285, sgio_header)
-        except IOError, e:
+        except IOError as e:
             raise error.TestError('ioctl(SG_IO) error: %s' % str(e))
         _, _, _, _, status, host_status, driver_status = \
             struct.unpack("4x4xxx2x4xPPP4x4x4xPBxxxHH4x4x4x", result)
@@ -2566,7 +2673,7 @@ class DiskStateLogger(threading.Thread):
                 else:
                     self._stats[state] = new_time - self._time
                 self._time = new_time
-        except error.TestError, e:
+        except error.TestError as e:
             self._error = e
             self._running = False
 
@@ -2582,6 +2689,25 @@ class DiskStateLogger(threading.Thread):
     def get_error(self):
         """Returns the _error exception... please only call after result()."""
         return self._error
+
+S0ixAmdStats = namedtuple('S0ixAmdStats',['entry','exit','residency'])
+
+def parse_amd_pmc_s0ix_residency_info():
+    """
+    Parses S0ix residency for AMD systems
+
+    @returns S0ixAmdStats
+    @raises error.TestNAError if the debugfs file not found.
+    """
+    s = []
+    with open('/sys/kernel/debug/amd_pmc/s0ix_stats',"r") as f:
+        for line in f:
+            if ':' in line:
+                val = line.split(": ")
+                s.append(int(val[1]))
+        stat = S0ixAmdStats(entry=s[0], exit=s[1], residency=s[2])
+        return stat
+    raise error.TestNAError('AMD S0ix residency not supported')
 
 def parse_pmc_s0ix_residency_info():
     """
@@ -2609,13 +2735,23 @@ class S0ixResidencyStats(object):
     Measures the S0ix residency of a given board over time.
     """
     def __init__(self):
-        self._initial_residency = parse_pmc_s0ix_residency_info()
+        if "amd" in utils.get_cpu_soc_family():
+            self._initial_residency = parse_amd_pmc_s0ix_residency_info()
+        else:
+            self._initial_residency = parse_pmc_s0ix_residency_info()
 
     def get_accumulated_residency_secs(self):
         """
         @returns S0ix Residency since the class has been initialized.
         """
-        return parse_pmc_s0ix_residency_info() - self._initial_residency
+        if "amd" in utils.get_cpu_soc_family():
+            s0ix = parse_amd_pmc_s0ix_residency_info()
+            if s0ix != self._initial_residency:
+                return s0ix.residency
+            else:
+                return 0
+        else:
+            return parse_pmc_s0ix_residency_info() - self._initial_residency
 
 
 class S2IdleStateStats(object):
@@ -2693,8 +2829,8 @@ def get_s2idle_residency_total_usecs():
     total_usecs = 0
 
     all_stats = get_s2idle_stats()
-    for stats in all_stats.itervalues():
-        for st in stats.itervalues():
+    for stats in all_stats.values():
+        for st in stats.values():
             total_usecs += st.time
 
     return total_usecs
@@ -2918,7 +3054,7 @@ class PCHPowergatingStats(object):
         if on_ip:
             on_ip_in_warn_list = on_ip & S0IX_WARNLIST
             if on_ip_in_warn_list:
-                logging.warn('Found PCH IP that may be able to powergate: %s',
+                logging.warning('Found PCH IP that may be able to powergate: %s',
                              ', '.join(on_ip_in_warn_list))
             on_ip -= S0IX_WARNLIST
 

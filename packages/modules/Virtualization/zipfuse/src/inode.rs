@@ -31,6 +31,11 @@ pub type Inode = u64;
 const INVALID: Inode = 0;
 const ROOT: Inode = 1;
 
+const DEFAULT_DIR_MODE: u32 = libc::S_IRUSR | libc::S_IXUSR;
+// b/264668376 some files in APK don't have unix permissions specified. Default to 400
+// otherwise those files won't be readable even by the owner.
+const DEFAULT_FILE_MODE: u32 = libc::S_IRUSR;
+
 /// `InodeData` represents an inode which has metadata about a file or a directory
 #[derive(Debug)]
 pub struct InodeData {
@@ -62,7 +67,7 @@ pub struct DirectoryEntry {
     pub kind: InodeKind,
 }
 
-#[derive(Debug, Clone, PartialEq, Copy)]
+#[derive(Debug, Clone, PartialEq, Eq, Copy)]
 pub enum InodeKind {
     Directory,
     File,
@@ -94,12 +99,8 @@ impl InodeData {
         InodeData { mode, size: 0, data: InodeDataData::Directory(HashMap::new()) }
     }
 
-    fn new_file(zip_index: ZipIndex, zip_file: &zip::read::ZipFile) -> InodeData {
-        InodeData {
-            mode: zip_file.unix_mode().unwrap_or(0),
-            size: zip_file.size(),
-            data: InodeDataData::File(zip_index),
-        }
+    fn new_file(zip_index: ZipIndex, mode: u32, zip_file: &zip::read::ZipFile) -> InodeData {
+        InodeData { mode, size: zip_file.size(), data: InodeDataData::File(zip_index) }
     }
 
     fn add_to_directory(&mut self, name: CString, entry: DirectoryEntry) {
@@ -169,7 +170,7 @@ impl InodeTable {
 
         // Add the inodes for the invalid and the root directory
         assert_eq!(INVALID, table.put(InodeData::new_dir(0)));
-        assert_eq!(ROOT, table.put(InodeData::new_dir(0)));
+        assert_eq!(ROOT, table.put(InodeData::new_dir(DEFAULT_DIR_MODE)));
 
         // For each zip file in the archive, create an inode and add it to the table. If the file's
         // parent directories don't have corresponding inodes in the table, handle them too.
@@ -183,6 +184,16 @@ impl InodeTable {
 
             let mut parent = ROOT;
             let mut iter = path.iter().peekable();
+
+            let mut file_mode = DEFAULT_FILE_MODE;
+            if path.starts_with("bin/") {
+                // Allow files under bin to have execute permission, this enables payloads to bundle
+                // additional binaries that they might want to execute.
+                // An example of such binary is measure_io one used in the authfs performance tests.
+                // More context available at b/265261525 and b/270955654.
+                file_mode |= libc::S_IXUSR;
+            }
+
             while let Some(name) = iter.next() {
                 // TODO(jiyong): remove this check by canonicalizing `path`
                 if name == ".." {
@@ -200,16 +211,17 @@ impl InodeTable {
                     // Update the mode if this is a directory leaf.
                     if !is_file && is_leaf {
                         let mut inode = table.get_mut(parent).unwrap();
-                        inode.mode = file.unix_mode().unwrap_or(0);
+                        inode.mode = file.unix_mode().unwrap_or(DEFAULT_DIR_MODE);
                     }
                     continue;
                 }
 
-                const DEFAULT_DIR_MODE: u32 = libc::S_IRUSR | libc::S_IXUSR;
-
                 // No inode found. Create a new inode and add it to the inode table.
+                // At the moment of writing this comment the apk file doesn't specify any
+                // permissions (apart from the ones on lib/), but it might change in the future.
+                // TODO(b/270955654): should we control the file permissions ourselves?
                 let inode = if is_file {
-                    InodeData::new_file(i, &file)
+                    InodeData::new_file(i, file.unix_mode().unwrap_or(file_mode), &file)
                 } else if is_leaf {
                     InodeData::new_dir(file.unix_mode().unwrap_or(DEFAULT_DIR_MODE))
                 } else {

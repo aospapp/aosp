@@ -79,6 +79,12 @@
   #define XNN_PLATFORM_ANDROID 0
 #endif
 
+#if defined(__linux__)
+  #define XNN_PLATFORM_LINUX 1
+#else
+  #define XNN_PLATFORM_LINUX 0
+#endif
+
 #if defined(__APPLE__) && TARGET_OS_IPHONE
   // iOS on iPhone / iPad Touch, iPad OS, watchOS, or tvOS
   #define XNN_PLATFORM_IOS 1
@@ -110,7 +116,13 @@
   #define XNN_PLATFORM_WINDOWS 0
 #endif
 
-#if (XNN_ARCH_ARM || XNN_ARCH_ARM64) && !XNN_PLATFORM_IOS
+#if defined(__Fuchsia__)
+  #define XNN_PLATFORM_FUCHSIA 1
+#else
+  #define XNN_PLATFORM_FUCHSIA 0
+#endif
+
+#if (XNN_ARCH_ARM || XNN_ARCH_ARM64) && !XNN_PLATFORM_IOS && !XNN_PLATFORM_FUCHSIA
   #define XNN_PLATFORM_JIT 1
 #else
   #define XNN_PLATFORM_JIT 0
@@ -239,7 +251,13 @@
   #define XNN_DISABLE_MSAN
 #endif
 
-#define XNN_OOB_READS XNN_DISABLE_TSAN XNN_DISABLE_MSAN
+#if XNN_COMPILER_HAS_FEATURE(hwaddress_sanitizer)
+  #define XNN_DISABLE_HWASAN __attribute__((__no_sanitize__("hwaddress")))
+#else
+  #define XNN_DISABLE_HWASAN
+#endif
+
+#define XNN_OOB_READS XNN_DISABLE_TSAN XNN_DISABLE_MSAN XNN_DISABLE_HWASAN
 
 #if defined(__GNUC__)
   #define XNN_INTRINSIC inline __attribute__((__always_inline__, __artificial__))

@@ -24,10 +24,10 @@ the reported tokens.
 * **PW_CHECK_\*()**: The ``PW_CHECK_*()`` macros work in contexts where
   tokenization is fully supported, so they are able to capture the CHECK
   statement expression and any provided string literal in addition to the file
-  name:
+  name in the pw_log_tokenized key/value format:
 
-    Check failure in pw_metric/size_report/base.cc: \*unoptimizable >= 0,
-    Ensure this CHECK logic stays.
+    "■msg♦Check failure: \*unoptimizable >= 0, Ensure this CHECK logic
+    stays■module♦KVS■file♦pw_kvs/size_report/base.cc"
 
   Evaluated values of ``PW_CHECK_*()`` statements are not captured, and any
   string formatting arguments are also not captured. This minimizes call-site
@@ -49,10 +49,10 @@ Setup
 #. Set ``pw_assert_BACKEND = "$dir_pw_assert_tokenized:check_backend"`` and
    ``pw_assert_LITE_BACKEND = "$dir_pw_assert_tokenized:assert_backend"`` in
    your target configuration.
-#. Ensure your target provides ``pw_tokenizer_GLOBAL_HANDLER_BACKEND``. By
-   default, pw_assert_tokenized will forward assert failures to the tokenizer
-   handler as logs. The tokenizer handler should check for ``LOG_LEVEL_FATAL``
-   and properly divert to a crash handler.
+#. Ensure your target provides
+   ``pw_log_tokenized_HANDLER_BACKEND``. By default, pw_assert_tokenized will
+   forward assert failures to the log system. The tokenizer handler should check
+   for ``LOG_LEVEL_FATAL`` and properly divert to a crash handler.
 #. Add file name tokens to your token database. pw_assert_tokenized can't create
    file name tokens that can be parsed out of the final compiled binary. The
    ``pw_relative_source_file_names``

@@ -16,6 +16,7 @@
 
 package com.android.cts.packagemanager.stats.host;
 
+import com.android.tradefed.util.RunUtil;
 import static com.android.cts.packagemanager.stats.host.Utils.SIGNATURE_FILE_SUFFIX;
 
 import static com.google.common.truth.Truth.assertThat;
@@ -50,10 +51,11 @@ import java.util.concurrent.TimeUnit;
 public final class IncrementalAppErrorStatsTests extends DeviceTestCase implements IBuildReceiver {
     private static final String TEST_REMOTE_DIR = "/data/local/tmp/appErrorTest";
     private static final String HELPER_PACKAGE = "com.android.cts.packagemanager.stats.device";
-    private static final String HELPER_APK = "IncrementalAppErrorStatsTestsHelper.apk";
     private static final String HELPER_CLASS = ".IncrementalAppErrorStatsTestsHelper";
-    private static final String HELPER_METHOD = "getPageIndexToBlock";
-    private static final String HELPER_ARG = "remoteApkPath";
+    private static final String HELPER_METHOD_GET_PAGE_INDEX_TO_BLOCK = "getPageIndexToBlock";
+    private static final String HELPER_METHOD_LOAD_APKS = "loadingApks";
+    private static final String HELPER_ARG_APK_PATH = "remoteApkPath";
+    private static final String HELPER_ARG_PKG_NAME = "packageName";
     private static final String PAGE_INDEX_TO_BLOCK = "pageIndexToBlock";
     private static final int INSTALL_TIMEOUT_SECONDS = 10;
     private static final int METRICS_WAIT_MILLISECONDS = 1_000;
@@ -75,15 +77,12 @@ public final class IncrementalAppErrorStatsTests extends DeviceTestCase implemen
         ConfigUtils.removeConfig(getDevice());
         ReportUtils.clearReports(getDevice());
 
-        DeviceUtils.installTestApp(getDevice(), HELPER_APK, HELPER_PACKAGE, mCtsBuild);
-        assertTrue(getDevice().isPackageInstalled(HELPER_PACKAGE));
-
         String remoteApkPath = Utils.pushApkToRemote(
                 DeviceUtils.STATSD_ATOM_TEST_APK, TEST_REMOTE_DIR, mCtsBuild, getDevice());
         final HashMap<String, String> testArgs = new HashMap<>();
-        testArgs.put(HELPER_ARG, remoteApkPath);
+        testArgs.put(HELPER_ARG_APK_PATH, remoteApkPath);
         Map<String, String> testResult = Utils.runDeviceTests(getDevice(), HELPER_PACKAGE,
-                HELPER_CLASS, HELPER_METHOD, testArgs);
+                HELPER_CLASS, HELPER_METHOD_GET_PAGE_INDEX_TO_BLOCK, testArgs);
         assertNotNull(testResult);
         assertEquals(1, testResult.size());
 
@@ -110,7 +109,10 @@ public final class IncrementalAppErrorStatsTests extends DeviceTestCase implemen
         mSession.waitForInstallCompleted(INSTALL_TIMEOUT_SECONDS, TimeUnit.SECONDS);
         assertTrue(getDevice().isPackageInstalled(DeviceUtils.STATSD_ATOM_TEST_PKG));
         // Preload most of the pages to make sure the test can run but it also causes pending reads
-        DeviceUtils.runDeviceTestsOnStatsdApp(getDevice(), ".AtomTests", "testLoadingApks");
+        final HashMap<String, String> testArgsForLoading = new HashMap<>();
+        testArgsForLoading.put(HELPER_ARG_PKG_NAME, DeviceUtils.STATSD_ATOM_TEST_PKG);
+        Utils.runDeviceTests(getDevice(), HELPER_PACKAGE, HELPER_CLASS,
+                HELPER_METHOD_LOAD_APKS, testArgsForLoading);
     }
 
     private boolean hasIncrementalDeliveryV2Feature() throws Exception {
@@ -125,8 +127,6 @@ public final class IncrementalAppErrorStatsTests extends DeviceTestCase implemen
         }
         getDevice().uninstallPackage(DeviceUtils.STATSD_ATOM_TEST_PKG);
         assertFalse(getDevice().isPackageInstalled(DeviceUtils.STATSD_ATOM_TEST_PKG));
-        getDevice().uninstallPackage(HELPER_PACKAGE);
-        assertFalse(getDevice().isPackageInstalled(HELPER_PACKAGE));
         super.tearDown();
     }
 
@@ -140,7 +140,7 @@ public final class IncrementalAppErrorStatsTests extends DeviceTestCase implemen
 
         DeviceUtils.runActivity(getDevice(), DeviceUtils.STATSD_ATOM_TEST_PKG,
                 "StatsdCtsForegroundActivity", "action", "action.crash");
-        Thread.sleep(METRICS_WAIT_MILLISECONDS);
+        RunUtil.getDefault().sleep(METRICS_WAIT_MILLISECONDS);
         // Sorted list of events in order in which they occurred.
         List<StatsLog.EventMetricData> data = ReportUtils.getEventMetricDataList(getDevice());
 
@@ -185,10 +185,10 @@ public final class IncrementalAppErrorStatsTests extends DeviceTestCase implemen
 
         try (AutoCloseable a = DeviceUtils.withActivity(getDevice(),
                 DeviceUtils.STATSD_ATOM_TEST_PKG, "ANRActivity", null, null)) {
-            Thread.sleep(AtomTestUtils.WAIT_TIME_LONG);
+            RunUtil.getDefault().sleep(AtomTestUtils.WAIT_TIME_LONG);
             getDevice().executeShellCommand(
                     "am broadcast -a action_anr -p " + DeviceUtils.STATSD_ATOM_TEST_PKG);
-            Thread.sleep(ANR_WAIT_MILLS);
+            RunUtil.getDefault().sleep(ANR_WAIT_MILLS);
         }
 
         // Sorted list of events in order in which they occurred.

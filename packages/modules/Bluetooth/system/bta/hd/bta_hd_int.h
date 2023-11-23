@@ -151,30 +151,30 @@ extern tBTA_HD_CB bta_hd_cb;
 /*****************************************************************************
  *  Function prototypes
  ****************************************************************************/
-extern bool bta_hd_hdl_event(BT_HDR_RIGID* p_msg);
+bool bta_hd_hdl_event(BT_HDR_RIGID* p_msg);
 
-extern void bta_hd_api_enable(tBTA_HD_DATA* p_data);
-extern void bta_hd_api_disable(void);
+void bta_hd_api_enable(tBTA_HD_DATA* p_data);
+void bta_hd_api_disable(void);
 
-extern void bta_hd_register_act(tBTA_HD_DATA* p_data);
-extern void bta_hd_unregister_act();
-extern void bta_hd_unregister2_act(tBTA_HD_DATA* p_data);
-extern void bta_hd_connect_act(tBTA_HD_DATA* p_data);
-extern void bta_hd_disconnect_act();
-extern void bta_hd_add_device_act(tBTA_HD_DATA* p_data);
-extern void bta_hd_remove_device_act(tBTA_HD_DATA* p_data);
-extern void bta_hd_send_report_act(tBTA_HD_DATA* p_data);
-extern void bta_hd_report_error_act(tBTA_HD_DATA* p_data);
-extern void bta_hd_vc_unplug_act();
+void bta_hd_register_act(tBTA_HD_DATA* p_data);
+void bta_hd_unregister_act();
+void bta_hd_unregister2_act(tBTA_HD_DATA* p_data);
+void bta_hd_connect_act(tBTA_HD_DATA* p_data);
+void bta_hd_disconnect_act();
+void bta_hd_add_device_act(tBTA_HD_DATA* p_data);
+void bta_hd_remove_device_act(tBTA_HD_DATA* p_data);
+void bta_hd_send_report_act(tBTA_HD_DATA* p_data);
+void bta_hd_report_error_act(tBTA_HD_DATA* p_data);
+void bta_hd_vc_unplug_act();
 
-extern void bta_hd_open_act(tBTA_HD_DATA* p_data);
-extern void bta_hd_close_act(tBTA_HD_DATA* p_data);
-extern void bta_hd_intr_data_act(tBTA_HD_DATA* p_data);
-extern void bta_hd_get_report_act(tBTA_HD_DATA* p_data);
-extern void bta_hd_set_report_act(tBTA_HD_DATA* p_data);
-extern void bta_hd_set_protocol_act(tBTA_HD_DATA* p_data);
-extern void bta_hd_vc_unplug_done_act(tBTA_HD_DATA* p_data);
-extern void bta_hd_suspend_act(tBTA_HD_DATA* p_data);
-extern void bta_hd_exit_suspend_act(tBTA_HD_DATA* p_data);
+void bta_hd_open_act(tBTA_HD_DATA* p_data);
+void bta_hd_close_act(tBTA_HD_DATA* p_data);
+void bta_hd_intr_data_act(tBTA_HD_DATA* p_data);
+void bta_hd_get_report_act(tBTA_HD_DATA* p_data);
+void bta_hd_set_report_act(tBTA_HD_DATA* p_data);
+void bta_hd_set_protocol_act(tBTA_HD_DATA* p_data);
+void bta_hd_vc_unplug_done_act(tBTA_HD_DATA* p_data);
+void bta_hd_suspend_act(tBTA_HD_DATA* p_data);
+void bta_hd_exit_suspend_act(tBTA_HD_DATA* p_data);
 
 #endif

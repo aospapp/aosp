@@ -24,6 +24,7 @@ import static java.security.cert.PKIXReason.NO_TRUST_ANCHOR;
 
 import android.annotation.NonNull;
 import android.annotation.Nullable;
+import android.app.ActivityManager;
 import android.app.AppOpsManager;
 import android.content.Context;
 import android.net.MacAddress;
@@ -35,7 +36,6 @@ import android.net.wifi.WifiSsid;
 import android.net.wifi.hotspot2.IProvisioningCallback;
 import android.net.wifi.hotspot2.OsuProvider;
 import android.net.wifi.hotspot2.PasspointConfiguration;
-import android.os.Handler;
 import android.os.Looper;
 import android.os.Process;
 import android.text.TextUtils;
@@ -47,6 +47,7 @@ import com.android.modules.utils.build.SdkLevel;
 import com.android.server.wifi.Clock;
 import com.android.server.wifi.MacAddressUtil;
 import com.android.server.wifi.NetworkUpdateResult;
+import com.android.server.wifi.RunnerHandler;
 import com.android.server.wifi.WifiCarrierInfoManager;
 import com.android.server.wifi.WifiConfigManager;
 import com.android.server.wifi.WifiConfigStore;
@@ -119,7 +120,7 @@ public class PasspointManager {
 
     private final PasspointEventHandler mPasspointEventHandler;
     private final WifiInjector mWifiInjector;
-    private final Handler mHandler;
+    private final RunnerHandler mHandler;
     private final WifiKeyStore mKeyStore;
     private final PasspointObjectFactory mObjectFactory;
 
@@ -136,6 +137,7 @@ public class PasspointManager {
     private final Clock mClock;
     private final WifiPermissionsUtil mWifiPermissionsUtil;
     private final WifiSettingsStore mSettingsStore;
+    private final boolean mIsLowMemory;
 
     /**
      * Map of package name of an app to the app ops changed listener for the app.
@@ -145,7 +147,8 @@ public class PasspointManager {
     // Counter used for assigning unique identifier to each provider.
     private long mProviderIndex;
     private boolean mVerboseLoggingEnabled = false;
-    private boolean mEnabled;
+    // Set default value to false before receiving boot completed event.
+    private boolean mEnabled = false;
 
     private class CallbackHandler implements PasspointEventHandler.Callbacks {
         private final Context mContext;
@@ -160,8 +163,10 @@ public class PasspointManager {
                 Log.d(TAG, "ANQP response received from BSSID "
                         + Utils.macToString(bssid) + " - List of ANQP elements:");
                 int i = 0;
-                for (Constants.ANQPElementType type : anqpElements.keySet()) {
-                    Log.d(TAG, "#" + i++ + ": " + type);
+                if (anqpElements != null) {
+                    for (Constants.ANQPElementType type : anqpElements.keySet()) {
+                        Log.d(TAG, "#" + i++ + ": " + type);
+                    }
                 }
             }
             // Notify request manager for the completion of a request.
@@ -281,18 +286,22 @@ public class PasspointManager {
             onUserConnectChoiceSet(networks, choiceKey, rssi);
         }
         @Override
-        public void onConnectChoiceRemoved(String choiceKey) {
+        public void onConnectChoiceRemoved(@NonNull String choiceKey) {
+            if (choiceKey == null) {
+                return;
+            }
             onUserConnectChoiceRemove(choiceKey);
         }
 
     }
 
     private void onUserConnectChoiceRemove(String choiceKey) {
-        mProviders.values().stream()
+        if (mProviders.values().stream()
                 .filter(provider -> TextUtils.equals(provider.getConnectChoice(), choiceKey))
-                .forEach(provider -> {
-                    provider.setUserConnectChoice(null, 0);
-                });
+                .peek(provider -> provider.setUserConnectChoice(null, 0))
+                .count() == 0) {
+            return;
+        }
         mWifiConfigManager.saveToStore(true);
     }
 
@@ -351,7 +360,7 @@ public class PasspointManager {
         mAppOps.stopWatchingMode(appOpsChangedListener);
     }
 
-    public PasspointManager(Context context, WifiInjector wifiInjector, Handler handler,
+    public PasspointManager(Context context, WifiInjector wifiInjector, RunnerHandler handler,
             WifiNative wifiNative, WifiKeyStore keyStore, Clock clock,
             PasspointObjectFactory objectFactory, WifiConfigManager wifiConfigManager,
             WifiConfigStore wifiConfigStore,
@@ -379,16 +388,17 @@ public class PasspointManager {
                 new SharedDataSourceHandler()));
         mPasspointProvisioner = objectFactory.makePasspointProvisioner(context, wifiNative,
                 this, wifiMetrics);
+        ActivityManager activityManager = context.getSystemService(ActivityManager.class);
+        mIsLowMemory = activityManager.isLowRamDevice();
         mAppOps = (AppOpsManager) context.getSystemService(Context.APP_OPS_SERVICE);
         sPasspointManager = this;
         mMacAddressUtil = macAddressUtil;
         mClock = clock;
-        mHandler.postAtFrontOfQueue(() ->
+        mHandler.postToFront(() ->
                 mWifiConfigManager.addOnNetworkUpdateListener(
                         new PasspointManager.OnNetworkUpdateListener()));
         mWifiPermissionsUtil = wifiPermissionsUtil;
         mSettingsStore = wifiSettingsStore;
-        mEnabled = mSettingsStore.isWifiPasspointEnabled();
     }
 
     /**
@@ -457,13 +467,16 @@ public class PasspointManager {
      * @param uid Uid of the app adding/Updating {@code config}
      * @param packageName Package name of the app adding/Updating {@code config}
      * @param isFromSuggestion Whether this {@code config} is from suggestion API
-     * @param isTrusted Whether this {@code config} an trusted network, default should be true.
+     * @param isTrusted Whether this {@code config} is a trusted network, default should be true.
      *                  Only able set to false when {@code isFromSuggestion} is true, otherwise
-     *                  adding {@code config} will be false.
-     * @return true if provider is added, false otherwise
+     *                  adding {@code config} will fail.
+     * @param isRestricted Whether this {@code config} is a restricted network, default should be
+     *                     false. Only able set to false when {@code isFromSuggestion} is true,
+     *                     otherwise adding {@code config} will fail
+     * @return true if provider is added successfully, false otherwise
      */
     public boolean addOrUpdateProvider(PasspointConfiguration config, int uid,
-            String packageName, boolean isFromSuggestion, boolean isTrusted) {
+            String packageName, boolean isFromSuggestion, boolean isTrusted, boolean isRestricted) {
         mWifiMetrics.incrementNumPasspointProviderInstallation();
         if (config == null) {
             Log.e(TAG, "Configuration not provided");
@@ -473,12 +486,22 @@ public class PasspointManager {
             Log.e(TAG, "Invalid configuration");
             return false;
         }
-        if (!(isFromSuggestion || isTrusted)) {
+        if (!isFromSuggestion && (!isTrusted || isRestricted)) {
             Log.e(TAG, "Set isTrusted to false on a non suggestion passpoint is not allowed");
+            return false;
+        }
+        if (config.getServiceFriendlyNames() != null && isFromSuggestion) {
+            Log.e(TAG, "Passpoint from suggestion should not have ServiceFriendlyNames");
             return false;
         }
         if (!mWifiPermissionsUtil.doesUidBelongToCurrentUserOrDeviceOwner(uid)) {
             Log.e(TAG, "UID " + uid + " not visible to the current user");
+            return false;
+        }
+        if (getPasspointProviderWithPackage(packageName).size()
+                >= WifiManager.getMaxNumberOfNetworkSuggestionsPerApp(mIsLowMemory)) {
+            Log.e(TAG, "packageName " + packageName + " has too many passpoint with exceed the "
+                    + "limitation");
             return false;
         }
 
@@ -488,6 +511,7 @@ public class PasspointManager {
                 mWifiCarrierInfoManager, mProviderIndex++, uid, packageName, isFromSuggestion,
                 mClock);
         newProvider.setTrusted(isTrusted);
+        newProvider.setRestricted(isRestricted);
 
         boolean metricsNoRootCa = false;
         boolean metricsSelfSignedRootCa = false;
@@ -551,7 +575,10 @@ public class PasspointManager {
         }
         newProvider.enableVerboseLogging(mVerboseLoggingEnabled);
         mProviders.put(config.getUniqueId(), newProvider);
-        mWifiConfigManager.saveToStore(true /* forceWrite */);
+        if (!isFromSuggestion) {
+            // Suggestions will be handled by the WifiNetworkSuggestionsManager
+            mWifiConfigManager.saveToStore(true /* forceWrite */);
+        }
         if (!isFromSuggestion && newProvider.getPackageName() != null) {
             startTrackingAppOpsChange(newProvider.getPackageName(), uid);
         }
@@ -572,7 +599,7 @@ public class PasspointManager {
         }
         mWifiMetrics.incrementNumPasspointProviderInstallSuccess();
         if (mPasspointNetworkNominateHelper != null) {
-            mPasspointNetworkNominateHelper.updateBestMatchScanDetailForProviders();
+            mPasspointNetworkNominateHelper.refreshWifiConfigsForProviders();
         }
         return true;
     }
@@ -599,7 +626,10 @@ public class PasspointManager {
         String uniqueId = provider.getConfig().getUniqueId();
         mProviders.remove(uniqueId);
         mWifiConfigManager.removeConnectChoiceFromAllNetworks(uniqueId);
-        mWifiConfigManager.saveToStore(true /* forceWrite */);
+        if (!provider.isFromSuggestion()) {
+            // Suggestions will be handled by the WifiNetworkSuggestionsManager
+            mWifiConfigManager.saveToStore(true /* forceWrite */);
+        }
 
         // Stop monitoring the package if there is no Passpoint profile installed by the package
         if (mAppOpsChangedListenerPerApp.containsKey(packageName)
@@ -869,6 +899,10 @@ public class PasspointManager {
      */
     private @NonNull List<Pair<PasspointProvider, PasspointMatch>> getAllMatchedProviders(
             ScanResult scanResult, boolean anqpRequestAllowed) {
+        if (!mEnabled) {
+            return Collections.emptyList();
+        }
+
         List<Pair<PasspointProvider, PasspointMatch>> allMatches = new ArrayList<>();
 
         // Retrieve the relevant information elements, mainly Roaming Consortium IE and Hotspot 2.0
@@ -1185,8 +1219,9 @@ public class PasspointManager {
             if (mWifiConfigManager.shouldUseNonPersistentRandomization(config)) {
                 config.setRandomizedMacAddress(MacAddress.fromString(DEFAULT_MAC_ADDRESS));
             } else {
-                MacAddress result = mMacAddressUtil.calculatePersistentMac(config.getNetworkKey(),
-                        mMacAddressUtil.obtainMacRandHashFunction(Process.WIFI_UID));
+                MacAddress result = mMacAddressUtil.calculatePersistentMacForSta(
+                        config.getNetworkKey(),
+                        Process.WIFI_UID);
                 if (result != null) {
                     config.setRandomizedMacAddress(result);
                 }
@@ -1197,12 +1232,46 @@ public class PasspointManager {
     }
 
     /**
+     * Returns the corresponding wifi configurations for all non-suggestion Passpoint profiles
+     * that include a recent SSID.
+     *
+     * @return List of {@link WifiConfiguration} converted from {@link PasspointProvider}.
+     */
+    public List<WifiConfiguration> getWifiConfigsForPasspointProfilesWithSsids() {
+        List<WifiConfiguration> configs = new ArrayList<>();
+        for (PasspointProvider provider : mProviders.values()) {
+            if (provider == null || provider.getMostRecentSsid() == null
+                    || provider.isFromSuggestion()) {
+                continue;
+            }
+            WifiConfiguration config = provider.getWifiConfig();
+            config.SSID = provider.getMostRecentSsid();
+            config.getNetworkSelectionStatus().setHasEverConnected(true);
+            configs.add(config);
+        }
+        return configs;
+    }
+
+    /**
+     * Get the most recent SSID observed for the specified Passpoint profile.
+     *
+     * @param uniqueId The unique identifier of the Passpoint profile.
+     * @return The most recent SSID observed for this profile, or null.
+     */
+    public @Nullable String getMostRecentSsidForProfile(String uniqueId) {
+        PasspointProvider provider = mProviders.get(uniqueId);
+        if (provider == null) return null;
+        return provider.getMostRecentSsid();
+    }
+
+    /**
      * Invoked when a Passpoint network was successfully connected based on the credentials
      * provided by the given Passpoint provider
      *
-     * @param uniqueId The unique identifier of the Passpointprofile
+     * @param uniqueId The unique identifier of the Passpoint profile.
+     * @param ssid The SSID of the connected Passpoint network.
      */
-    public void onPasspointNetworkConnected(String uniqueId) {
+    public void onPasspointNetworkConnected(String uniqueId, @Nullable String ssid) {
         PasspointProvider provider = mProviders.get(uniqueId);
         if (provider == null) {
             Log.e(TAG, "Passpoint network connected without provider: " + uniqueId);
@@ -1212,6 +1281,7 @@ public class PasspointManager {
             // First successful connection using this provider.
             provider.setHasEverConnected(true);
         }
+        provider.setMostRecentSsid(ssid);
     }
 
     /**
@@ -1634,5 +1704,13 @@ public class PasspointManager {
         PasspointProvider provider = mProviders.get(uniqueId);
         if (provider == null) return 0;
         return provider.getAndRemoveMatchedRcoi(ssid);
+    }
+
+    /**
+     * Handle boot completed, read config flags.
+     */
+    public void handleBootCompleted() {
+        // Settings Store should be accessed after boot completed event.
+        mEnabled = mSettingsStore.isWifiPasspointEnabled();
     }
 }

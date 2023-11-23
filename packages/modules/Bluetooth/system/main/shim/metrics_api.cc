@@ -15,6 +15,7 @@
  */
 
 #include "main/shim/metrics_api.h"
+
 #include "gd/hci/address.h"
 #include "gd/metrics/counter_metrics.h"
 #include "gd/os/metrics.h"
@@ -66,6 +67,14 @@ void LogMetricA2dpPlaybackEvent(const RawAddress& raw_address,
                                             audio_coding_mode);
 }
 
+void LogMetricHfpPacketLossStats(const RawAddress& raw_address,
+                                 int num_decoded_frames,
+                                 double packet_loss_ratio) {
+  Address address = bluetooth::ToGdAddress(raw_address);
+  bluetooth::os::LogMetricHfpPacketLossStats(address, num_decoded_frames,
+                                             packet_loss_ratio);
+}
+
 void LogMetricReadRssiResult(const RawAddress& raw_address, uint16_t handle,
                              uint32_t cmd_status, int8_t rssi) {
   Address address = bluetooth::ToGdAddress(raw_address);
@@ -89,9 +98,9 @@ void LogMetricReadTxPowerLevelResult(const RawAddress& raw_address,
                                                  transmit_power_level);
 }
 
-void LogMetricSmpPairingEvent(const RawAddress& raw_address, uint8_t smp_cmd,
+void LogMetricSmpPairingEvent(const RawAddress& raw_address, uint16_t smp_cmd,
                               android::bluetooth::DirectionEnum direction,
-                              uint8_t smp_fail_reason) {
+                              uint16_t smp_fail_reason) {
   Address address = bluetooth::ToGdAddress(raw_address);
   bluetooth::os::LogMetricSmpPairingEvent(address, smp_cmd, direction,
                                           smp_fail_reason);
@@ -146,5 +155,17 @@ bool CountCounterMetrics(int32_t key, int64_t count) {
   }
   return counter_metrics->Count(key, count);
 }
+
+void LogMetricBluetoothLEConnectionMetricEvent(
+    const RawAddress& raw_address,
+    android::bluetooth::le::LeConnectionOriginType origin_type,
+    android::bluetooth::le::LeConnectionType connection_type,
+    android::bluetooth::le::LeConnectionState transaction_state,
+    std::vector<std::pair<os::ArgumentType, int>> argument_list) {
+
+  Address address = bluetooth::ToGdAddress(raw_address);
+  bluetooth::os::LogMetricBluetoothLEConnectionMetricEvent(address, origin_type, connection_type, transaction_state, argument_list);
+}
+
 }  // namespace shim
 }  // namespace bluetooth

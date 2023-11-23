@@ -1,0 +1,17 @@
+rust_library_rlib {
+    name: "libzerocopy_nostd",
+    crate_name: "zerocopy",
+    cargo_env_compat: true,
+    cargo_pkg_version: "0.6.1",
+    srcs: ["src/lib.rs"],
+    edition: "2018",
+    no_stdlibs: true,
+    rustlibs: [
+        "libbyteorder_nostd",
+    ],
+    proc_macros: ["libzerocopy_derive"],
+    apex_available: [
+        "//apex_available:platform",
+        "//apex_available:anyapex",
+    ],
+}

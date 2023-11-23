@@ -33,6 +33,7 @@ import java.util.Hashtable;
 
 import org.apache.harmony.jpda.tests.framework.LogWriter;
 import org.apache.harmony.jpda.tests.framework.TestOptions;
+import org.apache.harmony.jpda.tests.framework.jdwp.JDWPCommands.EventCommandSet;
 import org.apache.harmony.jpda.tests.framework.jdwp.exceptions.TimeoutException;
 
 /**
@@ -554,7 +555,12 @@ public class PacketDispatcher extends Thread {
                     EventPacket eventPacket = new EventPacket(packet);
                     // below is to check received events for correctness
 
-                    // below is trace for received events
+                    // Check this is indeed an Event (this could be a JDWP extension)
+                    // If it is not, ignore it.
+                    if (eventPacket.getCommandSet() != EventCommandSet.CommandSetID) {
+                        continue;
+                    }
+
                     ParsedEvent[] parsedEvents = ParsedEvent
                             .parseEventPacket(eventPacket);
                     if ((eventRequestIDForTrace >= 0)

@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # Copyright 2017 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -5,10 +6,15 @@
 Wrapper for D-Bus calls ot the AuthPolicy daemon.
 """
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
 import logging
 import os
 import sys
 
+import common
 import dbus
 
 from autotest_lib.client.common_lib import error
@@ -287,11 +293,11 @@ class AuthPolicy(object):
         def __enter__(self):
             """Creates the password file descriptor."""
             self._read_fd, write_fd = os.pipe()
-            os.write(write_fd, self._password)
+            os.write(write_fd, self._password.encode('utf-8'))
             os.close(write_fd)
             return self._read_fd
 
-        def __exit__(self, mytype, value, traceback):
+        def __exit__(self, my_type, value, traceback):
             """Closes the password file descriptor again."""
             if self._read_fd:
                 os.close(self._read_fd)

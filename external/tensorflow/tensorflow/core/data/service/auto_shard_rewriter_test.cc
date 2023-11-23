@@ -29,7 +29,6 @@ limitations under the License.
 #include "tensorflow/core/framework/types.pb.h"
 #include "tensorflow/core/lib/core/status_test_util.h"
 #include "tensorflow/core/platform/errors.h"
-#include "tensorflow/core/platform/protobuf.h"
 #include "tensorflow/core/platform/status_matchers.h"
 #include "tensorflow/core/platform/statusor.h"
 #include "tensorflow/core/platform/test.h"
@@ -42,14 +41,12 @@ namespace tensorflow {
 namespace data {
 namespace {
 
+using ::tensorflow::data::testing::EqualsProto;
 using ::tensorflow::data::testing::RangeDatasetWithShardHint;
 using ::tensorflow::data::testing::RangeSquareDataset;
 using ::tensorflow::testing::IsOkAndHolds;
 using ::tensorflow::testing::StatusIs;
 using ::testing::HasSubstr;
-using ::testing::MakePolymorphicMatcher;
-using ::testing::MatchResultListener;
-using ::testing::PolymorphicMatcher;
 using ::testing::SizeIs;
 
 StatusOr<NodeDef> GetNode(const GraphDef& graph_def, absl::string_view name) {
@@ -62,7 +59,7 @@ StatusOr<NodeDef> GetNode(const GraphDef& graph_def, absl::string_view name) {
                                            name, graph_def.ShortDebugString()));
 }
 
-StatusOr<int64> GetValue(const GraphDef& graph_def, absl::string_view name) {
+StatusOr<int64_t> GetValue(const GraphDef& graph_def, absl::string_view name) {
   for (const NodeDef& node : graph_def.node()) {
     if (node.name() == name) {
       return node.attr().at("value").tensor().int64_val()[0];
@@ -73,38 +70,12 @@ StatusOr<int64> GetValue(const GraphDef& graph_def, absl::string_view name) {
 }
 
 TaskDef GetTaskDef(const ProcessingModeDef::ShardingPolicy sharding_policy,
-                   const int64 num_workers, const int64 worker_index) {
+                   const int64_t num_workers, const int64_t worker_index) {
   TaskDef task_def;
   task_def.mutable_processing_mode_def()->set_sharding_policy(sharding_policy);
   task_def.set_num_workers(num_workers);
   task_def.set_worker_index(worker_index);
   return task_def;
-}
-
-// TODO(yangchen): Make EqualsProto available in Googletest
-// (https://github.com/google/googletest/issues/1761).
-class ProtoStringMatcher {
- public:
-  explicit ProtoStringMatcher(const tensorflow::protobuf::Message& expected)
-      : expected_(expected.ShortDebugString()) {}
-
-  template <typename Message>
-  bool MatchAndExplain(const Message& p, MatchResultListener*) const {
-    return p.ShortDebugString() == expected_;
-  }
-
-  void DescribeTo(::std::ostream* os) const { *os << expected_; }
-  void DescribeNegationTo(::std::ostream* os) const {
-    *os << "not equal to expected message: " << expected_;
-  }
-
- private:
-  const std::string expected_;
-};
-
-inline ::testing::PolymorphicMatcher<ProtoStringMatcher> EqualsProto(
-    const tensorflow::protobuf::Message& x) {
-  return ::testing::MakePolymorphicMatcher(ProtoStringMatcher(x));
 }
 
 TEST(AutoShardRewriterTest, AutoShard) {
@@ -324,6 +295,78 @@ TEST(WorkerIndexResolverTest, NumericPorts) {
   EXPECT_THAT(resolver.GetWorkerIndex("/worker/task/0:12345"), IsOkAndHolds(0));
   EXPECT_THAT(resolver.GetWorkerIndex("/worker/task/1:23456"), IsOkAndHolds(1));
   EXPECT_THAT(resolver.GetWorkerIndex("/worker/task/2:34567"), IsOkAndHolds(2));
+}
+
+TEST(WorkerIndexResolverTest, IPv6Addresses) {
+  WorkerIndexResolver resolver(std::vector<std::string>{
+      "[1080:0:0:0:8:800:200C:417A]", "[1080:0:0:0:8:800:200C:417B]",
+      "[1080:0:0:0:8:800:200C:417C]"});
+  TF_EXPECT_OK(resolver.ValidateWorker("[1080:0:0:0:8:800:200C:417A]:12345"));
+  TF_EXPECT_OK(resolver.ValidateWorker("[1080:0:0:0:8:800:200C:417B]:23456"));
+  TF_EXPECT_OK(resolver.ValidateWorker("[1080:0:0:0:8:800:200C:417C]:34567"));
+  resolver.AddWorker("[1080:0:0:0:8:800:200C:417A]:12345");
+  resolver.AddWorker("[1080:0:0:0:8:800:200C:417B]:23456");
+  resolver.AddWorker("[1080:0:0:0:8:800:200C:417C]:34567");
+  EXPECT_THAT(resolver.GetWorkerIndex("[1080:0:0:0:8:800:200C:417A]:12345"),
+              IsOkAndHolds(0));
+  EXPECT_THAT(resolver.GetWorkerIndex("[1080:0:0:0:8:800:200C:417B]:23456"),
+              IsOkAndHolds(1));
+  EXPECT_THAT(resolver.GetWorkerIndex("[1080:0:0:0:8:800:200C:417C]:34567"),
+              IsOkAndHolds(2));
+}
+
+TEST(WorkerIndexResolverTest, IPv6AddressesWithDynamicPort) {
+  WorkerIndexResolver resolver(
+      std::vector<std::string>{"[1080:0:0:0:8:800:200C:417A]:%port%",
+                               "[1080:0:0:0:8:800:200C:417B]:%port%",
+                               "[1080:0:0:0:8:800:200C:417C]:%port%"});
+  TF_EXPECT_OK(resolver.ValidateWorker("[1080:0:0:0:8:800:200C:417A]:12345"));
+  TF_EXPECT_OK(resolver.ValidateWorker("[1080:0:0:0:8:800:200C:417B]:23456"));
+  TF_EXPECT_OK(resolver.ValidateWorker("[1080:0:0:0:8:800:200C:417C]:34567"));
+  resolver.AddWorker("[1080:0:0:0:8:800:200C:417A]:12345");
+  resolver.AddWorker("[1080:0:0:0:8:800:200C:417B]:23456");
+  resolver.AddWorker("[1080:0:0:0:8:800:200C:417C]:34567");
+  EXPECT_THAT(resolver.GetWorkerIndex("[1080:0:0:0:8:800:200C:417A]:12345"),
+              IsOkAndHolds(0));
+  EXPECT_THAT(resolver.GetWorkerIndex("[1080:0:0:0:8:800:200C:417B]:23456"),
+              IsOkAndHolds(1));
+  EXPECT_THAT(resolver.GetWorkerIndex("[1080:0:0:0:8:800:200C:417C]:34567"),
+              IsOkAndHolds(2));
+}
+
+TEST(WorkerIndexResolverTest, AddressesWithProtocols) {
+  WorkerIndexResolver resolver(std::vector<std::string>{
+      "http://127.0.0.1", "http://127.0.0.1", "http://127.0.0.1"});
+  TF_EXPECT_OK(resolver.ValidateWorker("http://127.0.0.1:12345"));
+  TF_EXPECT_OK(resolver.ValidateWorker("http://127.0.0.1:23456"));
+  TF_EXPECT_OK(resolver.ValidateWorker("http://127.0.0.1:34567"));
+  resolver.AddWorker("http://127.0.0.1:12345");
+  resolver.AddWorker("http://127.0.0.1:23456");
+  resolver.AddWorker("http://127.0.0.1:34567");
+  EXPECT_THAT(resolver.GetWorkerIndex("http://127.0.0.1:12345"),
+              IsOkAndHolds(0));
+  EXPECT_THAT(resolver.GetWorkerIndex("http://127.0.0.1:23456"),
+              IsOkAndHolds(1));
+  EXPECT_THAT(resolver.GetWorkerIndex("http://127.0.0.1:34567"),
+              IsOkAndHolds(2));
+}
+
+TEST(WorkerIndexResolverTest, AddressesWithProtocolsAndDynamicPorts) {
+  WorkerIndexResolver resolver(std::vector<std::string>{
+      "http://127.0.0.1:%port_name%", "http://127.0.0.1:%port_name%",
+      "http://127.0.0.1:%port_name%"});
+  TF_EXPECT_OK(resolver.ValidateWorker("http://127.0.0.1:12345"));
+  TF_EXPECT_OK(resolver.ValidateWorker("http://127.0.0.1:23456"));
+  TF_EXPECT_OK(resolver.ValidateWorker("http://127.0.0.1:34567"));
+  resolver.AddWorker("http://127.0.0.1:12345");
+  resolver.AddWorker("http://127.0.0.1:23456");
+  resolver.AddWorker("http://127.0.0.1:34567");
+  EXPECT_THAT(resolver.GetWorkerIndex("http://127.0.0.1:12345"),
+              IsOkAndHolds(0));
+  EXPECT_THAT(resolver.GetWorkerIndex("http://127.0.0.1:23456"),
+              IsOkAndHolds(1));
+  EXPECT_THAT(resolver.GetWorkerIndex("http://127.0.0.1:34567"),
+              IsOkAndHolds(2));
 }
 
 TEST(WorkerIndexResolverTest, HostNameHasColons) {

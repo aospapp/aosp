@@ -1,3 +1,7 @@
+# This project was upgraded with external_updater.
+# Usage: tools/external_updater/updater.sh update rust/crates/gdbstub
+# For more info, check https://cs.android.com/android/platform/superproject/+/master:tools/external_updater/README.md
+
 name: "gdbstub"
 description: "An implementation of the GDB Remote Serial Protocol in Rust"
 third_party {
@@ -7,13 +11,13 @@ third_party {
   }
   url {
     type: ARCHIVE
-    value: "https://static.crates.io/crates/gdbstub/gdbstub-0.5.0.crate"
+    value: "https://static.crates.io/crates/gdbstub/gdbstub-0.6.4.crate"
   }
-  version: "0.5.0"
+  version: "0.6.4"
   license_type: NOTICE
   last_upgrade_date {
-    year: 2021
-    month: 6
-    day: 21
+    year: 2023
+    month: 3
+    day: 6
   }
 }

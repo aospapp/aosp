@@ -421,6 +421,11 @@ struct MessageQueueBase {
      */
     bool commitRead(size_t nMessages);
 
+    /**
+     * Get the pointer to the ring buffer. Useful for debugging and fuzzing.
+     */
+    uint8_t* getRingBufferPtr() const { return mRing; }
+
   private:
     size_t availableToWriteBytes() const;
     size_t availableToReadBytes() const;
@@ -586,12 +591,6 @@ void MessageQueueBase<MQDescriptorType, T, flavor>::initMemory(bool resetPointer
         return;
     }
 
-    const auto& grantors = mDesc->grantors();
-    for (const auto& grantor : grantors) {
-        hardware::details::check(hardware::details::isAlignedToWordBoundary(grantor.offset) == true,
-                                 "Grantor offsets need to be aligned");
-    }
-
     if (flavor == kSynchronizedReadWrite) {
         mReadPtr = reinterpret_cast<std::atomic<uint64_t>*>(
                 mapGrantorDescr(hardware::details::READPTRPOS));
@@ -602,11 +601,11 @@ void MessageQueueBase<MQDescriptorType, T, flavor>::initMemory(bool resetPointer
          */
         mReadPtr = new (std::nothrow) std::atomic<uint64_t>;
     }
-    hardware::details::check(mReadPtr != nullptr, "mReadPtr is null");
+    if (mReadPtr == nullptr) goto error;
 
     mWritePtr = reinterpret_cast<std::atomic<uint64_t>*>(
             mapGrantorDescr(hardware::details::WRITEPTRPOS));
-    hardware::details::check(mWritePtr != nullptr, "mWritePtr is null");
+    if (mWritePtr == nullptr) goto error;
 
     if (resetPointers) {
         mReadPtr->store(0, std::memory_order_release);
@@ -617,13 +616,31 @@ void MessageQueueBase<MQDescriptorType, T, flavor>::initMemory(bool resetPointer
     }
 
     mRing = reinterpret_cast<uint8_t*>(mapGrantorDescr(hardware::details::DATAPTRPOS));
-    hardware::details::check(mRing != nullptr, "mRing is null");
+    if (mRing == nullptr) goto error;
 
     if (mDesc->countGrantors() > hardware::details::EVFLAGWORDPOS) {
         mEvFlagWord = static_cast<std::atomic<uint32_t>*>(
                 mapGrantorDescr(hardware::details::EVFLAGWORDPOS));
-        hardware::details::check(mEvFlagWord != nullptr, "mEvFlagWord is null");
+        if (mEvFlagWord == nullptr) goto error;
         android::hardware::EventFlag::createEventFlag(mEvFlagWord, &mEventFlag);
+    }
+    return;
+error:
+    if (mReadPtr) {
+        if (flavor == kSynchronizedReadWrite) {
+            unmapGrantorDescr(mReadPtr, hardware::details::READPTRPOS);
+        } else {
+            delete mReadPtr;
+        }
+        mReadPtr = nullptr;
+    }
+    if (mWritePtr) {
+        unmapGrantorDescr(mWritePtr, hardware::details::WRITEPTRPOS);
+        mWritePtr = nullptr;
+    }
+    if (mRing) {
+        unmapGrantorDescr(mRing, hardware::details::EVFLAGWORDPOS);
+        mRing = nullptr;
     }
 }
 
@@ -631,7 +648,8 @@ template <template <typename, MQFlavor> typename MQDescriptorType, typename T, M
 MessageQueueBase<MQDescriptorType, T, flavor>::MessageQueueBase(const Descriptor& Desc,
                                                                 bool resetPointers) {
     mDesc = std::unique_ptr<Descriptor>(new (std::nothrow) Descriptor(Desc));
-    if (mDesc == nullptr) {
+    if (mDesc == nullptr || mDesc->getSize() == 0) {
+        hardware::details::logError("MQDescriptor is invalid or queue size is 0.");
         return;
     }
 
@@ -648,6 +666,10 @@ MessageQueueBase<MQDescriptorType, T, flavor>::MessageQueueBase(size_t numElemen
         hardware::details::logError("Requested message queue size too large. Size of elements: " +
                                     std::to_string(sizeof(T)) +
                                     ". Number of elements: " + std::to_string(numElementsInQueue));
+        return;
+    }
+    if (numElementsInQueue == 0) {
+        hardware::details::logError("Requested queue size of 0.");
         return;
     }
     if (bufferFd != -1 && numElementsInQueue * sizeof(T) > bufferSize) {
@@ -755,10 +777,10 @@ MessageQueueBase<MQDescriptorType, T, flavor>::MessageQueueBase(size_t numElemen
 
 template <template <typename, MQFlavor> typename MQDescriptorType, typename T, MQFlavor flavor>
 MessageQueueBase<MQDescriptorType, T, flavor>::~MessageQueueBase() {
-    if (flavor == kUnsynchronizedWrite && mReadPtr != nullptr) {
-        delete mReadPtr;
-    } else if (mReadPtr != nullptr) {
+    if (flavor == kSynchronizedReadWrite && mReadPtr != nullptr) {
         unmapGrantorDescr(mReadPtr, hardware::details::READPTRPOS);
+    } else if (mReadPtr != nullptr) {
+        delete mReadPtr;
     }
     if (mWritePtr != nullptr) {
         unmapGrantorDescr(mWritePtr, hardware::details::WRITEPTRPOS);
@@ -1234,7 +1256,7 @@ bool MessageQueueBase<MQDescriptorType, T, flavor>::isValid() const {
 template <template <typename, MQFlavor> typename MQDescriptorType, typename T, MQFlavor flavor>
 void* MessageQueueBase<MQDescriptorType, T, flavor>::mapGrantorDescr(uint32_t grantorIdx) {
     const native_handle_t* handle = mDesc->handle();
-    auto grantors = mDesc->grantors();
+    const std::vector<android::hardware::GrantorDescriptor> grantors = mDesc->grantors();
     if (handle == nullptr) {
         hardware::details::logError("mDesc->handle is null");
         return nullptr;
@@ -1247,10 +1269,55 @@ void* MessageQueueBase<MQDescriptorType, T, flavor>::mapGrantorDescr(uint32_t gr
     }
 
     int fdIndex = grantors[grantorIdx].fdIndex;
+    if (fdIndex < 0 || fdIndex >= handle->numFds) {
+        hardware::details::logError(
+                std::string("fdIndex (" + std::to_string(fdIndex) + ") from grantor (index " +
+                            std::to_string(grantorIdx) +
+                            ") must be smaller than the number of fds in the handle: " +
+                            std::to_string(handle->numFds)));
+        return nullptr;
+    }
+
     /*
      * Offset for mmap must be a multiple of PAGE_SIZE.
      */
+    if (!hardware::details::isAlignedToWordBoundary(grantors[grantorIdx].offset)) {
+        hardware::details::logError("Grantor (index " + std::to_string(grantorIdx) +
+                                    ") offset needs to be aligned to word boundary but is: " +
+                                    std::to_string(grantors[grantorIdx].offset));
+        return nullptr;
+    }
+
+    /*
+     * Expect some grantors to be at least a min size
+     */
+    for (uint32_t i = 0; i < grantors.size(); i++) {
+        switch (i) {
+            case hardware::details::READPTRPOS:
+                if (grantors[i].extent < sizeof(uint64_t)) return nullptr;
+                break;
+            case hardware::details::WRITEPTRPOS:
+                if (grantors[i].extent < sizeof(uint64_t)) return nullptr;
+                break;
+            case hardware::details::DATAPTRPOS:
+                // We don't expect specific data size
+                break;
+            case hardware::details::EVFLAGWORDPOS:
+                if (grantors[i].extent < sizeof(uint32_t)) return nullptr;
+                break;
+            default:
+                // We don't care about unknown grantors
+                break;
+        }
+    }
+
     int mapOffset = (grantors[grantorIdx].offset / PAGE_SIZE) * PAGE_SIZE;
+    if (grantors[grantorIdx].extent < 0 || grantors[grantorIdx].extent > INT_MAX - PAGE_SIZE) {
+        hardware::details::logError(std::string("Grantor (index " + std::to_string(grantorIdx) +
+                                                ") extent value is too large or negative: " +
+                                                std::to_string(grantors[grantorIdx].extent)));
+        return nullptr;
+    }
     int mapLength = grantors[grantorIdx].offset - mapOffset + grantors[grantorIdx].extent;
 
     void* address = mmap(0, mapLength, PROT_READ | PROT_WRITE, MAP_SHARED, handle->data[fdIndex],

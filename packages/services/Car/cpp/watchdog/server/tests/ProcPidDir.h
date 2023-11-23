@@ -34,7 +34,8 @@ android::base::Result<void> populateProcPidDir(
         const std::unordered_map<pid_t, std::vector<pid_t>>& pidToTids,
         const std::unordered_map<pid_t, std::string>& processStat,
         const std::unordered_map<pid_t, std::string>& processStatus,
-        const std::unordered_map<pid_t, std::string>& threadStat);
+        const std::unordered_map<pid_t, std::string>& threadStat,
+        const std::unordered_map<pid_t, std::string>& threadTimeInState);
 
 }  // namespace testing
 }  // namespace watchdog

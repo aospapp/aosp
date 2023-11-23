@@ -32,7 +32,7 @@ public abstract class LogcatInspector {
      */
     public String mark(String tag) throws IOException {
         String uniqueString = ":::" + UUID.randomUUID().toString();
-        executeShellCommand("log -t " + tag + " " + uniqueString);
+        Closeables.closeQuietly(executeShellCommand("log -t " + tag + " " + uniqueString));
         // This is to guarantee that we only return after the string has been logged, otherwise
         // in practice the case where calling Log.?(<message1>) right after clearAndMark() resulted
         // in <message1> appearing before the unique identifier. It's not guaranteed per the docs
@@ -97,6 +97,7 @@ public abstract class LogcatInspector {
         long timeout = System.currentTimeMillis() + TimeUnit.SECONDS.toMillis(timeInSeconds);
         int stringIndex = 0;
         while (timeout >= System.currentTimeMillis()) {
+            stringIndex = 0;
             InputStream logcatStream = executeShellCommand("logcat -v brief -d " + filterSpec);
             BufferedReader logcat = new BufferedReader(new InputStreamReader(logcatStream));
             String line;

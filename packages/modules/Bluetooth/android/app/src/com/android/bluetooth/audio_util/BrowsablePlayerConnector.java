@@ -52,7 +52,6 @@ public class BrowsablePlayerConnector {
 
     private static BrowsablePlayerConnector sInjectConnector;
     private Handler mHandler;
-    private Context mContext;
     private PlayerListCallback mCallback;
 
     private List<BrowsedPlayerWrapper> mResults = new ArrayList<BrowsedPlayerWrapper>();
@@ -62,7 +61,11 @@ public class BrowsablePlayerConnector {
         void run(List<BrowsedPlayerWrapper> result);
     }
 
-    private static void setInstanceForTesting(BrowsablePlayerConnector connector) {
+    /**
+     * @hide
+     */
+    @VisibleForTesting
+    static void setInstanceForTesting(BrowsablePlayerConnector connector) {
         Utils.enforceInstrumentationTestMode();
         sInjectConnector = connector;
     }
@@ -80,7 +83,7 @@ public class BrowsablePlayerConnector {
             return null;
         }
 
-        BrowsablePlayerConnector newWrapper = new BrowsablePlayerConnector(context, looper, cb);
+        BrowsablePlayerConnector newWrapper = new BrowsablePlayerConnector(looper, cb);
 
         // Try to start connecting all the browsed player wrappers
         for (ResolveInfo info : players) {
@@ -109,8 +112,7 @@ public class BrowsablePlayerConnector {
         return newWrapper;
     }
 
-    private BrowsablePlayerConnector(Context context, Looper looper, PlayerListCallback cb) {
-        mContext = context;
+    private BrowsablePlayerConnector(Looper looper, PlayerListCallback cb) {
         mCallback = cb;
         mHandler = new Handler(looper) {
             public void handleMessage(Message msg) {

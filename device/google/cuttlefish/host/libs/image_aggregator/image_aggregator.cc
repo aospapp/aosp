@@ -45,6 +45,7 @@
 #include "common/libs/utils/size_utils.h"
 #include "common/libs/utils/subprocess.h"
 #include "host/libs/config/mbr.h"
+#include "host/libs/image_aggregator/sparse_image_utils.h"
 
 namespace cuttlefish {
 namespace {
@@ -452,37 +453,9 @@ bool WriteEnd(SharedFD out, const GptEnd& end) {
  */
 void DeAndroidSparse(const std::vector<ImagePartition>& partitions) {
   for (const auto& partition : partitions) {
-    auto fd = open(partition.image_file_path.c_str(), O_RDONLY);
-    if (fd < 0) {
-      PLOG(FATAL) << "Could not open \"" << partition.image_file_path;
-      break;
+    if (!ConvertToRawImage(partition.image_file_path)) {
+      LOG(DEBUG) << "Failed to desparse " << partition.image_file_path;
     }
-    auto sparse = sparse_file_import(fd, /* verbose */ false, /* crc */ false);
-    if (!sparse) {
-      close(fd);
-      continue;
-    }
-    LOG(INFO) << "Desparsing " << partition.image_file_path;
-    std::string out_file_name = partition.image_file_path + ".desparse";
-    auto write_fd = open(out_file_name.c_str(), O_RDWR | O_CREAT | O_TRUNC,
-                         S_IRUSR | S_IWUSR | S_IRGRP);
-    if (write_fd < 0) {
-      PLOG(FATAL) << "Could not open " << out_file_name;
-    }
-    int write_status = sparse_file_write(sparse, write_fd, /* gz */ false,
-                                         /* sparse */ false, /* crc */ false);
-    if (write_status < 0) {
-      LOG(FATAL) << "Failed to desparse \"" << partition.image_file_path
-                 << "\": " << write_status;
-    }
-    close(write_fd);
-    if (rename(out_file_name.c_str(), partition.image_file_path.c_str()) < 0) {
-      int error_num = errno;
-      LOG(FATAL) << "Could not move \"" << out_file_name << "\" to \""
-                 << partition.image_file_path << "\": " << strerror(error_num);
-    }
-    sparse_file_destroy(sparse);
-    close(fd);
   }
 }
 
@@ -531,6 +504,7 @@ void CreateCompositeDisk(std::vector<ImagePartition> partitions,
                          const std::string& header_file,
                          const std::string& footer_file,
                          const std::string& output_composite_path) {
+  DeAndroidSparse(partitions);
   std::vector<MultipleImagePartition> multiple_image_partitions;
   for (const auto& partition : partitions) {
     multiple_image_partitions.push_back(ToMultipleImagePartition(partition));
@@ -571,7 +545,8 @@ void CreateQcowOverlay(const std::string& crosvm_path,
                        const std::string& output_overlay_path) {
   Command cmd(crosvm_path);
   cmd.AddParameter("create_qcow2");
-  cmd.AddParameter("--backing_file=", backing_file);
+  cmd.AddParameter("--backing-file");
+  cmd.AddParameter(backing_file);
   cmd.AddParameter(output_overlay_path);
 
   std::string stdout_str;
@@ -581,7 +556,7 @@ void CreateQcowOverlay(const std::string& crosvm_path,
 
   if (success != 0) {
     LOG(ERROR) << "Failed to run `" << crosvm_path
-               << " create_qcow2 --backing_file=" << backing_file << " "
+               << " create_qcow2 --backing-file " << backing_file << " "
                << output_overlay_path << "`";
     LOG(ERROR) << "stdout:\n###\n" << stdout_str << "\n###";
     LOG(ERROR) << "stderr:\n###\n" << stderr_str << "\n###";

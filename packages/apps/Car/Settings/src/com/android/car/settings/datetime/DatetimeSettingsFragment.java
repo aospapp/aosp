@@ -30,8 +30,6 @@ import com.android.settingslib.search.SearchIndexable;
  */
 @SearchIndexable
 public class DatetimeSettingsFragment extends SettingsFragment {
-    // Minimum time is Nov 5, 2007, 0:00.
-    public static final long MIN_DATE = 1194220800000L;
 
     @Override
     @XmlRes

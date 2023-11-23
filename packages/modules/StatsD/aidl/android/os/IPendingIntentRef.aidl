@@ -43,4 +43,10 @@ interface IPendingIntentRef {
      oneway void sendSubscriberBroadcast(long configUid, long configId, long subscriptionId,
                                          long subscriptionRuleId, in String[] cookies,
                                          in StatsDimensionsValueParcel dimensionsValueParcel);
+
+    /**
+     * Send a broadcast to the specified PendingIntent notifying it that the list of restricted
+     * metrics has changed.
+     */
+     oneway void sendRestrictedMetricsChangedBroadcast(in long[] metricIds);
 }

@@ -223,7 +223,7 @@ status_t StreamBufferCacheManager::AddStreamBufferCacheLocked(
 }
 
 void StreamBufferCacheManager::WorkloadThreadLoop() {
-  if (property_get_bool(kRaiseBufAllocationPriority, false)) {
+  if (property_get_bool(kRaiseBufAllocationPriority, true)) {
     pid_t tid = gettid();
     setpriority(PRIO_PROCESS, tid, -20);
   }

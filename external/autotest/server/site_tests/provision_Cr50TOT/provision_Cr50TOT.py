@@ -8,12 +8,11 @@
 
 import logging
 import os
-import re
 
 from autotest_lib.client.common_lib.cros import cr50_utils
 from autotest_lib.client.common_lib import error
 from autotest_lib.server import utils
-from autotest_lib.server.cros import filesystem_util, gsutil_wrapper
+from autotest_lib.server.cros import gsutil_wrapper
 from autotest_lib.server.cros.faft.firmware_test import FirmwareTest
 
 
@@ -89,16 +88,10 @@ class provision_Cr50TOT(FirmwareTest):
             try:
                 return self.get_cr50_build(latest_build, REMOTE_TMPDIR)
             except Exception as e:
-                logging.warn('Unable to find %s cr50 image %s', latest_build, e)
+                logging.warning('Unable to find %s cr50 image %s',
+                                latest_build, e)
         raise error.TestFail('Unable to find latest cr50 image in %s' %
                              latest_builds)
-
-
-    def get_bin_version(self, dut_path):
-        """Get the cr50 version from the image."""
-        find_ver_cmd = 'grep -a cr50_v.*tpm2 %s' % dut_path
-        version_output = self.host.run(find_ver_cmd).stdout.strip()
-        return re.findall('cr50_v\S+\s', version_output)[0].strip()
 
 
     def run_once(self, host, force=False):
@@ -114,19 +107,12 @@ class provision_Cr50TOT(FirmwareTest):
         logging.info('cr50 image is at %s', cr50_path)
         local_path = os.path.join(self.resultsdir, 'cr50.bin.tot')
         self.host.get_file(cr50_path, local_path)
-        expected_version = self.get_bin_version(cr50_path)
 
         cr50_utils.GSCTool(self.host, ['-a', cr50_path])
 
         self.cr50.wait_for_reboot(
                 timeout=self.faft_config.gsc_update_wait_for_reboot)
         cr50_version = self.cr50.get_active_version_info()[3].split('/')[-1]
-        logging.info('Cr50 running %s. Expected %s', cr50_version,
-                     expected_version)
-        # TODO(mruthven): Decide if failing to update should be a provisioning
-        # failure. Raising a failure will prevent the suite from running. See
-        # how often it fails and why.
-        if cr50_version.split('/')[-1] != expected_version:
-            logging.info('Unable to udpate Cr50.')
-        filesystem_util.make_rootfs_writable(self.host)
+        logging.info('Cr50 running %s after update', cr50_version)
+        self.make_rootfs_writable()
         cr50_utils.InstallImage(self.host, local_path, cr50_utils.CR50_PREPVT)

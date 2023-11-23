@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # Copyright (c) 2012 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -44,7 +45,7 @@ class power_IdleSuspend(test.test):
         logging.info('using temporary directory %s', self.tempdir)
 
         # override power manager settings
-        for key, val in POWER_MANAGER_SETTINGS.iteritems():
+        for key, val in list(POWER_MANAGER_SETTINGS.items()):
             logging.info('overriding %s to %s', key, val)
             tmp_path = '%s/%s' % (self.tempdir, key)
             mount_path = '/usr/share/power_manager/%s' % key
@@ -70,6 +71,8 @@ class power_IdleSuspend(test.test):
     def run_once(self):
         with chrome.Chrome():
             # stop power manager before reconfiguring
+            # TODO: Consider checking to see if powerd is running.
+            #       If it isn't, the test currently fails here.
             logging.info('stopping powerd')
             utils.run('stop powerd')
 

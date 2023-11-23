@@ -51,7 +51,7 @@ class MDnsEventReporter final {
 
     // Return registered binder services from the singleton MDnsEventReporter. This method is
     // threadsafe.
-    const EventListenerSet& getEventListeners() const;
+    const EventListenerSet& getEventListeners() const REQUIRES(mMutex);
 
     // Add the binder to the singleton MDnsEventReporter. This method is threadsafe.
     int addEventListener(const android::sp<android::net::mdns::aidl::IMDnsEventListener>& listener);
@@ -60,11 +60,12 @@ class MDnsEventReporter final {
     int removeEventListener(
             const android::sp<android::net::mdns::aidl::IMDnsEventListener>& listener);
 
+    mutable std::mutex mMutex;
+
   private:
     MDnsEventReporter() = default;
     ~MDnsEventReporter() = default;
 
-    mutable std::mutex mMutex;
     EventListenerSet mEventListeners GUARDED_BY(mMutex);
 
     int addEventListenerImpl(
@@ -73,5 +74,5 @@ class MDnsEventReporter final {
     int removeEventListenerImpl(
             const android::sp<android::net::mdns::aidl::IMDnsEventListener>& listener)
             EXCLUDES(mMutex);
-    const EventListenerSet& getEventListenersImpl() const EXCLUDES(mMutex);
+    const EventListenerSet& getEventListenersImpl() const REQUIRES(mMutex);
 };

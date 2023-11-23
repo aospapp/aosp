@@ -1,16 +1,16 @@
-// Copyright 2017 The Chromium OS Authors. All rights reserved.
+// Copyright 2017 The ChromiumOS Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-use std::{
-    convert::{From, TryInto},
-    fmt::{
-        Display, {self},
-    },
-    io, result,
-};
+use std::convert::From;
+use std::convert::TryInto;
+use std::fmt;
+use std::fmt::Display;
+use std::io;
+use std::result;
 
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
+use serde::Serialize;
 use thiserror::Error;
 
 /// A system error
@@ -18,7 +18,7 @@ use thiserror::Error;
 /// function that returned an error.
 /// On Windows, retrieved from GetLastError, set by a Windows function
 /// that returned an error
-#[derive(Error, Serialize, Deserialize, Clone, Copy, Debug, PartialEq)]
+#[derive(Error, Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
 #[serde(transparent)]
 pub struct Error(i32);
 pub type Result<T> = result::Result<T, Error>;

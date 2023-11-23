@@ -27,6 +27,7 @@ typedef enum {
   SCO_CODEC_NONE = 0x0000,
   SCO_CODEC_CVSD = 0x0001,
   SCO_CODEC_MSBC = 0x0002,
+  SCO_CODEC_LC3 = 0x0003,
 } sco_codec_t;
 
 typedef enum {
@@ -35,9 +36,11 @@ typedef enum {
   ESCO_CODEC_CVSD_S4,
   ESCO_CODEC_MSBC_T1,
   ESCO_CODEC_MSBC_T2,
+  ESCO_CODEC_LC3_T1,
+  ESCO_CODEC_LC3_T2,
 } esco_codec_t;
 
-#define ESCO_NUM_CODECS 5
+#define ESCO_NUM_CODECS 7
 
 // Coding Formats (BT 4.1 or later Assigned numbers)
 #define ESCO_CODING_FORMAT_ULAW ((uint8_t)0x00)     /* u-Law log    */
@@ -46,6 +49,7 @@ typedef enum {
 #define ESCO_CODING_FORMAT_TRANSPNT ((uint8_t)0x03) /* Transparent  */
 #define ESCO_CODING_FORMAT_LINEAR ((uint8_t)0x04)   /* Linear PCM   */
 #define ESCO_CODING_FORMAT_MSBC ((uint8_t)0x05)     /* MSBC PCM   */
+#define ESCO_CODING_FORMAT_LC3 ((uint8_t)0x06)      /* LC3 PCM   */
 #define ESCO_CODING_FORMAT_VS ((uint8_t)0xFF)       /* Specifies VSC used */
 typedef uint8_t esco_coding_format_t;
 
@@ -70,6 +74,7 @@ typedef uint32_t esco_txrx_bandwidth_t;
 
 #define INPUT_OUTPUT_64K_RATE 0x00003E80  /* 16000 Bytes/sec over transport */
 #define INPUT_OUTPUT_128K_RATE 0x00007D00 /* 32000 Bytes/sec over transport */
+#define INPUT_OUTPUT_256K_RATE 0x0000FA00 /* 64000 Bytes/sec over transport */
 typedef uint32_t esco_io_bandwidth_t;
 
 // Retransmission effort
@@ -135,4 +140,4 @@ typedef struct {
 } enh_esco_params_t;
 
 // Get the enhanced eSCO configuration parameters for the provided |codec|
-enh_esco_params_t esco_parameters_for_codec(esco_codec_t codec);
+enh_esco_params_t esco_parameters_for_codec(esco_codec_t codec, bool offload);

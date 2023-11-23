@@ -115,6 +115,15 @@ public abstract class BaseDeviceAdminTest extends InstrumentationTestCase {
                 super.onComplianceAcknowledgementRequired(context, intent);
             }
         }
+
+        @Override
+        public void onPasswordChanged(@NonNull Context context, @NonNull Intent intent,
+                @NonNull UserHandle user) {
+            super.onPasswordChanged(context, intent, user);
+            if (mOnPasswordChangedCalled != null) {
+                mOnPasswordChangedCalled.countDown();
+            }
+        }
     }
 
     private static final String TAG = BaseDeviceAdminTest.class.getSimpleName();
@@ -124,13 +133,14 @@ public abstract class BaseDeviceAdminTest extends InstrumentationTestCase {
             PACKAGE_NAME, BasicAdminReceiver.class.getName());
 
     protected DevicePolicyManager mDevicePolicyManager;
+    protected DevicePolicyManager mLocalDevicePolicyManager;
     protected UserManager mUserManager;
     protected Context mContext;
     protected boolean mHasSecureLockScreen;
     protected boolean mIsAutomotive;
     protected boolean mIsDeviceOwnerTest;
     static CountDownLatch mOnPasswordExpiryTimeoutCalled;
-
+    static CountDownLatch mOnPasswordChangedCalled;
     protected final String mTag = getClass().getSimpleName();
 
     @Override
@@ -151,6 +161,7 @@ public abstract class BaseDeviceAdminTest extends InstrumentationTestCase {
 
         mDevicePolicyManager = TestAppSystemServiceFactory.getDevicePolicyManager(mContext,
                 BasicAdminReceiver.class, mIsDeviceOwnerTest);
+        mLocalDevicePolicyManager = mContext.getSystemService(DevicePolicyManager.class);
 
         Log.v(TAG, "setup(): dpm for " + getClass() + " and user " + mContext.getUserId() + ": "
                 + mDevicePolicyManager);

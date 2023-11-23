@@ -43,4 +43,5 @@ android_test {
         ":AlarmTestAppWithUserPermissionSdk32",
     ],
     per_testcase_directory: true,
+    min_sdk_version: "29",
 }

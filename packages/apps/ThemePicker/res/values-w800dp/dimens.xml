@@ -17,5 +17,10 @@
 <resources>
     <!-- Dimensions for the customization option tiles -->
     <dimen name="option_tile_width">87dp</dimen>
-    <dimen name="option_tile_grid_padding_horizontal">8dp</dimen>
+    <dimen name="option_tile_linear_padding_horizontal">8dp</dimen>
+
+    <!-- Clock carousel dimens -->
+    <dimen name="clock_carousel_item_card_width">114dp</dimen>
+    <dimen name="clock_carousel_item_card_height">124dp</dimen>
+    <dimen name="clock_carousel_guideline_margin">320dp</dimen>
 </resources>

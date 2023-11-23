@@ -90,29 +90,31 @@ static void runtest_aaudio_devices(int32_t deviceId, Expect expect) {
     try_opening_audio_stream(aaudioBuilder, expect);
 }
 
-TEST(test_aaudio, aaudio_stream_device_unspecified) {
+class AAudioTest : public AAudioCtsBase {};
+
+TEST_F(AAudioTest, aaudio_stream_device_unspecified) {
     runtest_aaudio_devices(AAUDIO_UNSPECIFIED, Expect::NOT_CRASH);
 }
 
 /* FIXME - why can we open this device? What is an illegal deviceId?
-TEST(test_aaudio, aaudio_stream_device_absurd) {
+TEST_F(AAudioTest, aaudio_stream_device_absurd) {
     runtest_aaudio_devices(19736459, true);
 }
 */
 /* FIXME review
-TEST(test_aaudio, aaudio_stream_device_reasonable) {
+TEST_F(AAudioTest, aaudio_stream_device_reasonable) {
     runtest_aaudio_devices(1, false);
 }
 */
 
 /* FIXME - why can we open this device? What is an illegal deviceId?
-TEST(test_aaudio, aaudio_stream_device_negative) {
+TEST_F(AAudioTest, aaudio_stream_device_negative) {
     runtest_aaudio_devices(-765, true);
 }
 */
 
 // Test creating a default stream with everything unspecified.
-TEST(test_aaudio, aaudio_stream_unspecified) {
+TEST_F(AAudioTest, aaudio_stream_unspecified) {
     if (!deviceSupportsFeature(FEATURE_PLAYBACK)) return;
     AAudioStreamBuilder *aaudioBuilder = nullptr;
     create_stream_builder(&aaudioBuilder);
@@ -127,7 +129,8 @@ TEST(test_aaudio, aaudio_stream_unspecified) {
     EXPECT_EQ(AAUDIO_OK, AAudioStream_close(aaudioStream));
 }
 
-class AAudioStreamBuilderSamplingRateTest : public ::testing::TestWithParam<int32_t> {
+class AAudioStreamBuilderSamplingRateTest : public AAudioCtsBase,
+                                            public ::testing::WithParamInterface<int32_t> {
   public:
     static std::string getTestName(const ::testing::TestParamInfo<int32_t>& info) {
         return info.param >= 0 ? std::to_string(info.param) : "_" + std::to_string(-info.param);
@@ -163,7 +166,8 @@ INSTANTIATE_TEST_CASE_P(SR, AAudioStreamBuilderSamplingRateTest,
                 AAUDIO_UNSPECIFIED - 1, AAUDIO_UNSPECIFIED + 1, 1234, 10000000),
         &AAudioStreamBuilderSamplingRateTest::getTestName);
 
-class AAudioStreamBuilderChannelCountTest : public ::testing::TestWithParam<int32_t> {
+class AAudioStreamBuilderChannelCountTest : public AAudioCtsBase,
+                                            public ::testing::WithParamInterface<int32_t> {
   public:
     static std::string getTestName(const ::testing::TestParamInfo<int32_t>& info) {
         return info.param >= 0 ? std::to_string(info.param) : "_" + std::to_string(-info.param);
@@ -191,7 +195,8 @@ INSTANTIATE_TEST_CASE_P(CC, AAudioStreamBuilderChannelCountTest,
                 AAUDIO_UNSPECIFIED - 1, (FCC_LIMIT + 1), 1000, 1000000),
         &AAudioStreamBuilderChannelCountTest::getTestName);
 
-class AAudioStreamBuilderFormatTest : public ::testing::TestWithParam<aaudio_format_t> {
+class AAudioStreamBuilderFormatTest : public AAudioCtsBase,
+                                      public ::testing::WithParamInterface<aaudio_format_t> {
   public:
     static std::string getTestName(const ::testing::TestParamInfo<aaudio_format_t>& info) {
         return info.param >= 0 ? std::to_string(info.param) : "_" + std::to_string(-info.param);
@@ -202,6 +207,9 @@ class AAudioStreamBuilderFormatTest : public ::testing::TestWithParam<aaudio_for
             case AAUDIO_FORMAT_UNSPECIFIED:
             case AAUDIO_FORMAT_PCM_I16:
             case AAUDIO_FORMAT_PCM_FLOAT:
+            case AAUDIO_FORMAT_IEC61937:
+            case AAUDIO_FORMAT_PCM_I24_PACKED:
+            case AAUDIO_FORMAT_PCM_I32:
                 return true;
         }
         return false;
@@ -213,19 +221,28 @@ TEST_P(AAudioStreamBuilderFormatTest, openStream) {
     AAudioStreamBuilder *aaudioBuilder = nullptr;
     create_stream_builder(&aaudioBuilder);
     AAudioStreamBuilder_setFormat(aaudioBuilder, GetParam());
-    try_opening_audio_stream(
-            aaudioBuilder, isValidFormat(GetParam()) ? Expect::SUCCEED : Expect::FAIL);
+    const aaudio_format_t format = GetParam();
+    Expect expectedResult = isValidFormat(format) ? Expect::SUCCEED : Expect::FAIL;
+    if (format == AAUDIO_FORMAT_IEC61937) {
+        expectedResult = isIEC61937Supported() ? Expect::SUCCEED : Expect::FAIL;
+        // For IEC61937, sample rate and channel mask should be specified.
+        AAudioStreamBuilder_setSampleRate(aaudioBuilder, 48000);
+        AAudioStreamBuilder_setChannelMask(aaudioBuilder, AAUDIO_CHANNEL_STEREO);
+    }
+    try_opening_audio_stream(aaudioBuilder, expectedResult);
 }
 
 INSTANTIATE_TEST_CASE_P(F, AAudioStreamBuilderFormatTest,
         ::testing::Values(
                 // Reasonable values
                 AAUDIO_FORMAT_UNSPECIFIED, AAUDIO_FORMAT_PCM_I16, AAUDIO_FORMAT_PCM_FLOAT,
+                AAUDIO_FORMAT_PCM_I24_PACKED, AAUDIO_FORMAT_PCM_I32, AAUDIO_FORMAT_IEC61937,
                 // Odd values
                 AAUDIO_FORMAT_INVALID, AAUDIO_FORMAT_INVALID - 1, 100, 1000000, 10000000),
         &AAudioStreamBuilderFormatTest::getTestName);
 
-class AAudioStreamBuilderSharingModeTest : public ::testing::TestWithParam<aaudio_sharing_mode_t> {
+class AAudioStreamBuilderSharingModeTest :
+        public AAudioCtsBase, public ::testing::WithParamInterface<aaudio_sharing_mode_t> {
   public:
     static std::string getTestName(const ::testing::TestParamInfo<aaudio_sharing_mode_t>& info) {
         return info.param >= 0 ? std::to_string(info.param) : "_" + std::to_string(-info.param);
@@ -253,7 +270,8 @@ INSTANTIATE_TEST_CASE_P(SM, AAudioStreamBuilderSharingModeTest,
                 -1, 100, 1000000, 10000000),
         &AAudioStreamBuilderSharingModeTest::getTestName);
 
-class AAudioStreamBuilderDirectionTest : public ::testing::TestWithParam<aaudio_direction_t> {
+class AAudioStreamBuilderDirectionTest : public AAudioCtsBase,
+                                         public ::testing::WithParamInterface<aaudio_direction_t> {
   public:
     static std::string getTestName(const ::testing::TestParamInfo<aaudio_direction_t>& info) {
         return info.param >= 0 ? std::to_string(info.param) : "_" + std::to_string(-info.param);
@@ -284,7 +302,8 @@ INSTANTIATE_TEST_CASE_P(SD, AAudioStreamBuilderDirectionTest,
                 -1, 100, 1000000, 10000000),
         &AAudioStreamBuilderDirectionTest::getTestName);
 
-class AAudioStreamBuilderBufferCapacityTest : public ::testing::TestWithParam<int32_t> {
+class AAudioStreamBuilderBufferCapacityTest : public AAudioCtsBase,
+                                              public ::testing::WithParamInterface<int32_t> {
   public:
     static std::string getTestName(const ::testing::TestParamInfo<int32_t>& info) {
         return info.param >= 0 ? std::to_string(info.param) : "_" + std::to_string(-info.param);
@@ -314,7 +333,8 @@ INSTANTIATE_TEST_CASE_P(BC, AAudioStreamBuilderBufferCapacityTest,
                 AAUDIO_UNSPECIFIED - 1),
         &AAudioStreamBuilderBufferCapacityTest::getTestName);
 
-class AAudioStreamBuilderPerfModeTest : public ::testing::TestWithParam<aaudio_performance_mode_t> {
+class AAudioStreamBuilderPerfModeTest :
+        public AAudioCtsBase, public ::testing::WithParamInterface<aaudio_performance_mode_t> {
   public:
     static std::string getTestName(const ::testing::TestParamInfo<aaudio_performance_mode_t>& info) {
         return info.param >= 0 ? std::to_string(info.param) : "_" + std::to_string(-info.param);
@@ -350,7 +370,8 @@ INSTANTIATE_TEST_CASE_P(PM, AAudioStreamBuilderPerfModeTest,
                 AAUDIO_UNSPECIFIED - 1, AAUDIO_UNSPECIFIED, 100, 1000000, 10000000),
         &AAudioStreamBuilderPerfModeTest::getTestName);
 
-class AAudioStreamBuilderChannelMaskTest : public ::testing::TestWithParam<aaudio_channel_mask_t> {
+class AAudioStreamBuilderChannelMaskTest :
+        public AAudioCtsBase, public ::testing::WithParamInterface<aaudio_channel_mask_t> {
 public:
     static std::string getTestName(const ::testing::TestParamInfo<aaudio_channel_mask_t>& info) {
         std::stringstream ss;
@@ -433,6 +454,7 @@ void AAudioStreamBuilderChannelMaskTest::testChannelMask(aaudio_channel_mask_t c
         ASSERT_EQ(AAUDIO_OK, result);
         ASSERT_NE(nullptr, aaudioStream);
         ASSERT_NE(0, AAudioStream_getChannelCount(aaudioStream));
+        ASSERT_NE(0, AAudioStream_getHardwareChannelCount(aaudioStream));
         ASSERT_NE(AAUDIO_UNSPECIFIED, AAudioStream_getChannelMask(aaudioStream));
         ASSERT_NE(AAUDIO_CHANNEL_INVALID, AAudioStream_getChannelMask(aaudioStream));
     } else { // NOT_CRASH
@@ -527,7 +549,7 @@ INSTANTIATE_TEST_CASE_P(
 
 using ChannelMaskAndCountParams = std::pair<aaudio_direction_t, aaudio_channel_mask_t>;
 class AAudioStreamBuilderChannelMaskAndCountTest :
-        public ::testing::TestWithParam<ChannelMaskAndCountParams> {
+        public AAudioCtsBase, public ::testing::WithParamInterface<ChannelMaskAndCountParams> {
 public:
     static std::string getTestName(
             const ::testing::TestParamInfo<ChannelMaskAndCountParams>& info) {
@@ -621,7 +643,7 @@ enum {
     PARAM_CHANNEL_MASK
 };
 class AAudioStreamBuilderCommonCombinationTest :
-        public ::testing::TestWithParam<CommonCombinationTestParams> {
+        public AAudioCtsBase, public ::testing::WithParamInterface<CommonCombinationTestParams> {
   public:
     static std::string getTestName(
             const ::testing::TestParamInfo<CommonCombinationTestParams>& info) {

@@ -21,6 +21,7 @@ import android.car.telemetry.TelemetryProto;
 import android.os.PersistableBundle;
 import android.os.SystemClock;
 
+import java.util.List;
 import java.util.Objects;
 
 /**
@@ -28,6 +29,12 @@ import java.util.Objects;
  * All methods of this class must be accessed on telemetry thread.
  */
 public class DataSubscriber {
+    /**
+     * Binder transaction size limit is 1MB for all binders per process, so for large script input
+     * file pipe will be used to transfer the data to script executor instead of binder call. This
+     * is the input size threshold above which piping is used.
+     */
+    public static final int SCRIPT_INPUT_SIZE_THRESHOLD_BYTES = 20 * 1024; // 20 kb
 
     private final DataBroker mDataBroker;
     private final TelemetryProto.MetricsConfig mMetricsConfig;
@@ -77,6 +84,20 @@ public class DataSubscriber {
     public int push(@NonNull PersistableBundle data, boolean isLargeData) {
         ScriptExecutionTask task = new ScriptExecutionTask(
                 this, data, SystemClock.elapsedRealtime(), isLargeData, getPublisherType());
+        return mDataBroker.addTaskToQueue(task);
+    }
+
+    /**
+     * Creates a {@link ScriptExecutionTask} and pushes it to the priority queue where the task
+     * will be pending execution.
+     *
+     * @param bundleList The published bundle list data.
+     * @return The number of tasks that are pending execution that are produced by the calling
+     * publisher.
+     */
+    public int push(@NonNull List<PersistableBundle> bundleList) {
+        ScriptExecutionTask task = new ScriptExecutionTask(
+                this, bundleList, SystemClock.elapsedRealtime(), getPublisherType());
         return mDataBroker.addTaskToQueue(task);
     }
 

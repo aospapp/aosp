@@ -166,7 +166,6 @@ enum wl_vendor_subcmd {
 int send_testmode(const char *ifname, u_int16_t nlmsg_type, u_int32_t nlmsg_pid,
                   u_int8_t genl_cmd, u_int8_t genl_version) {
   struct nl_msg *msg;
-  int ret;
   int i;
   unsigned char dst[ETH_ALEN];
   struct nlattr *rret;
@@ -215,7 +214,7 @@ int send_testmode(const char *ifname, u_int16_t nlmsg_type, u_int32_t nlmsg_pid,
   nla_nest_end(msg, rret2);
   nla_nest_end(msg, rret);
 
-  ret = nl_send_auto_complete(nl_sk, msg);
+  nl_send_auto_complete(nl_sk, msg);
   /* To make sure that kernel panic occurs */
   sleep(5);
   return POC_TEST_PASS;

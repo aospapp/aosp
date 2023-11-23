@@ -30,7 +30,7 @@ import org.junit.Test;
 
 import java.util.concurrent.TimeUnit;
 
-public class ManagedProfilePasswordTest extends BaseManagedProfileTest {
+public final class ManagedProfilePasswordTest extends BaseManagedProfileTest {
     private static final String USER_STATE_LOCKED = "RUNNING_LOCKED";
     private static final long TIMEOUT_USER_LOCKED_MILLIS = TimeUnit.MINUTES.toMillis(3);
     // Password needs to be in sync with ResetPasswordWithTokenTest.PASSWORD1

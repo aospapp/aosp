@@ -27,7 +27,7 @@ import org.junit.Test;
  * This class is used for tests that need to do something special before setting the device
  * owner, so they cannot use the regular DeviceOwnerTest class
  */
-public class CustomDeviceOwnerTest extends BaseDevicePolicyTest {
+public final class CustomDeviceOwnerTest extends BaseDevicePolicyTest {
 
     private static final String DEVICE_OWNER_PKG = "com.android.cts.deviceowner";
     private static final String DEVICE_OWNER_APK = "CtsDeviceOwnerApp.apk";

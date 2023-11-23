@@ -40,6 +40,7 @@ constexpr uint32_t DEFAULT_SDK_VERSION_RUST = 31;
 
 constexpr uint32_t SDK_VERSION_current = 10000;
 constexpr uint32_t SDK_VERSION_Tiramisu = 33;
+constexpr uint32_t SDK_VERSION_UpsideDownCake = 34;
 
 constexpr uint32_t JAVA_PROPAGATE_VERSION = SDK_VERSION_Tiramisu;
 
@@ -88,9 +89,15 @@ class WarningOptions {
   std::set<std::string> no_errors_;  // -Wno-error=foo
 };
 
+// Options for AIDL
+//
+// These are passed all throughout the compiler, but they should not affect the
+// code which is generated. In order to avoid ODR issues, and also in order to
+// make sure the language is orthogonal and portable, we should only generate
+// different things based on the file contents themselves.
 class Options final {
  public:
-  enum class Language { UNSPECIFIED, JAVA, CPP, NDK, RUST };
+  enum class Language { UNSPECIFIED, JAVA, CPP, NDK, RUST, CPP_ANALYZER };
 
   enum class Task { HELP, COMPILE, PREPROCESS, DUMP_API, CHECK_API, DUMP_MAPPINGS };
 
@@ -121,7 +128,10 @@ class Options final {
   uint32_t GetMinSdkVersion() const { return min_sdk_version_; }
 
   Language TargetLanguage() const { return language_; }
-  bool IsCppOutput() const { return language_ == Language::CPP || language_ == Language::NDK; }
+  bool IsCppOutput() const {
+    return language_ == Language::CPP || language_ == Language::NDK ||
+           language_ == Language::CPP_ANALYZER;
+  }
 
   Task GetTask() const { return task_; }
 

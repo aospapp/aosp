@@ -18,8 +18,8 @@
 
 #include "ble_advertiser_hci_interface.h"
 
-#include <base/bind.h>
-#include <base/callback.h>
+#include <base/functional/bind.h>
+#include <base/functional/callback.h>
 #include <base/location.h>
 #include <base/logging.h>
 
@@ -49,9 +49,9 @@ using status_cb = BleAdvertiserHciInterface::status_cb;
 
 using hci_cmd_cb = base::OnceCallback<void(
     uint8_t* /* return_parameters */, uint16_t /* return_parameters_length*/)>;
-extern void btu_hcif_send_cmd_with_cb(const base::Location& posted_from,
-                                      uint16_t opcode, uint8_t* params,
-                                      uint8_t params_len, hci_cmd_cb cb);
+void btu_hcif_send_cmd_with_cb(const base::Location& posted_from,
+                               uint16_t opcode, uint8_t* params,
+                               uint8_t params_len, hci_cmd_cb cb);
 
 namespace {
 BleAdvertiserHciInterface* instance = nullptr;
@@ -84,6 +84,11 @@ void parameters_response_parser(BleAdvertiserHciInterface::parameters_cb cb,
   int8_t tx_power;
 
   uint8_t* pp = ret_params;
+  if (ret_params_len < 2) {
+    LOG(ERROR) << "unexpected ret_params_len: " << ret_params_len;
+    return;
+  }
+
   STREAM_TO_UINT8(status, pp);
   STREAM_TO_INT8(tx_power, pp);
 
@@ -167,7 +172,6 @@ class BleAdvertiserVscHciInterfaceImpl : public BleAdvertiserHciInterface {
     memset(param, 0, BTM_BLE_MULTI_ADV_WRITE_DATA_LEN);
 
     if (data_length > BTM_BLE_AD_DATA_LEN) {
-      android_errorWriteLog(0x534e4554, "121145627");
       LOG(ERROR) << __func__
                  << ": data_length=" << static_cast<int>(data_length)
                  << ", is longer than size limit " << BTM_BLE_AD_DATA_LEN;
@@ -194,7 +198,6 @@ class BleAdvertiserVscHciInterfaceImpl : public BleAdvertiserHciInterface {
     memset(param, 0, BTM_BLE_MULTI_ADV_WRITE_DATA_LEN);
 
     if (scan_response_data_length > BTM_BLE_AD_DATA_LEN) {
-      android_errorWriteLog(0x534e4554, "121145627");
       LOG(ERROR) << __func__ << ": scan_response_data_length="
                  << static_cast<int>(scan_response_data_length)
                  << ", is longer than size limit " << BTM_BLE_AD_DATA_LEN;
@@ -266,7 +269,7 @@ class BleAdvertiserVscHciInterfaceImpl : public BleAdvertiserHciInterface {
     command_complete.Run(HCI_ERR_ILLEGAL_COMMAND);
   }
 
-  void SetPeriodicAdvertisingEnable(uint8_t, uint8_t,
+  void SetPeriodicAdvertisingEnable(bool, bool, uint8_t,
                                     status_cb command_complete) override {
     LOG(INFO) << __func__ << " VSC can't do periodic advertising";
     command_complete.Run(HCI_ERR_ILLEGAL_COMMAND);
@@ -294,10 +297,14 @@ class BleAdvertiserVscHciInterfaceImpl : public BleAdvertiserHciInterface {
     uint8_t sub_event, adv_inst, change_reason;
     uint16_t conn_handle;
 
+    if (length < 1) {
+      return;
+    }
+
     STREAM_TO_UINT8(sub_event, p);
     length--;
 
-    if (sub_event != HCI_VSE_SUBCODE_BLE_MULTI_ADV_ST_CHG || length != 4) {
+    if (sub_event != HCI_VSE_SUBCODE_BLE_MULTI_ADV_ST_CHG || length < 4) {
       return;
     }
 
@@ -393,7 +400,6 @@ class BleAdvertiserLegacyHciInterfaceImpl : public BleAdvertiserHciInterface {
     uint8_t param[HCIC_PARAM_SIZE_BLE_WRITE_ADV_DATA + 1];
 
     if (data_length > HCIC_PARAM_SIZE_BLE_WRITE_ADV_DATA) {
-      android_errorWriteLog(0x534e4554, "121145627");
       LOG(ERROR) << __func__
                  << ": data_length=" << static_cast<int>(data_length)
                  << ", is longer than size limit "
@@ -419,7 +425,6 @@ class BleAdvertiserLegacyHciInterfaceImpl : public BleAdvertiserHciInterface {
     uint8_t param[HCIC_PARAM_SIZE_BLE_WRITE_ADV_DATA + 1];
 
     if (scan_response_data_length > HCIC_PARAM_SIZE_BLE_WRITE_ADV_DATA) {
-      android_errorWriteLog(0x534e4554, "121145627");
       LOG(ERROR) << __func__ << ": scan_response_data_length="
                  << static_cast<int>(scan_response_data_length)
                  << ", is longer than size limit "
@@ -486,7 +491,7 @@ class BleAdvertiserLegacyHciInterfaceImpl : public BleAdvertiserHciInterface {
     command_complete.Run(HCI_ERR_ILLEGAL_COMMAND);
   }
 
-  void SetPeriodicAdvertisingEnable(uint8_t, uint8_t,
+  void SetPeriodicAdvertisingEnable(bool, bool, uint8_t,
                                     status_cb command_complete) override {
     LOG(INFO) << __func__ << "Legacy can't do periodic advertising";
     command_complete.Run(HCI_ERR_ILLEGAL_COMMAND);
@@ -688,14 +693,17 @@ class BleAdvertiserHciExtendedImpl : public BleAdvertiserHciInterface {
                HCI_LE_SET_PRIODIC_ADVERTISING_DATA_LEN, command_complete);
   }
 
-  void SetPeriodicAdvertisingEnable(uint8_t enable, uint8_t handle,
+  void SetPeriodicAdvertisingEnable(bool enable, bool include_adi,
+                                    uint8_t handle,
                                     status_cb command_complete) override {
     VLOG(1) << __func__;
     const uint16_t HCI_LE_ENABLE_PRIODIC_ADVERTISEMENT_LEN = 2;
     uint8_t param[HCI_LE_ENABLE_PRIODIC_ADVERTISEMENT_LEN];
     memset(param, 0, HCI_LE_ENABLE_PRIODIC_ADVERTISEMENT_LEN);
     uint8_t* pp = param;
-    UINT8_TO_STREAM(pp, enable);
+    const uint8_t enable_field =
+        (enable ? 1 : 0) | ((include_adi ? 1 : 0) << 1);
+    UINT8_TO_STREAM(pp, enable_field);
     UINT8_TO_STREAM(pp, handle);
     SendAdvCmd(FROM_HERE, HCI_LE_SET_PERIODIC_ADVERTISING_ENABLE, param,
                HCI_LE_ENABLE_PRIODIC_ADVERTISEMENT_LEN, command_complete);

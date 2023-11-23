@@ -41,8 +41,10 @@
 #include <mutex>
 #include <set>
 
+// Define before including log.h
+#define LOG_TAG "uipc"
+
 #include "audio_a2dp_hw/include/audio_a2dp_hw.h"
-#include "bt_utils.h"
 #include "osi/include/log.h"
 #include "osi/include/osi.h"
 #include "osi/include/socket_utils/sockets.h"
@@ -108,11 +110,11 @@ static inline int create_server_socket(const char* name) {
   LOG_DEBUG("create_server_socket %s", name);
 
   if (osi_socket_local_server_bind(s, name,
-#if defined(OS_GENERIC)
-                                   ANDROID_SOCKET_NAMESPACE_FILESYSTEM
-#else   // !defined(OS_GENERIC)
+#ifdef __ANDROID__
                                    ANDROID_SOCKET_NAMESPACE_ABSTRACT
-#endif  // defined(OS_GENERIC)
+#else   // !__ANDROID__
+                                   ANDROID_SOCKET_NAMESPACE_FILESYSTEM
+#endif  // __ANDROID__
                                    ) < 0) {
     LOG_DEBUG("socket failed to create (%s)", strerror(errno));
     close(s);
@@ -418,8 +420,6 @@ static void* uipc_read_task(void* arg) {
 
   prctl(PR_SET_NAME, (unsigned long)"uipc-main", 0, 0, 0);
 
-  raise_priority_a2dp(TASK_UIPC_READ);
-
   while (uipc.running) {
     uipc.read_set = uipc.active_set;
 
@@ -588,9 +588,10 @@ bool UIPC_Send(tUIPC_STATE& uipc, tUIPC_CH_ID ch_id,
   OSI_NO_INTR(ret = write(uipc.ch[ch_id].fd, p_buf, msglen));
   if (ret < 0) {
     LOG_ERROR("failed to write (%s)", strerror(errno));
+    return false;
   }
 
-  return false;
+  return true;
 }
 
 /*******************************************************************************
@@ -676,8 +677,8 @@ uint32_t UIPC_Read(tUIPC_STATE& uipc, tUIPC_CH_ID ch_id, uint8_t* p_buf,
  *
  ******************************************************************************/
 
-extern bool UIPC_Ioctl(tUIPC_STATE& uipc, tUIPC_CH_ID ch_id, uint32_t request,
-                       void* param) {
+bool UIPC_Ioctl(tUIPC_STATE& uipc, tUIPC_CH_ID ch_id, uint32_t request,
+                void* param) {
   LOG_DEBUG("#### UIPC_Ioctl : ch_id %d, request %d ####", ch_id, request);
   std::lock_guard<std::recursive_mutex> lock(uipc.mutex);
 

@@ -17,6 +17,8 @@
 package com.android.server;
 
 import static android.Manifest.permission.DUMP;
+import static android.Manifest.permission.NETWORK_SETTINGS;
+import static android.net.IpSecManager.FEATURE_IPSEC_TUNNEL_MIGRATION;
 import static android.net.IpSecManager.INVALID_RESOURCE_ID;
 import static android.system.OsConstants.AF_INET;
 import static android.system.OsConstants.AF_INET6;
@@ -36,6 +38,7 @@ import android.net.InetAddresses;
 import android.net.IpSecAlgorithm;
 import android.net.IpSecConfig;
 import android.net.IpSecManager;
+import android.net.IpSecMigrateInfoParcel;
 import android.net.IpSecSpiResponse;
 import android.net.IpSecTransform;
 import android.net.IpSecTransformResponse;
@@ -63,6 +66,7 @@ import android.util.SparseBooleanArray;
 import com.android.internal.annotations.GuardedBy;
 import com.android.internal.annotations.VisibleForTesting;
 import com.android.internal.util.Preconditions;
+import com.android.modules.utils.build.SdkLevel;
 import com.android.net.module.util.BinderUtils;
 import com.android.net.module.util.NetdUtils;
 import com.android.net.module.util.PermissionUtils;
@@ -100,6 +104,7 @@ public class IpSecService extends IIpSecService.Stub {
 
     private static final int NETD_FETCH_TIMEOUT_MS = 5000; // ms
     private static final InetAddress INADDR_ANY;
+    private static final InetAddress IN6ADDR_ANY;
 
     @VisibleForTesting static final int MAX_PORT_BIND_ATTEMPTS = 10;
 
@@ -108,6 +113,8 @@ public class IpSecService extends IIpSecService.Stub {
     static {
         try {
             INADDR_ANY = InetAddress.getByAddress(new byte[] {0, 0, 0, 0});
+            IN6ADDR_ANY = InetAddress.getByAddress(
+                    new byte[] {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0});
         } catch (UnknownHostException e) {
             throw new RuntimeException(e);
         }
@@ -590,14 +597,19 @@ public class IpSecService extends IIpSecService.Stub {
     }
 
     /**
-     * Tracks an SA in the kernel, and manages cleanup paths. Once a TransformRecord is
-     * created, the SpiRecord that originally tracked the SAs will reliquish the
-     * responsibility of freeing the underlying SA to this class via the mOwnedByTransform flag.
+     * Tracks an SA in the kernel, and manages cleanup paths. Once a TransformRecord is created, the
+     * SpiRecord that originally tracked the SAs will reliquish the responsibility of freeing the
+     * underlying SA to this class via the mOwnedByTransform flag.
+     *
+     * <p>This class is not thread-safe, and expects that that users of this class will ensure
+     * synchronization and thread safety by holding the IpSecService.this instance lock
      */
     private final class TransformRecord extends OwnedResourceRecord {
         private final IpSecConfig mConfig;
         private final SpiRecord mSpi;
         private final EncapSocketRecord mSocket;
+        private String mNewSourceAddress = null;
+        private String mNewDestinationAddress = null;
 
         TransformRecord(
                 int resourceId, IpSecConfig config, SpiRecord spi, EncapSocketRecord socket) {
@@ -619,6 +631,51 @@ public class IpSecService extends IIpSecService.Stub {
 
         public EncapSocketRecord getSocketRecord() {
             return mSocket;
+        }
+
+        @GuardedBy("IpSecService.this")
+        public String getNewSourceAddress() {
+            return mNewSourceAddress;
+        }
+
+        @GuardedBy("IpSecService.this")
+        public String getNewDestinationAddress() {
+            return mNewDestinationAddress;
+        }
+
+        private void verifyTunnelModeOrThrow() {
+            if (mConfig.getMode() != IpSecTransform.MODE_TUNNEL) {
+                throw new UnsupportedOperationException(
+                        "Migration requested/called on non-tunnel-mode transform");
+            }
+        }
+
+        /** Start migrating this transform to new source and destination addresses */
+        @GuardedBy("IpSecService.this")
+        public void startMigration(String newSourceAddress, String newDestinationAddress) {
+            verifyTunnelModeOrThrow();
+            Objects.requireNonNull(newSourceAddress, "newSourceAddress was null");
+            Objects.requireNonNull(newDestinationAddress, "newDestinationAddress was null");
+            mNewSourceAddress = newSourceAddress;
+            mNewDestinationAddress = newDestinationAddress;
+        }
+
+        /** Finish migration and update addresses. */
+        @GuardedBy("IpSecService.this")
+        public void finishMigration() {
+            verifyTunnelModeOrThrow();
+            mConfig.setSourceAddress(mNewSourceAddress);
+            mConfig.setDestinationAddress(mNewDestinationAddress);
+            mNewSourceAddress = null;
+            mNewDestinationAddress = null;
+        }
+
+        /** Return if this transform is going to be migrated. */
+        @GuardedBy("IpSecService.this")
+        public boolean isMigrating() {
+            verifyTunnelModeOrThrow();
+
+            return mNewSourceAddress != null;
         }
 
         /** always guarded by IpSecService#this */
@@ -859,6 +916,13 @@ public class IpSecService extends IIpSecService.Stub {
                             mIkey,
                             0xffffffff,
                             mIfId);
+                    mNetd.ipSecDeleteSecurityPolicy(
+                            mUid,
+                            selAddrFamily,
+                            IpSecManager.DIRECTION_FWD,
+                            mIkey,
+                            0xffffffff,
+                            mIfId);
                 }
             } catch (ServiceSpecificException | RemoteException e) {
                 Log.e(
@@ -954,11 +1018,13 @@ public class IpSecService extends IIpSecService.Stub {
     private final class EncapSocketRecord extends OwnedResourceRecord {
         private FileDescriptor mSocket;
         private final int mPort;
+        private final int mFamily;  // TODO: what about IPV6_ADDRFORM?
 
-        EncapSocketRecord(int resourceId, FileDescriptor socket, int port) {
+        EncapSocketRecord(int resourceId, FileDescriptor socket, int port, int family) {
             super(resourceId);
             mSocket = socket;
             mPort = port;
+            mFamily = family;
         }
 
         /** always guarded by IpSecService#this */
@@ -977,6 +1043,10 @@ public class IpSecService extends IIpSecService.Stub {
 
         public FileDescriptor getFileDescriptor() {
             return mSocket;
+        }
+
+        public int getFamily() {
+            return mFamily;
         }
 
         @Override
@@ -1151,15 +1221,16 @@ public class IpSecService extends IIpSecService.Stub {
      * and re-binding, during which the system could *technically* hand that port out to someone
      * else.
      */
-    private int bindToRandomPort(FileDescriptor sockFd) throws IOException {
+    private int bindToRandomPort(FileDescriptor sockFd, int family, InetAddress localAddr)
+            throws IOException {
         for (int i = MAX_PORT_BIND_ATTEMPTS; i > 0; i--) {
             try {
-                FileDescriptor probeSocket = Os.socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
-                Os.bind(probeSocket, INADDR_ANY, 0);
+                FileDescriptor probeSocket = Os.socket(family, SOCK_DGRAM, IPPROTO_UDP);
+                Os.bind(probeSocket, localAddr, 0);
                 int port = ((InetSocketAddress) Os.getsockname(probeSocket)).getPort();
                 Os.close(probeSocket);
                 Log.v(TAG, "Binding to port " + port);
-                Os.bind(sockFd, INADDR_ANY, port);
+                Os.bind(sockFd, localAddr, port);
                 return port;
             } catch (ErrnoException e) {
                 // Someone miraculously claimed the port just after we closed probeSocket.
@@ -1201,6 +1272,19 @@ public class IpSecService extends IIpSecService.Stub {
     @Override
     public synchronized IpSecUdpEncapResponse openUdpEncapsulationSocket(int port, IBinder binder)
             throws RemoteException {
+        // Experimental support for IPv6 UDP encap.
+        final int family;
+        final InetAddress localAddr;
+        if (SdkLevel.isAtLeastU() && port >= 65536) {
+            PermissionUtils.enforceNetworkStackPermissionOr(mContext, NETWORK_SETTINGS);
+            port -= 65536;
+            family = AF_INET6;
+            localAddr = IN6ADDR_ANY;
+        } else {
+            family = AF_INET;
+            localAddr = INADDR_ANY;
+        }
+
         if (port != 0 && (port < FREE_PORT_MIN || port > PORT_MAX)) {
             throw new IllegalArgumentException(
                     "Specified port number must be a valid non-reserved UDP port");
@@ -1219,7 +1303,7 @@ public class IpSecService extends IIpSecService.Stub {
 
             FileDescriptor sockFd = null;
             try {
-                sockFd = Os.socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+                sockFd = Os.socket(family, SOCK_DGRAM, IPPROTO_UDP);
                 pFd = ParcelFileDescriptor.dup(sockFd);
             } finally {
                 IoUtils.closeQuietly(sockFd);
@@ -1236,15 +1320,16 @@ public class IpSecService extends IIpSecService.Stub {
             mNetd.ipSecSetEncapSocketOwner(pFd, callingUid);
             if (port != 0) {
                 Log.v(TAG, "Binding to port " + port);
-                Os.bind(pFd.getFileDescriptor(), INADDR_ANY, port);
+                Os.bind(pFd.getFileDescriptor(), localAddr, port);
             } else {
-                port = bindToRandomPort(pFd.getFileDescriptor());
+                port = bindToRandomPort(pFd.getFileDescriptor(), family, localAddr);
             }
 
             userRecord.mEncapSocketRecords.put(
                     resourceId,
                     new RefcountedResource<EncapSocketRecord>(
-                            new EncapSocketRecord(resourceId, pFd.getFileDescriptor(), port),
+                            new EncapSocketRecord(resourceId, pFd.getFileDescriptor(), port,
+                                    family),
                             binder));
             return new IpSecUdpEncapResponse(IpSecManager.Status.OK, resourceId, port,
                     pFd.getFileDescriptor());
@@ -1452,6 +1537,11 @@ public class IpSecService extends IIpSecService.Stub {
         final ConnectivityManager connectivityManager =
                 mContext.getSystemService(ConnectivityManager.class);
         final LinkProperties lp = connectivityManager.getLinkProperties(underlyingNetwork);
+        if (lp == null) {
+            throw new IllegalArgumentException(
+                    "LinkProperties is null. The underlyingNetwork may not be functional");
+        }
+
         if (tunnelInterfaceInfo.getInterfaceName().equals(lp.getInterfaceName())) {
             throw new IllegalArgumentException(
                     "Underlying network cannot be the network being exposed by this tunnel");
@@ -1516,6 +1606,7 @@ public class IpSecService extends IIpSecService.Stub {
      */
     private void checkIpSecConfig(IpSecConfig config) {
         UserRecord userRecord = mUserResourceTracker.getUserRecord(Binder.getCallingUid());
+        EncapSocketRecord encapSocketRecord = null;
 
         switch (config.getEncapType()) {
             case IpSecTransform.ENCAP_NONE:
@@ -1523,7 +1614,7 @@ public class IpSecService extends IIpSecService.Stub {
             case IpSecTransform.ENCAP_ESPINUDP:
             case IpSecTransform.ENCAP_ESPINUDP_NON_IKE:
                 // Retrieve encap socket record; will throw IllegalArgumentException if not found
-                userRecord.mEncapSocketRecords.getResourceOrThrow(
+                encapSocketRecord = userRecord.mEncapSocketRecords.getResourceOrThrow(
                         config.getEncapSocketResourceId());
 
                 int port = config.getEncapRemotePort();
@@ -1577,10 +1668,9 @@ public class IpSecService extends IIpSecService.Stub {
                             + ") have different address families.");
         }
 
-        // Throw an error if UDP Encapsulation is not used in IPv4.
-        if (config.getEncapType() != IpSecTransform.ENCAP_NONE && sourceFamily != AF_INET) {
+        if (encapSocketRecord != null && encapSocketRecord.getFamily() != destinationFamily) {
             throw new IllegalArgumentException(
-                    "UDP Encapsulation is not supported for this address family");
+                    "UDP encapsulation socket and destination address families must match");
         }
 
         switch (config.getMode()) {
@@ -1616,6 +1706,14 @@ public class IpSecService extends IIpSecService.Stub {
         }
         mContext.enforceCallingOrSelfPermission(
                 android.Manifest.permission.MANAGE_IPSEC_TUNNELS, "IpSecService");
+    }
+
+    private void enforceMigrateFeature() {
+        if (!mContext.getPackageManager().hasSystemFeature(FEATURE_IPSEC_TUNNEL_MIGRATION)) {
+            throw new UnsupportedOperationException(
+                    "IPsec Tunnel migration requires"
+                            + " PackageManager.FEATURE_IPSEC_TUNNEL_MIGRATION");
+        }
     }
 
     private void createOrUpdateTransform(
@@ -1714,6 +1812,45 @@ public class IpSecService extends IIpSecService.Stub {
     }
 
     /**
+     * Migrate an active Tunnel Mode IPsec Transform to new source/destination addresses.
+     *
+     * <p>Begins the process of migrating a transform and cache the new addresses. To complete the
+     * migration once started, callers MUST apply the same transform to the appropriate tunnel using
+     * {@link #applyTunnelModeTransform}. Otherwise, the address update will not be committed and
+     * the transform will still only process traffic between the current source and destination
+     * address. One common use case is that the control plane will start the migration process and
+     * then hand off the transform to the IPsec caller to perform the actual migration when the
+     * tunnel is ready.
+     *
+     * <p>If this method is called multiple times before {@link #applyTunnelModeTransform} is
+     * called, when the transform is applied, it will be migrated to the addresses from the last
+     * call.
+     *
+     * <p>The provided source and destination addresses MUST share the same address family, but they
+     * can have a different family from the current addresses.
+     *
+     * <p>Transform migration is only supported for tunnel mode transforms. Calling this method on
+     * other types of transforms will throw an {@code UnsupportedOperationException}.
+     */
+    @Override
+    public synchronized void migrateTransform(
+            int transformId,
+            String newSourceAddress,
+            String newDestinationAddress,
+            String callingPackage) {
+        Objects.requireNonNull(newSourceAddress, "newSourceAddress was null");
+        Objects.requireNonNull(newDestinationAddress, "newDestinationAddress was null");
+
+        enforceTunnelFeatureAndPermissions(callingPackage);
+        enforceMigrateFeature();
+
+        UserRecord userRecord = mUserResourceTracker.getUserRecord(Binder.getCallingUid());
+        TransformRecord transformInfo =
+                userRecord.mTransformRecords.getResourceOrThrow(transformId);
+        transformInfo.startMigration(newSourceAddress, newDestinationAddress);
+    }
+
+    /**
      * Delete a transport mode transform that was previously allocated by + registered with the
      * system server. If this is called on an inactive (or non-existent) transform, it will not
      * return an error. It's safe to de-allocate transforms that may have already been deleted for
@@ -1772,12 +1909,15 @@ public class IpSecService extends IIpSecService.Stub {
 
     /**
      * Apply an active tunnel mode transform to a TunnelInterface, which will apply the IPsec
-     * security association as a correspondent policy to the provided interface
+     * security association as a correspondent policy to the provided interface.
+     *
+     * <p>If the transform is migrating, migrate the IPsec security association to new
+     * source/destination addresses, and mark the migration as finished.
      */
     @Override
     public synchronized void applyTunnelModeTransform(
-            int tunnelResourceId, int direction,
-            int transformResourceId, String callingPackage) throws RemoteException {
+            int tunnelResourceId, int direction, int transformResourceId, String callingPackage)
+            throws RemoteException {
         enforceTunnelFeatureAndPermissions(callingPackage);
         checkDirection(direction);
 
@@ -1856,6 +1996,32 @@ public class IpSecService extends IIpSecService.Stub {
 
             // Update SA with tunnel mark (ikey or okey based on direction)
             createOrUpdateTransform(c, transformResourceId, spiRecord, socketRecord);
+
+            if (transformInfo.isMigrating()) {
+                if (!mContext.getPackageManager()
+                        .hasSystemFeature(FEATURE_IPSEC_TUNNEL_MIGRATION)) {
+                    Log.wtf(
+                            TAG,
+                            "Attempted to migrate a transform without"
+                                    + " FEATURE_IPSEC_TUNNEL_MIGRATION");
+                }
+
+                for (int selAddrFamily : ADDRESS_FAMILIES) {
+                    final IpSecMigrateInfoParcel migrateInfo =
+                            new IpSecMigrateInfoParcel(
+                                    Binder.getCallingUid(),
+                                    selAddrFamily,
+                                    direction,
+                                    c.getSourceAddress(),
+                                    c.getDestinationAddress(),
+                                    transformInfo.getNewSourceAddress(),
+                                    transformInfo.getNewDestinationAddress(),
+                                    c.getXfrmInterfaceId());
+
+                    mNetd.ipSecMigrate(migrateInfo);
+                }
+                transformInfo.finishMigration();
+            }
         } catch (ServiceSpecificException e) {
             if (e.errorCode == EINVAL) {
                 throw new IllegalArgumentException(e.toString());

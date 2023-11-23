@@ -34,39 +34,24 @@ COMMAND_REMOVE_ALL_NETWORKS = "wlan_policy.remove_all_networks"
 COMMAND_GET_UPDATE = "wlan_policy.get_update"
 
 
-def main(argv):
-    if len(argv) > 1:
-        raise app.UsageError('Too many command-line arguments.')
-
-
-if __name__ == '__main__':
-    app.run(main)
-
-
 class FuchsiaWlanPolicyLib(BaseLib):
-    def __init__(self, addr, tc, client_id):
-        self.address = addr
-        self.test_counter = tc
-        self.client_id = client_id
-        self.log = logger.create_tagged_trace_logger(str(addr))
+
+    def __init__(self, addr: str) -> None:
+        super().__init__(addr, "wlan_policy")
 
     def wlanStartClientConnections(self):
         """ Enables device to initiate connections to networks """
 
         test_cmd = COMMAND_START_CLIENT_CONNECTIONS
-        test_id = self.build_id(self.test_counter)
-        self.test_counter += 1
 
-        return self.send_command(test_id, test_cmd, {})
+        return self.send_command(test_cmd, {})
 
     def wlanStopClientConnections(self):
         """ Disables device for initiating connections to networks """
 
         test_cmd = COMMAND_STOP_CLIENT_CONNECTIONS
-        test_id = self.build_id(self.test_counter)
-        self.test_counter += 1
 
-        return self.send_command(test_id, test_cmd, {})
+        return self.send_command(test_cmd, {})
 
     def wlanScanForNetworks(self):
         """ Scans for networks that can be connected to
@@ -75,10 +60,8 @@ class FuchsiaWlanPolicyLib(BaseLib):
          """
 
         test_cmd = COMMAND_SCAN_FOR_NETWORKS
-        test_id = self.build_id(self.test_counter)
-        self.test_counter += 1
 
-        return self.send_command(test_id, test_cmd, {})
+        return self.send_command(test_cmd, {})
 
     def wlanSaveNetwork(self, target_ssid, security_type, target_pwd=None):
         """ Saveds a network to the device for future connections
@@ -94,15 +77,13 @@ class FuchsiaWlanPolicyLib(BaseLib):
         if not target_pwd:
             target_pwd = ''
         test_cmd = COMMAND_SAVE_NETWORK
-        test_id = self.build_id(self.test_counter)
-        self.test_counter += 1
         test_args = {
             "target_ssid": target_ssid,
             "security_type": str(security_type).lower(),
             "target_pwd": target_pwd
         }
 
-        return self.send_command(test_id, test_cmd, test_args)
+        return self.send_command(test_cmd, test_args)
 
     def wlanRemoveNetwork(self, target_ssid, security_type, target_pwd=None):
         """ Removes or "forgets" a network from saved networks
@@ -115,15 +96,13 @@ class FuchsiaWlanPolicyLib(BaseLib):
         if not target_pwd:
             target_pwd = ''
         test_cmd = COMMAND_REMOVE_NETWORK
-        test_id = self.build_id(self.test_counter)
-        self.test_counter += 1
         test_args = {
             "target_ssid": target_ssid,
             "security_type": str(security_type).lower(),
             "target_pwd": target_pwd
         }
 
-        return self.send_command(test_id, test_cmd, test_args)
+        return self.send_command(test_cmd, test_args)
 
     def wlanRemoveAllNetworks(self):
         """ Removes or "forgets" all networks from saved networks
@@ -132,10 +111,8 @@ class FuchsiaWlanPolicyLib(BaseLib):
         """
 
         test_cmd = COMMAND_REMOVE_ALL_NETWORKS
-        test_id = self.build_id(self.test_counter)
-        self.test_counter += 1
 
-        return self.send_command(test_id, test_cmd, {})
+        return self.send_command(test_cmd, {})
 
     def wlanGetSavedNetworks(self):
         """ Gets networks saved on device. Any PSK of a saved network will be
@@ -145,10 +122,8 @@ class FuchsiaWlanPolicyLib(BaseLib):
         """
 
         test_cmd = COMMAND_GET_SAVED_NETWORKS
-        test_id = self.build_id(self.test_counter)
-        self.test_counter += 1
 
-        return self.send_command(test_id, test_cmd, {})
+        return self.send_command(test_cmd, {})
 
     def wlanConnect(self, target_ssid, security_type):
         """ Triggers connection to a network
@@ -162,24 +137,20 @@ class FuchsiaWlanPolicyLib(BaseLib):
         """
 
         test_cmd = COMMAND_CONNECT
-        test_id = self.build_id(self.test_counter)
-        self.test_counter += 1
         test_args = {
             "target_ssid": target_ssid,
             "security_type": str(security_type).lower()
         }
 
-        return self.send_command(test_id, test_cmd, test_args)
+        return self.send_command(test_cmd, test_args)
 
     def wlanCreateClientController(self):
         """ Initializes the client controller of the facade that is used to make Client Controller
             API calls
         """
         test_cmd = COMMAND_CREATE_CLIENT_CONTROLLER
-        test_id = self.build_id(self.test_counter)
-        self.test_counter += 1
 
-        return self.send_command(test_id, test_cmd, {})
+        return self.send_command(test_cmd, {})
 
     def wlanSetNewListener(self):
         """ Sets the update listener stream of the facade to a new stream so that updates will be
@@ -187,20 +158,16 @@ class FuchsiaWlanPolicyLib(BaseLib):
             independent from previous tests.
         """
         test_cmd = COMMAND_SET_NEW_LISTENER
-        test_id = self.build_id(self.test_counter)
-        self.test_counter += 1
 
-        return self.send_command(test_id, test_cmd, {})
+        return self.send_command(test_cmd, {})
 
     def wlanRemoveAllNetworks(self):
         """ Deletes all saved networks on the device. Relies directly on the get_saved_networks and
             remove_network commands
         """
         test_cmd = COMMAND_REMOVE_ALL_NETWORKS
-        test_id = self.build_id(self.test_counter)
-        self.test_counter += 1
 
-        return self.send_command(test_id, test_cmd, {})
+        return self.send_command(test_cmd, {})
 
     def wlanGetUpdate(self, timeout=30):
         """ Gets one client listener update. This call will return with an update immediately the
@@ -212,9 +179,5 @@ class FuchsiaWlanPolicyLib(BaseLib):
                 structure that matches the FIDL ClientStateSummary struct given for updates.
         """
         test_cmd = COMMAND_GET_UPDATE
-        test_id = self.build_id(self.test_counter)
-        self.test_counter += 1
 
-        return self.send_command(test_id,
-                                 test_cmd, {},
-                                 response_timeout=timeout)
+        return self.send_command(test_cmd, {}, response_timeout=timeout)

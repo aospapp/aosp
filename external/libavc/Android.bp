@@ -25,6 +25,39 @@ cc_library_headers {
 }
 
 cc_library_headers {
+    name: "libmvcdec_headers",
+    export_include_dirs: [
+        "decoder",
+        "decoder/mvc",
+        "common",
+        "common/mvc",
+    ],
+    min_sdk_version: "29",
+}
+
+cc_library_headers {
+    name: "libsvcenc_headers",
+    export_include_dirs: [
+        "common",
+        "common/svc",
+        "encoder",
+        "encoder/svc",
+    ],
+    min_sdk_version: "29",
+}
+
+cc_library_headers {
+    name: "libsvcdec_headers",
+    export_include_dirs: [
+        "common",
+        "common/svc",
+        "decoder",
+        "decoder/svc",
+    ],
+    min_sdk_version: "29",
+}
+
+cc_library_headers {
     name: "libavcenc_headers",
     export_include_dirs: [
         "common",
@@ -33,15 +66,102 @@ cc_library_headers {
     min_sdk_version: "29",
 }
 
-cc_library_static {
-    name: "libavcdec",
+cc_defaults {
+    name: "libavc_enc_defaults",
     vendor_available: true,
     host_supported: true,
     shared_libs: [
         "liblog",
         "libcutils",
     ],
+    cflags: [
+        "-DNDEBUG",
+        "-UHP_PL",
+        "-DN_MB_ENABLE",
+        "-fPIC",
+        "-O3",
+        "-Wall",
+        "-Werror",
+        "-Wno-error=constant-conversion",
+    ],
+    arch: {
+        arm: {
+            local_include_dirs: [
+                "common/arm",
+                "encoder/arm",
+            ],
 
+            cflags: [
+                "-DARM",
+                // These will be overriden by armv7_a_neon
+                "-DDISABLE_NEON",
+            ],
+
+            neon: {
+                cflags: [
+                    "-UDISABLE_NEON",
+                ],
+            },
+        },
+
+        arm64: {
+            cflags: [
+                "-DARMV8",
+                "-DARM",
+            ],
+            local_include_dirs: [
+                "common/arm",
+                "common/armv8",
+                "encoder/arm",
+                "encoder/armv8",
+            ],
+        },
+
+        riscv64: {
+            local_include_dirs: [
+                "common/riscv",
+                "encoder/riscv",
+            ],
+        },
+
+        x86: {
+            cflags: [
+                "-DX86",
+                "-msse4.2",
+            ],
+
+            local_include_dirs: [
+                "encoder/x86",
+                "common/x86",
+            ],
+        },
+
+        x86_64: {
+            cflags: [
+                "-DX86",
+                "-msse4.2",
+            ],
+
+            local_include_dirs: [
+                "encoder/x86",
+                "common/x86",
+            ],
+        },
+    },
+
+    sanitize: {
+        integer_overflow: true,
+        misc_undefined: ["bounds"],
+        cfi: true,
+        config: {
+            cfi_assembly_support: true,
+        },
+        blocklist: "libavc_blocklist.txt",
+    },
+}
+
+cc_defaults {
+    name: "libavc_dec_defaults",
     cflags: [
         "-fPIC",
         "-O3",
@@ -52,6 +172,93 @@ cc_library_static {
         // #KEEP_THREAD_ACTIVE is experimental
         "-UKEEP_THREADS_ACTIVE",
     ],
+    vendor_available: true,
+    host_supported: true,
+    shared_libs: [
+        "liblog",
+        "libcutils",
+    ],
+
+    arch: {
+        arm: {
+            local_include_dirs: [
+                "decoder/arm",
+                "common/arm",
+            ],
+            cflags: [
+                "-DARM",
+                // These will be overriden by armv7_a_neon
+                "-DDISABLE_NEON",
+                "-DDEFAULT_ARCH=D_ARCH_ARM_NONEON",
+            ],
+
+            neon: {
+                cflags: [
+                    "-UDISABLE_NEON",
+                    "-UDEFAULT_ARCH",
+                    "-DDEFAULT_ARCH=D_ARCH_ARM_A9Q",
+                ],
+            },
+        },
+
+        arm64: {
+            cflags: [
+                "-DARMV8",
+                "-DARM",
+                "-DDEFAULT_ARCH=D_ARCH_ARMV8_GENERIC",
+            ],
+            local_include_dirs: [
+                "decoder/arm",
+                "common/armv8",
+            ],
+        },
+
+        riscv64: {
+            local_include_dirs: [
+                "common/riscv",
+            ],
+        },
+
+        x86: {
+            cflags: [
+                "-DX86",
+                "-msse4.2",
+                "-DDEFAULT_ARCH=D_ARCH_X86_SSE42",
+            ],
+
+            local_include_dirs: [
+                "decoder/x86",
+                "common/x86",
+            ],
+        },
+
+        x86_64: {
+            cflags: [
+                "-DX86",
+                "-msse4.2",
+                "-DDEFAULT_ARCH=D_ARCH_X86_SSE42",
+            ],
+
+            local_include_dirs: [
+                "decoder/x86",
+                "common/x86",
+            ],
+        },
+    },
+
+    sanitize: {
+        integer_overflow: true,
+        misc_undefined: ["bounds"],
+        cfi: true,
+        config: {
+            cfi_assembly_support: true,
+        },
+    },
+}
+
+cc_library_static {
+    name: "libavcdec",
+    defaults: ["libavc_dec_defaults"],
 
     export_include_dirs: [
         "common",
@@ -106,22 +313,9 @@ cc_library_static {
 
     arch: {
         arm: {
-            local_include_dirs: [
-                "decoder/arm",
-                "common/arm",
-            ],
-
             srcs: [
                 "decoder/arm/ih264d_function_selector.c",
                 "common/arm/ih264_arm_memory_barrier.s",
-            ],
-
-            cflags: [
-                "-DARM",
-
-                // These will be overriden by armv7_a_neon
-                "-DDISABLE_NEON",
-                "-DDEFAULT_ARCH=D_ARCH_ARM_NONEON",
             ],
 
             neon: {
@@ -151,25 +345,10 @@ cc_library_static {
                     "common/arm/ih264_iquant_itrans_recon_dc_a9.s",
                     "common/arm/ih264_ihadamard_scaling_a9.s",
                 ],
-                cflags: [
-                    "-UDISABLE_NEON",
-                    "-UDEFAULT_ARCH",
-                    "-DDEFAULT_ARCH=D_ARCH_ARM_A9Q",
-                ],
             },
         },
 
         arm64: {
-            cflags: [
-                "-DARMV8",
-                "-DARM",
-                "-DDEFAULT_ARCH=D_ARCH_ARMV8_GENERIC",
-            ],
-            local_include_dirs: [
-                "decoder/arm",
-                "common/armv8",
-            ],
-
             srcs: [
                 "decoder/arm/ih264d_function_selector.c",
                 "decoder/arm/ih264d_function_selector_av8.c",
@@ -199,18 +378,16 @@ cc_library_static {
             ],
         },
 
-        x86: {
-            cflags: [
-                "-DX86",
-                "-msse4.2",
-                "-DDEFAULT_ARCH=D_ARCH_X86_SSE42",
-            ],
-
+        riscv64: {
             local_include_dirs: [
-                "decoder/x86",
-                "common/x86",
+                "common/riscv",
             ],
+            srcs: [
+                "decoder/riscv/ih264d_function_selector.c",
+            ],
+        },
 
+        x86: {
             srcs: [
                 "decoder/x86/ih264d_function_selector.c",
                 "decoder/x86/ih264d_function_selector_sse42.c",
@@ -231,17 +408,6 @@ cc_library_static {
         },
 
         x86_64: {
-            cflags: [
-                "-DX86",
-                "-msse4.2",
-                "-DDEFAULT_ARCH=D_ARCH_X86_SSE42",
-            ],
-
-            local_include_dirs: [
-                "decoder/x86",
-                "common/x86",
-            ],
-
             srcs: [
                 "decoder/x86/ih264d_function_selector.c",
                 "decoder/x86/ih264d_function_selector_sse42.c",
@@ -263,12 +429,6 @@ cc_library_static {
     },
 
     sanitize: {
-        integer_overflow: true,
-        misc_undefined: ["bounds"],
-        cfi: true,
-        config: {
-            cfi_assembly_support: true,
-        },
         blocklist: "libavc_blocklist.txt",
     },
     apex_available: [
@@ -279,25 +439,33 @@ cc_library_static {
 }
 
 cc_library_static {
+    name: "libmvcdec",
+    defaults: ["libavc_dec_defaults"],
+    whole_static_libs: [
+        "libavcdec",
+    ],
+
+    export_include_dirs: [
+        "decoder",
+        "decoder/mvc",
+        "common",
+        "common/mvc",
+    ],
+
+    srcs: [
+        "decoder/mvc/imvcd_api.c",
+        "decoder/mvc/imvcd_api_utils.c",
+        "decoder/mvc/imvcd_dpb_manager.c",
+        "decoder/mvc/imvcd_error_handler.c",
+        "decoder/mvc/imvcd_nalu_parser.c",
+        "decoder/mvc/imvcd_slice_functions.c",
+        "decoder/mvc/imvcd_utils.c",
+    ],
+}
+
+cc_library_static {
     name: "libavcenc",
-    vendor_available: true,
-    host_supported: true,
-    shared_libs: [
-        "liblog",
-        "libcutils",
-    ],
-
-    cflags: [
-        "-DNDEBUG",
-        "-UHP_PL",
-        "-DN_MB_ENABLE",
-        "-fPIC",
-
-        "-O3",
-        "-Wall",
-        "-Werror",
-        "-Wno-error=constant-conversion",
-    ],
+    defaults: ["libavc_enc_defaults"],
 
     export_include_dirs: [
         "common",
@@ -361,25 +529,14 @@ cc_library_static {
         "encoder/ime.c",
         "encoder/ime_distortion_metrics.c",
         "encoder/ih264e_sei.c",
+        "encoder/psnr.c",
     ],
 
     arch: {
         arm: {
-            local_include_dirs: [
-                "encoder/arm",
-                "common/arm",
-            ],
-
             srcs: [
                 "encoder/arm/ih264e_function_selector.c",
                 "common/arm/ih264_arm_memory_barrier.s",
-            ],
-
-            cflags: [
-                "-DARM",
-
-                // This will be overriden by armv7_a_neon
-                "-DDISABLE_NEON",
             ],
 
             neon: {
@@ -409,25 +566,10 @@ cc_library_static {
                     "encoder/arm/ih264e_fmt_conv.s",
                     "encoder/arm/ime_distortion_metrics_a9q.s",
                 ],
-
-                cflags: [
-                    "-UDISABLE_NEON",
-                ],
             },
         },
 
         arm64: {
-            cflags: [
-                "-DARMV8",
-                "-DARM",
-            ],
-
-            local_include_dirs: [
-                "encoder/arm",
-                "encoder/armv8",
-                "common/armv8",
-            ],
-
             srcs: [
                 "encoder/arm/ih264e_function_selector.c",
                 "encoder/arm/ih264e_function_selector_av8.c",
@@ -454,17 +596,13 @@ cc_library_static {
             ],
         },
 
+        riscv64: {
+            srcs: [
+                "encoder/riscv/ih264e_function_selector.c",
+            ],
+        },
+
         x86: {
-            cflags: [
-                "-DX86",
-                "-msse4.2",
-            ],
-
-            local_include_dirs: [
-                "encoder/x86",
-                "common/x86",
-            ],
-
             srcs: [
                 "encoder/x86/ih264e_function_selector.c",
                 "encoder/x86/ih264e_function_selector_sse42.c",
@@ -490,16 +628,6 @@ cc_library_static {
         },
 
         x86_64: {
-            cflags: [
-                "-DX86",
-                "-msse4.2",
-            ],
-
-            local_include_dirs: [
-                "encoder/x86",
-                "common/x86",
-            ],
-
             srcs: [
                 "encoder/x86/ih264e_function_selector.c",
                 "encoder/x86/ih264e_function_selector_sse42.c",
@@ -525,20 +653,280 @@ cc_library_static {
         },
     },
 
-    sanitize: {
-        integer_overflow: true,
-        misc_undefined: ["bounds"],
-        cfi: true,
-        config: {
-            cfi_assembly_support: true,
-        },
-        blocklist: "libavc_blocklist.txt",
-    },
     apex_available: [
         "//apex_available:platform", //due to libstagefright_soft_avcenc
         "com.android.media.swcodec",
     ],
     min_sdk_version: "29",
+}
+
+cc_library_static {
+    name: "libsvcenc",
+    defaults: ["libavc_enc_defaults"],
+    whole_static_libs: [
+        "libavcenc",
+    ],
+
+    export_include_dirs: [
+        "common",
+        "common/svc",
+        "encoder",
+        "encoder/svc",
+    ],
+
+    srcs: [
+        "common/svc/isvc_cabac_tables.c",
+        "common/svc/isvc_common_tables.c",
+        "common/svc/isvc_intra_resample.c",
+        "common/svc/isvc_iquant_itrans_recon.c",
+        "common/svc/isvc_mem_fns.c",
+        "common/svc/isvc_resi_trans_quant.c",
+        "encoder/svc/irc_svc_rate_control_api.c",
+        "encoder/svc/isvce_api.c",
+        "encoder/svc/isvce_cabac.c",
+        "encoder/svc/isvce_cabac_encode.c",
+        "encoder/svc/isvce_cabac_init.c",
+        "encoder/svc/isvce_cavlc.c",
+        "encoder/svc/isvce_core_coding.c",
+        "encoder/svc/isvce_deblk.c",
+        "encoder/svc/isvce_downscaler.c",
+        "encoder/svc/isvce_encode.c",
+        "encoder/svc/isvce_encode_header.c",
+        "encoder/svc/isvce_fmt_conv.c",
+        "encoder/svc/isvce_function_selector_generic.c",
+        "encoder/svc/isvce_globals.c",
+        "encoder/svc/isvce_ibl_eval.c",
+        "encoder/svc/isvce_ilp_mv.c",
+        "encoder/svc/isvce_intra_modes_eval.c",
+        "encoder/svc/isvce_mc.c",
+        "encoder/svc/isvce_me.c",
+        "encoder/svc/isvce_mode_stat_visualiser.c",
+        "encoder/svc/isvce_nalu_stat_aggregator.c",
+        "encoder/svc/isvce_process.c",
+        "encoder/svc/isvce_rate_control.c",
+        "encoder/svc/isvce_rc_mem_interface.c",
+        "encoder/svc/isvce_rc_utils.c",
+        "encoder/svc/isvce_residual_pred.c",
+        "encoder/svc/isvce_sub_pic_rc.c",
+        "encoder/svc/isvce_utils.c",
+    ],
+
+    arch: {
+        arm: {
+            local_include_dirs: [
+                "common/arm/svc",
+                "encoder/arm/svc",
+            ],
+
+            srcs: [
+                "encoder/arm/svc/isvce_function_selector.c",
+            ],
+
+            neon: {
+                srcs: [
+                    "encoder/arm/svc/isvce_function_selector_a9q.c",
+                    "common/arm/svc/isvc_intra_sampling_neon.c",
+                    "common/arm/svc/isvc_iquant_itrans_recon_neon.c",
+                    "common/arm/svc/isvc_mem_fns_neon.c",
+                    "common/arm/svc/isvc_resi_trans_quant_neon.c",
+                    "encoder/arm/svc/isvce_downscaler_neon.c",
+                    "encoder/arm/svc/isvce_rc_utils_neon.c",
+                    "encoder/arm/svc/isvce_residual_pred_neon.c",
+                ],
+            },
+        },
+
+        arm64: {
+            local_include_dirs: [
+                "common/arm/svc",
+                "encoder/arm/svc",
+            ],
+
+            srcs: [
+                "encoder/arm/svc/isvce_function_selector.c",
+                "encoder/arm/svc/isvce_function_selector_av8.c",
+                "common/arm/svc/isvc_intra_sampling_neon.c",
+                "common/arm/svc/isvc_iquant_itrans_recon_neon.c",
+                "common/arm/svc/isvc_mem_fns_neon.c",
+                "common/arm/svc/isvc_resi_trans_quant_neon.c",
+                "encoder/arm/svc/isvce_downscaler_neon.c",
+                "encoder/arm/svc/isvce_rc_utils_neon.c",
+                "encoder/arm/svc/isvce_residual_pred_neon.c",
+            ],
+        },
+
+        riscv64: {
+            local_include_dirs: [
+                "encoder/riscv/svc",
+            ],
+
+            srcs: [
+                "encoder/riscv/svc/isvce_function_selector.c",
+            ],
+        },
+
+        x86: {
+            local_include_dirs: [
+                "encoder/x86/svc",
+                "common/x86/svc",
+            ],
+
+            srcs: [
+                "common/x86/svc/isvc_intra_resample_sse42.c",
+                "common/x86/svc/isvc_iquant_itrans_recon_dc_ssse3.c",
+                "common/x86/svc/isvc_iquant_itrans_recon_sse42.c",
+                "common/x86/svc/isvc_iquant_itrans_recon_ssse3.c",
+                "common/x86/svc/isvc_mem_fns_sse42.c",
+                "common/x86/svc/isvc_mem_fns_ssse3.c",
+                "common/x86/svc/isvc_padding_ssse3.c",
+                "common/x86/svc/isvc_resi_trans_quant_sse42.c",
+                "encoder/x86/svc/isvce_downscaler_sse42.c",
+                "encoder/x86/svc/isvce_function_selector.c",
+                "encoder/x86/svc/isvce_function_selector_sse42.c",
+                "encoder/x86/svc/isvce_function_selector_ssse3.c",
+                "encoder/x86/svc/isvce_rc_utils_sse42.c",
+                "encoder/x86/svc/isvce_residual_pred_sse42.c",
+            ],
+        },
+
+        x86_64: {
+            local_include_dirs: [
+                "encoder/x86/svc",
+                "common/x86/svc",
+            ],
+
+            srcs: [
+                "common/x86/svc/isvc_intra_resample_sse42.c",
+                "common/x86/svc/isvc_iquant_itrans_recon_dc_ssse3.c",
+                "common/x86/svc/isvc_iquant_itrans_recon_sse42.c",
+                "common/x86/svc/isvc_iquant_itrans_recon_ssse3.c",
+                "common/x86/svc/isvc_mem_fns_sse42.c",
+                "common/x86/svc/isvc_mem_fns_ssse3.c",
+                "common/x86/svc/isvc_padding_ssse3.c",
+                "common/x86/svc/isvc_resi_trans_quant_sse42.c",
+                "encoder/x86/svc/isvce_downscaler_sse42.c",
+                "encoder/x86/svc/isvce_function_selector.c",
+                "encoder/x86/svc/isvce_function_selector_sse42.c",
+                "encoder/x86/svc/isvce_function_selector_ssse3.c",
+                "encoder/x86/svc/isvce_rc_utils_sse42.c",
+                "encoder/x86/svc/isvce_residual_pred_sse42.c",
+            ],
+        },
+    },
+}
+
+cc_library_static {
+    name: "libsvcdec",
+    defaults: ["libavc_dec_defaults"],
+    whole_static_libs: [
+        "libavcdec",
+    ],
+
+    export_include_dirs: [
+        "decoder",
+        "decoder/svc",
+        "common",
+        "common/svc",
+    ],
+
+    srcs: [
+        "decoder/svc/isvcd_ii_pred.c",
+        "decoder/svc/isvcd_intra_resamp.c",
+        "decoder/svc/isvcd_iquant_itrans.c",
+        "decoder/svc/isvcd_iquant_itrans_residual.c",
+        "decoder/svc/isvcd_iquant_itrans_residual_recon.c",
+        "decoder/svc/isvcd_mode_mv_resamp.c",
+        "decoder/svc/isvcd_pred_residual_recon.c",
+        "decoder/svc/isvcd_residual_resamp.c",
+        "decoder/svc/isvcd_api.c",
+        "decoder/svc/isvcd_cabac.c",
+        "decoder/svc/isvcd_cabac_init_tables.c",
+        "decoder/svc/isvcd_compute_bs.c",
+        "decoder/svc/isvcd_function_selector_generic.c",
+        "decoder/svc/isvcd_mb_utils.c",
+        "decoder/svc/isvcd_nal.c",
+        "decoder/svc/isvcd_nal_parse.c",
+        "decoder/svc/isvcd_parse_cavlc.c",
+        "decoder/svc/isvcd_parse_ebslice.c",
+        "decoder/svc/isvcd_parse_eislice.c",
+        "decoder/svc/isvcd_parse_epslice.c",
+        "decoder/svc/isvcd_parse_headers.c",
+        "decoder/svc/isvcd_parse_slice.c",
+        "decoder/svc/isvcd_process_ebslice.c",
+        "decoder/svc/isvcd_process_epslice.c",
+        "decoder/svc/isvcd_thread_compute_bs.c",
+        "decoder/svc/isvcd_thread_parse_decode.c",
+        "decoder/svc/isvcd_utils.c",
+        "decoder/svc/isvcd_vui.c",
+    ],
+
+    arch: {
+        arm: {
+            srcs: [
+                "decoder/arm/svc/isvcd_function_selector.c",
+            ],
+
+            neon: {
+                srcs: [
+                    "decoder/arm/svc/isvcd_function_selector_neon.c",
+                    "decoder/arm/svc/isvcd_intra_resamp_neon.c",
+                    "decoder/arm/svc/isvcd_iquant_itrans_neon.c",
+                    "decoder/arm/svc/isvcd_iquant_itrans_residual_neon.c",
+                    "decoder/arm/svc/isvcd_iquant_itrans_residual_recon_neon.c",
+                    "decoder/arm/svc/isvcd_pred_residual_recon_neon.c",
+                    "decoder/arm/svc/isvcd_residual_resamp_neon.c",
+                ],
+            },
+        },
+
+        arm64: {
+            srcs: [
+                "decoder/arm/svc/isvcd_function_selector.c",
+                "decoder/arm/svc/isvcd_function_selector_neon.c",
+                "decoder/arm/svc/isvcd_intra_resamp_neon.c",
+                "decoder/arm/svc/isvcd_iquant_itrans_neon.c",
+                "decoder/arm/svc/isvcd_iquant_itrans_residual_neon.c",
+                "decoder/arm/svc/isvcd_iquant_itrans_residual_recon_neon.c",
+                "decoder/arm/svc/isvcd_pred_residual_recon_neon.c",
+                "decoder/arm/svc/isvcd_residual_resamp_neon.c",
+            ],
+        },
+
+        riscv64: {
+            local_include_dirs: [
+                "decoder/riscv/svc",
+            ],
+
+            srcs: [
+                "decoder/riscv/svc/isvcd_function_selector.c",
+            ],
+        },
+        x86: {
+            srcs: [
+                "decoder/x86/svc/isvcd_function_selector.c",
+                "decoder/x86/svc/isvcd_function_selector_sse42.c",
+                "decoder/x86/svc/isvcd_intra_resamp_sse42.c",
+                "decoder/x86/svc/isvcd_iquant_itrans_residual_recon_sse42.c",
+                "decoder/x86/svc/isvcd_iquant_itrans_residual_sse42.c",
+                "decoder/x86/svc/isvcd_iquant_itrans_sse42.c",
+                "decoder/x86/svc/isvcd_pred_residual_recon_sse42.c",
+                "decoder/x86/svc/isvcd_residual_resamp_sse42.c",
+            ],
+        },
+
+        x86_64: {
+            srcs: [
+                "decoder/x86/svc/isvcd_function_selector.c",
+                "decoder/x86/svc/isvcd_function_selector_sse42.c",
+                "decoder/x86/svc/isvcd_intra_resamp_sse42.c",
+                "decoder/x86/svc/isvcd_iquant_itrans_residual_recon_sse42.c",
+                "decoder/x86/svc/isvcd_iquant_itrans_residual_sse42.c",
+                "decoder/x86/svc/isvcd_iquant_itrans_sse42.c",
+                "decoder/x86/svc/isvcd_pred_residual_recon_sse42.c",
+                "decoder/x86/svc/isvcd_residual_resamp_sse42.c",
+            ],
+        },
+    },
 }
 
 subdirs = ["test"]

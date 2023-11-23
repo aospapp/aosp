@@ -17,14 +17,17 @@
 package android.security.cts;
 
 import android.platform.test.annotations.AsbSecurityTest;
-import com.android.compatibility.common.util.CrashUtils;
+
+import com.android.sts.common.tradefed.testtype.NonRootSecurityTestCase;
+import com.android.sts.common.util.TombstoneUtils;
 import com.android.tradefed.device.ITestDevice;
 import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
+
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
 @RunWith(DeviceJUnit4ClassRunner.class)
-public class CVE_2021_0956 extends SecurityTestCase {
+public class CVE_2021_0956 extends NonRootSecurityTestCase {
 
     /**
      * b/189942532
@@ -38,9 +41,9 @@ public class CVE_2021_0956 extends SecurityTestCase {
         AdbUtils.assumeHasNfc(device);
         assumeIsSupportedNfcDevice(device);
         String binaryName = "CVE-2021-0956";
-        String signals[] = {CrashUtils.SIGABRT};
+        String signals[] = {TombstoneUtils.Signals.SIGABRT};
         AdbUtils.pocConfig testConfig = new AdbUtils.pocConfig(binaryName, device);
-        testConfig.config = new CrashUtils.Config().setProcessPatterns(binaryName);
+        testConfig.config = new TombstoneUtils.Config().setProcessPatterns(binaryName);
         testConfig.config.setSignals(signals);
         AdbUtils.runPocAssertNoCrashesNotVulnerable(testConfig);
     }

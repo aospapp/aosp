@@ -21,6 +21,7 @@ import android.os.Parcel;
 import android.os.Parcelable;
 
 import com.android.queryable.Queryable;
+import com.android.queryable.QueryableBaseWithMatch;
 import com.android.queryable.util.SerializableParcelWrapper;
 
 import java.io.Serializable;
@@ -36,10 +37,27 @@ public final class IntentQueryHelper<E extends Queryable> implements IntentQuery
     private final StringQueryHelper<E> mAction;
     private final BundleQueryHelper<E> mExtras;
 
-    IntentQueryHelper() {
-        mQuery = (E) this;
-        mAction = new StringQueryHelper<>(mQuery);
-        mExtras = new BundleQueryHelper<>(mQuery);
+    public static final class IntentQueryBase extends
+            QueryableBaseWithMatch<Intent, IntentQueryHelper<IntentQueryBase>> {
+        IntentQueryBase() {
+            super();
+            setQuery(new IntentQueryHelper<>(this));
+        }
+
+        IntentQueryBase(Parcel in) {
+            super(in);
+        }
+
+        public static final Parcelable.Creator<IntentQueryHelper.IntentQueryBase> CREATOR =
+                new Parcelable.Creator<>() {
+                    public IntentQueryHelper.IntentQueryBase createFromParcel(Parcel in) {
+                        return new IntentQueryHelper.IntentQueryBase(in);
+                    }
+
+                    public IntentQueryHelper.IntentQueryBase[] newArray(int size) {
+                        return new IntentQueryHelper.IntentQueryBase[size];
+                    }
+                };
     }
 
     public IntentQueryHelper(E query) {
@@ -62,6 +80,12 @@ public final class IntentQueryHelper<E extends Queryable> implements IntentQuery
     @Override
     public BundleQuery<E> extras() {
         return mExtras;
+    }
+
+    @Override
+    public boolean isEmptyQuery() {
+        return Queryable.isEmptyQuery(mAction)
+                && Queryable.isEmptyQuery(mExtras);
     }
 
     /** {@code true} if all filters are met by {@code value}. */

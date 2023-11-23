@@ -25,7 +25,7 @@ import static android.media.AudioAttributes.USAGE_MEDIA;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import static org.testng.Assert.expectThrows;
+import static org.junit.Assert.assertThrows;
 
 import android.car.Car;
 import android.car.media.CarAudioManager;
@@ -61,168 +61,168 @@ public final class CarAudioManagerPermissionTest {
 
     @Test
     public void setGroupVolumePermission() {
-        Exception e = expectThrows(SecurityException.class,
+        Exception e = assertThrows(SecurityException.class,
                 () -> mCarAudioManager.setGroupVolume(GROUP_ID, 0, 0));
         assertThat(e.getMessage()).contains(PERMISSION_CAR_CONTROL_AUDIO_VOLUME);
     }
 
     @Test
     public void setGroupVolumeWithZonePermission() {
-        Exception e = expectThrows(SecurityException.class,
+        Exception e = assertThrows(SecurityException.class,
                 () -> mCarAudioManager.setGroupVolume(PRIMARY_AUDIO_ZONE, GROUP_ID, 0, 0));
         assertThat(e.getMessage()).contains(PERMISSION_CAR_CONTROL_AUDIO_VOLUME);
     }
 
     @Test
     public void getGroupMaxVolumePermission() {
-        Exception e = expectThrows(SecurityException.class,
+        Exception e = assertThrows(SecurityException.class,
                 () -> mCarAudioManager.getGroupMaxVolume(GROUP_ID));
         assertThat(e.getMessage()).contains(PERMISSION_CAR_CONTROL_AUDIO_VOLUME);
     }
 
     @Test
     public void getGroupMaxVolumeWithZonePermission() {
-        Exception e = expectThrows(SecurityException.class,
+        Exception e = assertThrows(SecurityException.class,
                 () -> mCarAudioManager.getGroupMaxVolume(PRIMARY_AUDIO_ZONE, GROUP_ID));
         assertThat(e.getMessage()).contains(PERMISSION_CAR_CONTROL_AUDIO_VOLUME);
     }
 
     @Test
     public void getGroupMinVolumePermission() {
-        Exception e = expectThrows(SecurityException.class,
+        Exception e = assertThrows(SecurityException.class,
                 () -> mCarAudioManager.getGroupMinVolume(GROUP_ID));
         assertThat(e.getMessage()).contains(PERMISSION_CAR_CONTROL_AUDIO_VOLUME);
     }
 
     @Test
     public void getGroupMinVolumeWithZonePermission() {
-        Exception e = expectThrows(SecurityException.class,
+        Exception e = assertThrows(SecurityException.class,
                 () -> mCarAudioManager.getGroupMinVolume(PRIMARY_AUDIO_ZONE, GROUP_ID));
         assertThat(e.getMessage()).contains(PERMISSION_CAR_CONTROL_AUDIO_VOLUME);
     }
 
     @Test
     public void getGroupVolumePermission() {
-        Exception e = expectThrows(SecurityException.class,
+        Exception e = assertThrows(SecurityException.class,
                 () -> mCarAudioManager.getGroupVolume(GROUP_ID));
         assertThat(e.getMessage()).contains(PERMISSION_CAR_CONTROL_AUDIO_VOLUME);
     }
 
     @Test
     public void getGroupVolumeWithZonePermission() {
-        Exception e = expectThrows(SecurityException.class,
+        Exception e = assertThrows(SecurityException.class,
                 () -> mCarAudioManager.getGroupVolume(PRIMARY_AUDIO_ZONE, GROUP_ID));
         assertThat(e.getMessage()).contains(PERMISSION_CAR_CONTROL_AUDIO_VOLUME);
     }
 
     @Test
     public void setFadeTowardFrontPermission() {
-        Exception e = expectThrows(SecurityException.class,
+        Exception e = assertThrows(SecurityException.class,
                 () -> mCarAudioManager.setFadeTowardFront(0));
         assertThat(e.getMessage()).contains(PERMISSION_CAR_CONTROL_AUDIO_VOLUME);
     }
 
     @Test
     public void setBalanceTowardRightPermission() {
-        Exception e = expectThrows(SecurityException.class,
+        Exception e = assertThrows(SecurityException.class,
                 () -> mCarAudioManager.setBalanceTowardRight(0));
         assertThat(e.getMessage()).contains(PERMISSION_CAR_CONTROL_AUDIO_VOLUME);
     }
 
     @Test
     public void getExternalSourcesPermission() {
-        Exception e = expectThrows(SecurityException.class,
+        Exception e = assertThrows(SecurityException.class,
                 () -> mCarAudioManager.getExternalSources());
         assertThat(e.getMessage()).contains(PERMISSION_CAR_CONTROL_AUDIO_SETTINGS);
     }
 
     @Test
     public void createAudioPatchPermission() {
-        Exception e = expectThrows(SecurityException.class,
+        Exception e = assertThrows(SecurityException.class,
                 () -> mCarAudioManager.createAudioPatch("address", USAGE_MEDIA, 0));
         assertThat(e.getMessage()).contains(PERMISSION_CAR_CONTROL_AUDIO_SETTINGS);
     }
 
     @Test
     public void releaseAudioPatchPermission() {
-        Exception e = expectThrows(SecurityException.class,
+        Exception e = assertThrows(SecurityException.class,
                 () -> mCarAudioManager.releaseAudioPatch(null));
         assertThat(e.getMessage()).contains(PERMISSION_CAR_CONTROL_AUDIO_SETTINGS);
     }
 
     @Test
     public void getVolumeGroupCountPermission() {
-        Exception e = expectThrows(SecurityException.class,
+        Exception e = assertThrows(SecurityException.class,
                 () -> mCarAudioManager.getVolumeGroupCount());
         assertThat(e.getMessage()).contains(PERMISSION_CAR_CONTROL_AUDIO_VOLUME);
     }
 
     @Test
     public void getVolumeGroupCountWithZonePermission() {
-        Exception e = expectThrows(SecurityException.class,
+        Exception e = assertThrows(SecurityException.class,
                 () -> mCarAudioManager.getVolumeGroupCount(PRIMARY_AUDIO_ZONE));
         assertThat(e.getMessage()).contains(PERMISSION_CAR_CONTROL_AUDIO_VOLUME);
     }
 
     @Test
     public void getVolumeGroupIdForUsagePermission() {
-        Exception e = expectThrows(SecurityException.class,
+        Exception e = assertThrows(SecurityException.class,
                 () -> mCarAudioManager.getVolumeGroupIdForUsage(USAGE_MEDIA));
         assertThat(e.getMessage()).contains(PERMISSION_CAR_CONTROL_AUDIO_VOLUME);
     }
 
     @Test
     public void getVolumeGroupIdForUsageWithZonePermission() {
-        Exception e = expectThrows(SecurityException.class,
+        Exception e = assertThrows(SecurityException.class,
                 () -> mCarAudioManager.getVolumeGroupIdForUsage(PRIMARY_AUDIO_ZONE, USAGE_MEDIA));
         assertThat(e.getMessage()).contains(PERMISSION_CAR_CONTROL_AUDIO_VOLUME);
     }
 
     @Test
     public void isPlaybackOnVolumeGroupActivePermission() {
-        Exception e = expectThrows(SecurityException.class,
+        Exception e = assertThrows(SecurityException.class,
                 () -> mCarAudioManager.isPlaybackOnVolumeGroupActive(PRIMARY_AUDIO_ZONE, GROUP_ID));
         assertThat(e.getMessage()).contains(PERMISSION_CAR_CONTROL_AUDIO_VOLUME);
     }
 
     @Test
     public void getUsagesForVolumeGroupIdPermission() {
-        Exception e = expectThrows(SecurityException.class,
+        Exception e = assertThrows(SecurityException.class,
                 () -> mCarAudioManager.getUsagesForVolumeGroupId(GROUP_ID));
         assertThat(e.getMessage()).contains(PERMISSION_CAR_CONTROL_AUDIO_VOLUME);
     }
 
     @Test
     public void getAudioZoneIdsPermission() {
-        Exception e = expectThrows(SecurityException.class,
+        Exception e = assertThrows(SecurityException.class,
                 () -> mCarAudioManager.getAudioZoneIds());
         assertThat(e.getMessage()).contains(PERMISSION_CAR_CONTROL_AUDIO_SETTINGS);
     }
 
     @Test
     public void getZoneIdForUidPermission() {
-        Exception e = expectThrows(SecurityException.class,
+        Exception e = assertThrows(SecurityException.class,
                 () -> mCarAudioManager.getZoneIdForUid(UID));
         assertThat(e.getMessage()).contains(PERMISSION_CAR_CONTROL_AUDIO_SETTINGS);
     }
 
     @Test
     public void setZoneIdForUidPermission() {
-        Exception e = expectThrows(SecurityException.class,
+        Exception e = assertThrows(SecurityException.class,
                 () -> mCarAudioManager.setZoneIdForUid(PRIMARY_AUDIO_ZONE, UID));
         assertThat(e.getMessage()).contains(PERMISSION_CAR_CONTROL_AUDIO_SETTINGS);
     }
 
     @Test
     public void clearZoneIdForUidPermission() {
-        Exception e = expectThrows(SecurityException.class,
+        Exception e = assertThrows(SecurityException.class,
                 () -> mCarAudioManager.clearZoneIdForUid(UID));
         assertThat(e.getMessage()).contains(PERMISSION_CAR_CONTROL_AUDIO_SETTINGS);
     }
 
     @Test
     public void getOutputDeviceForUsagePermission() {
-        Exception e = expectThrows(SecurityException.class,
+        Exception e = assertThrows(SecurityException.class,
                 () -> mCarAudioManager.getOutputDeviceForUsage(PRIMARY_AUDIO_ZONE, USAGE_MEDIA));
         assertThat(e.getMessage()).contains(PERMISSION_CAR_CONTROL_AUDIO_SETTINGS);
     }

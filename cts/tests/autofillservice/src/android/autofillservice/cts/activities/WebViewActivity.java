@@ -23,15 +23,18 @@ import android.autofillservice.cts.R;
 import android.autofillservice.cts.testcore.UiBot;
 import android.content.Context;
 import android.os.Bundle;
-import android.support.test.uiautomator.UiObject2;
 import android.util.Log;
+import android.util.SparseArray;
 import android.view.View;
+import android.view.autofill.VirtualViewFillInfo;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebResourceResponse;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.widget.EditText;
 import android.widget.LinearLayout;
+
+import androidx.test.uiautomator.UiObject2;
 
 import com.android.compatibility.common.util.RetryableException;
 
@@ -174,5 +177,25 @@ public class WebViewActivity extends AbstractWebViewActivity {
     @Override
     public void clearFocus() {
         syncRunOnUiThread(() -> mParent.requestFocus());
+    }
+
+    public void notifyViewReady(String[] hints) throws Exception {
+        VirtualViewFillInfo info = null;
+        if (hints != null) {
+            info = new VirtualViewFillInfo.Builder()
+                    .setAutofillHints(hints)
+                    .build();
+        }
+        SparseArray<VirtualViewFillInfo> viewInfo = new SparseArray<>();
+        viewInfo.put(65536, info);
+        getAutofillManager().notifyVirtualViewsReady(mWebView, viewInfo);
+    }
+
+    public void notifyViewReadyWithEmptyInfo() throws Exception {
+        getAutofillManager().notifyVirtualViewsReady(mWebView, new SparseArray<>());
+    }
+
+    public void notifyViewReadyWithNullInfo() throws Exception {
+        getAutofillManager().notifyVirtualViewsReady(mWebView, null);
     }
 }

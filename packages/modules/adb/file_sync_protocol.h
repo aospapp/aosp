@@ -16,6 +16,8 @@
 
 #pragma once
 
+#include <stdint.h>
+
 #define MKID(a, b, c, d) ((a) | ((b) << 8) | ((c) << 16) | ((d) << 24))
 
 #define ID_LSTAT_V1 MKID('S', 'T', 'A', 'T')

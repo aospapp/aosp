@@ -22,6 +22,7 @@ use crate::{
     },
     error::{map_km_error, Error, ErrorCode},
     globals::get_keymint_device,
+    ks_err,
     super_key::KeyBlob,
     utils::{key_characteristics_to_internal, watchdog as wd, AID_KEYSTORE},
 };
@@ -62,11 +63,13 @@ impl KeyMintDevice {
     pub const KEY_MINT_V1: i32 = 100;
     /// Version number of KeyMintDevice@V2
     pub const KEY_MINT_V2: i32 = 200;
+    /// Version number of KeyMintDevice@V3
+    pub const KEY_MINT_V3: i32 = 300;
 
     /// Get a [`KeyMintDevice`] for the given [`SecurityLevel`]
     pub fn get(security_level: SecurityLevel) -> Result<KeyMintDevice> {
-        let (km_dev, hw_info, km_uuid) = get_keymint_device(&security_level)
-            .context("In KeyMintDevice::get: get_keymint_device failed")?;
+        let (km_dev, hw_info, km_uuid) =
+            get_keymint_device(&security_level).context(ks_err!("get_keymint_device failed"))?;
 
         Ok(KeyMintDevice {
             km_dev,
@@ -110,12 +113,11 @@ impl KeyMintDevice {
     where
         F: FnOnce(&Strong<dyn IKeyMintDevice>) -> Result<KeyCreationResult, binder::Status>,
     {
-        let creation_result = map_km_error(creator(&self.km_dev))
-            .context("In create_and_store_key: creator failed")?;
+        let creation_result =
+            map_km_error(creator(&self.km_dev)).context(ks_err!("creator failed"))?;
         let key_parameters = key_characteristics_to_internal(creation_result.keyCharacteristics);
 
-        let creation_date =
-            DateTime::now().context("In create_and_store_key: DateTime::now() failed")?;
+        let creation_date = DateTime::now().context(ks_err!("DateTime::now() failed"))?;
 
         let mut key_metadata = KeyMetaData::new();
         key_metadata.add(KeyMetaEntry::CreationDate(creation_date));
@@ -131,7 +133,7 @@ impl KeyMintDevice {
             &key_metadata,
             &self.km_uuid,
         )
-        .context("In create_and_store_key: store_new_key failed")?;
+        .context(ks_err!("store_new_key failed"))?;
         Ok(())
     }
 
@@ -152,7 +154,7 @@ impl KeyMintDevice {
         key_type: KeyType,
     ) -> Result<(KeyIdGuard, KeyEntry)> {
         db.load_key_entry(key_desc, key_type, KeyEntryLoadBits::KM, AID_KEYSTORE, |_, _| Ok(()))
-            .context("In lookup_from_desc: load_key_entry failed.")
+            .context(ks_err!("load_key_entry failed."))
     }
 
     /// Look up the key in the database, and return None if it is absent.
@@ -187,7 +189,7 @@ impl KeyMintDevice {
         // - because it avoids holding database locks during slow
         //   KeyMint operations
         let lookup = Self::not_found_is_none(Self::lookup_from_desc(db, key_desc, key_type))
-            .context("In lookup_or_generate_key: first lookup failed")?;
+            .context(ks_err!("first lookup failed"))?;
 
         if let Some((key_id_guard, mut key_entry)) = lookup {
             // If the key is associated with a different km instance
@@ -220,7 +222,7 @@ impl KeyMintDevice {
                             })
                         },
                     )
-                    .context("In lookup_or_generate_key: calling getKeyCharacteristics")?;
+                    .context(ks_err!("calling getKeyCharacteristics"))?;
 
                 if validate_characteristics(&key_characteristics) {
                     return Ok((key_id_guard, key_blob));
@@ -234,7 +236,7 @@ impl KeyMintDevice {
         self.create_and_store_key(db, key_desc, key_type, |km_dev| {
             km_dev.generateKey(params, None)
         })
-        .context("In lookup_or_generate_key: generate_and_store_key failed")?;
+        .context(ks_err!("generate_and_store_key failed"))?;
         Self::lookup_from_desc(db, key_desc, key_type)
             .and_then(|(key_id_guard, mut key_entry)| {
                 Ok((
@@ -243,10 +245,10 @@ impl KeyMintDevice {
                         .take_key_blob_info()
                         .ok_or(Error::Rc(ResponseCode::KEY_NOT_FOUND))
                         .map(|(key_blob, _)| KeyBlob::NonSensitive(key_blob))
-                        .context("Missing key blob info.")?,
+                        .context(ks_err!("Missing key blob info."))?,
                 ))
             })
-            .context("In lookup_or_generate_key: second lookup failed")
+            .context(ks_err!("second lookup failed"))
     }
 
     /// Call the passed closure; if it returns `KEY_REQUIRES_UPGRADE`, call upgradeKey, and
@@ -270,7 +272,7 @@ impl KeyMintDevice {
                     );
                     self.km_dev.upgradeKey(&key_blob, &[])
                 })
-                .context("In upgrade_keyblob_if_required_with: Upgrade failed")?;
+                .context(ks_err!("Upgrade failed"))?;
 
                 let mut new_blob_metadata = BlobMetaData::new();
                 new_blob_metadata.add(BlobMetaEntry::KmUuid(self.km_uuid));
@@ -281,22 +283,14 @@ impl KeyMintDevice {
                     Some(&upgraded_blob),
                     Some(&new_blob_metadata),
                 )
-                .context(concat!(
-                    "In upgrade_keyblob_if_required_with: ",
-                    "Failed to insert upgraded blob into the database"
-                ))?;
+                .context(ks_err!("Failed to insert upgraded blob into the database"))?;
 
                 Ok((
-                    f(&upgraded_blob).context(
-                        "In upgrade_keyblob_if_required_with: Closure failed after upgrade",
-                    )?,
+                    f(&upgraded_blob).context(ks_err!("Closure failed after upgrade"))?,
                     KeyBlob::NonSensitive(upgraded_blob),
                 ))
             }
-            result => Ok((
-                result.context("In upgrade_keyblob_if_required_with: Closure failed")?,
-                key_blob,
-            )),
+            result => Ok((result.context(ks_err!("Closure failed"))?, key_blob)),
         }
     }
 
@@ -322,15 +316,13 @@ impl KeyMintDevice {
                     self.km_dev.begin(purpose, blob, operation_parameters, auth_token)
                 })
             })
-            .context("In use_key_in_one_step: Failed to begin operation.")?;
-        let operation: Strong<dyn IKeyMintOperation> = begin_result
-            .operation
-            .ok_or_else(Error::sys)
-            .context("In use_key_in_one_step: Operation missing")?;
+            .context(ks_err!("Failed to begin operation."))?;
+        let operation: Strong<dyn IKeyMintOperation> =
+            begin_result.operation.ok_or_else(Error::sys).context(ks_err!("Operation missing"))?;
         map_km_error({
             let _wp = wd::watch_millis("In use_key_in_one_step: calling: finish", 500);
             operation.finish(Some(input), None, None, None, None)
         })
-        .context("In use_key_in_one_step: Failed to finish operation.")
+        .context(ks_err!("Failed to finish operation."))
     }
 }

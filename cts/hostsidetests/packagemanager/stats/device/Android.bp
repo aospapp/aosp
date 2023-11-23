@@ -19,7 +19,7 @@ package {
 }
 
 android_test_helper_app {
-    name: "IncrementalAppErrorStatsTestsHelper",
+    name: "PackageManagerStatsTestsHelper",
     defaults: ["cts_defaults"],
     platform_apis: true,
     min_sdk_version: "28",

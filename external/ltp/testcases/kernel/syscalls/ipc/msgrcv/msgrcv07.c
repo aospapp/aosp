@@ -201,7 +201,7 @@ static void test_positive_msgtyp(void)
 
 	if (strcmp(rcv_buf.mtext, MSG2) == 0 && rcv_buf.type == MSGTYPE2) {
 		tst_res(TPASS,
-		        "msgtyp got the first message in the queue of type msgtyp");
+			"msgtyp got the first message in the queue of type msgtyp");
 	} else {
 		tst_res(TFAIL,
 			"msgtyp didn't get the first message in the queue of type msgtyp");
@@ -226,7 +226,7 @@ static void test_negative_msgtyp(void)
 
 	if (strcmp(rcv_buf.mtext, MSG1) == 0 && rcv_buf.type == MSGTYPE1) {
 		tst_res(TPASS,
-		        "-msgtyp got the first message in the queue with the lowest type");
+			"-msgtyp got the first message in the queue with the lowest type");
 	} else {
 		tst_res(TFAIL,
 			"-msgtyp didn't get the first message in the queue with the lowest type");
@@ -247,8 +247,7 @@ static void setup(void)
 {
 	msgkey = GETIPCKEY();
 
-	if (tst_kvercmp(3, 8, 0) >= 0)
-		msg_copy_sup = 1;
+	msg_copy_sup = 1;
 }
 
 static void (*testfunc[])(void) = {test_msg_except, test_msg_noerror,

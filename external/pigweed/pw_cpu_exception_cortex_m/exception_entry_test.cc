@@ -13,7 +13,6 @@
 // the License.
 
 #include <cstdint>
-#include <span>
 #include <type_traits>
 
 #include "gtest/gtest.h"
@@ -21,7 +20,9 @@
 #include "pw_cpu_exception/handler.h"
 #include "pw_cpu_exception/support.h"
 #include "pw_cpu_exception_cortex_m/cpu_state.h"
+#include "pw_cpu_exception_cortex_m_private/config.h"
 #include "pw_cpu_exception_cortex_m_private/cortex_m_constants.h"
+#include "pw_span/span.h"
 
 namespace pw::cpu_exception::cortex_m {
 namespace {
@@ -87,17 +88,15 @@ inline void EndCriticalSection(uint32_t previous_state) {
 }
 
 void EnableFpu() {
-#if defined(PW_ARMV7M_ENABLE_FPU) && PW_ARMV7M_ENABLE_FPU == 1
-  // TODO(pwbug/17): Replace when Pigweed config system is added.
-  cortex_m_cpacr |= kFpuEnableMask;
-#endif  // defined(PW_ARMV7M_ENABLE_FPU) && PW_ARMV7M_ENABLE_FPU == 1
+  if (PW_ARMV7M_ENABLE_FPU == 1) {
+    cortex_m_cpacr |= kFpuEnableMask;
+  }
 }
 
 void DisableFpu() {
-#if defined(PW_ARMV7M_ENABLE_FPU) && PW_ARMV7M_ENABLE_FPU == 1
-  // TODO(pwbug/17): Replace when Pigweed config system is added.
-  cortex_m_cpacr &= ~kFpuEnableMask;
-#endif  // defined(PW_ARMV7M_ENABLE_FPU) && PW_ARMV7M_ENABLE_FPU == 1
+  if (PW_ARMV7M_ENABLE_FPU == 1) {
+    cortex_m_cpacr &= ~kFpuEnableMask;
+  }
 }
 
 // Counter that is incremented if the test's exception handler correctly handles
@@ -119,7 +118,7 @@ size_t current_fault_depth = 0;
 pw_cpu_exception_State captured_states[kMaxFaultDepth] = {};
 pw_cpu_exception_State& captured_state = captured_states[0];
 
-// Flag used to check if the contents of std::span matches the captured state.
+// Flag used to check if the contents of span matches the captured state.
 bool span_matches = false;
 
 // Variable to be manipulated by function that uses floating
@@ -458,10 +457,9 @@ TEST(FaultEntry, NestedFault) {
             static_cast<uint32_t>(captured_states[0].base.lr));
 }
 
-// TODO(pwbug/17): Replace when Pigweed config system is added.
 // Disable tests that rely on hardware FPU if this module wasn't built with
 // hardware FPU support.
-#if defined(PW_ARMV7M_ENABLE_FPU) && PW_ARMV7M_ENABLE_FPU == 1
+#if PW_ARMV7M_ENABLE_FPU == 1
 
 // Populate some of the extended set of captured registers, then trigger
 // exception. This function uses floating point to validate float context
@@ -527,7 +525,7 @@ TEST(FaultEntry, FloatUnalignedStackFault) {
   EXPECT_EQ(float_test_value, kFloatTestPattern);
 }
 
-#endif  // defined(PW_ARMV7M_ENABLE_FPU) && PW_ARMV7M_ENABLE_FPU == 1
+#endif  // PW_ARMV7M_ENABLE_FPU == 1
 
 void TestingExceptionHandler(pw_cpu_exception_State* state) {
   if (++current_fault_depth > kMaxFaultDepth) {
@@ -575,8 +573,8 @@ void TestingExceptionHandler(pw_cpu_exception_State* state) {
                 state,
                 sizeof(pw_cpu_exception_State));
 
-    // Ensure std::span compares to be the same.
-    std::span<const uint8_t> state_span = RawFaultingCpuState(*state);
+    // Ensure span compares to be the same.
+    span<const uint8_t> state_span = RawFaultingCpuState(*state);
     EXPECT_EQ(state_span.size(), sizeof(pw_cpu_exception_State));
     if (std::memcmp(state, state_span.data(), state_span.size()) == 0) {
       span_matches = true;

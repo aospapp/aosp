@@ -16,55 +16,9 @@
 
 package com.android.compatibility.common.util;
 
-import static com.android.compatibility.common.util.SystemUtil.runShellCommand;
+public class DisableAnimationRule extends OverrideAnimationScaleRule {
 
-import androidx.annotation.NonNull;
-
-import org.junit.runner.Description;
-import org.junit.runners.model.Statement;
-
-public class DisableAnimationRule extends BeforeAfterRule {
-    @NonNull
-    private final GlobalSetting mWindowAnimationScaleSetting = new GlobalSetting(
-            "window_animation_scale");
-    @NonNull
-    private final GlobalSetting mTransitionAnimationScaleSetting = new GlobalSetting(
-            "transition_animation_scale");
-    @NonNull
-    private final GlobalSetting mAnimatorDurationScaleSetting = new GlobalSetting(
-            "animator_duration_scale");
-
-    @Override
-    protected void onBefore(Statement base, Description description) throws Throwable {
-        mWindowAnimationScaleSetting.put("0");
-        mTransitionAnimationScaleSetting.put("0");
-        mAnimatorDurationScaleSetting.put("0");
-    }
-
-    @Override
-    protected void onAfter(Statement base, Description description) throws Throwable {
-        mWindowAnimationScaleSetting.restore();
-        mTransitionAnimationScaleSetting.restore();
-        mAnimatorDurationScaleSetting.restore();
-    }
-
-    private static class GlobalSetting {
-        @NonNull
-        private final String mName;
-
-        private String mInitialValue;
-
-        public GlobalSetting(@NonNull String name) {
-            mName = name;
-        }
-
-        public void put(@NonNull String value) {
-            mInitialValue = runShellCommand("settings get global " + mName);
-            runShellCommand("settings put global " + mName + " " + value);
-        }
-
-        public void restore() {
-            runShellCommand("settings put global " + mName + " " + mInitialValue);
-        }
+    public DisableAnimationRule() {
+        super(0);
     }
 }

@@ -30,10 +30,13 @@ import static org.mockito.Mockito.verify;
 
 import android.app.Instrumentation;
 import android.app.UiAutomation;
+import android.os.Handler;
+import android.os.Looper;
 import android.os.ParcelFileDescriptor;
 import android.provider.Settings.SettingNotFoundException;
 import android.provider.Settings.System;
 import android.text.method.PasswordTransformationMethod;
+import android.util.Log;
 import android.util.TypedValue;
 import android.view.KeyCharacterMap;
 import android.widget.Button;
@@ -42,12 +45,13 @@ import android.widget.LinearLayout;
 import android.widget.LinearLayout.LayoutParams;
 
 import androidx.test.InstrumentationRegistry;
+import androidx.test.ext.junit.rules.ActivityScenarioRule;
 import androidx.test.filters.MediumTest;
-import androidx.test.rule.ActivityTestRule;
 import androidx.test.runner.AndroidJUnit4;
 
 import com.android.compatibility.common.util.CtsKeyEventUtil;
 import com.android.compatibility.common.util.PollingCheck;
+import com.android.compatibility.common.util.UserHelper;
 
 import org.junit.After;
 import org.junit.Before;
@@ -58,6 +62,8 @@ import org.junit.runner.RunWith;
 import java.io.FileInputStream;
 import java.io.InputStream;
 import java.util.Scanner;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Test {@link PasswordTransformationMethod}.
@@ -65,6 +71,7 @@ import java.util.Scanner;
 @MediumTest
 @RunWith(AndroidJUnit4.class)
 public class PasswordTransformationMethodTest {
+    private static final String TAG = PasswordTransformationMethodTest.class.getSimpleName();
     private static final int EDIT_TXT_ID = 1;
 
     /** original text */
@@ -74,7 +81,12 @@ public class PasswordTransformationMethodTest {
     private static final String TEST_CONTENT_TRANSFORMED =
         "\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022";
 
-    private Instrumentation mInstrumentation;
+    private final Instrumentation mInstrumentation = InstrumentationRegistry.getInstrumentation();
+    private CtsKeyEventUtil mCtsKeyEventUtil =
+            new CtsKeyEventUtil(mInstrumentation.getTargetContext());
+    private final UserHelper mUserHelper = new UserHelper(mInstrumentation.getTargetContext());
+    private final Handler mUiHandler = new Handler(Looper.getMainLooper());
+
     private CtsActivity mActivity;
     private int mPasswordPrefBackUp;
     private boolean isPasswordPrefSaved;
@@ -83,16 +95,18 @@ public class PasswordTransformationMethodTest {
     private CharSequence mTransformedText;
 
     @Rule
-    public ActivityTestRule<CtsActivity> mActivityRule = new ActivityTestRule<>(CtsActivity.class);
+    public ActivityScenarioRule<CtsActivity> mActivityRule = new ActivityScenarioRule<>(
+            CtsActivity.class);
 
     @Before
     public void setup() throws Throwable {
-        mActivity = mActivityRule.getActivity();
+        mActivityRule.getScenario()
+                .launch(CtsActivity.class, mUserHelper.getActivityOptions().toBundle())
+                .onActivity(activity -> mActivity = activity);
         PollingCheck.waitFor(1000, mActivity::hasWindowFocus);
-        mInstrumentation = InstrumentationRegistry.getInstrumentation();
         mMethod = spy(new PasswordTransformationMethod());
 
-        mActivityRule.runOnUiThread(() -> {
+        runOnUiThread(() -> {
             EditText editText = new EditTextNoIme(mActivity);
             editText.setTextSize(TypedValue.COMPLEX_UNIT_SP, 10);
             editText.setId(EDIT_TXT_ID);
@@ -126,19 +140,22 @@ public class PasswordTransformationMethodTest {
         UiAutomation uiAutomation = mInstrumentation.getUiAutomation();
 
         StringBuilder cmd = new StringBuilder();
-        cmd.append("appops set ");
+        cmd.append(mUserHelper.getAppopsCmd("set"));
         cmd.append(mActivity.getPackageName());
         cmd.append(" android:write_settings allow");
-        uiAutomation.executeShellCommand(cmd.toString());
+        String shellCommand = cmd.toString();
+        Log.d(TAG, "Executing " + shellCommand);
+        uiAutomation.executeShellCommand(shellCommand);
 
         StringBuilder query = new StringBuilder();
-        query.append("appops get ");
+        query.append(mUserHelper.getAppopsCmd("get"));
         query.append(mActivity.getPackageName());
         query.append(" android:write_settings");
         String queryStr = query.toString();
 
         String result = "No operations.";
         while (result.contains("No operations")) {
+            Log.d(TAG, "Executing " + queryStr);
             ParcelFileDescriptor pfd = uiAutomation.executeShellCommand(queryStr);
             InputStream inputStream = new FileInputStream(pfd.getFileDescriptor());
             result = convertStreamToString(inputStream);
@@ -158,7 +175,7 @@ public class PasswordTransformationMethodTest {
 
     @Test
     public void testTextChangedCallBacks() throws Throwable {
-        mActivityRule.runOnUiThread(() ->
+        runOnUiThread(() ->
             mTransformedText = mMethod.getTransformation(mEditText.getText(), mEditText));
 
         reset(mMethod);
@@ -166,11 +183,11 @@ public class PasswordTransformationMethodTest {
         KeyCharacterMap keymap = KeyCharacterMap.load(KeyCharacterMap.VIRTUAL_KEYBOARD);
         if (keymap.getKeyboardType() == KeyCharacterMap.NUMERIC) {
             // "HELLO" in case of 12-key(NUMERIC) keyboard
-            CtsKeyEventUtil.sendKeys(mInstrumentation, mEditText,
+            mCtsKeyEventUtil.sendKeys(mInstrumentation, mEditText,
                     "6*4 6*3 7*5 DPAD_RIGHT 7*5 7*6 DPAD_RIGHT");
         }
         else {
-            CtsKeyEventUtil.sendKeys(mInstrumentation, mEditText, "H E 2*L O");
+            mCtsKeyEventUtil.sendKeys(mInstrumentation, mEditText, "H E 2*L O");
         }
         verify(mMethod, atLeastOnce()).beforeTextChanged(any(), anyInt(), anyInt(), anyInt());
         verify(mMethod, atLeastOnce()).onTextChanged(any(), anyInt(), anyInt(), anyInt());
@@ -178,7 +195,7 @@ public class PasswordTransformationMethodTest {
 
         reset(mMethod);
 
-        mActivityRule.runOnUiThread(() -> mEditText.append(" "));
+        runOnUiThread(() -> mEditText.append(" "));
 
         // the appended string will not get transformed immediately
         // "***** "
@@ -240,5 +257,18 @@ public class PasswordTransformationMethodTest {
     private void switchShowPassword(boolean on) {
         System.putInt(mActivity.getContentResolver(), System.TEXT_SHOW_PASSWORD,
                 on ? 1 : 0);
+    }
+
+    private void runOnUiThread(Runnable runnable) throws Exception {
+        Log.d(TAG, "runOnUiThread(): posting " + runnable + " on " + Thread.currentThread());
+        CountDownLatch latch = new CountDownLatch(1);
+        mUiHandler.post(() -> {
+            Log.d(TAG, "runOnUiThread(): running " + runnable + " on " + Thread.currentThread());
+            runnable.run();
+            Log.d(TAG, "runOnUiThread(): counting down latch");
+            latch.countDown();
+        });
+        Log.d(TAG, "runOnUiThread(): blocking until ran");
+        assertTrue(latch.await(5, TimeUnit.SECONDS));
     }
 }

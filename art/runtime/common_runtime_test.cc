@@ -63,7 +63,7 @@
 #include "runtime_intrinsics.h"
 #include "scoped_thread_state_change-inl.h"
 #include "thread.h"
-#include "well_known_classes.h"
+#include "well_known_classes-inl.h"
 
 namespace art {
 
@@ -121,9 +121,12 @@ void CommonRuntimeTestImpl::SetUp() {
   }
 
   PreRuntimeCreate();
-  if (!Runtime::Create(options, false)) {
-    LOG(FATAL) << "Failed to create runtime";
-    UNREACHABLE();
+  {
+    ScopedLogSeverity sls(LogSeverity::WARNING);
+    if (!Runtime::Create(options, false)) {
+      LOG(FATAL) << "Failed to create runtime";
+      UNREACHABLE();
+    }
   }
   PostRuntimeCreate();
   runtime_.reset(Runtime::Current());
@@ -158,17 +161,11 @@ void CommonRuntimeTestImpl::FinalizeSetup() {
 
   {
     ScopedObjectAccess soa(Thread::Current());
+    runtime_->GetClassLinker()->RunEarlyRootClinits(soa.Self());
+    InitializeIntrinsics();
     runtime_->RunRootClinits(soa.Self());
   }
 
-  // We're back in native, take the opportunity to initialize well known classes and ensure
-  // intrinsics are initialized.
-  WellKnownClasses::Init(Thread::Current()->GetJniEnv());
-  InitializeIntrinsics();
-
-  // Create the heap thread pool so that the GC runs in parallel for tests. Normally, the thread
-  // pool is created by the runtime.
-  runtime_->GetHeap()->CreateThreadPool();
   runtime_->GetHeap()->VerifyHeap();  // Check for heap corruption before the test
   // Reduce timinig-dependent flakiness in OOME behavior (eg StubTest.AllocObject).
   runtime_->GetHeap()->SetMinIntervalHomogeneousSpaceCompactionByOom(0U);
@@ -198,20 +195,17 @@ std::vector<const DexFile*> CommonRuntimeTestImpl::GetDexFiles(jobject jclass_lo
   StackHandleScope<1> hs(soa.Self());
   Handle<mirror::ClassLoader> class_loader = hs.NewHandle(
       soa.Decode<mirror::ClassLoader>(jclass_loader));
-  return GetDexFiles(soa, class_loader);
+  return GetDexFiles(soa.Self(), class_loader);
 }
 
 std::vector<const DexFile*> CommonRuntimeTestImpl::GetDexFiles(
-    ScopedObjectAccess& soa,
+    Thread* self,
     Handle<mirror::ClassLoader> class_loader) {
-  DCHECK(
-      (class_loader->GetClass() ==
-          soa.Decode<mirror::Class>(WellKnownClasses::dalvik_system_PathClassLoader)) ||
-      (class_loader->GetClass() ==
-          soa.Decode<mirror::Class>(WellKnownClasses::dalvik_system_DelegateLastClassLoader)));
+  DCHECK((class_loader->GetClass() == WellKnownClasses::dalvik_system_PathClassLoader) ||
+         (class_loader->GetClass() == WellKnownClasses::dalvik_system_DelegateLastClassLoader));
 
   std::vector<const DexFile*> ret;
-  VisitClassLoaderDexFiles(soa,
+  VisitClassLoaderDexFiles(self,
                            class_loader,
                            [&](const DexFile* cp_dex_file) {
                              if (cp_dex_file == nullptr) {
@@ -262,8 +256,9 @@ jobject CommonRuntimeTestImpl::LoadDex(const char* dex_name) {
 }
 
 jobject
-CommonRuntimeTestImpl::LoadDexInWellKnownClassLoader(const std::vector<std::string>& dex_names,
-                                                     jclass loader_class,
+CommonRuntimeTestImpl::LoadDexInWellKnownClassLoader(ScopedObjectAccess& soa,
+                                                     const std::vector<std::string>& dex_names,
+                                                     ObjPtr<mirror::Class> loader_class,
                                                      jobject parent_loader,
                                                      jobject shared_libraries,
                                                      jobject shared_libraries_after) {
@@ -276,39 +271,44 @@ CommonRuntimeTestImpl::LoadDexInWellKnownClassLoader(const std::vector<std::stri
       loaded_dex_files_.push_back(std::move(dex_file));
     }
   }
-  Thread* self = Thread::Current();
-  ScopedObjectAccess soa(self);
+  StackHandleScope<4> hs(soa.Self());
+  Handle<mirror::Class> h_loader_class = hs.NewHandle(loader_class);
+  Handle<mirror::ClassLoader> h_parent_loader =
+      hs.NewHandle(soa.Decode<mirror::ClassLoader>(parent_loader));
+  Handle<mirror::ObjectArray<mirror::ClassLoader>> h_shared_libraries =
+      hs.NewHandle(soa.Decode<mirror::ObjectArray<mirror::ClassLoader>>(shared_libraries));
+  Handle<mirror::ObjectArray<mirror::ClassLoader>> h_shared_libraries_after =
+      hs.NewHandle(soa.Decode<mirror::ObjectArray<mirror::ClassLoader>>(shared_libraries_after));
 
-  jobject result = Runtime::Current()->GetClassLinker()->CreateWellKnownClassLoader(
-      self,
+  ClassLinker* class_linker = Runtime::Current()->GetClassLinker();
+  ObjPtr<mirror::ClassLoader> result = class_linker->CreateWellKnownClassLoader(
+      soa.Self(),
       class_path,
-      loader_class,
-      parent_loader,
-      shared_libraries,
-      shared_libraries_after);
+      h_loader_class,
+      h_parent_loader,
+      h_shared_libraries,
+      h_shared_libraries_after);
 
   {
     // Verify we build the correct chain.
 
-    ObjPtr<mirror::ClassLoader> actual_class_loader = soa.Decode<mirror::ClassLoader>(result);
     // Verify that the result has the correct class.
-    CHECK_EQ(soa.Decode<mirror::Class>(loader_class), actual_class_loader->GetClass());
+    CHECK_EQ(h_loader_class.Get(), result->GetClass());
     // Verify that the parent is not null. The boot class loader will be set up as a
     // proper object.
-    ObjPtr<mirror::ClassLoader> actual_parent(actual_class_loader->GetParent());
+    ObjPtr<mirror::ClassLoader> actual_parent(result->GetParent());
     CHECK(actual_parent != nullptr);
 
     if (parent_loader != nullptr) {
       // We were given a parent. Verify that it's what we expect.
-      ObjPtr<mirror::ClassLoader> expected_parent = soa.Decode<mirror::ClassLoader>(parent_loader);
-      CHECK_EQ(expected_parent, actual_parent);
+      CHECK_EQ(h_parent_loader.Get(), actual_parent);
     } else {
       // No parent given. The parent must be the BootClassLoader.
-      CHECK(Runtime::Current()->GetClassLinker()->IsBootClassLoader(soa, actual_parent));
+      CHECK(class_linker->IsBootClassLoader(actual_parent));
     }
   }
 
-  return result;
+  return soa.Env()->GetVm()->AddGlobalRef(soa.Self(), result);
 }
 
 jobject CommonRuntimeTestImpl::LoadDexInPathClassLoader(const std::string& dex_name,
@@ -325,8 +325,10 @@ jobject CommonRuntimeTestImpl::LoadDexInPathClassLoader(const std::vector<std::s
                                                         jobject parent_loader,
                                                         jobject shared_libraries,
                                                         jobject shared_libraries_after) {
-  return LoadDexInWellKnownClassLoader(names,
-                                       WellKnownClasses::dalvik_system_PathClassLoader,
+  ScopedObjectAccess soa(Thread::Current());
+  return LoadDexInWellKnownClassLoader(soa,
+                                       names,
+                                       WellKnownClasses::dalvik_system_PathClassLoader.Get(),
                                        parent_loader,
                                        shared_libraries,
                                        shared_libraries_after);
@@ -334,16 +336,22 @@ jobject CommonRuntimeTestImpl::LoadDexInPathClassLoader(const std::vector<std::s
 
 jobject CommonRuntimeTestImpl::LoadDexInDelegateLastClassLoader(const std::string& dex_name,
                                                                 jobject parent_loader) {
-  return LoadDexInWellKnownClassLoader({ dex_name },
-                                       WellKnownClasses::dalvik_system_DelegateLastClassLoader,
-                                       parent_loader);
+  ScopedObjectAccess soa(Thread::Current());
+  return LoadDexInWellKnownClassLoader(
+      soa,
+      { dex_name },
+      WellKnownClasses::dalvik_system_DelegateLastClassLoader.Get(),
+      parent_loader);
 }
 
 jobject CommonRuntimeTestImpl::LoadDexInInMemoryDexClassLoader(const std::string& dex_name,
                                                                jobject parent_loader) {
-  return LoadDexInWellKnownClassLoader({ dex_name },
-                                       WellKnownClasses::dalvik_system_InMemoryDexClassLoader,
-                                       parent_loader);
+  ScopedObjectAccess soa(Thread::Current());
+  return LoadDexInWellKnownClassLoader(
+      soa,
+      { dex_name },
+      WellKnownClasses::dalvik_system_InMemoryDexClassLoader.Get(),
+      parent_loader);
 }
 
 void CommonRuntimeTestImpl::FillHeap(Thread* self,
@@ -564,10 +572,8 @@ void CommonRuntimeTestImpl::VisitDexes(ArrayRef<const std::string> dexes,
   for (const std::string& dex : dexes) {
     std::vector<std::unique_ptr<const DexFile>> dex_files;
     std::string error_msg;
-    const ArtDexFileLoader dex_file_loader;
-    CHECK(dex_file_loader.Open(dex.c_str(),
-                               dex,
-                               /*verify*/ true,
+    ArtDexFileLoader dex_file_loader(dex);
+    CHECK(dex_file_loader.Open(/*verify*/ true,
                                /*verify_checksum*/ false,
                                &error_msg,
                                &dex_files))

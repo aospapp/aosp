@@ -26,13 +26,15 @@
 #define DB2_PATH "/mnt/androidwritable/0/emulated/0/Android/data/database_file2"
 #define FILE_PATH "/data/testfile"
 
+#define F2FS_BLKSIZE 4096
+#define BLKS_TO_SECTOR_BITS 3
 #define BLOCK 4096
 #define BLOCKS (2 * BLOCK)
 
-int buf[BLOCKS];
+char buf[BLOCKS];
 char cmd[BLOCK];
 
-static int run(char *cmd)
+static int run(const char *cmd)
 {
 	int status;
 
@@ -42,7 +44,10 @@ static int run(char *cmd)
 	case 0:
 		/* redirect stderr to stdout */
 		dup2(1, 2);
-		execl("/system/bin/sh", "sh", "-c", cmd, (char *) 0);
+		execl("/system/bin/sh", "sh", "-c", cmd, (char *) NULL);
+	case -1:
+		printf("fork failed in run() errno:%d\n", errno);
+		return -1;
 	default:
 		wait(&status);
 	}
@@ -72,7 +77,13 @@ static int test_atomic_write(char *path)
 		return -1;
 	}
 	printf("\tCheck : Atomic in-memory count: 2\n");
-	run("cat /sys/kernel/debug/f2fs/status | grep \"atomic IO\"");
+	if (access("/dev/sys/fs/by-name/userdata/current_atomic_write", F_OK)
+			== 0) {
+		printf("- inmem: ");
+		run("cat /dev/sys/fs/by-name/userdata/current_atomic_write");
+	} else {
+		run("grep \"atomic IO\" /sys/kernel/debug/f2fs/status");
+	}
 
 	printf("\tCommit  ... \n");
 	ret = ioctl(db, F2FS_IOC_COMMIT_ATOMIC_WRITE);
@@ -88,6 +99,7 @@ static int test_bad_write_call(char *path)
 	int fd, written;
 	struct stat sb;
 	int large_size = 1024 * 1024 * 100;	/* 100 MB */
+	int blocks;
 
 	printf("\tOpen  %s... \n", path);
 	fd = open(path, O_RDWR|O_CREAT|O_TRUNC, 0666);
@@ -114,7 +126,11 @@ static int test_bad_write_call(char *path)
 		return -1;
 	}
 
-	if ((long long)sb.st_size / 512 != (long long)sb.st_blocks) {
+	blocks = (long long)sb.st_size / F2FS_BLKSIZE;
+	if (sb.st_size % F2FS_BLKSIZE)
+		blocks++;
+
+	if (blocks << BLKS_TO_SECTOR_BITS != (long long)sb.st_blocks) {
 		printf("FAIL: Mismatch i_size and i_blocks: %lld %lld\n",
 			(long long)sb.st_size, (long long)sb.st_blocks);
 		printf("FAIL: missing patch "

@@ -79,5 +79,5 @@ fn on_transact(_aidl_service: &dyn IDeprecated, _aidl_code: binder::binder_impl:
   }
 }
 pub(crate) mod mangled {
- pub use super::IDeprecated as _7_android_4_aidl_5_tests_11_IDeprecated;
+ pub use super::r#IDeprecated as _7_android_4_aidl_5_tests_11_IDeprecated;
 }

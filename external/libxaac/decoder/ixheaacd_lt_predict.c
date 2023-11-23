@@ -29,15 +29,17 @@
 #include "ixheaacd_basic_ops40.h"
 
 #include "ixheaacd_defines.h"
+#include "ixheaacd_cnst.h"
 #include "ixheaacd_aac_rom.h"
+#include "ixheaacd_lt_predict.h"
+#include "ixheaacd_ec_defines.h"
+#include "ixheaacd_ec_struct_def.h"
 #include "ixheaacd_audioobjtypes.h"
 
 #include "ixheaacd_bitbuffer.h"
 #include "ixheaacd_pulsedata.h"
 #include "ixheaacd_pns.h"
-#include "ixheaacd_lt_predict.h"
 #include "ixheaacd_channelinfo.h"
-#include "ixheaacd_cnst.h"
 #include "ixheaacd_tns.h"
 #include "ixheaacd_aac_imdct.h"
 
@@ -218,13 +220,12 @@ VOID ixheaacd_filter_bank_ltp(ia_aac_dec_tables_struct *aac_tables_ptr,
         }
 
       } else {
-        WORD32 *win1, *win2, *win3;
+        WORD32 *win1, *win2;
         WORD32 *ptr_in1, *ptr_in2;
         win1 = (WORD32 *)window_long_prev;
         win2 = (WORD32 *)window_long;
         ptr_in1 = &in_data[0];
         ptr_in2 = &in_data[nlong];
-        win3 = win2 + nlong - 1;
 
         for (i = nlong - 1; i >= 0; i--) {
           WORD32 temp1 = ixheaacd_mult32_shl(*ptr_in1, *win1++);
@@ -396,15 +397,18 @@ VOID ixheaacd_filter_bank_ltp(ia_aac_dec_tables_struct *aac_tables_ptr,
   }
 }
 
-VOID ixheaacd_lt_update_state(WORD16 *lt_pred_stat, WORD16 *time,
+VOID ixheaacd_lt_update_state(WORD16 *lt_pred_stat, VOID *time_t,
                               WORD32 *overlap, WORD32 frame_len,
                               WORD32 object_type, WORD32 stride,
-                              WORD16 window_sequence, WORD16 *p_window_next) {
+                              WORD16 window_sequence, WORD16 *p_window_next,
+                              WORD slot_element) {
   WORD32 i;
+
   if (object_type == AOT_ER_AAC_LD) {
     WORD16 *ptr_ltp_state0 = &lt_pred_stat[0];
     WORD16 *ptr_ltp_state_fl = &lt_pred_stat[frame_len + 0];
     WORD16 *ptr_ltp_state_2fl = &lt_pred_stat[(frame_len * 2) + 0];
+    WORD16 *time = (WORD16 *)time_t - slot_element;
     WORD16 *ptr_time_in = &time[0 * stride];
 
     for (i = 0; i < frame_len; i++) {
@@ -417,11 +421,15 @@ VOID ixheaacd_lt_update_state(WORD16 *lt_pred_stat, WORD16 *time,
   } else {
     WORD16 *ptr_ltp_state0 = &lt_pred_stat[0];
     WORD16 *ptr_ltp_state_fl = &lt_pred_stat[frame_len + 0];
-    WORD16 *ptr_time_in = &time[0 * stride];
+    WORD32 *time = (WORD32 *)time_t;
+    WORD32 *ptr_time_in = &time[0 * stride];
+
+    time = (WORD32 *)time_t;
 
     for (i = 0; i < frame_len; i++) {
       *ptr_ltp_state0++ = *ptr_ltp_state_fl;
-      *ptr_ltp_state_fl++ = *ptr_time_in;
+      *ptr_ltp_state_fl++ =
+          ixheaacd_round16(ixheaacd_shl32_sat(*ptr_time_in, 2));
       ptr_time_in += stride;
     }
   }

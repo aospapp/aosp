@@ -49,6 +49,8 @@ void StackManager::StartUp(ModuleList* modules, Thread* stack_thread) {
 
   WakelockManager::Get().Release();
 
+  LOG_INFO("init_status == %d", init_status);
+
   ASSERT_LOG(
       init_status == std::future_status::ready,
       "Can't start stack, last instance: %s",

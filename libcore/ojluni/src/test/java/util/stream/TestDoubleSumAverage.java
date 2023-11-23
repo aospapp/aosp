@@ -21,6 +21,8 @@
  * questions.
  */
 
+package test.java.util.stream;
+
 import java.util.*;
 import java.util.function.*;
 import java.util.stream.*;

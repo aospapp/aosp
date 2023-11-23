@@ -1,4 +1,4 @@
-/* Copyright (c) 2012 The Chromium OS Authors. All rights reserved.
+/* Copyright 2012 The ChromiumOS Authors
  * Use of this source code is governed by a BSD-style license that can be
  * found in the LICENSE file.
  */
@@ -36,6 +36,7 @@
 #include <syscall.h>
 #include <unistd.h>
 
+#include "landlock_util.h"
 #include "libminijail-private.h"
 #include "libminijail.h"
 
@@ -72,6 +73,15 @@
 	(MS_NOSUID | MS_NODEV | MS_NOEXEC | MS_NOATIME | MS_NODIRATIME |       \
 	 MS_RELATIME | MS_RDONLY)
 
+/*
+ * TODO(b/235960683): Drop this after CrOS upgrades to glibc >= 2.34
+ * because MS_NOSYMFOLLOW will be defined in sys/mount.h.
+ */
+#ifndef MS_NOSYMFOLLOW
+/* Added locally in kernels 4.x+. */
+#define MS_NOSYMFOLLOW 256
+#endif
+
 struct minijail_rlimit {
 	int type;
 	rlim_t cur;
@@ -101,6 +111,12 @@ struct hook {
 	struct hook *next;
 };
 
+struct fs_rule {
+	char *path;
+	uint64_t landlock_flags;
+	struct fs_rule *next;
+};
+
 struct preserved_fd {
 	int parent_fd;
 	int child_fd;
@@ -112,46 +128,46 @@ struct minijail {
 	 * accounted for in minijail_pre{enter|exec}() below.
 	 */
 	struct {
-		int uid : 1;
-		int gid : 1;
-		int inherit_suppl_gids : 1;
-		int set_suppl_gids : 1;
-		int keep_suppl_gids : 1;
-		int use_caps : 1;
-		int capbset_drop : 1;
-		int set_ambient_caps : 1;
-		int vfs : 1;
-		int enter_vfs : 1;
-		int pids : 1;
-		int ipc : 1;
-		int uts : 1;
-		int net : 1;
-		int enter_net : 1;
-		int ns_cgroups : 1;
-		int userns : 1;
-		int disable_setgroups : 1;
-		int seccomp : 1;
-		int remount_proc_ro : 1;
-		int no_new_privs : 1;
-		int seccomp_filter : 1;
-		int seccomp_filter_tsync : 1;
-		int seccomp_filter_logging : 1;
-		int seccomp_filter_allow_speculation : 1;
-		int chroot : 1;
-		int pivot_root : 1;
-		int mount_dev : 1;
-		int mount_tmp : 1;
-		int do_init : 1;
-		int run_as_init : 1;
-		int pid_file : 1;
-		int cgroups : 1;
-		int alt_syscall : 1;
-		int reset_signal_mask : 1;
-		int reset_signal_handlers : 1;
-		int close_open_fds : 1;
-		int new_session_keyring : 1;
-		int forward_signals : 1;
-		int setsid : 1;
+		bool uid : 1;
+		bool gid : 1;
+		bool inherit_suppl_gids : 1;
+		bool set_suppl_gids : 1;
+		bool keep_suppl_gids : 1;
+		bool use_caps : 1;
+		bool capbset_drop : 1;
+		bool set_ambient_caps : 1;
+		bool vfs : 1;
+		bool enter_vfs : 1;
+		bool pids : 1;
+		bool ipc : 1;
+		bool uts : 1;
+		bool net : 1;
+		bool enter_net : 1;
+		bool ns_cgroups : 1;
+		bool userns : 1;
+		bool disable_setgroups : 1;
+		bool seccomp : 1;
+		bool remount_proc_ro : 1;
+		bool no_new_privs : 1;
+		bool seccomp_filter : 1;
+		bool seccomp_filter_tsync : 1;
+		bool seccomp_filter_logging : 1;
+		bool seccomp_filter_allow_speculation : 1;
+		bool chroot : 1;
+		bool pivot_root : 1;
+		bool mount_dev : 1;
+		bool mount_tmp : 1;
+		bool do_init : 1;
+		bool run_as_init : 1;
+		bool pid_file : 1;
+		bool cgroups : 1;
+		bool alt_syscall : 1;
+		bool reset_signal_mask : 1;
+		bool reset_signal_handlers : 1;
+		bool close_open_fds : 1;
+		bool new_session_keyring : 1;
+		bool forward_signals : 1;
+		bool setsid : 1;
 	} flags;
 	uid_t uid;
 	gid_t gid;
@@ -180,6 +196,9 @@ struct minijail {
 	struct minijail_remount *remounts_head;
 	struct minijail_remount *remounts_tail;
 	size_t tmpfs_size;
+	bool using_minimalistic_mountns;
+	struct fs_rule *fs_rules_head;
+	struct fs_rule *fs_rules_tail;
 	char *cgroups[MAX_CGROUPS];
 	size_t cgroup_count;
 	struct minijail_rlimit rlimits[MAX_RLIMITS];
@@ -282,6 +301,40 @@ void minijail_preenter(struct minijail *j)
 	free_remounts_list(j);
 }
 
+/* Adds a rule for a given path to apply once minijail is entered. */
+int add_fs_restriction_path(struct minijail *j,
+		const char *path,
+		uint64_t landlock_flags)
+{
+	struct fs_rule *r = calloc(1, sizeof(*r));
+	if (!r)
+		return -ENOMEM;
+	r->path = strdup(path);
+	r->landlock_flags = landlock_flags;
+
+	if (j->fs_rules_tail) {
+		j->fs_rules_tail->next = r;
+		j->fs_rules_tail = r;
+	} else {
+		j->fs_rules_head = r;
+		j->fs_rules_tail = r;
+	}
+
+	return 0;
+}
+
+bool mount_has_bind_flag(struct mountpoint *m) {
+	return !!(m->flags & MS_BIND);
+}
+
+bool mount_has_readonly_flag(struct mountpoint *m) {
+	return !!(m->flags & MS_RDONLY);
+}
+
+bool mount_events_allowed(struct mountpoint *m) {
+	return !!(m->flags & MS_SHARED) || !!(m->flags & MS_SLAVE);
+}
+
 /*
  * Strip out flags meant for the child.
  * We keep things that are inherited across execve(2).
@@ -324,6 +377,7 @@ struct minijail API *minijail_new(void)
 	struct minijail *j = calloc(1, sizeof(struct minijail));
 	if (j) {
 		j->remount_mode = MS_PRIVATE;
+		j->using_minimalistic_mountns = false;
 	}
 	return j;
 }
@@ -472,6 +526,50 @@ void API minijail_log_seccomp_filter_failures(struct minijail *j)
 		warn("non-debug build: ignoring request to enable seccomp "
 		     "logging");
 	}
+}
+
+void API minijail_set_using_minimalistic_mountns(struct minijail *j)
+{
+	j->using_minimalistic_mountns = true;
+}
+
+void API minijail_add_minimalistic_mountns_fs_rules(struct minijail *j)
+{
+	struct mountpoint *m = j->mounts_head;
+	bool landlock_enabled_by_profile = false;
+	if (!j->using_minimalistic_mountns)
+		return;
+
+	/* Apply Landlock rules. */
+	while (m) {
+		landlock_enabled_by_profile = true;
+		minijail_add_fs_restriction_rx(j, m->dest);
+		/* Allow rw if mounted as writable, or mount flags allow mount events.*/
+		if (!mount_has_readonly_flag(m) || mount_events_allowed(m))
+			minijail_add_fs_restriction_rw(j, m->dest);
+		m = m->next;
+	}
+	if (landlock_enabled_by_profile) {
+		minijail_enable_default_fs_restrictions(j);
+		minijail_add_fs_restriction_edit(j, "/dev");
+		minijail_add_fs_restriction_ro(j, "/proc");
+		if (j->flags.vfs)
+			minijail_add_fs_restriction_rw(j, "/tmp");
+	}
+}
+
+void API minijail_enable_default_fs_restrictions(struct minijail *j)
+{
+	// Common library locations.
+	minijail_add_fs_restriction_rx(j, "/lib");
+	minijail_add_fs_restriction_rx(j, "/lib64");
+	minijail_add_fs_restriction_rx(j, "/usr/lib");
+	minijail_add_fs_restriction_rx(j, "/usr/lib64");
+	// Common locations for services invoking Minijail.
+	minijail_add_fs_restriction_rx(j, "/bin");
+	minijail_add_fs_restriction_rx(j, "/sbin");
+	minijail_add_fs_restriction_rx(j, "/usr/sbin");
+	minijail_add_fs_restriction_rx(j, "/usr/bin");
 }
 
 void API minijail_use_caps(struct minijail *j, uint64_t capmask)
@@ -719,7 +817,7 @@ char API *minijail_get_original_path(struct minijail *j,
 		 *    "/chroot/path/exe", the source of that mount,
 		 *    "/some/path/exe" is what should be returned.
 		 */
-		if (!strcmp(b->dest, path_inside_chroot))
+		if (streq(b->dest, path_inside_chroot))
 			return strdup(b->src);
 
 		/*
@@ -812,6 +910,74 @@ int API minijail_create_session(struct minijail *j)
 	return 0;
 }
 
+int API minijail_add_fs_restriction_rx(struct minijail *j, const char *path)
+{
+	return !add_fs_restriction_path(j, path,
+		ACCESS_FS_ROUGHLY_READ_EXECUTE);
+}
+
+int API minijail_add_fs_restriction_ro(struct minijail *j, const char *path)
+{
+	return !add_fs_restriction_path(j, path, ACCESS_FS_ROUGHLY_READ);
+}
+
+int API minijail_add_fs_restriction_rw(struct minijail *j, const char *path)
+{
+	return !add_fs_restriction_path(j, path,
+		ACCESS_FS_ROUGHLY_READ | ACCESS_FS_ROUGHLY_BASIC_WRITE);
+}
+
+int API minijail_add_fs_restriction_advanced_rw(struct minijail *j,
+						const char *path)
+{
+	return !add_fs_restriction_path(j, path,
+		ACCESS_FS_ROUGHLY_READ | ACCESS_FS_ROUGHLY_FULL_WRITE);
+}
+
+int API minijail_add_fs_restriction_edit(struct minijail *j,
+						const char *path)
+{
+	return !add_fs_restriction_path(j, path,
+		ACCESS_FS_ROUGHLY_READ | ACCESS_FS_ROUGHLY_EDIT);
+}
+
+static bool is_valid_bind_path(const char *path)
+{
+	if (!block_symlinks_in_bindmount_paths()) {
+		return true;
+	}
+
+	/*
+	 * tokenize() will modify both the |prefixes| pointer and the contents
+	 * of the string, so:
+	 * -Copy |BINDMOUNT_ALLOWED_PREFIXES| since it lives in .rodata.
+	 * -Save the original pointer for free()ing.
+	 */
+	char *prefixes = strdup(BINDMOUNT_ALLOWED_PREFIXES);
+	attribute_cleanup_str char *orig_prefixes = prefixes;
+	(void)orig_prefixes;
+
+	char *prefix = NULL;
+	bool found_prefix = false;
+	if (!is_canonical_path(path)) {
+		while ((prefix = tokenize(&prefixes, ",")) != NULL) {
+			if (path_is_parent(prefix, path)) {
+				found_prefix = true;
+				break;
+			}
+		}
+		if (!found_prefix) {
+			/*
+			 * If the path does not include one of the allowed
+			 * prefixes, fail.
+			 */
+			warn("path '%s' is not a canonical path", path);
+			return false;
+		}
+	}
+	return true;
+}
+
 int API minijail_mount_with_data(struct minijail *j, const char *src,
 				 const char *dest, const char *type,
 				 unsigned long flags, const char *data)
@@ -840,7 +1006,7 @@ int API minijail_mount_with_data(struct minijail *j, const char *src,
 		 * people use these in practice, it's probably OK.  If they want
 		 * the kernel defaults, they can pass data="" instead of NULL.
 		 */
-		if (!strcmp(type, "tmpfs")) {
+		if (streq(type, "tmpfs")) {
 			/* tmpfs defaults to mode=1777 and size=50%. */
 			data = "mode=0755,size=10M";
 		}
@@ -895,10 +1061,30 @@ int API minijail_bind(struct minijail *j, const char *src, const char *dest,
 {
 	unsigned long flags = MS_BIND;
 
+	/*
+	 * Check for symlinks in bind-mount source paths to warn the user early.
+	 * Minijail will perform one final check immediately before the mount()
+	 * call.
+	 */
+	if (!is_valid_bind_path(src)) {
+		warn("src '%s' is not a valid bind mount path", src);
+		return -ELOOP;
+	}
+
+	/*
+	 * Symlinks in |dest| are blocked by the ChromiumOS LSM:
+	 * <kernel>/security/chromiumos/lsm.c#77
+	 */
+
 	if (!writeable)
 		flags |= MS_RDONLY;
 
-	return minijail_mount(j, src, dest, "", flags);
+	/*
+	 * |type| is ignored for bind mounts, use it to signal that this mount
+	 * came from minijail_bind().
+	 * TODO(b/238362528): Implement a better way to signal this.
+	 */
+	return minijail_mount(j, src, dest, "minijail_bind", flags);
 }
 
 int API minijail_add_remount(struct minijail *j, const char *mount_name,
@@ -1337,6 +1523,8 @@ int minijail_unmarshal(struct minijail *j, char *serialized, size_t length)
 	j->filter_prog = NULL;
 	j->hooks_head = NULL;
 	j->hooks_tail = NULL;
+	j->fs_rules_head = NULL;
+	j->fs_rules_tail = NULL;
 
 	if (j->user) { /* stale pointer */
 		char *user = consumestr(&serialized, &length);
@@ -1693,7 +1881,9 @@ static int mount_one(const struct minijail *j, struct mountpoint *m,
 {
 	int ret;
 	char *dest;
-	int remount = 0;
+	bool do_remount = false;
+	bool has_bind_flag = mount_has_bind_flag(m);
+	bool has_remount_flag = !!(m->flags & MS_REMOUNT);
 	unsigned long original_mnt_flags = 0;
 
 	/* We assume |dest| has a leading "/". */
@@ -1708,39 +1898,73 @@ static int mount_one(const struct minijail *j, struct mountpoint *m,
 			return -ENOMEM;
 	}
 
-	ret =
-	    setup_mount_destination(m->src, dest, j->uid, j->gid,
-				    (m->flags & MS_BIND), &original_mnt_flags);
+	ret = setup_mount_destination(m->src, dest, j->uid, j->gid,
+				      has_bind_flag);
 	if (ret) {
 		warn("cannot create mount target '%s'", dest);
 		goto error;
 	}
 
 	/*
-	 * Bind mounts that change the 'ro' flag have to be remounted since
-	 * 'bind' and other flags can't both be specified in the same command.
-	 * Remount after the initial mount.
+	 * Remount bind mounts that:
+	 * - Come from the minijail_bind() API, and
+	 * - Add the 'ro' flag
+	 * since 'bind' and other flags can't both be specified in the same
+	 * mount(2) call.
+	 * Callers using minijail_mount() to perform bind mounts are expected to
+	 * know what they're doing and call minijail_mount() with MS_REMOUNT as
+	 * needed.
+	 * Therefore, if the caller is asking for a remount (using MS_REMOUNT),
+	 * there is no need to do an extra remount here.
 	 */
-	if ((m->flags & MS_BIND) &&
-	    ((m->flags & MS_RDONLY) != (original_mnt_flags & MS_RDONLY))) {
-		remount = 1;
+	if (has_bind_flag && strcmp(m->type, "minijail_bind") == 0 &&
+	    !has_remount_flag) {
 		/*
-		 * Restrict the mount flags to those that are user-settable in a
-		 * MS_REMOUNT request, but excluding MS_RDONLY. The
-		 * user-requested mount flags will dictate whether the remount
-		 * will have that flag or not.
+		 * Grab the mount flags of the source. These are used to figure
+		 * out whether the bind mount needs to be remounted read-only.
 		 */
-		original_mnt_flags &= (MS_USER_SETTABLE_MASK & ~MS_RDONLY);
+		if (get_mount_flags(m->src, &original_mnt_flags)) {
+			warn("cannot get mount flags for '%s'", m->src);
+			goto error;
+		}
+
+		if ((m->flags & MS_RDONLY) !=
+		    (original_mnt_flags & MS_RDONLY)) {
+			do_remount = 1;
+			/*
+			 * Restrict the mount flags to those that are
+			 * user-settable in a MS_REMOUNT request, but excluding
+			 * MS_RDONLY. The user-requested mount flags will
+			 * dictate whether the remount will have that flag or
+			 * not.
+			 */
+			original_mnt_flags &=
+			    (MS_USER_SETTABLE_MASK & ~MS_RDONLY);
+		}
+	}
+
+	/*
+	 * Do a final check for symlinks in |m->src|.
+	 * |m->src| will only contain a valid path when purely bind-mounting
+	 * (but not when remounting a bind mount).
+	 *
+	 * Short of having a version of mount(2) that can take fd's, this is the
+	 * smallest we can make the TOCTOU window.
+	 */
+	if (has_bind_flag && !has_remount_flag && !is_valid_bind_path(m->src)) {
+		warn("src '%s' is not a valid bind mount path", m->src);
+		goto error;
 	}
 
 	ret = mount(m->src, dest, m->type, m->flags, m->data);
 	if (ret) {
-		pwarn("cannot bind-mount '%s' as '%s' with flags %#lx", m->src,
-		      dest, m->flags);
+		pwarn("cannot mount '%s' as '%s' with flags %#lx", m->src, dest,
+		      m->flags);
 		goto error;
 	}
 
-	if (remount) {
+	/* Remount *after* the initial mount. */
+	if (do_remount) {
 		ret =
 		    mount(m->src, dest, NULL,
 			  m->flags | original_mnt_flags | MS_REMOUNT, m->data);
@@ -1774,6 +1998,8 @@ static void process_mounts_or_die(const struct minijail *j)
 		pdie("mount_dev failed");
 
 	if (j->mounts_head && mount_one(j, j->mounts_head, dev_path)) {
+		warn("mount_one failed with /dev at '%s'", dev_path);
+
 		if (dev_path)
 			mount_dev_cleanup(dev_path);
 
@@ -1876,8 +2102,14 @@ static int mount_tmp(const struct minijail *j)
 		pdie("tmpfs size spec error");
 	else if ((size_t)ret >= sizeof(data))
 		pdie("tmpfs size spec too large");
-	return mount("none", "/tmp", "tmpfs", MS_NODEV | MS_NOEXEC | MS_NOSUID,
-		     data);
+
+	unsigned long flags = MS_NODEV | MS_NOEXEC | MS_NOSUID;
+
+	if (block_symlinks_in_noninit_mountns_tmp()) {
+		flags |= MS_NOSYMFOLLOW;
+	}
+
+	return mount("none", "/tmp", "tmpfs", flags, data);
 }
 
 static int remount_proc_readonly(const struct minijail *j)
@@ -2162,6 +2394,45 @@ static void drop_caps(const struct minijail *j, unsigned int last_valid_cap)
 	}
 
 	cap_free(caps);
+}
+
+/* Creates a ruleset for current inodes then calls landlock_restrict_self(). */
+static void apply_landlock_restrictions(const struct minijail *j)
+{
+	struct fs_rule *r;
+	attribute_cleanup_fd int ruleset_fd = -1;
+
+	r = j->fs_rules_head;
+	while (r) {
+		if (ruleset_fd < 0) {
+			struct minijail_landlock_ruleset_attr ruleset_attr = {
+				.handled_access_fs = HANDLED_ACCESS_TYPES
+			};
+			ruleset_fd = landlock_create_ruleset(
+				&ruleset_attr, sizeof(ruleset_attr), 0);
+			if (ruleset_fd < 0) {
+				const int err = errno;
+				pwarn("Failed to create a ruleset");
+				switch (err) {
+				case ENOSYS:
+					pwarn("Landlock is not supported by the current kernel");
+					break;
+				case EOPNOTSUPP:
+					pwarn("Landlock is currently disabled by kernel config");
+					break;
+				}
+				return;
+			}
+		}
+		populate_ruleset_internal(r->path, ruleset_fd, r->landlock_flags);
+		r = r->next;
+	}
+
+	if (ruleset_fd >= 0) {
+		if (landlock_restrict_self(ruleset_fd, 0)) {
+			pdie("Failed to enforce ruleset");
+		}
+	}
 }
 
 static void set_seccomp_filter(const struct minijail *j)
@@ -2457,8 +2728,14 @@ void API minijail_enter(const struct minijail *j)
 		 */
 		drop_ugid(j);
 		drop_caps(j, last_valid_cap);
+
+		// Landlock is applied as late as possible. If no_new_privs is
+		// set, then it can be applied after dropping caps.
+		apply_landlock_restrictions(j);
 		set_seccomp_filter(j);
 	} else {
+		apply_landlock_restrictions(j);
+
 		/*
 		 * If we're not setting no_new_privs,
 		 * we need to set seccomp filter *before* dropping privileges.
@@ -3659,6 +3936,12 @@ void API minijail_destroy(struct minijail *j)
 		free(c);
 	}
 	j->hooks_tail = NULL;
+	while (j->fs_rules_head) {
+		struct fs_rule *r = j->fs_rules_head;
+		j->fs_rules_head = r->next;
+		free(r);
+	}
+	j->fs_rules_tail = NULL;
 	if (j->user)
 		free(j->user);
 	if (j->suppl_gid_list)

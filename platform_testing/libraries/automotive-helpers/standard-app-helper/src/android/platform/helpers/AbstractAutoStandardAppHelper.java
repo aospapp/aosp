@@ -18,19 +18,20 @@ package android.platform.helpers;
 
 import android.app.Instrumentation;
 import android.content.ActivityNotFoundException;
+import android.graphics.Point;
+import android.graphics.Rect;
 import android.os.SystemClock;
 import android.util.Log;
 
-import android.graphics.Rect;
-
-import android.support.test.uiautomator.By;
-import android.support.test.uiautomator.BySelector;
-import android.support.test.uiautomator.Direction;
-import android.support.test.uiautomator.UiDevice;
-import android.support.test.uiautomator.UiObject2;
-import android.support.test.uiautomator.Until;
+import androidx.test.uiautomator.By;
+import androidx.test.uiautomator.BySelector;
+import androidx.test.uiautomator.Direction;
+import androidx.test.uiautomator.UiDevice;
+import androidx.test.uiautomator.UiObject2;
+import androidx.test.uiautomator.Until;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Pattern;
 
@@ -47,6 +48,13 @@ public abstract class AbstractAutoStandardAppHelper extends AbstractStandardAppH
     private static final int DEFAULT_SCROLL_TIME_MS = 500;
 
     private static final int MAX_SCROLLS = 5;
+
+    private enum SwipeDirection {
+        TOP_TO_BOTTOM,
+        BOTTOM_TO_TOP,
+        LEFT_TO_RIGHT,
+        RIGHT_TO_LEFT
+    }
 
     public AbstractAutoStandardAppHelper(Instrumentation instrumentation) {
         super(instrumentation);
@@ -489,5 +497,76 @@ public abstract class AbstractAutoStandardAppHelper extends AbstractStandardAppH
             isSplitScreen = true;
         }
         return isSplitScreen;
+    }
+
+    protected void swipeDownFromTop() {
+        swipe(SwipeDirection.TOP_TO_BOTTOM, /*numOfSteps*/ 6);
+    }
+
+    protected void swipe(SwipeDirection swipeDirection, int numOfSteps) {
+        Rect bounds = getScreenBounds();
+        List<Point> swipePoints = getPointsToSwipe(bounds, swipeDirection);
+
+        Point startPoint = swipePoints.get(0);
+        Point finishPoint = swipePoints.get(1);
+
+        // Swipe from start pont to finish point in given number of steps
+        mDevice.swipe(startPoint.x, startPoint.y, finishPoint.x, finishPoint.y, numOfSteps);
+    }
+
+    protected List<Point> getPointsToSwipe(Rect bounds, SwipeDirection swipeDirection) {
+        Point boundsCenter = new Point(bounds.centerX(), bounds.centerY());
+
+        int xStart;
+        int yStart;
+        int xFinish;
+        int yFinish;
+        // Set as 5 for default
+        int pad = 5;
+
+        switch (swipeDirection) {
+                // Scroll left = swipe from left to right.
+            case LEFT_TO_RIGHT:
+                xStart = bounds.left + pad; // Pad the edges
+                xFinish = bounds.right - pad; // Pad the edges
+                yStart = boundsCenter.y;
+                yFinish = boundsCenter.y;
+                break;
+                // Scroll right = swipe from right to left.
+            case RIGHT_TO_LEFT:
+                xStart = bounds.right - pad; // Pad the edges
+                xFinish = bounds.left + pad; // Pad the edges
+                yStart = boundsCenter.y;
+                yFinish = boundsCenter.y;
+                break;
+                // Scroll up = swipe from top to bottom.
+            case TOP_TO_BOTTOM:
+                xStart = boundsCenter.x;
+                xFinish = boundsCenter.x;
+                yStart = bounds.top + pad; // Pad the edges
+                yFinish = bounds.bottom - pad; // Pad the edges
+                break;
+                // Scroll down = swipe to bottom to top.
+            case BOTTOM_TO_TOP:
+            default:
+                xStart = boundsCenter.x;
+                xFinish = boundsCenter.x;
+                yStart = bounds.bottom - pad; // Pad the edges
+                yFinish = bounds.top + pad; // Pad the edges
+                break;
+        }
+
+        List<Point> swipePoints = new ArrayList<Point>();
+        // Start Point
+        swipePoints.add(new Point(xStart, yStart));
+        // Finish Point
+        swipePoints.add(new Point(xFinish, yFinish));
+
+        return swipePoints;
+    }
+
+    protected Rect getScreenBounds() {
+        Point dimensions = mDevice.getDisplaySizeDp();
+        return new Rect(0, 0, dimensions.x, dimensions.y);
     }
 }

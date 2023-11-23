@@ -18,6 +18,8 @@
 #define HARDWARE_GOOGLE_CAMERA_HAL_UTILS_RESULT_DISPATCHER_H_
 
 #include <map>
+#include <string>
+#include <string_view>
 #include <thread>
 
 #include "hal_types.h"
@@ -37,10 +39,13 @@ class ResultDispatcher {
   // Create a ResultDispatcher.
   // partial_result_count is the partial result count.
   // process_capture_result is the function to notify capture results.
+  // stream_config is the session stream configuration
   // notify is the function to notify shutter messages.
   static std::unique_ptr<ResultDispatcher> Create(
       uint32_t partial_result_count,
-      ProcessCaptureResultFunc process_capture_result, NotifyFunc notify);
+      ProcessCaptureResultFunc process_capture_result, NotifyFunc notify,
+      const StreamConfiguration& stream_config,
+      std::string_view name = "ResultDispatcher");
 
   virtual ~ResultDispatcher();
 
@@ -68,11 +73,28 @@ class ResultDispatcher {
 
   ResultDispatcher(uint32_t partial_result_count,
                    ProcessCaptureResultFunc process_capture_result,
-                   NotifyFunc notify);
+                   NotifyFunc notify, const StreamConfiguration& stream_config,
+                   std::string_view name = "ResultDispatcher");
 
  private:
   static constexpr uint32_t kCallbackThreadTimeoutMs = 500;
   const uint32_t kPartialResultCount;
+
+  // Define the stream key types. Single stream type is for normal streams.
+  // Group stream type is for the group streams of multi-resolution streams.
+  enum class StreamKeyType : uint32_t {
+    kSingleStream = 0,
+    kGroupStream,
+  };
+
+  // The key of the stream_pending_buffers_map_, which has different types.
+  // Type kSingleStream indicates the StreamKey represents a single stream, and
+  // the id will be the stream id.
+  // Type kGroupStream indicates the StreamKey represents a stream group, and
+  // the id will be the stream group id. All of the buffers of certain stream
+  // group will be tracked together, as there's only one buffer from the group
+  // streams should be returned each request.
+  typedef std::pair</*id=*/int32_t, StreamKeyType> StreamKey;
 
   // Define a pending shutter that will be ready later when AddShutter() is
   // called.
@@ -160,15 +182,32 @@ class ResultDispatcher {
 
   void PrintTimeoutMessages();
 
+  // Initialize the group stream ids map if needed. Must be protected with result_lock_.
+  void InitializeGroupStreamIdsMap(const StreamConfiguration& stream_config);
+
+  // Name used for debugging purpose to disambiguate multiple ResultDispatchers.
+  std::string name_;
+
   std::mutex result_lock_;
 
   // Maps from frame numbers to pending shutters.
   // Protected by result_lock_.
   std::map<uint32_t, PendingShutter> pending_shutters_;
 
-  // Maps from a stream ID to "a map from a frame number to a pending buffer."
-  // Protected by result_lock_.
-  std::map<uint32_t, std::map<uint32_t, PendingBuffer>> stream_pending_buffers_map_;
+  // Create a StreamKey for a stream
+  inline StreamKey CreateStreamKey(int32_t stream_id) const;
+
+  // Dump a StreamKey to a debug string
+  inline std::string DumpStreamKey(const StreamKey& stream_key) const;
+
+  // Maps from a stream or a stream group to "a map from a frame number to a
+  // pending buffer". Protected by result_lock_.
+  // For single streams, pending buffers would be tracked by streams.
+  // For multi-resolution streams, camera HAL can return only one stream buffer
+  // within the same stream group each request. So all of the buffers of certain
+  // stream group will be tracked together via a single map.
+  std::map<StreamKey, std::map<uint32_t, PendingBuffer>>
+      stream_pending_buffers_map_;
 
   // Maps from a stream ID to pending result metadata.
   // Protected by result_lock_.
@@ -191,6 +230,9 @@ class ResultDispatcher {
 
   // State of callback thread is notified or not.
   volatile bool is_result_shutter_updated_ = false;
+
+  // A map of group streams only, from stream ID to the group ID it belongs.
+  std::map</*stream id=*/int32_t, /*group id=*/int32_t> group_stream_map_;
 };
 
 }  // namespace google_camera_hal

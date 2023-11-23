@@ -14,6 +14,7 @@
 
 #include "jvm_tooling.h"
 
+#include <cstdlib>
 #include <fstream>
 #include <iostream>
 #include <memory>
@@ -24,13 +25,8 @@
 #include "absl/strings/str_join.h"
 #include "absl/strings/str_replace.h"
 #include "absl/strings/str_split.h"
-#include "coverage_tracker.h"
 #include "gflags/gflags.h"
-#include "glog/logging.h"
-#include "libfuzzer_callbacks.h"
-#include "signal_handler.h"
 #include "tools/cpp/runfiles/runfiles.h"
-#include "utils.h"
 
 DEFINE_string(cp, ".",
               "the classpath to use for fuzzing. Behaves analogously to java's "
@@ -53,23 +49,30 @@ DEFINE_string(agent_path, "", "location of the fuzzing instrumentation agent");
 // combined during the initialization of the JVM.
 DEFINE_string(instrumentation_includes, "",
               "list of glob patterns for classes that will be instrumented for "
-              "fuzzing. Separated by colon \":\"");
-DEFINE_string(instrumentation_excludes, "",
-              "list of glob patterns for classes that will not be instrumented "
-              "for fuzzing. Separated by colon \":\"");
+              "fuzzing (separator is ':' on Linux/macOS and ';' on Windows)");
+DEFINE_string(
+    instrumentation_excludes, "",
+    "list of glob patterns for classes that will not be instrumented "
+    "for fuzzing (separator is ':' on Linux/macOS and ';' on Windows)");
 
 DEFINE_string(custom_hook_includes, "",
               "list of glob patterns for classes that will only be "
-              "instrumented using custom hooks. Separated by colon \":\"");
-DEFINE_string(custom_hook_excludes, "",
-              "list of glob patterns for classes that will not be instrumented "
-              "using custom hooks. Separated by colon \":\"");
+              "instrumented using custom hooks (separator is ':' on "
+              "Linux/macOS and ';' on Windows)");
+DEFINE_string(
+    custom_hook_excludes, "",
+    "list of glob patterns for classes that will not be instrumented "
+    "using custom hooks (separator is ':' on Linux/macOS and ';' on Windows)");
 DEFINE_string(custom_hooks, "",
-              "list of classes containing custom instrumentation hooks. "
-              "Separated by colon \":\"");
+              "list of classes containing custom instrumentation hooks "
+              "(separator is ':' on Linux/macOS and ';' on Windows)");
+DEFINE_string(disabled_hooks, "",
+              "list of hook classes (custom or built-in) that should not be "
+              "loaded (separator is ':' on Linux/macOS and ';' on Windows)");
 DEFINE_string(
     trace, "",
-    "list of instrumentation to perform separated by colon \":\". "
+    "list of instrumentation to perform separated by colon ':' on Linux/macOS "
+    "and ';' on Windows. "
     "Available options are cov, cmp, div, gep, all. These options "
     "correspond to the \"-fsanitize-coverage=trace-*\" flags in clang.");
 DEFINE_string(
@@ -88,72 +91,57 @@ DEFINE_bool(hooks, true,
             "coverage information will be processed. This can be useful for "
             "running a regression test on non-instrumented bytecode.");
 
-#ifdef _WIN32
+DEFINE_string(
+    target_class, "",
+    "The Java class that contains the static fuzzerTestOneInput function");
+DEFINE_string(target_args, "",
+              "Arguments passed to fuzzerInitialize as a String array. "
+              "Separated by space.");
+
+DEFINE_uint32(keep_going, 0,
+              "Continue fuzzing until N distinct exception stack traces have"
+              "been encountered. Defaults to exit after the first finding "
+              "unless --autofuzz is specified.");
+DEFINE_bool(dedup, true,
+            "Emit a dedup token for every finding. Defaults to true and is "
+            "required for --keep_going and --ignore.");
+DEFINE_string(
+    ignore, "",
+    "Comma-separated list of crash dedup tokens to ignore. This is useful to "
+    "continue fuzzing before a crash is fixed.");
+
+DEFINE_string(reproducer_path, ".",
+              "Path at which fuzzing reproducers are stored. Defaults to the "
+              "current directory.");
+DEFINE_string(coverage_report, "",
+              "Path at which a coverage report is stored when the fuzzer "
+              "exits. If left empty, no report is generated (default)");
+DEFINE_string(coverage_dump, "",
+              "Path at which a coverage dump is stored when the fuzzer "
+              "exits. If left empty, no dump is generated (default)");
+
+DEFINE_string(autofuzz, "",
+              "Fully qualified reference to a method on the classpath that "
+              "should be fuzzed automatically (example: System.out::println). "
+              "Fuzzing will continue even after a finding; specify "
+              "--keep_going=N to stop after N findings.");
+DEFINE_string(autofuzz_ignore, "",
+              "Fully qualified class names of exceptions to ignore during "
+              "autofuzz. Separated by comma.");
+DEFINE_bool(fake_pcs, false,
+            "No-op flag that remains for backwards compatibility only.");
+
+#if defined(_WIN32) || defined(_WIN64)
 #define ARG_SEPARATOR ";"
+constexpr auto kPathSeparator = '\\';
 #else
 #define ARG_SEPARATOR ":"
+constexpr auto kPathSeparator = '/';
 #endif
-
-// Called by the agent when
-// com.code_intelligence.jazzer.instrumentor.ClassInstrumentor is initialized.
-// This only happens when FLAGS_hooks is true.
-extern "C" JNIEXPORT jint JNICALL JNI_OnLoad_jazzer_initialize(JavaVM *vm,
-                                                               void *) {
-  if (!FLAGS_hooks) {
-    LOG(ERROR) << "JNI_OnLoad_jazzer_initialize called with --nohooks";
-    exit(1);
-  }
-  JNIEnv *env = nullptr;
-  jint result = vm->GetEnv(reinterpret_cast<void **>(&env), JNI_VERSION_1_8);
-  if (result != JNI_OK) {
-    LOG(FATAL) << "Failed to get JNI environment";
-    exit(1);
-  }
-  jazzer::registerFuzzerCallbacks(*env);
-  jazzer::CoverageTracker::Setup(*env);
-  jazzer::SignalHandler::Setup(*env);
-  return JNI_VERSION_1_8;
-}
 
 namespace {
 constexpr auto kAgentBazelRunfilesPath = "jazzer/agent/jazzer_agent_deploy.jar";
 constexpr auto kAgentFileName = "jazzer_agent_deploy.jar";
-constexpr const char kExceptionUtilsClassName[] =
-    "com/code_intelligence/jazzer/runtime/ExceptionUtils";
-}  // namespace
-
-namespace jazzer {
-
-void DumpJvmStackTraces() {
-  JavaVM *vm;
-  jsize num_vms;
-  JNI_GetCreatedJavaVMs(&vm, 1, &num_vms);
-  if (num_vms != 1) {
-    return;
-  }
-  JNIEnv *env = nullptr;
-  if (vm->AttachCurrentThread(reinterpret_cast<void **>(&env), nullptr) !=
-      JNI_OK) {
-    return;
-  }
-  jclass exceptionUtils = env->FindClass(kExceptionUtilsClassName);
-  if (env->ExceptionCheck()) {
-    env->ExceptionDescribe();
-    return;
-  }
-  jmethodID dumpStack =
-      env->GetStaticMethodID(exceptionUtils, "dumpAllStackTraces", "()V");
-  if (env->ExceptionCheck()) {
-    env->ExceptionDescribe();
-    return;
-  }
-  env->CallStaticVoidMethod(exceptionUtils, dumpStack);
-  if (env->ExceptionCheck()) {
-    env->ExceptionDescribe();
-    return;
-  }
-  // Do not detach as we may be the main thread (but the JVM exits anyway).
-}
 
 std::string dirFromFullPath(const std::string &path) {
   const auto pos = path.rfind(kPathSeparator);
@@ -169,8 +157,8 @@ std::string getInstrumentorAgentPath(const std::string &executable_path) {
   // User provided agent location takes precedence.
   if (!FLAGS_agent_path.empty()) {
     if (std::ifstream(FLAGS_agent_path).good()) return FLAGS_agent_path;
-    LOG(ERROR) << "Could not find " << kAgentFileName << " at \""
-               << FLAGS_agent_path << "\"";
+    std::cerr << "ERROR: Could not find " << kAgentFileName << " at \""
+              << FLAGS_agent_path << "\"" << std::endl;
     exit(1);
   }
   // First check if we are running inside the Bazel tree and use the agent
@@ -179,7 +167,7 @@ std::string getInstrumentorAgentPath(const std::string &executable_path) {
     using bazel::tools::cpp::runfiles::Runfiles;
     std::string error;
     std::unique_ptr<Runfiles> runfiles(
-        Runfiles::Create(executable_path, &error));
+        Runfiles::Create(std::string(executable_path), &error));
     if (runfiles != nullptr) {
       auto bazel_path = runfiles->Rlocation(kAgentBazelRunfilesPath);
       if (!bazel_path.empty() && std::ifstream(bazel_path).good())
@@ -193,31 +181,43 @@ std::string getInstrumentorAgentPath(const std::string &executable_path) {
   auto agent_path =
       absl::StrFormat("%s%c%s", dir, kPathSeparator, kAgentFileName);
   if (std::ifstream(agent_path).good()) return agent_path;
-  LOG(ERROR) << "Could not find " << kAgentFileName
-             << ". Please provide "
-                "the pathname via the --agent_path flag.";
+  std::cerr << "ERROR: Could not find " << kAgentFileName
+            << ". Please provide the pathname via the --agent_path flag."
+            << std::endl;
   exit(1);
 }
 
-std::string agentArgsFromFlags() {
-  std::vector<std::string> args;
-  for (const auto &flag_pair :
-       std::vector<std::pair<std::string, const std::string &>>{
-           // {<agent option>, <ref to glog flag> }
-           {"instrumentation_includes", FLAGS_instrumentation_includes},
-           {"instrumentation_excludes", FLAGS_instrumentation_excludes},
-           {"custom_hooks", FLAGS_custom_hooks},
-           {"custom_hook_includes", FLAGS_custom_hook_includes},
-           {"custom_hook_excludes", FLAGS_custom_hook_excludes},
-           {"trace", FLAGS_trace},
-           {"id_sync_file", FLAGS_id_sync_file},
-           {"dump_classes_dir", FLAGS_dump_classes_dir},
-       }) {
-    if (!flag_pair.second.empty()) {
-      args.push_back(flag_pair.first + "=" + flag_pair.second);
-    }
+std::vector<std::string> optsAsDefines() {
+  std::vector<std::string> defines{
+      absl::StrFormat("-Djazzer.target_class=%s", FLAGS_target_class),
+      absl::StrFormat("-Djazzer.target_args=%s", FLAGS_target_args),
+      absl::StrFormat("-Djazzer.dedup=%s", FLAGS_dedup ? "true" : "false"),
+      absl::StrFormat("-Djazzer.ignore=%s", FLAGS_ignore),
+      absl::StrFormat("-Djazzer.reproducer_path=%s", FLAGS_reproducer_path),
+      absl::StrFormat("-Djazzer.coverage_report=%s", FLAGS_coverage_report),
+      absl::StrFormat("-Djazzer.coverage_dump=%s", FLAGS_coverage_dump),
+      absl::StrFormat("-Djazzer.autofuzz=%s", FLAGS_autofuzz),
+      absl::StrFormat("-Djazzer.autofuzz_ignore=%s", FLAGS_autofuzz_ignore),
+      absl::StrFormat("-Djazzer.hooks=%s", FLAGS_hooks ? "true" : "false"),
+      absl::StrFormat("-Djazzer.id_sync_file=%s", FLAGS_id_sync_file),
+      absl::StrFormat("-Djazzer.instrumentation_includes=%s",
+                      FLAGS_instrumentation_includes),
+      absl::StrFormat("-Djazzer.instrumentation_excludes=%s",
+                      FLAGS_instrumentation_excludes),
+      absl::StrFormat("-Djazzer.custom_hooks=%s", FLAGS_custom_hooks),
+      absl::StrFormat("-Djazzer.disabled_hooks=%s", FLAGS_disabled_hooks),
+      absl::StrFormat("-Djazzer.custom_hook_includes=%s",
+                      FLAGS_custom_hook_includes),
+      absl::StrFormat("-Djazzer.custom_hook_excludes=%s",
+                      FLAGS_custom_hook_excludes),
+      absl::StrFormat("-Djazzer.trace=%s", FLAGS_trace),
+      absl::StrFormat("-Djazzer.dump_classes_dir=%s", FLAGS_dump_classes_dir),
+  };
+  if (!gflags::GetCommandLineFlagInfoOrDie("keep_going").is_default) {
+    defines.emplace_back(
+        absl::StrFormat("-Djazzer.keep_going=%d", FLAGS_keep_going));
   }
-  return absl::StrJoin(args, ",");
+  return defines;
 }
 
 // Splits a string at the ARG_SEPARATOR unless it is escaped with a backslash.
@@ -247,6 +247,9 @@ std::vector<std::string> splitEscaped(const std::string &str) {
 
   return parts;
 }
+}  // namespace
+
+namespace jazzer {
 
 JVM::JVM(const std::string &executable_path) {
   // combine class path from command line flags and JAVA_FUZZER_CLASSPATH env
@@ -254,11 +257,10 @@ JVM::JVM(const std::string &executable_path) {
   std::string class_path = absl::StrFormat("-Djava.class.path=%s", FLAGS_cp);
   const auto class_path_from_env = std::getenv("JAVA_FUZZER_CLASSPATH");
   if (class_path_from_env) {
-    class_path += absl::StrFormat(ARG_SEPARATOR "%s", class_path_from_env);
+    class_path += absl::StrCat(ARG_SEPARATOR, class_path_from_env);
   }
-  class_path += absl::StrFormat(ARG_SEPARATOR "%s",
-                                getInstrumentorAgentPath(executable_path));
-  LOG(INFO) << "got class path " << class_path;
+  class_path +=
+      absl::StrCat(ARG_SEPARATOR, getInstrumentorAgentPath(executable_path));
 
   std::vector<JavaVMOption> options;
   options.push_back(
@@ -266,13 +268,33 @@ JVM::JVM(const std::string &executable_path) {
   // Set the maximum heap size to a value that is slightly smaller than
   // libFuzzer's default rss_limit_mb. This prevents erroneous oom reports.
   options.push_back(JavaVMOption{.optionString = (char *)"-Xmx1800m"});
-  options.push_back(JavaVMOption{.optionString = (char *)"-enableassertions"});
   // Preserve and emit stack trace information even on hot paths.
   // This may hurt performance, but also helps find flaky bugs.
   options.push_back(
       JavaVMOption{.optionString = (char *)"-XX:-OmitStackTraceInFastThrow"});
   // Optimize GC for high throughput rather than low latency.
   options.push_back(JavaVMOption{.optionString = (char *)"-XX:+UseParallelGC"});
+  options.push_back(
+      JavaVMOption{.optionString = (char *)"-XX:+CriticalJNINatives"});
+
+  std::vector<std::string> opt_defines = optsAsDefines();
+  for (const auto &define : opt_defines) {
+    options.push_back(
+        JavaVMOption{.optionString = const_cast<char *>(define.c_str())});
+  }
+
+  // Add additional JVM options set through JAVA_OPTS.
+  std::vector<std::string> java_opts_args;
+  const char *java_opts = std::getenv("JAVA_OPTS");
+  if (java_opts != nullptr) {
+    // Mimic the behavior of the JVM when it sees JAVA_TOOL_OPTIONS.
+    std::cerr << "Picked up JAVA_OPTS: " << java_opts << std::endl;
+    java_opts_args = absl::StrSplit(java_opts, ' ');
+    for (const std::string &java_opt : java_opts_args) {
+      options.push_back(
+          JavaVMOption{.optionString = const_cast<char *>(java_opt.c_str())});
+    }
+  }
 
   // add additional jvm options set through command line flags
   std::vector<std::string> jvm_args;
@@ -292,15 +314,6 @@ JVM::JVM(const std::string &executable_path) {
         JavaVMOption{.optionString = const_cast<char *>(arg.c_str())});
   }
 
-  std::string agent_jvm_arg;
-  if (FLAGS_hooks) {
-    agent_jvm_arg = absl::StrFormat("-javaagent:%s=%s",
-                                    getInstrumentorAgentPath(executable_path),
-                                    agentArgsFromFlags());
-    options.push_back(JavaVMOption{
-        .optionString = const_cast<char *>(agent_jvm_arg.c_str())});
-  }
-
   JavaVMInitArgs jvm_init_args = {.version = JNI_VERSION_1_8,
                                   .nOptions = (int)options.size(),
                                   .options = options.data(),
@@ -316,167 +329,4 @@ JVM::JVM(const std::string &executable_path) {
 JNIEnv &JVM::GetEnv() const { return *env_; }
 
 JVM::~JVM() { jvm_->DestroyJavaVM(); }
-
-jclass JVM::FindClass(std::string class_name) const {
-  auto &env = GetEnv();
-  std::replace(class_name.begin(), class_name.end(), '.', '/');
-  const auto ret = env.FindClass(class_name.c_str());
-  if (ret == nullptr) {
-    if (env.ExceptionCheck()) {
-      env.ExceptionDescribe();
-      throw std::runtime_error(
-          absl::StrFormat("Could not find class %s", class_name));
-    } else {
-      throw std::runtime_error(absl::StrFormat(
-          "Java class '%s' not found without exception", class_name));
-    }
-  }
-  return ret;
-}
-
-jmethodID JVM::GetStaticMethodID(jclass jclass, const std::string &jmethod,
-                                 const std::string &signature,
-                                 bool is_required) const {
-  auto &env = GetEnv();
-  const auto ret =
-      env.GetStaticMethodID(jclass, jmethod.c_str(), signature.c_str());
-  if (ret == nullptr) {
-    if (is_required) {
-      if (env.ExceptionCheck()) {
-        env.ExceptionDescribe();
-      }
-      throw std::runtime_error(
-          absl::StrFormat("Static method '%s' not found", jmethod));
-    } else {
-      LOG(INFO) << "did not find method " << jmethod << " with signature "
-                << signature;
-      env.ExceptionClear();
-    }
-  }
-  return ret;
-}
-
-jmethodID JVM::GetMethodID(jclass jclass, const std::string &jmethod,
-                           const std::string &signature) const {
-  auto &env = GetEnv();
-  const auto ret = env.GetMethodID(jclass, jmethod.c_str(), signature.c_str());
-  if (ret == nullptr) {
-    if (env.ExceptionCheck()) {
-      env.ExceptionDescribe();
-    }
-    throw std::runtime_error(absl::StrFormat("Method '%s' not found", jmethod));
-  }
-  return ret;
-}
-
-jfieldID JVM::GetStaticFieldID(jclass class_id, const std::string &field_name,
-                               const std::string &type) const {
-  auto &env = GetEnv();
-  const auto ret =
-      env.GetStaticFieldID(class_id, field_name.c_str(), type.c_str());
-  if (ret == nullptr) {
-    if (env.ExceptionCheck()) {
-      env.ExceptionDescribe();
-    }
-    throw std::runtime_error(
-        absl::StrFormat("Field '%s' not found", field_name));
-  }
-  return ret;
-}
-
-ExceptionPrinter::ExceptionPrinter(JVM &jvm)
-    : jvm_(jvm),
-      string_writer_class_(jvm.FindClass("java/io/StringWriter")),
-      string_writer_constructor_(
-          jvm.GetMethodID(string_writer_class_, "<init>", "()V")),
-      string_writer_to_string_method_(jvm.GetMethodID(
-          string_writer_class_, "toString", "()Ljava/lang/String;")),
-      print_writer_class_(jvm.FindClass("java/io/PrintWriter")),
-      print_writer_constructor_(jvm.GetMethodID(print_writer_class_, "<init>",
-                                                "(Ljava/io/Writer;)V")) {
-  auto throwable_class = jvm.FindClass("java/lang/Throwable");
-  print_stack_trace_method_ = jvm.GetMethodID(
-      throwable_class, "printStackTrace", "(Ljava/io/PrintWriter;)V");
-  if (FLAGS_hooks) {
-    exception_utils_ = jvm.FindClass(kExceptionUtilsClassName);
-    compute_dedup_token_method_ = jvm.GetStaticMethodID(
-        exception_utils_, "computeDedupToken", "(Ljava/lang/Throwable;)J");
-    preprocess_throwable_method_ =
-        jvm.GetStaticMethodID(exception_utils_, "preprocessThrowable",
-                              "(Ljava/lang/Throwable;)Ljava/lang/Throwable;");
-  }
-}
-
-// The JNI way of writing:
-//    StringWriter stringWriter = new StringWriter();
-//    PrintWriter printWriter = new PrintWriter(stringWriter);
-//    e.printStackTrace(printWriter);
-//    return stringWriter.toString();
-std::string ExceptionPrinter::getStackTrace(jthrowable exception) const {
-  auto &env = jvm_.GetEnv();
-  if (exception == nullptr) {
-    return "";
-  }
-
-  auto string_writer =
-      env.NewObject(string_writer_class_, string_writer_constructor_);
-  if (string_writer == nullptr) {
-    env.ExceptionDescribe();
-    return "";
-  }
-  auto print_writer = env.NewObject(print_writer_class_,
-                                    print_writer_constructor_, string_writer);
-  if (print_writer == nullptr) {
-    env.ExceptionDescribe();
-    return "";
-  }
-
-  env.CallVoidMethod(exception, print_stack_trace_method_, print_writer);
-  env.DeleteLocalRef(print_writer);
-  if (env.ExceptionCheck()) {
-    env.ExceptionDescribe();
-    return "";
-  }
-  auto exception_string_object = reinterpret_cast<jstring>(
-      env.CallObjectMethod(string_writer, string_writer_to_string_method_));
-  env.DeleteLocalRef(string_writer);
-  if (env.ExceptionCheck()) {
-    env.ExceptionDescribe();
-    return "";
-  }
-
-  auto char_pointer = env.GetStringUTFChars(exception_string_object, nullptr);
-  std::string exception_string(char_pointer);
-  env.ReleaseStringUTFChars(exception_string_object, char_pointer);
-  env.DeleteLocalRef(exception_string_object);
-  return exception_string;
-}
-
-jthrowable ExceptionPrinter::preprocessException(jthrowable exception) const {
-  if (exception == nullptr) return nullptr;
-  auto &env = jvm_.GetEnv();
-  if (!FLAGS_hooks || !preprocess_throwable_method_) return exception;
-  auto processed_exception = (jthrowable)(env.CallStaticObjectMethod(
-      exception_utils_, preprocess_throwable_method_, exception));
-  if (env.ExceptionCheck()) {
-    env.ExceptionDescribe();
-    return exception;
-  }
-  return processed_exception;
-}
-
-jlong ExceptionPrinter::computeDedupToken(jthrowable exception) const {
-  auto &env = jvm_.GetEnv();
-  if (!FLAGS_hooks || exception == nullptr ||
-      compute_dedup_token_method_ == nullptr)
-    return 0;
-  const auto dedup_token = env.CallStaticLongMethod(
-      exception_utils_, compute_dedup_token_method_, exception);
-  if (env.ExceptionCheck()) {
-    env.ExceptionDescribe();
-    return 0;
-  }
-  return dedup_token;
-}
-
 }  // namespace jazzer

@@ -42,7 +42,7 @@
 #include "ssa_builder.h"
 #include "well_known_classes.h"
 
-namespace art {
+namespace art HIDDEN {
 
 namespace {
 
@@ -343,6 +343,10 @@ static bool IsBlockPopulated(HBasicBlock* block) {
     // Suspend checks were inserted into loop headers during building of dominator tree.
     DCHECK(block->GetFirstInstruction()->IsSuspendCheck());
     return block->GetFirstInstruction() != block->GetLastInstruction();
+  } else if (block->IsCatchBlock()) {
+    // Nops were inserted into the beginning of catch blocks.
+    DCHECK(block->GetFirstInstruction()->IsNop());
+    return block->GetFirstInstruction() != block->GetLastInstruction();
   } else {
     return !block->GetInstructions().IsEmpty();
   }
@@ -387,6 +391,11 @@ bool HInstructionBuilder::Build() {
       // This is slightly odd because the loop header might not be empty (TryBoundary).
       // But we're still creating the environment with locals from the top of the block.
       InsertInstructionAtTop(suspend_check);
+    } else if (current_block_->IsCatchBlock()) {
+      // We add an environment emitting instruction at the beginning of each catch block, in order
+      // to support try catch inlining.
+      // This is slightly odd because the catch block might not be empty (TryBoundary).
+      InsertInstructionAtTop(new (allocator_) HNop(block_dex_pc, /* needs_environment= */ true));
     }
 
     if (block_dex_pc == kNoDexPc || current_block_ != block_builder_->GetBlockAt(block_dex_pc)) {
@@ -414,7 +423,7 @@ bool HInstructionBuilder::Build() {
       }
 
       if (native_debuggable && native_debug_info_locations->IsBitSet(dex_pc)) {
-        AppendInstruction(new (allocator_) HNativeDebugInfo(dex_pc));
+        AppendInstruction(new (allocator_) HNop(dex_pc, /* needs_environment= */ true));
       }
 
       // Note: There may be no Thread for gtests.
@@ -460,6 +469,9 @@ void HInstructionBuilder::BuildIntrinsic(ArtMethod* method) {
   current_block_ = graph_->GetEntryBlock();
   InitializeBlockLocals();
   InitializeParameters();
+  if (graph_->IsDebuggable() && code_generator_->GetCompilerOptions().IsJitCompiler()) {
+    AppendInstruction(new (allocator_) HMethodEntryHook(0u));
+  }
   AppendInstruction(new (allocator_) HGoto(0u));
 
   // Fill the body.
@@ -495,14 +507,21 @@ void HInstructionBuilder::BuildIntrinsic(ArtMethod* method) {
         dispatch_info,
         invoke_type,
         target_method,
-        HInvokeStaticOrDirect::ClinitCheckRequirement::kNone);
+        HInvokeStaticOrDirect::ClinitCheckRequirement::kNone,
+        !graph_->IsDebuggable());
     HandleInvoke(invoke, operands, shorty, /* is_unresolved= */ false);
   }
 
   // Add the return instruction.
   if (return_type_ == DataType::Type::kVoid) {
+    if (graph_->IsDebuggable() && code_generator_->GetCompilerOptions().IsJitCompiler()) {
+      AppendInstruction(new (allocator_) HMethodExitHook(graph_->GetNullConstant(), kNoDexPc));
+    }
     AppendInstruction(new (allocator_) HReturnVoid());
   } else {
+    if (graph_->IsDebuggable() && code_generator_->GetCompilerOptions().IsJitCompiler()) {
+      AppendInstruction(new (allocator_) HMethodExitHook(latest_result_, kNoDexPc));
+    }
     AppendInstruction(new (allocator_) HReturn(latest_result_));
   }
 
@@ -972,11 +991,11 @@ static ArtMethod* ResolveMethod(uint16_t method_idx,
     *imt_or_vtable_index = resolved_method->GetVtableIndex();
   } else if (*invoke_type == kInterface) {
     // For HInvokeInterface we need the IMT index.
-    *imt_or_vtable_index = ImTable::GetImtIndex(resolved_method);
+    *imt_or_vtable_index = resolved_method->GetImtIndex();
+    DCHECK_EQ(*imt_or_vtable_index, ImTable::GetImtIndex(resolved_method));
   }
 
-  *is_string_constructor =
-      resolved_method->IsConstructor() && resolved_method->GetDeclaringClass()->IsStringClass();
+  *is_string_constructor = resolved_method->IsStringConstructor();
 
   return resolved_method;
 }
@@ -1041,7 +1060,8 @@ bool HInstructionBuilder::BuildInvoke(const Instruction& instruction,
         dispatch_info,
         invoke_type,
         resolved_method_reference,
-        HInvokeStaticOrDirect::ClinitCheckRequirement::kImplicit);
+        HInvokeStaticOrDirect::ClinitCheckRequirement::kImplicit,
+        !graph_->IsDebuggable());
     return HandleStringInit(invoke, operands, shorty);
   }
 
@@ -1054,7 +1074,7 @@ bool HInstructionBuilder::BuildInvoke(const Instruction& instruction,
   }
 
   // Try to build an HIR replacement for the intrinsic.
-  if (UNLIKELY(resolved_method->IsIntrinsic())) {
+  if (UNLIKELY(resolved_method->IsIntrinsic()) && !graph_->IsDebuggable()) {
     // All intrinsics are in the primary boot image, so their class can always be referenced
     // and we do not need to rely on the implicit class initialization check. The class should
     // be initialized but we do not require that here.
@@ -1105,7 +1125,8 @@ bool HInstructionBuilder::BuildInvoke(const Instruction& instruction,
                                                     dispatch_info,
                                                     invoke_type,
                                                     resolved_method_reference,
-                                                    clinit_check_requirement);
+                                                    clinit_check_requirement,
+                                                    !graph_->IsDebuggable());
     if (clinit_check != nullptr) {
       // Add the class initialization check as last input of `invoke`.
       DCHECK_EQ(clinit_check_requirement, HInvokeStaticOrDirect::ClinitCheckRequirement::kExplicit);
@@ -1121,7 +1142,8 @@ bool HInstructionBuilder::BuildInvoke(const Instruction& instruction,
                                              method_reference,
                                              resolved_method,
                                              resolved_method_reference,
-                                             /*vtable_index=*/ imt_or_vtable_index);
+                                             /*vtable_index=*/ imt_or_vtable_index,
+                                             !graph_->IsDebuggable());
   } else {
     DCHECK_EQ(invoke_type, kInterface);
     if (kIsDebugBuild) {
@@ -1142,7 +1164,8 @@ bool HInstructionBuilder::BuildInvoke(const Instruction& instruction,
                                                resolved_method,
                                                resolved_method_reference,
                                                /*imt_index=*/ imt_or_vtable_index,
-                                               load_kind);
+                                               load_kind,
+                                               !graph_->IsDebuggable());
   }
   return HandleInvoke(invoke, operands, shorty, /* is_unresolved= */ false);
 }
@@ -1341,12 +1364,14 @@ bool HInstructionBuilder::BuildInvokePolymorphic(uint32_t dex_pc,
                                                         method_reference,
                                                         resolved_method,
                                                         resolved_method_reference,
-                                                        proto_idx);
+                                                        proto_idx,
+                                                        !graph_->IsDebuggable());
   if (!HandleInvoke(invoke, operands, shorty, /* is_unresolved= */ false)) {
     return false;
   }
 
-  if (invoke->GetIntrinsic() != Intrinsics::kMethodHandleInvoke &&
+  if (invoke->GetIntrinsic() != Intrinsics::kNone &&
+      invoke->GetIntrinsic() != Intrinsics::kMethodHandleInvoke &&
       invoke->GetIntrinsic() != Intrinsics::kMethodHandleInvokeExact &&
       VarHandleAccessorNeedsReturnTypeCheck(invoke, return_type)) {
     // Type check is needed because VarHandle intrinsics do not type check the retrieved reference.
@@ -1379,7 +1404,8 @@ bool HInstructionBuilder::BuildInvokeCustom(uint32_t dex_pc,
                                                    call_site_idx,
                                                    return_type,
                                                    dex_pc,
-                                                   method_reference);
+                                                   method_reference,
+                                                   !graph_->IsDebuggable());
   return HandleInvoke(invoke, operands, shorty, /* is_unresolved= */ false);
 }
 

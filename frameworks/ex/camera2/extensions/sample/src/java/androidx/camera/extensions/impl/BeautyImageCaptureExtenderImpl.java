@@ -21,6 +21,7 @@ import android.hardware.camera2.CameraCharacteristics;
 import android.hardware.camera2.CaptureRequest;
 import android.hardware.camera2.CaptureResult;
 import android.hardware.camera2.TotalCaptureResult;
+import android.hardware.camera2.params.SessionConfiguration;
 import android.hardware.camera2.params.StreamConfigurationMap;
 import android.media.Image;
 import android.media.ImageWriter;
@@ -118,6 +119,26 @@ public final class BeautyImageCaptureExtenderImpl implements ImageCaptureExtende
                     }
 
                     @Override
+                    public void onPostviewOutputSurface(Surface surface) {
+
+                    }
+
+                    @Override
+                    public void processWithPostview(
+                            Map<Integer, Pair<Image, TotalCaptureResult>> results,
+                            ProcessResultImpl resultCallback, Executor executor) {
+                        if (!isPostviewAvailable()) {
+                            throw new RuntimeException("The extension doesn't support postview");
+                        }
+
+                        if (resultCallback != null) {
+                            process(results, resultCallback, executor);
+                        } else {
+                            process(results);
+                        }
+                    }
+
+                    @Override
                     public void process(Map<Integer, Pair<Image, TotalCaptureResult>> results,
                             ProcessResultImpl resultCallback, Executor executor) {
                         throw new RuntimeException("The extension doesn't support capture " +
@@ -162,6 +183,11 @@ public final class BeautyImageCaptureExtenderImpl implements ImageCaptureExtende
 
                     @Override
                     public void onResolutionUpdate(Size size) {
+
+                    }
+
+                    @Override
+                    public void onResolutionUpdate(Size size, Size postviewSize) {
 
                     }
 
@@ -267,6 +293,11 @@ public final class BeautyImageCaptureExtenderImpl implements ImageCaptureExtende
     }
 
     @Override
+    public List<Pair<Integer, Size[]>> getSupportedPostviewResolutions(Size captureSize) {
+        return new ArrayList<>();
+    }
+
+    @Override
     public Range<Long> getEstimatedCaptureLatencyRange(Size captureOutputSize) {
         return null;
     }
@@ -279,5 +310,25 @@ public final class BeautyImageCaptureExtenderImpl implements ImageCaptureExtende
     @Override
     public List<CaptureResult.Key> getAvailableCaptureResultKeys() {
         return new ArrayList<>();
+    }
+
+    @Override
+    public int onSessionType() {
+        return SessionConfiguration.SESSION_REGULAR;
+    }
+
+    @Override
+    public boolean isCaptureProcessProgressAvailable() {
+        return false;
+    }
+
+    @Override
+    public Pair<Long, Long> getRealtimeCaptureLatency() {
+        return null;
+    }
+
+    @Override
+    public boolean isPostviewAvailable() {
+        return false;
     }
 }

@@ -13,7 +13,7 @@ TEST_TYPE = 'Server'
 
 DOC = """
 This suite is intended to be run by buildbot as a sanity check of the build.
-It currently only contains a dummy_Pass test. It works by relying
+It currently only contains a stub_Pass test. It works by relying
 on the safety checks built into the provisioning code to identify bad builds.
 
 This suite is intended to block other bvt suites, and as such is highly

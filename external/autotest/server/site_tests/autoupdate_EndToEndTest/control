@@ -12,7 +12,7 @@ TIME = "MEDIUM"
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "platform"
 TEST_TYPE = "server"
-
+PY_VERSION = 3
 # Disable server-side packaging support for this test.
 # This control file is used as the template for paygen_au_canary suite, which
 # creates the control files during paygen. Therefore, autotest server package
@@ -20,8 +20,8 @@ TEST_TYPE = "server"
 REQUIRE_SSP = False
 
 DOC = """
-This is an end-to-end update test of Chrome OS releases. Given a test
-configuration, it will perform an end-to-end test of a Chrome OS update
+This is an end-to-end update test of ChromeOS releases. Given a test
+configuration, it will perform an end-to-end test of a ChromeOS update
 payload. A test configuration can be given as command-line arguments (see
 below) or instantiated inline as local varibles.
 
@@ -95,7 +95,7 @@ To run locally:
     Run ssh-keygen to generate your id_rsa and id_rsa.pub files into ~/.ssh/
 
     Download the testing_rsa ssh keys from here:
-    https://chromium.googlesource.com/chromiumos/chromite/+/master/ssh_keys
+    https://chromium.googlesource.com/chromiumos/chromite/+/main/ssh_keys
     Save both to ~/.ssh
     chmod 600 ~/.ssh/testing_rsa* (otherwise permissions are too loose and
     will be ignored)
@@ -108,7 +108,7 @@ To run locally:
     You should now be able to ssh into DUTs in the lab without a password.
 
     Follow these instructions to setup the ssh access to lab devservers:
-    http://go/cros-sites-archive/for-team-members/infrastructure/chromeos-admin/devserver-access
+    https://g3doc.corp.google.com/company/teams/chrome/ops/fleet/software/onboarding/creating-work-env.md#devserver-environment-for-running-local-tests-with-lab-duts
         You'll need appropriate group membership to be able to access the
         Valentine secret for the devserver file.
 

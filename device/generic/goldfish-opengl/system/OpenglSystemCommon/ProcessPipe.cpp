@@ -35,7 +35,7 @@
 #include "services/service_connector.h"
 
 #define GET_STATUS_SAFE(result, member) \
-    ((result).ok() ? ((result).Unwrap()->member) : ZX_OK)
+    ((result).ok() ? ((result)->member) : ZX_OK)
 
 static QEMU_PIPE_HANDLE   sProcDevice = 0;
 #else // __Fuchsia__
@@ -76,16 +76,28 @@ static void initSeqno() {
 static void processPipeInitOnce() {
     initSeqno();
 
-    fidl::ClientEnd<fuchsia_hardware_goldfish::PipeDevice> channel{
+    fidl::ClientEnd<fuchsia_hardware_goldfish::Controller> controller_channel{
         zx::channel(GetConnectToServiceFunction()(QEMU_PIPE_PATH))};
-    if (!channel) {
+    if (!controller_channel) {
         ALOGE("%s: failed to open " QEMU_PIPE_PATH,
               __FUNCTION__);
         return;
     }
+    fidl::WireSyncClient controller(std::move(controller_channel));
+    zx::result pipe_device_ends =
+        fidl::CreateEndpoints<fuchsia_hardware_goldfish::PipeDevice>();
+    if (pipe_device_ends.is_error()) {
+        ALOGE("%s: zx_channel_create failed: %s", __FUNCTION__, pipe_device_ends.status_string());
+        return;
+    }
 
-    fidl::WireSyncClient<fuchsia_hardware_goldfish::PipeDevice> device(
-        std::move(channel));
+    if (fidl::Status result = controller->OpenSession(std::move(pipe_device_ends->server));
+        !result.ok()) {
+        ALOGE("%s: failed to open session: %s", __FUNCTION__, result.status_string());
+        return;
+    }
+
+    fidl::WireSyncClient device(std::move(pipe_device_ends->client));
 
     auto pipe_ends =
         fidl::CreateEndpoints<::fuchsia_hardware_goldfish::Pipe>();
@@ -94,19 +106,18 @@ static void processPipeInitOnce() {
         return;
     }
 
-    fidl::WireSyncClient<fuchsia_hardware_goldfish::Pipe> pipe(
-        std::move(pipe_ends->client));
+    fidl::WireSyncClient pipe(std::move(pipe_ends->client));
     device->OpenPipe(std::move(pipe_ends->server));
 
     zx::vmo vmo;
     {
         auto result = pipe->GetBuffer();
-        if (!result.ok() || result.Unwrap()->res != ZX_OK) {
+        if (!result.ok() || result->res != ZX_OK) {
             ALOGE("%s: failed to get buffer: %d:%d", __FUNCTION__,
                   result.status(), GET_STATUS_SAFE(result, res));
             return;
         }
-        vmo = std::move(result.Unwrap()->vmo);
+        vmo = std::move(result->vmo);
     }
 
     size_t len = strlen("pipe:GLProcessPipe");
@@ -118,7 +129,7 @@ static void processPipeInitOnce() {
 
     {
         auto result = pipe->Write(len + 1, 0);
-        if (!result.ok() || result.Unwrap()->res != ZX_OK) {
+        if (!result.ok() || result->res != ZX_OK) {
             ALOGD("%s: connecting to pipe service failed: %d:%d", __FUNCTION__,
                   result.status(), GET_STATUS_SAFE(result, res));
             return;
@@ -135,7 +146,7 @@ static void processPipeInitOnce() {
 
     {
         auto result = pipe->DoCall(sizeof(confirmInt), 0, sizeof(sProcUID), 0);
-        if (!result.ok() || result.Unwrap()->res != ZX_OK) {
+        if (!result.ok() || result->res != ZX_OK) {
             ALOGD("%s: failed to get per-process ID: %d:%d", __FUNCTION__,
                   result.status(), GET_STATUS_SAFE(result, res));
             return;
@@ -189,7 +200,6 @@ static void processPipeInitOnce() {
         case HOST_CONNECTION_QEMU_PIPE:
         case HOST_CONNECTION_ADDRESS_SPACE:
         case HOST_CONNECTION_TCP:
-        case HOST_CONNECTION_VIRTIO_GPU:
             sQemuPipeInit();
             break;
         case HOST_CONNECTION_VIRTIO_GPU_PIPE:
@@ -231,7 +241,6 @@ void processPipeRestart() {
         case HOST_CONNECTION_QEMU_PIPE:
         case HOST_CONNECTION_ADDRESS_SPACE:
         case HOST_CONNECTION_TCP:
-        case HOST_CONNECTION_VIRTIO_GPU:
             isPipe = true;
             break;
         case HOST_CONNECTION_VIRTIO_GPU_PIPE:

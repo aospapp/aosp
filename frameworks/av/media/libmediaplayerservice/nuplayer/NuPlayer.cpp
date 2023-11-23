@@ -60,7 +60,7 @@
 #include <gui/Surface.h>
 
 
-#include "ESDS.h"
+#include <media/esds/ESDS.h>
 #include <media/stagefright/Utils.h>
 
 namespace android {
@@ -555,6 +555,13 @@ void NuPlayer::writeTrackInfo(
         reply->writeInt32(isAuto);
         reply->writeInt32(isDefault);
         reply->writeInt32(isForced);
+    } else if (trackType == MEDIA_TRACK_TYPE_AUDIO) {
+        int32_t hapticChannelCount;
+        bool hasHapticChannels = format->findInt32("haptic-channel-count", &hapticChannelCount);
+        reply->writeInt32(hasHapticChannels);
+        if (hasHapticChannels) {
+            reply->writeInt32(hapticChannelCount);
+        }
     }
 }
 
@@ -1220,7 +1227,11 @@ void NuPlayer::onMessageReceived(const sp<AMessage> &msg) {
                             notifyListener(MEDIA_ERROR, MEDIA_ERROR_UNKNOWN, err);
                         } else {
                             // Only audio track has error. Video track could be still good to play.
-                            notifyListener(MEDIA_INFO, MEDIA_INFO_PLAY_AUDIO_ERROR, err);
+                            if (mVideoEOS) {
+                                notifyListener(MEDIA_PLAYBACK_COMPLETE, 0, 0);
+                            } else {
+                                notifyListener(MEDIA_INFO, MEDIA_INFO_PLAY_AUDIO_ERROR, err);
+                            }
                         }
                         mAudioDecoderError = true;
                     } else {
@@ -1231,7 +1242,11 @@ void NuPlayer::onMessageReceived(const sp<AMessage> &msg) {
                             notifyListener(MEDIA_ERROR, MEDIA_ERROR_UNKNOWN, err);
                         } else {
                             // Only video track has error. Audio track could be still good to play.
-                            notifyListener(MEDIA_INFO, MEDIA_INFO_PLAY_VIDEO_ERROR, err);
+                            if (mAudioEOS) {
+                                notifyListener(MEDIA_PLAYBACK_COMPLETE, 0, 0);
+                            } else {
+                                notifyListener(MEDIA_INFO, MEDIA_INFO_PLAY_VIDEO_ERROR, err);
+                            }
                         }
                         mVideoDecoderError = true;
                     }
@@ -3015,6 +3030,16 @@ const char *NuPlayer::getDataSourceType() {
         default:
             return "None";
     }
+ }
+
+ void NuPlayer::dump(AString& logString) {
+    logString.append("renderer(");
+    if (mRenderer != nullptr) {
+        mRenderer->dump(logString);
+    } else {
+        logString.append("null");
+    }
+    logString.append(")");
  }
 
 // Modular DRM begin

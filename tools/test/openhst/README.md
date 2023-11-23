@@ -54,6 +54,8 @@ Before conducting stress test, voice model should be trained with the recorded t
 
 1.  Please follow the guide in "Train voice model" chapter in [OEM Hotword Stress Test with OpenHST](https://docs.google.com/presentation/d/e/2PACX-1vR5kjJfMZGMLMeyFV3AmzgGT1gniS1URztYqv4IJleWiSAtDNYNodsF1FMJHT57duP8CPr5oXvEEqCb/pub?start=false&loop=false&delayms=3000)
 
+**Note** for voice match with query phrases, please use `enroll_with_queries` as test_name for voice match enrollment.
+
 ## Stress Test
 
 Please refer to the guide in "Run Stress Test" chapter in  [OEM Hotword Stress Test with OpenHST](https://docs.google.com/presentation/d/e/2PACX-1vR5kjJfMZGMLMeyFV3AmzgGT1gniS1URztYqv4IJleWiSAtDNYNodsF1FMJHT57duP8CPr5oXvEEqCb/pub?start=false&loop=false&delayms=3000) and run the hotword stress test.

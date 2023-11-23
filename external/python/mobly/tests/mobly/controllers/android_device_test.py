@@ -601,6 +601,7 @@ class AndroidDeviceTest(unittest.TestCase):
       self, sanitize_filename_mock, get_log_file_timestamp_mock, MockFastboot,
       MockAdbProxy):
     mock_serial = 1
+    sanitize_filename_mock.return_value = '1'
     ad = android_device.AndroidDevice(serial=mock_serial)
     get_log_file_timestamp_mock.return_value = '07-22-2019_17-53-34-450'
     filename = ad.generate_filename('MagicLog')
@@ -1004,7 +1005,7 @@ class AndroidDeviceTest(unittest.TestCase):
   @mock.patch('mobly.controllers.android_device_lib.fastboot.FastbootProxy',
               return_value=mock_android_device.MockFastbootProxy('1'))
   @mock.patch(
-      'mobly.controllers.android_device_lib.snippet_client.SnippetClient')
+      'mobly.controllers.android_device_lib.snippet_client_v2.SnippetClientV2')
   @mock.patch('mobly.utils.get_available_host_port')
   def test_AndroidDevice_load_snippet(self, MockGetPort, MockSnippetClient,
                                       MockFastboot, MockAdbProxy):
@@ -1017,7 +1018,7 @@ class AndroidDeviceTest(unittest.TestCase):
   @mock.patch('mobly.controllers.android_device_lib.fastboot.FastbootProxy',
               return_value=mock_android_device.MockFastbootProxy('1'))
   @mock.patch(
-      'mobly.controllers.android_device_lib.snippet_client.SnippetClient')
+      'mobly.controllers.android_device_lib.snippet_client_v2.SnippetClientV2')
   @mock.patch('mobly.utils.get_available_host_port')
   def test_AndroidDevice_getattr(self, MockGetPort, MockSnippetClient,
                                  MockFastboot, MockAdbProxy):
@@ -1032,7 +1033,7 @@ class AndroidDeviceTest(unittest.TestCase):
   @mock.patch('mobly.controllers.android_device_lib.fastboot.FastbootProxy',
               return_value=mock_android_device.MockFastbootProxy('1'))
   @mock.patch(
-      'mobly.controllers.android_device_lib.snippet_client.SnippetClient',
+      'mobly.controllers.android_device_lib.snippet_client_v2.SnippetClientV2',
       return_value=MockSnippetClient)
   @mock.patch('mobly.utils.get_available_host_port')
   def test_AndroidDevice_load_snippet_dup_package(self, MockGetPort,
@@ -1050,7 +1051,7 @@ class AndroidDeviceTest(unittest.TestCase):
   @mock.patch('mobly.controllers.android_device_lib.fastboot.FastbootProxy',
               return_value=mock_android_device.MockFastbootProxy('1'))
   @mock.patch(
-      'mobly.controllers.android_device_lib.snippet_client.SnippetClient',
+      'mobly.controllers.android_device_lib.snippet_client_v2.SnippetClientV2',
       return_value=MockSnippetClient)
   @mock.patch('mobly.utils.get_available_host_port')
   def test_AndroidDevice_load_snippet_dup_snippet_name(self, MockGetPort,
@@ -1069,7 +1070,7 @@ class AndroidDeviceTest(unittest.TestCase):
   @mock.patch('mobly.controllers.android_device_lib.fastboot.FastbootProxy',
               return_value=mock_android_device.MockFastbootProxy('1'))
   @mock.patch(
-      'mobly.controllers.android_device_lib.snippet_client.SnippetClient')
+      'mobly.controllers.android_device_lib.snippet_client_v2.SnippetClientV2')
   @mock.patch('mobly.utils.get_available_host_port')
   def test_AndroidDevice_load_snippet_dup_attribute_name(
       self, MockGetPort, MockSnippetClient, MockFastboot, MockAdbProxy):
@@ -1084,7 +1085,7 @@ class AndroidDeviceTest(unittest.TestCase):
   @mock.patch('mobly.controllers.android_device_lib.fastboot.FastbootProxy',
               return_value=mock_android_device.MockFastbootProxy('1'))
   @mock.patch(
-      'mobly.controllers.android_device_lib.snippet_client.SnippetClient')
+      'mobly.controllers.android_device_lib.snippet_client_v2.SnippetClientV2')
   @mock.patch('mobly.utils.get_available_host_port')
   def test_AndroidDevice_load_snippet_start_app_fails(self, MockGetPort,
                                                       MockSnippetClient,
@@ -1092,14 +1093,13 @@ class AndroidDeviceTest(unittest.TestCase):
                                                       MockAdbProxy):
     """Verifies that the correct exception is raised if start app failed.
 
-    It's possible that the `stop_app` call as part of the start app failure
+    It's possible that the `stop` call as part of the start app failure
     teardown also fails. So we want the exception from the start app
     failure.
     """
     expected_e = Exception('start failed.')
-    MockSnippetClient.start_app_and_connect = mock.Mock(side_effect=expected_e)
-    MockSnippetClient.stop_app = mock.Mock(
-        side_effect=Exception('stop failed.'))
+    MockSnippetClient.initialize = mock.Mock(side_effect=expected_e)
+    MockSnippetClient.stop = mock.Mock(side_effect=Exception('stop failed.'))
     ad = android_device.AndroidDevice(serial='1')
     try:
       ad.load_snippet('snippet', MOCK_SNIPPET_PACKAGE_NAME)
@@ -1111,7 +1111,7 @@ class AndroidDeviceTest(unittest.TestCase):
   @mock.patch('mobly.controllers.android_device_lib.fastboot.FastbootProxy',
               return_value=mock_android_device.MockFastbootProxy('1'))
   @mock.patch(
-      'mobly.controllers.android_device_lib.snippet_client.SnippetClient')
+      'mobly.controllers.android_device_lib.snippet_client_v2.SnippetClientV2')
   @mock.patch('mobly.utils.get_available_host_port')
   def test_AndroidDevice_unload_snippet(self, MockGetPort, MockSnippetClient,
                                         MockFastboot, MockAdbProxy):
@@ -1132,7 +1132,7 @@ class AndroidDeviceTest(unittest.TestCase):
   @mock.patch('mobly.controllers.android_device_lib.fastboot.FastbootProxy',
               return_value=mock_android_device.MockFastbootProxy('1'))
   @mock.patch(
-      'mobly.controllers.android_device_lib.snippet_client.SnippetClient')
+      'mobly.controllers.android_device_lib.snippet_client_v2.SnippetClientV2')
   @mock.patch('mobly.utils.get_available_host_port')
   @mock.patch.object(logcat.Logcat, '_open_logcat_file')
   def test_AndroidDevice_snippet_cleanup(self, open_logcat_mock, MockGetPort,

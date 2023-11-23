@@ -60,7 +60,6 @@ public class BluetoothServerSocketTest extends AndroidTestCase {
             if (mHasBluetooth && mBluetoothServerSocket != null) {
                 mBluetoothServerSocket.close();
             }
-            assertTrue(BTAdapterUtils.disableAdapter(mAdapter, mContext));
             mAdapter = null;
             mBluetoothServerSocket = null;
             mUiAutomation.dropShellPermissionIdentity();

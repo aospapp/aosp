@@ -66,14 +66,17 @@ public class BroadcastItemsAdapter
             if (isPlaying) {
                 holder.background
                 .setCardBackgroundColor(ColorStateList.valueOf(Color.parseColor("#92b141")));
-                holder.mTextViewBroadcastId.setText("ID: " + broadcastId + " ▶️");
+                holder.mTextViewBroadcastId.setText("ID: " + broadcastId
+                        + "(" + String.format("0x%x", broadcastId) + ") ▶️");
             } else {
                 holder.background.setCardBackgroundColor(ColorStateList.valueOf(Color.WHITE));
-                holder.mTextViewBroadcastId.setText("ID: " + broadcastId + " ⏸");
+                holder.mTextViewBroadcastId.setText("ID: " + broadcastId
+                        + "(" + String.format("0x%x", broadcastId) + ") ⏸");
             }
         } else {
             holder.background.setCardBackgroundColor(ColorStateList.valueOf(Color.WHITE));
-            holder.mTextViewBroadcastId.setText("ID: " + broadcastId);
+            holder.mTextViewBroadcastId.setText("ID: " + broadcastId
+                        + "(" + String.format("0x%x", broadcastId) + ")");
         }
 
         // TODO: Add additional informations to the card

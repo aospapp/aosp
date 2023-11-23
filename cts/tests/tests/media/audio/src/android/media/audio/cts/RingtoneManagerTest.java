@@ -15,6 +15,13 @@
  */
 package android.media.audio.cts;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
+
 import android.app.Instrumentation;
 import android.content.ContentResolver;
 import android.content.Context;
@@ -26,21 +33,30 @@ import android.media.Ringtone;
 import android.media.RingtoneManager;
 import android.media.cts.Utils;
 import android.net.Uri;
+import android.os.ConditionVariable;
 import android.platform.test.annotations.AppModeFull;
 import android.provider.Settings;
-import android.test.ActivityInstrumentationTestCase2;
 
-import java.io.FileNotFoundException;
+import androidx.test.core.app.ActivityScenario;
+import androidx.test.ext.junit.runners.AndroidJUnit4;
+import androidx.test.platform.app.InstrumentationRegistry;
+
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+
 import java.io.IOException;
 
 @AppModeFull(reason = "TODO: evaluate and port to instant")
-public class RingtoneManagerTest
-        extends ActivityInstrumentationTestCase2<RingtonePickerActivity> {
+@RunWith(AndroidJUnit4.class)
+public class RingtoneManagerTest {
 
     private static final String PKG = "android.media.audio.cts";
     private static final String TAG = "RingtoneManagerTest";
 
     private RingtonePickerActivity mActivity;
+    private ActivityScenario<RingtonePickerActivity> mActivityScenario;
     private Instrumentation mInstrumentation;
     private Context mContext;
     private RingtoneManager mRingtoneManager;
@@ -48,16 +64,21 @@ public class RingtoneManagerTest
     private int mOriginalRingerMode;
     private Uri mDefaultUri;
 
-    public RingtoneManagerTest() {
-        super(PKG, RingtonePickerActivity.class);
-    }
+    @Before
+    public void setUp() throws Exception {
+        mActivityScenario = ActivityScenario.launch(RingtonePickerActivity.class);
+        ConditionVariable activityReferenceObtained = new ConditionVariable();
+        mActivityScenario.onActivity(activity -> {
+            mActivity = activity;
+            activityReferenceObtained.open();
+        });
+        activityReferenceObtained.block(10000);
+        assertNotNull("Failed to acquire activity reference.", mActivity);
 
-    @Override
-    protected void setUp() throws Exception {
-        super.setUp();
-        mActivity = getActivity();
-        mInstrumentation = getInstrumentation();
-        mContext = mInstrumentation.getContext();
+        mInstrumentation = InstrumentationRegistry.getInstrumentation();
+        mContext = mInstrumentation.getTargetContext();
+        mInstrumentation.waitForIdleSync();
+
         Utils.enableAppOps(mContext.getPackageName(), "android:write_settings", mInstrumentation);
         mRingtoneManager = new RingtoneManager(mActivity);
         mAudioManager = (AudioManager) mContext.getSystemService(Context.AUDIO_SERVICE);
@@ -69,32 +90,31 @@ public class RingtoneManagerTest
         if (mAudioManager.getRingerMode() != AudioManager.RINGER_MODE_NORMAL) {
             try {
                 Utils.toggleNotificationPolicyAccess(
-                        mContext.getPackageName(), getInstrumentation(), true);
+                        mContext.getPackageName(), mInstrumentation, true);
                 mAudioManager.setRingerMode(AudioManager.RINGER_MODE_NORMAL);
             } finally {
                 Utils.toggleNotificationPolicyAccess(
-                        mContext.getPackageName(), getInstrumentation(), false);
+                        mContext.getPackageName(), mInstrumentation, false);
             }
         }
     }
 
-    @Override
-    protected void tearDown() throws Exception {
+    @After
+    public void tearDown() throws Exception {
         try {
             Utils.toggleNotificationPolicyAccess(
-                    mContext.getPackageName(), getInstrumentation(), true);
+                    mContext.getPackageName(), mInstrumentation, true);
             // restore original ringer settings
             if (mAudioManager != null) {
                 mAudioManager.setRingerMode(mOriginalRingerMode);
             }
         } finally {
             Utils.toggleNotificationPolicyAccess(
-                    mContext.getPackageName(), getInstrumentation(), false);
+                    mContext.getPackageName(), mInstrumentation, false);
         }
         RingtoneManager.setActualDefaultRingtoneUri(mContext, RingtoneManager.TYPE_RINGTONE,
                 mDefaultUri);
         Utils.disableAppOps(mContext.getPackageName(), "android:write_settings", mInstrumentation);
-        super.tearDown();
     }
 
     private boolean isSupportedDevice() {
@@ -103,6 +123,7 @@ public class RingtoneManagerTest
                 && !pm.hasSystemFeature(PackageManager.FEATURE_LEANBACK_ONLY);
     }
 
+    @Test
     public void testConstructors() {
         if (!isSupportedDevice()) return;
 
@@ -110,6 +131,7 @@ public class RingtoneManagerTest
         new RingtoneManager(mContext);
     }
 
+    @Test
     public void testAccessMethods() {
         if (!isSupportedDevice()) return;
 
@@ -136,17 +158,9 @@ public class RingtoneManagerTest
 
         Uri bogus = Uri.parse("content://a_bogus_uri");
         RingtoneManager.setActualDefaultRingtoneUri(mContext, RingtoneManager.TYPE_RINGTONE, bogus);
-        assertEquals(bogus, RingtoneManager.getActualDefaultRingtoneUri(mContext,
+        // shouldn't be able to successfully set ringtone to bogus URI
+        assertNotEquals(bogus, RingtoneManager.getActualDefaultRingtoneUri(mContext,
                 RingtoneManager.TYPE_RINGTONE));
-
-        try (AssetFileDescriptor ignored = RingtoneManager.openDefaultRingtoneUri(
-                mActivity, RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE))) {
-            fail("FileNotFoundException should be thrown for a bogus Uri.");
-        } catch (FileNotFoundException e) {
-            // Expected.
-        } catch (IOException e) {
-            fail(e.getMessage());
-        }
 
         assertEquals(Settings.System.DEFAULT_RINGTONE_URI,
                 RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE));
@@ -159,6 +173,7 @@ public class RingtoneManagerTest
         assertTrue(RingtoneManager.isDefault(Settings.System.DEFAULT_RINGTONE_URI));
     }
 
+    @Test
     public void testSetType() {
         if (!isSupportedDevice()) return;
 
@@ -170,6 +185,7 @@ public class RingtoneManagerTest
         assertEquals(RingtoneManager.TYPE_ALARM, r.getStreamType());
     }
 
+    @Test
     public void testStopPreviousRingtone() {
         if (!isSupportedDevice()) return;
 
@@ -192,6 +208,7 @@ public class RingtoneManagerTest
         assertFalse(newRingtone.isPlaying());
     }
 
+    @Test
     public void testQuery() {
         if (!isSupportedDevice()) return;
 
@@ -203,6 +220,7 @@ public class RingtoneManagerTest
                 c.getString(RingtoneManager.URI_COLUMN_INDEX).startsWith("content://"));
     }
 
+    @Test
     public void testHasHapticChannels() {
         if (!isSupportedDevice()) return;
 

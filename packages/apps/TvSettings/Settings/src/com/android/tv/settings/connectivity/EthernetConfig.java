@@ -20,7 +20,6 @@ import android.content.Context;
 import android.net.EthernetManager;
 import android.net.EthernetNetworkUpdateRequest;
 import android.net.IpConfiguration;
-import android.net.NetworkCapabilities;
 import android.net.wifi.WifiManager;
 
 import com.android.tv.settings.R;
@@ -54,22 +53,9 @@ class EthernetConfig implements NetworkConfiguration {
     @Override
     public void save(WifiManager.ActionListener listener) {
         if (mInterfaceName != null) {
-            // TODO: Remove below NetworkCapabilities list once EthernetNetworkUpdateRequest
-            // supports the default standard NetworkCapabilities built for Ethernet transport.
-            final NetworkCapabilities nc = new NetworkCapabilities.Builder()
-                    .addTransportType(NetworkCapabilities.TRANSPORT_ETHERNET)
-                    .addCapability(NetworkCapabilities.NET_CAPABILITY_NOT_ROAMING)
-                    .addCapability(NetworkCapabilities.NET_CAPABILITY_NOT_CONGESTED)
-                    .addCapability(NetworkCapabilities.NET_CAPABILITY_NOT_SUSPENDED)
-                    .addCapability(NetworkCapabilities.NET_CAPABILITY_NOT_METERED)
-                    .addCapability(NetworkCapabilities.NET_CAPABILITY_NOT_VCN_MANAGED)
-                    .setLinkUpstreamBandwidthKbps(100 * 1000)
-                    .setLinkDownstreamBandwidthKbps(100 * 1000)
-                    .build();
             final EthernetNetworkUpdateRequest request =
                     new EthernetNetworkUpdateRequest.Builder()
                             .setIpConfiguration(mIpConfiguration)
-                            .setNetworkCapabilities(nc)
                             .build();
             mEthernetManager.updateConfiguration(mInterfaceName, request, r -> r.run(),
                     null /* network listener */);

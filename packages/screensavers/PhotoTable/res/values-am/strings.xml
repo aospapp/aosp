@@ -16,7 +16,7 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="app_name" msgid="6441943862284988546">"የማያ ገጽ ማዳኛዎች ፎቶዎች"</string>
+    <string name="app_name" msgid="6441943862284988546">"የማያ ገፅ ማዳኛዎች ፎቶዎች"</string>
     <string name="table_screensaver_name" msgid="1150228032617397055">"የፎቶ ሠንጠረዥ"</string>
     <string name="flipper_screensaver_name" msgid="6988572107391523141">"የፎቶ ክፈፍ"</string>
     <string name="posts_album_name" msgid="5628151551239729515">"ፎቶዎች ከልጥፎች"</string>

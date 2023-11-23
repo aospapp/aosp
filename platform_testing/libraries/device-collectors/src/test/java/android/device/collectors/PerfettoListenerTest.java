@@ -132,7 +132,7 @@ public class PerfettoListenerTest {
         mListener.onTestEnd(mDataRecord, mTest1Desc);
         verify(mPerfettoHelper, times(1)).stopCollecting(anyLong(), eq(
                 "/sdcard/test_results/run_test1/PerfettoListener_1_Proxy/"
-                + "perfetto_run_test1-1.pb"));
+                + "perfetto_run_test1-1.perfetto-trace"));
 
     }
 
@@ -540,7 +540,7 @@ public class PerfettoListenerTest {
         mListener.onTestEnd(mDataRecord, mTest1DescWithSpaces);
         verify(mPerfettoHelper, times(1)).stopCollecting(anyLong(), eq(
                 "/sdcard/test_results/run#123_test1#456/PerfettoListener_1_Proxy/"
-                + "perfetto_run#123_test1#456-1.pb"));
+                + "perfetto_run#123_test1#456-1.perfetto-trace"));
 
     }
 

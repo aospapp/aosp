@@ -15,14 +15,14 @@
 //! Command to create or update an idsig for APK
 
 use android_system_virtualizationservice::aidl::android::system::virtualizationservice::IVirtualizationService::IVirtualizationService;
-use android_system_virtualizationservice::binder::{ParcelFileDescriptor, Strong};
+use binder::ParcelFileDescriptor;
 use anyhow::{Context, Error};
 use std::fs::{File, OpenOptions};
 use std::path::Path;
 
 /// Creates or update the idsig file by digesting the input APK file.
 pub fn command_create_idsig(
-    service: Strong<dyn IVirtualizationService>,
+    service: &dyn IVirtualizationService,
     apk: &Path,
     idsig: &Path,
 ) -> Result<(), Error> {

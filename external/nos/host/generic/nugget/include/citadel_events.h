@@ -31,7 +31,7 @@ extern "C" {
  * When Citadel needs to tell the AP something without waiting to be asked, the
  * process is as follows:
  *
- *   1. Citadel adds an event_record to its internal queue, then asserts
+ *   1. Citadel adds an event_report to its internal queue, then asserts
  *      the CTDL_AP_IRQ signal to notify the AP.
  *
  *   2. The AP (citadeld) requests pending events from Citadel until they've
@@ -59,12 +59,14 @@ enum event_priority {
  * Add to the list, but NEVER change or delete existing entries.
  */
 enum event_id {
-  EVENT_NONE = 0,      // Unused ID, used as empty marker.
-  EVENT_ALERT = 1,     // Globalsec alert fired.
-  EVENT_REBOOTED = 2,  // Device rebooted.
-  EVENT_UPGRADED = 3,  // Device has upgraded.
-  EVENT_ALERT_V2 = 4,  // Globalsec Alertv2 fired
+  EVENT_NONE = 0,          // Unused ID, used as empty marker.
+  EVENT_ALERT = 1,         // Globalsec alert fired.
+  EVENT_REBOOTED = 2,      // Device rebooted.
+  EVENT_UPGRADED = 3,      // Device has upgraded.
+  EVENT_ALERT_V2 = 4,      // Globalsec Alertv2 fired
   EVENT_SEC_CH_STATE = 5,  // Update GSA-GSC secure channel state.
+  EVENT_V1_NO_SUPPORT =
+      6  // Report a VXX event that can't fit in struct event_report.
 };
 
 /*
@@ -76,9 +78,17 @@ enum upgrade_state_def {
   UPGRADE_EN_FW_FAIL =2,
 };
 
+/*
+ * Big event header flags.
+ */
+enum hdr_flags {
+  HDR_FLAG_EMPTY_SLOT = 0,    // Used to determine empty slot.
+  HDR_FLAG_OCCUPIED_SLOT = 1  // Used to indicate an occupied slot.
+};
+
 /* Please do not change the size of this struct */
-#define EVENT_RECORD_SIZE 64
-struct event_record {
+#define EVENT_REPORT_SIZE 64
+struct event_report {
   uint64_t reset_count;                 /* zeroed by Citadel power cycle */
   uint64_t uptime_usecs;                /* since last Citadel reset */
   uint32_t id;
@@ -117,8 +127,22 @@ struct event_record {
   } event;
 } __packed;
 /* Please do not change the size of this struct */
-static_assert(sizeof(struct event_record) == EVENT_RECORD_SIZE,
+static_assert(sizeof(struct event_report) == EVENT_REPORT_SIZE,
               "Muting the Immutable");
+
+struct big_event_report {
+  struct hdr {
+    /* Redundant w.r.t. to v1 event records */
+    uint64_t reset_count;
+    uint64_t uptime_usecs;
+    uint32_t priority;
+
+    uint8_t version;
+    uint8_t flags;
+    uint16_t length;
+  } hdr;
+  uint8_t data[384];
+} __packed;
 
 #ifdef __cplusplus
 }

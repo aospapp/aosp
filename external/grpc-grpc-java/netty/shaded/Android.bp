@@ -40,5 +40,5 @@ java_library {
     static_libs: [
         "grpc-netty-shaded-1.16.1-jar",
     ],
-    visibility: ["//packages/modules/Bluetooth/android/blueberry/server"],
+    visibility: ["//packages/modules/Bluetooth/android/pandora/server"],
 }

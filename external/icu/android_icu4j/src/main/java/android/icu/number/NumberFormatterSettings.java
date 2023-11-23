@@ -12,6 +12,8 @@ import android.icu.number.NumberFormatter.GroupingStrategy;
 import android.icu.number.NumberFormatter.SignDisplay;
 import android.icu.number.NumberFormatter.UnitWidth;
 import android.icu.text.DecimalFormatSymbols;
+import android.icu.text.DisplayOptions;
+import android.icu.text.DisplayOptions.GrammaticalCase;
 import android.icu.text.NumberingSystem;
 import android.icu.util.Currency;
 import android.icu.util.Measure;
@@ -526,6 +528,22 @@ public abstract class NumberFormatterSettings<T extends NumberFormatterSettings<
         }
 
         return create(KEY_USAGE, usage);
+    }
+
+    /**
+     * Specifies the {@code DisplayOptions}. For example, {@code GrammaticalCase} specifies
+     * the desired case for a unit formatter's output (e.g. accusative, dative, genitive).
+     *
+     * @return The fluent chain.
+     * @hide draft / provisional / internal are hidden on Android
+     */
+    public T displayOptions(DisplayOptions displayOptions) {
+        // `displayCase` does not recognise the `undefined`
+        if (displayOptions.getGrammaticalCase() == GrammaticalCase.UNDEFINED) {
+            return create(KEY_UNIT_DISPLAY_CASE, null);
+        }
+
+        return create(KEY_UNIT_DISPLAY_CASE, displayOptions.getGrammaticalCase().getIdentifier());
     }
 
     /**

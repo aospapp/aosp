@@ -16,6 +16,10 @@
 
 package android.net.ipsec.test.ike;
 
+import static android.net.ipsec.test.ike.IkeSessionParams.ESP_ENCAP_TYPE_NONE;
+import static android.net.ipsec.test.ike.IkeSessionParams.ESP_ENCAP_TYPE_UDP;
+import static android.net.ipsec.test.ike.IkeSessionParams.ESP_IP_VERSION_IPV4;
+import static android.net.ipsec.test.ike.IkeSessionParams.ESP_IP_VERSION_IPV6;
 import static android.net.ipsec.test.ike.IkeSessionParams.IKE_OPTION_MOBIKE;
 
 import static org.junit.Assert.assertEquals;
@@ -26,6 +30,7 @@ import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 
 import android.content.pm.PackageManager;
+import android.net.Network;
 import android.os.Looper;
 import android.os.test.TestLooper;
 import android.util.Log;
@@ -201,5 +206,43 @@ public final class IkeSessionTest extends IkeSessionTestBase {
                         mUserCbExecutor,
                         mMockIkeSessionCb,
                         mMockChildSessionCb);
+    }
+
+    @Test(expected = UnsupportedOperationException.class)
+    public void testThrowWhenSetNetworkWithInValidIpProtocol_v4ESP() {
+        IkeSession ikeSession =
+                new IkeSession(
+                        new TestLooper().getLooper(),
+                        mSpyContext,
+                        mIpSecManager,
+                        mIkeSessionParams,
+                        mMockChildSessionParams,
+                        mUserCbExecutor,
+                        mMockIkeSessionCb,
+                        mMockChildSessionCb);
+
+        ikeSession.setNetwork(mock(Network.class),
+                ESP_IP_VERSION_IPV4,
+                ESP_ENCAP_TYPE_NONE,
+                10 /* keepaliveDelaySeconds */);
+    }
+
+    @Test(expected = UnsupportedOperationException.class)
+    public void testThrowWhenSetNetworkWithInValidIpProtocol_v6UDP() {
+        IkeSession ikeSession =
+                new IkeSession(
+                        new TestLooper().getLooper(),
+                        mSpyContext,
+                        mIpSecManager,
+                        mIkeSessionParams,
+                        mMockChildSessionParams,
+                        mUserCbExecutor,
+                        mMockIkeSessionCb,
+                        mMockChildSessionCb);
+
+        ikeSession.setNetwork(mock(Network.class),
+                ESP_IP_VERSION_IPV6,
+                ESP_ENCAP_TYPE_UDP,
+                10 /* keepaliveDelaySeconds */);
     }
 }

@@ -23,6 +23,8 @@
     <string name="back" msgid="6249950659061523680">"Tagasi"</string>
     <string name="available" msgid="6007778121920339498">"Saadaval"</string>
     <string name="blocked" msgid="9195547604866033708">"Blokeeritud"</string>
+    <string name="on" msgid="280241003226755921">"Sees"</string>
+    <string name="off" msgid="1438489226422866263">"Väljas"</string>
     <string name="uninstall_or_disable" msgid="4496612999740858933">"Desinstalli või keela"</string>
     <string name="app_not_found_dlg_title" msgid="6029482906093859756">"Rakendust ei leitud"</string>
     <string name="grant_dialog_button_deny" msgid="88262611492697192">"Ära luba"</string>
@@ -30,6 +32,11 @@
     <string name="grant_dialog_button_no_upgrade" msgid="8344732743633736625">"Säilita valik „Rakenduse kasutamise ajal”"</string>
     <string name="grant_dialog_button_no_upgrade_one_time" msgid="5125892775684968694">"Säilita ainult sel korral"</string>
     <string name="grant_dialog_button_more_info" msgid="213350268561945193">"Lisateave"</string>
+    <string name="grant_dialog_button_allow_all" msgid="5939066403732409516">"Anna juurdepääs kõigile"</string>
+    <string name="grant_dialog_button_always_allow_all" msgid="1719900027660252167">"Luba alati kõik"</string>
+    <string name="grant_dialog_button_allow_selected_photos" msgid="5497042471576153842">"Valige fotod ja videod"</string>
+    <string name="grant_dialog_button_allow_more_selected_photos" msgid="5145657877588697709">"Valige rohkem"</string>
+    <string name="grant_dialog_button_dont_select_more" msgid="6643552729129461268">"Ära vali rohkem"</string>
     <string name="grant_dialog_button_deny_anyway" msgid="7225905870668915151">"Ära luba ikkagi"</string>
     <string name="grant_dialog_button_dismiss" msgid="1930399742250226393">"Loobu"</string>
     <string name="current_permission_template" msgid="7452035392573329375">"<xliff:g id="CURRENT_PERMISSION_INDEX">%1$s</xliff:g>/<xliff:g id="PERMISSION_COUNT">%2$s</xliff:g>"</string>
@@ -60,7 +67,7 @@
     <string name="review_permission_decisions_empty" msgid="8120775336417279806">"Hiljutisi lubade otsuseid ei ole"</string>
     <string name="auto_permission_manager_summary" msgid="9157438376234301354">"Andmete juurdepääsu haldamine kalendrile, kõnelogidele ja muule"</string>
     <string name="granted_permission_decision" msgid="7824827491551861365">"Andsite rakendusele <xliff:g id="APP_NAME">%1$s</xliff:g> juurdepääsu loale <xliff:g id="PERMISSION_NAME">%2$s</xliff:g>"</string>
-    <string name="denied_permission_decision" msgid="5308961501779563781">"Te ei andnud rakendusele <xliff:g id="APP_NAME">%1$s</xliff:g> luba loale <xliff:g id="PERMISSION_NAME">%2$s</xliff:g> juurde pääseda"</string>
+    <string name="denied_permission_decision" msgid="5308961501779563781">"Te ei lubanud rakendusel <xliff:g id="APP_NAME">%1$s</xliff:g> loale <xliff:g id="PERMISSION_NAME">%2$s</xliff:g> juurde pääseda"</string>
     <string name="days_ago" msgid="6650359081551335629">"{count,plural, =0{Täna}=1{1 päev tagasi}other{# päeva tagasi}}"</string>
     <string name="app_disable_dlg_positive" msgid="7418444149981904940">"Keela rakendus"</string>
     <string name="app_disable_dlg_text" msgid="3126943217146120240">"Selle rakenduse keelamisel ei pruugi Android ja muud rakendused enam ootuspäraselt töötada. Pange tähele, et seda rakendust ei saa kustutada, kuna see on seadmesse eelinstallitud. Rakenduse keelamisel lülitatakse see välja ja peidetakse seadmes."</string>
@@ -101,15 +108,12 @@
     <!-- no translation found for background_access_chooser_dialog_choices:1 (9127301153688725448) -->
     <!-- no translation found for background_access_chooser_dialog_choices:2 (4305536986042401191) -->
     <string name="permission_access_always" msgid="1474641821883823446">"Luba alati"</string>
-    <string name="permission_access_only_foreground" msgid="7801170728159326195">"Luba rakenduse kasutamise ajal"</string>
+    <string name="permission_access_only_foreground" msgid="7801170728159326195">"Luba ainult rakenduse kasutamise ajal"</string>
     <string name="permission_access_never" msgid="4647014230217936900">"Ära luba"</string>
     <string name="loading" msgid="4789365003890741082">"Laadimine …"</string>
     <string name="all_permissions" msgid="6911125611996872522">"Kõik load"</string>
     <string name="other_permissions" msgid="2901186127193849594">"Rakenduse muud funktsioonid"</string>
     <string name="permission_request_title" msgid="8790310151025020126">"Loa taotlus"</string>
-    <string name="screen_overlay_title" msgid="6977038513913222078">"Tuvastati ekraani ülekate"</string>
-    <string name="screen_overlay_message" msgid="5622563069757142102">"Selle loaseade muutmiseks peate esmalt välja lülitama ekraani ülekatte menüüs Seaded &gt; Rakendused"</string>
-    <string name="screen_overlay_button" msgid="4655005928054025250">"Ava seaded"</string>
     <string name="wear_not_allowed_dlg_title" msgid="1429467891296932713">"Android Wear"</string>
     <string name="wear_not_allowed_dlg_text" msgid="512340555334769098">"Wear ei toeta installimist/desinstallimist."</string>
     <string name="permission_review_title_template_install" msgid="1284337937156289081">"Valige, millele lubate rakendusel &lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; juurde pääseda"</string>
@@ -130,21 +134,20 @@
     <string name="permission_group_usage_subtitle_7d" msgid="1465828402260324654">"Ajaskaala, mis näitab, millal rakendused viimase 7 päeva jooksul teie luba <xliff:g id="PERMGROUP">%1$s</xliff:g> kasutasid."</string>
     <string name="permission_usage_access_dialog_subtitle" msgid="4171772805196955753">"Kui see rakendus kasutas teie luba <xliff:g id="PERMGROUP">%1$s</xliff:g>"</string>
     <string name="permission_usage_access_dialog_learn_more" msgid="7121468469493184613">"Lisateave"</string>
+    <string name="learn_more_content_description" msgid="8673699744544502539">"Lisateave lubade grupi <xliff:g id="PERMGROUP">%1$s</xliff:g> kohta"</string>
     <string name="manage_permission_summary" msgid="4117555482684114317">"Hallake rakenduse juurdepääsu grupile <xliff:g id="PERMGROUP">%1$s</xliff:g>"</string>
     <string name="auto_permission_usage_timeline_summary" msgid="2713135806453218703">"<xliff:g id="ACCESS_TIME">%1$s</xliff:g> • <xliff:g id="SUMMARY_TEXT">%2$s</xliff:g>"</string>
     <string name="history_preference_subtext_2" msgid="1521763591164293683">"<xliff:g id="APP_NAME">%1$s</xliff:g> • <xliff:g id="TRUNCATED_TIME">%2$s</xliff:g>"</string>
     <string name="history_preference_subtext_3" msgid="758761785983094351">"<xliff:g id="ATTRIBUTION_NAME">%1$s</xliff:g> • <xliff:g id="APP_NAME">%2$s</xliff:g> • <xliff:g id="TRUNCATED_TIME">%3$s</xliff:g>"</string>
-    <string name="duration_used_days" msgid="8293010131040301793">"{count,plural, =1{1 päev}other{# päeva}}"</string>
-    <string name="duration_used_hours" msgid="1128716208752263576">"{count,plural, =1{1 tund}other{# tundi}}"</string>
-    <string name="duration_used_minutes" msgid="5335824115042576567">"{count,plural, =1{1 min}other{# min}}"</string>
-    <string name="duration_used_seconds" msgid="6543746449171675028">"{count,plural, =1{1 s}other{# s}}"</string>
+    <string name="duration_used_days" msgid="8238355545812998877">"{count,plural, =1{# päev}other{# päeva}}"</string>
+    <string name="duration_used_hours" msgid="4983814806123370332">"{count,plural, =1{# tund}other{# tundi}}"</string>
+    <string name="duration_used_minutes" msgid="1701379522897227819">"{count,plural, =1{# min}other{# min}}"</string>
+    <string name="duration_used_seconds" msgid="4067390990568727715">"{count,plural, =1{# s}other{# s}}"</string>
     <string name="permission_usage_any_permission" msgid="6358023078298106997">"Mis tahes luba"</string>
     <string name="permission_usage_any_time" msgid="3802087027301631827">"Mis tahes ajal"</string>
-    <string name="permission_usage_last_7_days" msgid="7386221251886130065">"Viimased seitse päeva"</string>
-    <string name="permission_usage_last_day" msgid="1512880889737305115">"Viimased 24 tundi"</string>
-    <string name="permission_usage_last_hour" msgid="3866005205535400264">"Viimane tund"</string>
-    <string name="permission_usage_last_15_minutes" msgid="9077554653436200702">"Viimased 15 minutit"</string>
-    <string name="permission_usage_last_minute" msgid="7297055967335176238">"Viimane 1 minut"</string>
+    <string name="permission_usage_last_n_days" msgid="7882626467375714145">"{count,plural, =1{Viimane päev}other{Viimased # päeva}}"</string>
+    <string name="permission_usage_last_n_hours" msgid="8490466053680267858">"{count,plural, =1{Viimane tund}other{Viimased # tundi}}"</string>
+    <string name="permission_usage_last_n_minutes" msgid="7817864229878281983">"{count,plural, =1{Viimane minut}other{Viimased # minutit}}"</string>
     <string name="no_permission_usages" msgid="9119517454177289331">"Lube pole kasutatud"</string>
     <string name="permission_usage_list_title_any_time" msgid="8718257027381592407">"Hiljutisim juurdepääs mis tahes ajal"</string>
     <string name="permission_usage_list_title_last_7_days" msgid="9048542342670890615">"Hiljutisim juurdepääs viimase 7 päeva jooksul"</string>
@@ -158,8 +161,8 @@
     <string name="permission_usage_bar_chart_title_last_hour" msgid="6571647509660009185">"Lubade kasutus viimase 1 tunni jooksul"</string>
     <string name="permission_usage_bar_chart_title_last_15_minutes" msgid="2743143675412824819">"Lubade kasutus viimase 15 minuti jooksul"</string>
     <string name="permission_usage_bar_chart_title_last_minute" msgid="820450867183487607">"Lubade kasutus viimase 1 minuti jooksul"</string>
-    <string name="permission_usage_preference_summary_not_used_24h" msgid="3087783232178611025">"Pole viimase 24 tunni jooksul kasutatud"</string>
-    <string name="permission_usage_preference_summary_not_used_7d" msgid="4592301300810120096">"Pole viimase 7 päeva jooksul kasutatud"</string>
+    <string name="permission_usage_preference_summary_not_used_in_past_n_days" msgid="4771868094611359651">"{count,plural, =1{Pole viimase # päeva jooksul kasutatud}other{Pole viimase # päeva jooksul kasutatud}}"</string>
+    <string name="permission_usage_preference_summary_not_used_in_past_n_hours" msgid="3828973177433435742">"{count,plural, =1{Pole viimase # tunni jooksul kasutatud}other{Pole viimase # tunni jooksul kasutatud}}"</string>
     <string name="permission_usage_preference_label" msgid="8343167938128676378">"{count,plural, =1{Kasutab 1 rakendus}other{Kasutavad # rakendust}}"</string>
     <string name="permission_usage_view_details" msgid="6675335735468752787">"Kuva kõik juhtpaneelil"</string>
     <string name="app_permission_usage_filter_label" msgid="7182861154638631550">"Filtreerimisalus: <xliff:g id="PERM">%1$s</xliff:g>"</string>
@@ -184,7 +187,8 @@
     <string name="app_permission_button_allow_all_files" msgid="1792232272599018825">"Luba kõikide failide haldamine"</string>
     <string name="app_permission_button_allow_media_only" msgid="2834282724426046154">"Luba juurdepääs ainult meediale"</string>
     <string name="app_permission_button_allow_always" msgid="4573292371734011171">"Luba alati"</string>
-    <string name="app_permission_button_allow_foreground" msgid="1991570451498943207">"Luba rakenduse kasutamise ajal"</string>
+    <string name="app_permission_button_allow_foreground" msgid="1991570451498943207">"Luba ainult rakenduse kasutamise ajal"</string>
+    <string name="app_permission_button_always_allow_all" msgid="4905699259378428855">"Luba alati kõik"</string>
     <string name="app_permission_button_ask" msgid="3342950658789427">"Küsi iga kord"</string>
     <string name="app_permission_button_deny" msgid="6016454069832050300">"Ära luba"</string>
     <string name="precise_image_description" msgid="6349638632303619872">"Täpne asukoht"</string>
@@ -211,14 +215,13 @@
     <string name="auto_revocable_permissions_two" msgid="4874067408752041716">"Load <xliff:g id="PERM_0">%1$s</xliff:g> ja <xliff:g id="PERM_1">%2$s</xliff:g> eemaldatakse."</string>
     <string name="auto_revocable_permissions_many" msgid="1521807896206032992">"Eemaldatavad load: <xliff:g id="PERMS">%1$s</xliff:g>."</string>
     <string name="auto_manage_title" msgid="7693181026874842935">"Lubade automaatne haldamine"</string>
-    <string name="off" msgid="1438489226422866263">"Väljas"</string>
     <string name="auto_revoked_app_summary_one" msgid="7093213590301252970">"Luba <xliff:g id="PERMISSION_NAME">%s</xliff:g> eemaldati"</string>
     <string name="auto_revoked_app_summary_two" msgid="1910545340763709389">"Load <xliff:g id="PERMISSION_NAME_0">%1$s</xliff:g> ja <xliff:g id="PERMISSION_NAME_1">%2$s</xliff:g> eemaldati"</string>
     <string name="auto_revoked_app_summary_many" msgid="5930976230827378798">"<xliff:g id="PERMISSION_NAME">%1$s</xliff:g> ja veel <xliff:g id="NUMBER">%2$s</xliff:g> luba eemaldati"</string>
     <string name="unused_apps_page_title" msgid="6986983535677572559">"Kasutamata rakendused"</string>
     <string name="unused_apps_page_summary" msgid="1867593913217272155">"Kui rakendust mõne kuu vältel ei kasutata, toimub järgmine.\n\n• Load eemaldatakse, et teie andmeid kaitsta.\n• Märguanded peatatakse, et akut säästa.\n• Ajutised failid eemaldatakse, et ruumi vabastada.\n\nKui soovite uuesti lubasid anda ja märguandeid lubada, avage rakendus."</string>
-    <string name="unused_apps_page_tv_summary" msgid="3685907153054355671">"Kui rakendust mõne kuu vältel ei kasutata, toimub järgmine.\n\n• Load eemaldatakse, et teie andmeid kaitsta.\n• Ajutised failid eemaldatakse, et ruumi vabastada.\n\nKui soovite uuesti lubasid anda, avage rakendus."</string>
-    <string name="last_opened_category_title" msgid="7871347400611202595">"Viimati avatud rohkem kui <xliff:g id="NUMBER">%s</xliff:g> kuud tagasi"</string>
+    <string name="unused_apps_page_tv_summary" msgid="2624911608663778308">"Kui rakendust kuu vältel ei kasutata, toimub järgmine.\n\n• Load eemaldatakse, et teie andmeid kaitsta.\n• Ajutised failid eemaldatakse, et ruumi vabastada.\n\nKui soovite uuesti lubasid anda, avage rakendus."</string>
+    <string name="last_opened_category_title" msgid="8796557894614236128">"{count,plural, =1{Viimati avatud rohkem kui # kuu tagasi}other{Viimati avatud rohkem kui # kuud tagasi}}"</string>
     <string name="last_opened_summary" msgid="5248984030024968808">"Rakendus avati viimati <xliff:g id="DATE">%s</xliff:g>"</string>
     <string name="last_opened_summary_short" msgid="1646067226191176825">"Viimati avatud <xliff:g id="DATE">%s</xliff:g>"</string>
     <string name="app_permission_footer_special_file_access" msgid="1884202176147657788">"Kui lubate kõikide failide haldamise, pääseb see rakendus selle seadme või ühendatud salvestusseadme ühises salvestusruumis juurde mis tahes failidele ning saab neid muuta ja kustutada. Rakendus võib failidele juurde pääseda teilt luba küsimata."</string>
@@ -251,9 +254,9 @@
     <string name="denied_header" msgid="903209608358177654">"Pole lubatud"</string>
     <string name="storage_footer_hyperlink_text" msgid="8873343987957834810">"Kuva rohkem rakendusi, mis kõigile failidele juurde pääsevad"</string>
     <string name="days" msgid="609563020985571393">"{count,plural, =1{1 päev}other{# päeva}}"</string>
-    <string name="hours" msgid="3447767892295843282">"{count,plural, =1{1 tund}other{# tundi}}"</string>
-    <string name="minutes" msgid="4408293038068503157">"{count,plural, =1{1 minut}other{# minutit}}"</string>
-    <string name="seconds" msgid="5397771912131132690">"{count,plural, =1{1 sekund}other{# sekundit}}"</string>
+    <string name="hours" msgid="7302866489666950038">"{count,plural, =1{# tund}other{# tundi}}"</string>
+    <string name="minutes" msgid="4868414855445375753">"{count,plural, =1{# minut}other{# minutit}}"</string>
+    <string name="seconds" msgid="5893958182059842734">"{count,plural, =1{# sekund}other{# sekundit}}"</string>
     <string name="permission_reminders" msgid="6528257957664832636">"Loa meeldetuletused"</string>
     <string name="auto_revoke_permission_reminder_notification_title_one" msgid="6690347469376854137">"1 kasutamata rakendus"</string>
     <string name="auto_revoke_permission_reminder_notification_title_many" msgid="6062217713645069960">"<xliff:g id="NUMBER_OF_APPS">%s</xliff:g> kasutamata rakendust"</string>
@@ -262,6 +265,9 @@
     <string name="auto_revoke_permission_notification_content" msgid="5125990886047799375">"Mõningaid rakendusi ei ole mõne kuu jooksul kasutatud. Puudutage ülevaatamiseks."</string>
     <string name="unused_apps_notification_title" msgid="4314832015894238019">"{count,plural, =1{# kasutamata rakendus}other{# kasutamata rakendust}}"</string>
     <string name="unused_apps_notification_content" msgid="9195026773244581246">"Load ja ajutised failid eemaldati ning märguanded peatati. Puudutage ülevaatamiseks."</string>
+    <string name="unused_apps_safety_center_card_title" msgid="5638409355530099149">"Vaadake üle rakendused, mille load eemaldati"</string>
+    <string name="unused_apps_safety_center_card_content" msgid="1088557243627427820">"Rakenduste puhul, mida te pole mõnda aega kasutanud, eemaldati load ja ajutised failid ning märguanded peatati."</string>
+    <string name="unused_apps_safety_center_action_title" msgid="8865914432518993194">"Vaadake rakendused üle"</string>
     <string name="post_drive_permission_decision_reminder_title" msgid="1290697371418139976">"Vaadake hiljutisi lube"</string>
     <string name="post_drive_permission_decision_reminder_summary_1_app_1_permission" msgid="670521503734140711">"Andsite sõidu ajal rakendusele <xliff:g id="APP">%1$s</xliff:g> juurdepääsu loale <xliff:g id="PERMISSION">%2$s</xliff:g>"</string>
     <string name="post_drive_permission_decision_reminder_summary_1_app_2_permissions" msgid="671791184670801301">"Andsite sõidu ajal rakendusele <xliff:g id="APP">%1$s</xliff:g> juurdepääsu lubadele <xliff:g id="PERMISSION_1">%2$s</xliff:g> ja <xliff:g id="PERMISSION_2">%3$s</xliff:g>"</string>
@@ -276,6 +282,19 @@
     <string name="auto_revoke_preference_summary" msgid="5517958331781391481">"Load eemaldati, et teie privaatsust kaitsta"</string>
     <string name="background_location_access_reminder_notification_title" msgid="1140797924301941262">"<xliff:g id="APP_NAME">%s</xliff:g> sai taustal teie asukoha"</string>
     <string name="background_location_access_reminder_notification_content" msgid="7787084707336546245">"See rakendus pääseb teie asukohale alati juurde. Puudutage muutmiseks."</string>
+    <string name="notification_listener_reminder_notification_title" msgid="3747210460187479091">"Vaadake üle rakendus, millel on juurdepääs märguannetele"</string>
+    <string name="notification_listener_reminder_notification_content" msgid="831476101108863427">"<xliff:g id="APP_NAME">%s</xliff:g> saab teie märguannetest loobuda, nende alusel toiminguid teha ja nendes olevale sisule juurde pääseda"</string>
+    <string name="notification_listener_warning_card_content" msgid="7840973324284115893">"See rakendus saab teie märguannetest loobuda, nende alusel toiminguid teha ja nendes olevale sisule juurde pääseda. Mõni rakendus vajab seda juurdepääsu eesmärgipäraseks toimimiseks."</string>
+    <string name="notification_listener_remove_access_button_label" msgid="7101898782417817097">"Eemalda juurdepääs"</string>
+    <string name="notification_listener_review_app_button_label" msgid="3433073281029143924">"Kuva rohkem valikuid"</string>
+    <string name="notification_listener_remove_access_success_label" msgid="2477611529875633107">"Juurdepääs eemaldati"</string>
+    <string name="accessibility_access_reminder_notification_title" msgid="2971317234668807566">"Vaadake üle rakendus, millel on seadmele täielik juurdepääs"</string>
+    <string name="accessibility_access_reminder_notification_content" msgid="7389454158175306720">"<xliff:g id="APP_NAME">%s</xliff:g> saab vaadata teie ekraanikuva ja teha teie seadmes toiminguid. Juurdepääsetavuse rakendused vajavad seda tüüpi juurdepääsu eesmärgipäraseks toimimiseks."</string>
+    <string name="accessibility_access_warning_card_content" msgid="4370327190293217358">"See rakendus saab vaadata teie ekraanikuva ja teha teie seadmes toiminguid. Juurdepääsetavuse rakendused vajavad seda tüüpi juurdepääsu eesmärgipäraseks toimimiseks, kuid kontrollige rakendust ja veenduge, et usaldaksite seda."</string>
+    <string name="accessibility_remove_access_button_label" msgid="44145801526711640">"Eemalda juurdepääs"</string>
+    <string name="accessibility_show_all_apps_button_label" msgid="960067249326392280">"Kuva täieliku juurdepääsuga rakendused"</string>
+    <string name="accessibility_remove_access_success_label" msgid="4380995302917014670">"Juurdepääs eemaldati"</string>
+    <string name="safety_center_notification_app_label" msgid="2457720616141926534">"Android-süsteem"</string>
     <string name="auto_revoke_after_notification_title" msgid="5417761027669887431">"Rakenduse load eemaldati privaatsuse kaitsmiseks"</string>
     <string name="auto_revoke_after_notification_content_one" msgid="6804038707453662753">"Rakendust <xliff:g id="APP_NAME">%s</xliff:g> ei ole mõne kuu jooksul kasutatud. Puudutage ülevaatamiseks."</string>
     <string name="auto_revoke_after_notification_content_two" msgid="9108709764831425172">"Rakendust <xliff:g id="APP_NAME">%s</xliff:g> ja veel 1 rakendust ei ole mõne kuu jooksul kasutatud. Puudutage ülevaatamiseks."</string>
@@ -378,6 +397,10 @@
     <string name="role_watch_description" msgid="267003778693177779">"<xliff:g id="APP_NAME">%1$s</xliff:g> saab kasutada teie märguandeid ning hankida teie telefoni, SMS-ide, kontaktide ja kalendri load."</string>
     <string name="role_app_streaming_description" msgid="7341638576226183992">"Rakendusel <xliff:g id="APP_NAME">%1$s</xliff:g> lubatakse kasutada teie märguandeid ja voogesitada teie rakenduste kuva ühendatud seadmesse."</string>
     <string name="role_companion_device_computer_description" msgid="416099879217066377">"See teenus jagab teie fotosid, meediat ja märguandeid teie telefonist muudesse seadmetesse."</string>
+    <string name="role_notes_label" msgid="7451627001058089536">"Märkmete tegemise vaikerakendus"</string>
+    <string name="role_notes_short_label" msgid="8796604147546125285">"Märkmerakendus"</string>
+    <string name="role_notes_description" msgid="8496852798616883551">"Rakendused, mis võimaldavad teie seadmes märkmeid teha"</string>
+    <string name="role_notes_search_keywords" msgid="7710756695666744631">"märkmed"</string>
     <string name="request_role_current_default" msgid="738722892438247184">"Praegune vaikeseade"</string>
     <string name="request_role_dont_ask_again" msgid="3556017886029520306">"Ära enam küsi"</string>
     <string name="request_role_set_as_default" msgid="4253949643984172880">"Määra vaikeseadeks"</string>
@@ -439,7 +462,7 @@
     <string name="permgroupbackgroundrequestdetail_location" msgid="8021219324989662957">"See rakendus võib soovida pidevat juurdepääsu teie asukohale (ka siis, kui te rakendust ei kasuta). "<annotation id="link">"Lubage see seadetes"</annotation>"."</string>
     <string name="permgroupupgraderequest_location" msgid="8328408946822691636">"Kas muuta rakenduse &lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; puhul juurdepääsu asukohale?"</string>
     <string name="permgroupupgraderequestdetail_location" msgid="1550899076845189165">"See rakendus soovib pidevat juurdepääsu teie asukohale (ka siis, kui te rakendust ei kasuta). "<annotation id="link">"Lubage see seadetes"</annotation>"."</string>
-    <string name="permgrouprequest_nearby_devices" msgid="2272829282660436700">"Kas lubada rak. &lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; leida lähedalasuvaid seadmeid, nendega ühendada ja nende suhteline asukoht määrata?"</string>
+    <string name="permgrouprequest_nearby_devices" msgid="2272829282660436700">"Kas lubada rakendusel &lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; leida lähedalasuvaid seadmeid, nendega ühendada ja nende suhteline asukoht määrata?"</string>
     <string name="permgroupupgraderequestdetail_nearby_devices" msgid="6877531270654738614">"Kas lubada rakendusel &lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; leida lähedalasuvaid seadmeid, nendega ühendada ja nende suhteline asukoht määrata? "<annotation id="link">"Lubage menüüs Seaded."</annotation></string>
     <string name="permgrouprequest_fineupgrade" msgid="2334242928821697672">"Kas muuta rakenduse <xliff:g id="APP_NAME">&lt;b&gt;%1$s&lt;/b&gt;</xliff:g> asukohale juurdepääsemise tase ligikaudsest täpseks?"</string>
     <string name="permgrouprequest_coarselocation" msgid="7244605063736425232">"Kas lubada rakendusele &lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; juurdepääs selle seadme ligikaudsele asukohale?"</string>
@@ -452,6 +475,7 @@
     <string name="permgrouprequest_storage_pre_q" msgid="168130651144569428">"Anda rakendusele &lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; juurdep. &lt;b&gt;foto-, video-, muusika-, heli- ja muudele failidele&lt;/b&gt;?"</string>
     <string name="permgrouprequest_read_media_aural" msgid="2593365397347577812">"Kas anda rakendusele &lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; selles seadmes juurdepääs muusikale ja helifailidele?"</string>
     <string name="permgrouprequest_read_media_visual" msgid="5548780620779729975">"Kas anda rakendusele &lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; selles seadmes juurdepääs fotodele ja videotele?"</string>
+    <string name="permgrouprequest_more_photos" msgid="128933814654231321">"Kas anda rakendusele &lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; selles seadmes juurdepääs rohkematele fotodele ja videotele?"</string>
     <string name="permgrouprequest_microphone" msgid="2825208549114811299">"Kas lubada rakendusel &lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; salvestada heli?"</string>
     <string name="permgrouprequestdetail_microphone" msgid="8510456971528228861">"Rakendus saab heli salvestada vaid siis, kui rakendust kasutate"</string>
     <string name="permgroupbackgroundrequest_microphone" msgid="8874462606796368183">"Kas lubada rakendusel &lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; heli salvestada?"</string>
@@ -474,8 +498,8 @@
     <string name="permgroupupgraderequest_sensors" msgid="7576527638411370468">"Kas lubada jätkuvalt rakendusel &lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; pääseda juurde kehaanduri andmetele, kui rakendust kasutatakse?"</string>
     <string name="permgrouprequest_notifications" msgid="6396739062335106181">"Kas lubada rakendusel &lt;b&gt;<xliff:g id="APP_NAME">%1$s</xliff:g>&lt;/b&gt; teile märguandeid saata?"</string>
     <string name="auto_granted_permissions" msgid="6009452264824455892">"Hallatud load"</string>
-    <string name="auto_granted_location_permission_notification_title" msgid="1438871159268985993">"Asukohale pääseb juurde"</string>
-    <string name="auto_granted_permission_notification_body" msgid="6919835973190443695">"IT-administraator lubab rakendusel <xliff:g id="APP_NAME">%s</xliff:g> teie asukohale juurde pääseda"</string>
+    <string name="auto_granted_location_permission_notification_title" msgid="7570818224669050377">"Rakendus <xliff:g id="APP_NAME">%1$s</xliff:g> pääseb juurde asukohale"</string>
+    <string name="auto_granted_permission_notification_body" msgid="5040234389205471318">"Teie organisatsioon lubab rakendusel <xliff:g id="APP_NAME">%1$s</xliff:g> pääseda juurde teie asukohale."</string>
     <string name="other_permissions_label" msgid="8986184335503271992">"Muud load"</string>
     <string name="not_used_permissions_label" msgid="3939839426115141264">"Süsteemi kasutatavad load"</string>
     <string name="not_used_permissions_description" msgid="7595514824169388718">"Ainult süsteemirakenduste kasutatavad load."</string>
@@ -496,17 +520,28 @@
     <string name="blocked_sensor_summary" msgid="4443707628305027375">"Rakenduste ja teenuste jaoks"</string>
     <string name="blocked_mic_summary" msgid="8960466941528458347">"Mikrofoni andmeid võidakse siiski jagada hädaabinumbrile helistades."</string>
     <string name="blocked_sensor_button_label" msgid="6742092634984289658">"Muuda"</string>
-    <string name="safety_center_dashboard_page_title" msgid="7514620345152008005">"Turvalisus ja privaatsus"</string>
-    <string name="safety_center_rescan_button" msgid="8047036829052958144">"Otsi"</string>
+    <string name="safety_center_dashboard_page_title" msgid="2810774008694315854">"Turvalisus ja privaatsus"</string>
+    <string name="safety_center_rescan_button" msgid="4517514567809409596">"Skanni seadet"</string>
     <string name="safety_center_issue_card_dismiss_button" msgid="5113965506144222402">"Loobu"</string>
+    <string name="safety_center_issue_card_dismiss_confirmation_title" msgid="2734809473425036382">"Loobuda sellest hoiatusest?"</string>
+    <string name="safety_center_issue_card_dismiss_confirmation_message" msgid="3775418736671093563">"Saate oma turva- ja privaatsusseaded alati üle vaadata, et kaitset suurendada."</string>
+    <string name="safety_center_issue_card_confirm_dismiss_button" msgid="5884137843083634556">"Loobu"</string>
+    <string name="safety_center_issue_card_cancel_dismiss_button" msgid="2874578798877712346">"Tühista"</string>
+    <string name="safety_center_entries_category_title" msgid="34356964062813115">"Seaded"</string>
+    <string name="safety_status_preference_title_and_summary_content_description" msgid="3511373256505058464">"Turvalisuse ja privaatsuse olek. <xliff:g id="OVERALL_SAFETY_STATUS">%1$s</xliff:g>. <xliff:g id="SUMMARY_OF_DEVICE_STATUS">%2$s</xliff:g>"</string>
     <string name="security_settings" msgid="3808106921175271317">"Turvaseaded"</string>
-    <string name="sensor_permissions_qs" msgid="4365989229426201877">"Anduri load"</string>
-    <string name="privacy_controls_qs" msgid="471793881466080745">"Privaatsuse seaded"</string>
+    <string name="sensor_permissions_qs" msgid="1022267900031317472">"Load"</string>
+    <string name="safety_privacy_qs_tile_title" msgid="727301867710374052">"Turvalisus ja privaatsus"</string>
+    <string name="safety_privacy_qs_tile_subtitle" msgid="3621544532041936749">"Oleku kontrollimine"</string>
+    <string name="privacy_controls_qs" msgid="5780144882040591169">"Teie privaatsuse seaded"</string>
+    <string name="security_settings_button_label_qs" msgid="8280343822465962330">"Rohkem seadeid"</string>
+    <string name="camera_toggle_label_qs" msgid="3880261453066157285">"Juurdepääs kaamerale"</string>
+    <string name="microphone_toggle_label_qs" msgid="8132912469813396552">"Juurdepääs mikrofonile"</string>
     <string name="permissions_removed_qs" msgid="8957319130625294572">"Luba eemaldati"</string>
-    <string name="camera_usage_qs" msgid="7943349178368641820">"Kuva veel kaamera kasutamise teavet"</string>
-    <string name="microphone_usage_qs" msgid="2393193350541830472">"Kuva veel mikrofoni kasutamise teavet"</string>
-    <string name="remove_camera_qs" msgid="8209716677879809162">"Eemalda kaamera luba"</string>
-    <string name="remove_microphone_qs" msgid="2893536836641560183">"Eemalda mikrofoni luba"</string>
+    <string name="camera_usage_qs" msgid="4394233566086665994">"Kaamera hiljutise kasutamise vaatamine"</string>
+    <string name="microphone_usage_qs" msgid="8527666682168170417">"Mikrofoni hiljutise kasutamise vaatamine"</string>
+    <string name="remove_camera_qs" msgid="3649996161066883350">"Eemalda selle rakenduse luba"</string>
+    <string name="remove_microphone_qs" msgid="1276551965129953198">"Eemalda selle rakenduse luba"</string>
     <string name="manage_service_qs" msgid="7862555549364153805">"Teenuse haldamine"</string>
     <string name="manage_permissions_qs" msgid="3780541819763475434">"Lubade haldamine"</string>
     <string name="active_call_usage_qs" msgid="8559974395932523391">"Kasutatakse telefonikõne jaoks"</string>
@@ -517,8 +552,6 @@
     <string name="recent_app_usage_1_qs" msgid="261450184773310741">"Kasutas hiljuti rakendus <xliff:g id="APP_NAME">%1$s</xliff:g> (<xliff:g id="ATTRIBUTION_LABEL">%2$s</xliff:g>)"</string>
     <string name="active_app_usage_2_qs" msgid="6107866785243565283">"Kasutab rakendus <xliff:g id="APP_NAME">%1$s</xliff:g> (<xliff:g id="ATTRIBUTION_LABEL">%2$s</xliff:g> • <xliff:g id="PROXY_LABEL">%3$s</xliff:g>)"</string>
     <string name="recent_app_usage_2_qs" msgid="3591205954235694403">"Kasutas hiljuti rakendus <xliff:g id="APP_NAME">%1$s</xliff:g> (<xliff:g id="ATTRIBUTION_LABEL">%2$s</xliff:g> • <xliff:g id="PROXY_LABEL">%3$s</xliff:g>)"</string>
-    <string name="safety_privacy_qs_tile_title" msgid="5431148204168066203">"Turvalisus ja privaatsus"</string>
-    <string name="safety_privacy_qs_tile_subtitle" msgid="3621544532041936749">"Oleku kontrollimine"</string>
     <string name="media_confirm_dialog_positive_button" msgid="9020793594051526399">"Kinnita"</string>
     <string name="media_confirm_dialog_negative_button" msgid="226987376924861785">"Tagasi"</string>
     <string name="media_confirm_dialog_title_a_to_p_aural_allow" msgid="8560601114044699903">"Lubatakse ka juurdepääs teistele failidele"</string>
@@ -537,4 +570,53 @@
     <string name="media_confirm_dialog_message_q_to_s_aural_deny" msgid="6832087393653561911">"See rakendus ei toeta Androidi uusimat versiooni. Kui see rakendus ei või muusika- ja helifailidele juurde pääseda, ei või see samuti fotodele ja videotele juurde pääseda."</string>
     <string name="media_confirm_dialog_message_q_to_s_visual_allow" msgid="3504335060843147760">"See rakendus ei toeta Androidi uusimat versiooni. Kui see rakendus võib fotodele ja videotele juurde pääseda, on sellel samuti lubatud muusika- ja helifailidele juurde pääseda."</string>
     <string name="media_confirm_dialog_message_q_to_s_visual_deny" msgid="2145973462806481992">"See rakendus ei toeta Androidi uusimat versiooni. Kui see rakendus ei või muusika- ja helifailidele juurde pääseda, ei või see samuti fotodele ja videotele juurde pääseda."</string>
+    <string name="safety_center_background_location_access_notification_title" msgid="8933610618810588237">"Vaadake üle rakendus, millel on asukohale taustal juurdepääs"</string>
+    <string name="safety_center_background_location_access_reminder_notification_content" msgid="4066560182507301022">"<xliff:g id="APP_NAME">%s</xliff:g> pääseb alati teie asukohale juurde (isegi kui rakendus on suletud)"</string>
+    <string name="safety_center_background_location_access_reminder_title" msgid="5477847038103863843">"Vaadake üle rakendus, millel on asukohale taustal juurdepääs"</string>
+    <string name="safety_center_background_location_access_reminder_summary" msgid="7431657777510537658">"See rakendus pääseb alati teie asukohale juurde, isegi kui see on suletud.\n\nMõned turva- ja hädaabirakendused vajavad ettenähtud viisil toimimiseks taustal teie asukohale juurdepääsu."</string>
+    <string name="safety_center_background_location_access_revoked" msgid="6972274943343442213">"Juurdepääsu muudeti"</string>
+    <string name="safety_center_view_recent_location_access" msgid="3524391299490678243">"Kuva hiljutine asukohaandmete kasutus"</string>
+    <string name="privacy_controls_title" msgid="7605929972256835199">"Privaatsuse seaded"</string>
+    <string name="camera_toggle_title" msgid="1251201397431837666">"Juurdepääs kaamerale"</string>
+    <string name="mic_toggle_title" msgid="2649991093496110162">"Juurdepääs mikrofonile"</string>
+    <string name="perm_toggle_description" msgid="7801326363741451379">"Rakenduste ja teenuste jaoks"</string>
+    <string name="mic_toggle_description" msgid="9163104307990677157">"Rakenduste ja teenuste jaoks. Isegi kui see seade on välja lülitatud, võidakse mikrofoni andmeid siiski jagada hädaabinumbrile helistades."</string>
+    <string name="location_settings_subtitle" msgid="2328360561197430695">"Vaadake rakendusi ja teenuseid, mis pääsevad asukohale juurde"</string>
+    <string name="show_clip_access_notification_title" msgid="5168467637351109096">"Kuva juurdepääs lõikelauale"</string>
+    <string name="show_clip_access_notification_summary" msgid="3532020182782112687">"Kui rakendused pääsevad juurde kopeeritud tekstile, piltidele või muule sisule, kuvatakse teade"</string>
+    <string name="show_password_title" msgid="2877269286984684659">"Kuva paroolid"</string>
+    <string name="show_password_summary" msgid="1110166488865981610">"Sisestamisel kuvatakse hetkeks tähemärgid"</string>
+    <string name="permission_rationale_message_location" msgid="2153841534298068414">"See rakendus andis teada, et võib asukohaandmeid jagada kolmandate osapooltega"</string>
+    <string name="permission_rationale_location_title" msgid="2404797182678793506">"Andmete jagamine ja asukoht"</string>
+    <string name="permission_rationale_data_sharing_source_title" msgid="6874604543125814316">"Andmete jagamise teabe päritolu"</string>
+    <string name="permission_rationale_data_sharing_device_manufacturer_message" msgid="7569261218145653185">"Arendaja on esitanud selle seadme tootjale teavet selle kohta, kuidas see rakendus andmeid jagab. Arendaja võib seda teavet aja jooksul muuta."</string>
+    <string name="permission_rationale_data_sharing_source_message" msgid="8330794595417986883">"Arendaja on esitanud rakenduste poele "<annotation id="link"><annotation id="install_source" example="App Store">"%1$s"</annotation></annotation>" teavet selle kohta, kuidas see rakendus andmeid jagab. Arendaja võib seda teavet aja jooksul muuta."</string>
+    <string name="permission_rationale_location_purpose_title" msgid="5115877143670012618">"Rakendus võib asukohaandmeid jagada järgmiseks."</string>
+    <string name="permission_rationale_permission_data_sharing_varies_title" msgid="9103718980919908316">"Andmete jagamine võib olla erinev"</string>
+    <string name="permission_rationale_data_sharing_varies_message" msgid="4224469559084489222">"Andmetöötlustavad võivad oleneda teie piirkonnast ja vanusest ning rakenduse versioonist ja kasutusest. "<annotation id="link">"Lisateave andmete jagamise kohta"</annotation></string>
+    <string name="permission_rationale_data_sharing_varies_message_without_link" msgid="4912763761399025094">"Andmetöötlustavad võivad oleneda teie piirkonnast ja vanusest ning rakenduse versioonist ja kasutusest."</string>
+    <string name="permission_rationale_location_settings_title" msgid="7204145004850190953">"Teie asukohaandmed"</string>
+    <string name="permission_rationale_permission_settings_message" msgid="631286040979660267">"Selle rakenduse juurdepääsu saate muuta "<annotation id="link">"privaatsusseadetes"</annotation></string>
+    <string name="permission_rationale_purpose_app_functionality" msgid="8397736681065841405">"Rakenduse funktsioonid"</string>
+    <string name="permission_rationale_purpose_analytics" msgid="2070800501189620712">"Analüüs"</string>
+    <string name="permission_rationale_purpose_developer_communications" msgid="6453047018892062374">"Arendaja andmevahetus"</string>
+    <string name="permission_rationale_purpose_advertising" msgid="7156966429245180236">"Reklaamimine või turundus"</string>
+    <string name="permission_rationale_purpose_fraud_prevention_security" msgid="4262104770357031902">"Pettuste vältimine, turvalisus ja eeskirjade järgimine"</string>
+    <string name="permission_rationale_purpose_personalization" msgid="1589973273682238708">"Isikupärastamine"</string>
+    <string name="permission_rationale_purpose_account_management" msgid="2985772421946688879">"Kontohaldus"</string>
+    <string name="app_permission_rationale_message" msgid="8511466916077100713">"Andmete ohutus"</string>
+    <string name="app_location_permission_rationale_title" msgid="925420340572401350">"Asukohaandmeid võidakse jagada"</string>
+    <string name="app_location_permission_rationale_subtitle" msgid="6986985722752868692">"See rakendus andis teada, et võib jagada teie asukohaandmeid kolmandate osapooltega."</string>
+    <string name="data_sharing_updates_title" msgid="7996933386875213859">"Andmete jagamise värskendused asukoha kohta"</string>
+    <string name="data_sharing_updates_summary" msgid="764113985772233889">"Vaadake üle rakendused, mis on muutnud teie asukohaandmete jagamise viisi"</string>
+    <string name="data_sharing_updates_subtitle" msgid="6311537708950632329">"Need rakendused on muutnud teie asukohaandmete jagamise viisi. Võib-olla ei jaganud nad neid varem või hakkasid neid nüüd jagama reklaami- või turunduseesmärgil."</string>
+    <string name="data_sharing_updates_footer_message" msgid="1582711655172892107">"Nende rakenduste arendajad on esitanud rakenduste poele teavet oma andmejagamistavade kohta. Nad võivad neid aja jooksul muuta.\n\nAndmejagamistavad võivad oleneda teie piirkonnast ja vanusest ning rakenduse versioonist ja kasutusest."</string>
+    <string name="learn_about_data_sharing" msgid="4200480587079488045">"Teave andmete jagamise kohta"</string>
+    <string name="shares_location_with_third_parties" msgid="2278051743742057767">"Teie asukohaandmeid jagatakse nüüd kolmandate osapooltega"</string>
+    <string name="shares_location_with_third_parties_for_advertising" msgid="1918588064014480513">"Teie asukohaandmeid jagatakse nüüd kolmandate osapooltega reklaami- või turunduseesmärgil"</string>
+    <string name="updated_in_last_days" msgid="8371811947153042322">"{count,plural, =0{Värskendatud viimase päeva jooksul}=1{Värskendatud viimase päeva jooksul}other{Värskendatud # päeva jooksul}}"</string>
+    <string name="no_updates_at_this_time" msgid="9031085635689982935">"Hetkel värskendused puuduvad"</string>
+    <string name="safety_label_changes_notification_title" msgid="4479955083472203839">"Andmete jagamise värskendused"</string>
+    <string name="safety_label_changes_notification_desc" msgid="7808764283266234675">"Mõni rakendus on muutnud teie asukohaandmete jagamise viisi"</string>
+    <string name="safety_label_changes_gear_description" msgid="2655887555599138509">"Seaded"</string>
 </resources>

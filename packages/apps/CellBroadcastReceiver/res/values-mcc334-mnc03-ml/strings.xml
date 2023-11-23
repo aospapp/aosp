@@ -16,6 +16,7 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="pws_other_message_identifiers" msgid="6839584896570699259">"MX-വിവരങ്ങൾ"</string>
-    <string name="enable_emergency_alerts_message_title" msgid="7150102311445944478">"MX-റെഗുലർ ബ്രോഡ്‌കാസ്‌റ്റ് ചാനല്‍"</string>
+    <string name="cmas_operator_defined_alert" msgid="4844304128625490176">"ഓപ്പറേറ്റർ മുന്നറിയിപ്പ്"</string>
+    <string name="enable_operator_defined_test_alerts_title" msgid="2573656874506891319">"ഓപ്പറേറ്റർ മുന്നറിയിപ്പുകൾ"</string>
+    <string name="enable_operator_defined_test_alerts_summary" msgid="1267911637946761826">"ഓപ്പറേറ്റർ മുന്നറിയിപ്പുകൾക്കുള്ള ചാനൽ"</string>
 </resources>

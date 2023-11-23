@@ -2,12 +2,12 @@
   "add-toplevel-block": "cargo2android_tests.bp",
   "apex-available": [
     "//apex_available:platform",
-    "com.android.bluetooth",
+    "com.android.btservices",
     "com.android.resolv",
     "com.android.uwb"
   ],
   "device": true,
-  "features": "io-util,macros,rt-multi-thread,sync,net,fs,time",
+  "features": "fs,io-util,macros,net,rt,rt-multi-thread,sync,time",
   "min-sdk-version": "29",
   "vendor-available": true,
   "run": true

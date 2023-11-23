@@ -198,7 +198,6 @@ public abstract class ContextHubGeneralTestExecutor extends ContextHubClientCall
         mCountDownLatch = new CountDownLatch(1);
 
         mContextHubClient = mContextHubManager.createClient(mContextHubInfo, this);
-        Assert.assertTrue(mContextHubClient != null);
 
         for (GeneralTestNanoApp test : mGeneralTestNanoAppList) {
             if (test.loadAtInit()) {

@@ -35,10 +35,22 @@ class firmware_ECLidSwitch(FirmwareTest):
     # Delay between shutdown and wakeup by lid switch
     WAKE_DELAY = 10
 
+    # Number of tries when checking power state
+    POWER_STATE_CHECK_TRIES = 50
+
+    # Delay between checking power state
+    POWER_STATE_CHECK_DELAY = 0.5
+
     def initialize(self, host, cmdline_args):
         super(firmware_ECLidSwitch, self).initialize(host, cmdline_args)
         # Only run in normal mode
         self.switcher.setup_mode('normal')
+
+    def cleanup(self):
+        self.faft_client.system.run_shell_command_get_status(
+                "rm -rf /tmp/power_manager")
+
+        return super().cleanup()
 
     def _open_lid(self):
         """Open lid by servo."""
@@ -66,27 +78,55 @@ class firmware_ECLidSwitch(FirmwareTest):
 
     def delayed_wake(self):
         """
-        Confirm the device is in G3, wait for WAKE_DELAY, and then wake DUT
-        with lid switch.
+        Wait for WAKE_DELAY, and then wake DUT with lid switch.
         """
-        self.check_shutdown_power_state(self.POWER_STATE_G3, pwr_retries=10)
         time.sleep(self.WAKE_DELAY)
         self._wake_by_lid_switch()
 
     def immediate_wake(self):
-        """Confirm the device is in G3 and then wake DUT with lid switch."""
-        self.check_shutdown_power_state(self.POWER_STATE_G3, pwr_retries=10)
+        """Wake DUT with lid switch."""
         self._wake_by_lid_switch()
 
+    def shutdown_cmd(self):
+        """Shut down the DUT but don't wait for ping failures."""
+        self.run_shutdown_cmd(wait_for_offline=False)
+
     def shutdown_and_wake(self, shutdown_func, wake_func):
-        """Software shutdown and wake.
+        """Software shutdown and wake with check for power state
 
         Args:
           shutdown_func: Function to shut down DUT.
           wake_func: Delayed function to wake DUT.
         """
+
+        # Call shutdown function to power down device
+        logging.debug('calling shutdown_func')
         shutdown_func()
+
+        # Check device shutdown to correct power state
+        shutdown_power_states = '|'.join(
+                [self.POWER_STATE_S5, self.POWER_STATE_G3])
+        if not self.wait_power_state(shutdown_power_states,
+                                     self.POWER_STATE_CHECK_TRIES,
+                                     self.POWER_STATE_CHECK_DELAY):
+            raise error.TestFail(
+                    'The device failed to reach %s after calling shutdown function.',
+                    shutdown_power_states)
+
+        # Call wake function to wake up device
+        logging.debug('calling wake_func')
         wake_func()
+
+        # Check power state to verify device woke up to S0
+        wake_power_state = self.POWER_STATE_S0
+        if not self.wait_power_state(wake_power_state,
+                                     self.POWER_STATE_CHECK_TRIES,
+                                     self.POWER_STATE_CHECK_DELAY):
+            raise error.TestFail(
+                    'The device failed to reach %s after calling wake function.',
+                    wake_power_state)
+        # Wait for the DUT to boot and respond to ssh before we move on.
+        self.switcher.wait_for_client()
 
     def _get_keyboard_backlight(self):
         """Get keyboard backlight brightness.
@@ -168,8 +208,12 @@ class firmware_ECLidSwitch(FirmwareTest):
         if lid switch event controls keycode and backlight as we expected.
         """
         ok = True
-        logging.info("Stopping powerd")
-        self.faft_client.system.run_shell_command('stop powerd')
+        logging.info("Disable use_lid in powerd")
+        self.faft_client.system.run_shell_command(
+                "mkdir -p /tmp/power_manager && "
+                "echo 0 > /tmp/power_manager/use_lid && "
+                "mount --bind /tmp/power_manager /var/lib/power_manager && "
+                "restart powerd")
         if not self.check_keycode():
             logging.error("check_keycode failed.")
             ok = False
@@ -177,7 +221,8 @@ class firmware_ECLidSwitch(FirmwareTest):
             logging.error("check_backlight failed.")
             ok = False
         logging.info("Restarting powerd")
-        self.faft_client.system.run_shell_command('start powerd')
+        self.faft_client.system.run_shell_command(
+                'umount /var/lib/power_manager && restart powerd')
         return ok
 
     def run_once(self):
@@ -186,22 +231,16 @@ class firmware_ECLidSwitch(FirmwareTest):
             raise error.TestNAError("Nothing needs to be tested on this device")
 
         logging.info("Shut down and then wake up DUT after a delay.")
-        self.switcher.mode_aware_reboot(
-                'custom',
-                lambda:self.shutdown_and_wake(
-                        shutdown_func=self.run_shutdown_cmd,
-                        wake_func=self.delayed_wake))
+        self.shutdown_and_wake(shutdown_func=self.shutdown_cmd,
+                               wake_func=self.delayed_wake)
+
         logging.info("Shut down and then wake up DUT immediately.")
-        self.switcher.mode_aware_reboot(
-                'custom',
-                lambda:self.shutdown_and_wake(
-                        shutdown_func=self.run_shutdown_cmd,
-                        wake_func=self.immediate_wake))
+        self.shutdown_and_wake(shutdown_func=self.shutdown_cmd,
+                               wake_func=self.immediate_wake)
+
         logging.info("Close and then open the lid when not logged in.")
-        self.switcher.mode_aware_reboot(
-                'custom',
-                lambda:self.shutdown_and_wake(
-                        shutdown_func=self._close_lid,
-                        wake_func=self.immediate_wake))
+        self.shutdown_and_wake(shutdown_func=self._close_lid,
+                               wake_func=self.immediate_wake)
+
         logging.info("Check keycode and backlight.")
         self.check_state(self.check_keycode_and_backlight)

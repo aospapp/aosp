@@ -1,4 +1,4 @@
-#!/usr/bin/python2 -u
+#!/usr/bin/python3 -u
 #
 # Copyright (c) 2012 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
@@ -13,19 +13,23 @@
 #
 # The parser uses the test report generator which comes bundled with the Chrome
 # OS source tree in order to maintain consistency. As well as not having to keep
-# track of any secondary failure white lists.
+# track of any secondary failure allow lists.
 #
 # Stack trace generation is done by the minidump_stackwalk utility which is also
-# bundled with the Chrome OS source tree. Requires gsutil and cros_sdk utilties
+# bundled with the ChromeOS source tree. Requires gsutil and cros_sdk utilties
 # be present in the path.
 #
-# The path to the Chrome OS source tree is defined in global_config under the
+# The path to the ChromeOS source tree is defined in global_config under the
 # CROS section as 'source_tree'.
 #
 # Existing parse behavior is kept completely intact. If the site parser is not
 # configured it will print a debug message and exit after default parser is
 # called.
 #
+
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
 
 import errno
 import json
@@ -39,6 +43,7 @@ from autotest_lib.tko import models
 from autotest_lib.tko import parse
 from autotest_lib.tko import utils as tko_utils
 from autotest_lib.tko.parsers import version_0
+import six
 
 
 # Name of the report file to produce upon completion.
@@ -76,7 +81,7 @@ class StackTrace(object):
 
         Args:
             results_dir: Full path to the results directory to process.
-            cros_src_dir: Full path to Chrome OS source tree. Must have a
+            cros_src_dir: Full path to ChromeOS source tree. Must have a
                 working chroot.
         """
         self._results_dir = results_dir
@@ -97,7 +102,7 @@ class StackTrace(object):
         if not os.path.exists(cache_dir):
             try:
                 os.makedirs(cache_dir)
-            except OSError, e:
+            except OSError as e:
                 if e.errno != errno.EEXIST:
                     raise
         return cache_dir
@@ -171,7 +176,7 @@ def main():
     # Results directory should be the last argument passed in.
     results_dir = sys.argv[-1]
 
-    # Load the Chrome OS source tree location.
+    # Load the ChromeOS source tree location.
     cros_src_dir = global_config.global_config.get_config_value(
         'CROS', 'source_tree', default='')
 
@@ -183,13 +188,13 @@ def main():
             ' to default parser.')
         return
 
-    # Load ResultCollector from the Chrome OS source tree.
+    # Load ResultCollector from the ChromeOS source tree.
     sys.path.append(os.path.join(
         cros_src_dir, 'src/platform/crostestutils/utils_py'))
     from generate_test_report import ResultCollector
 
-    # Collect results using the standard Chrome OS test report generator. Doing
-    # so allows us to use the same crash white list and reporting standards the
+    # Collect results using the standard ChromeOS test report generator. Doing
+    # so allows us to use the same crash allow list and reporting standards the
     # VM based test instances use.
     # TODO(scottz): Reevaluate this code usage. crosbug.com/35282
     results = ResultCollector().RecursivelyCollectResults(results_dir)
@@ -215,7 +220,7 @@ def main():
             continue
 
         # Parse failure reason for this test.
-        for t, r in parse_reason(test_dict['testdir']).iteritems():
+        for t, r in six.iteritems(parse_reason(test_dict['testdir'])):
             # Server tests may have subtests which will each have their own
             # reason, so display the test name for the subtest in that case.
             if t != test_name:

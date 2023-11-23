@@ -21,7 +21,7 @@
 namespace {
 
 static const int64_t DEFAULT_COOL_DOWN_MILLIS = 1000LL;  // 1 second.
-static const int64_t DEFAULT_TIMEOUT_MILLIS = 2000LL;    // 2 seconds.
+static const int64_t DEFAULT_TIMEOUT_MILLIS = 1500LL;    // 1.5 seconds.
 
 }  // anonymous namespace
 

@@ -24,7 +24,7 @@ import os
 import posixpath
 from fnmatch import fnmatch
 
-from build.common import DEQP_DIR, writeFile
+from ctsbuild.common import DEQP_DIR, writeFile
 
 SRC_ROOTS = [
 	"execserver",
@@ -55,6 +55,18 @@ EXCLUDE_PATTERNS = [
 	"executor/tools/*",
 	"execserver/tools/*",
 	"external/vulkancts/framework/vulkan/vkRenderDocUtil.cpp",
+	"external/vulkancts/modules/vulkan/vktTestPackageEntrySC.cpp",
+	"external/vulkancts/modules/vulkan/sc/*",
+	"external/vulkancts/vkscserver/*",
+	"external/vulkancts/vkscpc/*",
+	"external/vulkancts/framework/vulkan/generated/vulkansc/*",
+	"external/vulkancts/modules/vulkan/video/*",
+]
+
+# These are include folders where there are no source c/cpp files
+EXTRA_INCLUDE_DIRS = [
+	# This only has headers, so is not caught with INCLUDE_PATTERNS
+	"external/vulkancts/framework/vulkan/generated/vulkan",
 ]
 
 TEMPLATE = """
@@ -126,6 +138,9 @@ def getSourceDirs (sourceFiles):
 		if not sourceDir in seenDirs:
 			sourceDirs.append(sourceDir)
 			seenDirs.add(sourceDir)
+
+	sourceDirs.extend(EXTRA_INCLUDE_DIRS)
+	sourceDirs.sort()
 
 	return sourceDirs
 

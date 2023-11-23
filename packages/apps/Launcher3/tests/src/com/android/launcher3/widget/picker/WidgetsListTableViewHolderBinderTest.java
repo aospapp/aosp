@@ -94,10 +94,10 @@ public final class WidgetsListTableViewHolderBinderTest {
         }).when(mIconCache).getTitleNoCache(any());
 
         mViewHolderBinder = new WidgetsListTableViewHolderBinder(
+                mContext,
                 LayoutInflater.from(mContext),
                 mOnIconClickListener,
-                mOnLongClickListener,
-                new WidgetsListDrawableFactory(mContext));
+                mOnLongClickListener);
     }
 
     @Test
@@ -144,7 +144,7 @@ public final class WidgetsListTableViewHolderBinderTest {
 
             widgetItems.add(new WidgetItem(
                     LauncherAppWidgetProviderInfo.fromProviderInfo(mContext, widgetInfo),
-                    mTestProfile, mIconCache));
+                    mTestProfile, mIconCache, mContext));
         }
         return widgetItems;
     }

@@ -16,6 +16,7 @@
 
 package dagger.internal.codegen.binding;
 
+import static androidx.room.compiler.processing.compat.XConverters.toJavac;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.getOnlyElement;
 
@@ -26,7 +27,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Multimap;
-import dagger.model.Key;
+import dagger.spi.model.Key;
 import javax.lang.model.element.TypeElement;
 
 /**
@@ -99,7 +100,7 @@ abstract class ResolvedBindings {
 
   /** All bindings for {@link #key()} that are owned by a component. */
   ImmutableSet<? extends Binding> bindingsOwnedBy(ComponentDescriptor component) {
-    return allBindings().get(component.typeElement());
+    return allBindings().get(toJavac(component.typeElement()));
   }
 
   /**
@@ -151,7 +152,7 @@ abstract class ResolvedBindings {
     return new AutoValue_ResolvedBindings(
         key,
         ImmutableSetMultimap.of(),
-        ImmutableMap.of(owningComponent.typeElement(), ownedMembersInjectionBinding),
+        ImmutableMap.of(toJavac(owningComponent.typeElement()), ownedMembersInjectionBinding),
         ImmutableSet.of(),
         ImmutableSet.of(),
         ImmutableSet.of());

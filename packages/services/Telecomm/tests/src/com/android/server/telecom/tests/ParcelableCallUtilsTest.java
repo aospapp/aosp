@@ -87,7 +87,7 @@ public class ParcelableCallUtilsTest extends TelecomTestCase {
     @SmallTest
     @Test
     public void testParcelForNonSystemDialer() {
-        mCall.putExtras(Call.SOURCE_CONNECTION_SERVICE, getSomeExtras());
+        mCall.putConnectionServiceExtras(getSomeExtras());
         ParcelableCall call = ParcelableCallUtils.toParcelableCall(mCall,
                 false /* includevideoProvider */,
                 null /* phoneAccountRegistrar */,
@@ -105,7 +105,7 @@ public class ParcelableCallUtilsTest extends TelecomTestCase {
     @SmallTest
     @Test
     public void testParcelForSystemDialer() {
-        mCall.putExtras(Call.SOURCE_CONNECTION_SERVICE, getSomeExtras());
+        mCall.putConnectionServiceExtras(getSomeExtras());
         ParcelableCall call = ParcelableCallUtils.toParcelableCall(mCall,
                 false /* includevideoProvider */,
                 null /* phoneAccountRegistrar */,
@@ -123,7 +123,7 @@ public class ParcelableCallUtilsTest extends TelecomTestCase {
     @SmallTest
     @Test
     public void testParcelForSystemCallScreening() {
-        mCall.putExtras(Call.SOURCE_CONNECTION_SERVICE, getSomeExtras());
+        mCall.putConnectionServiceExtras(getSomeExtras());
         ParcelableCall call = ParcelableCallUtils.toParcelableCallForScreening(mCall,
                 true /* isPartOfSystemDialer */);
 
@@ -137,7 +137,7 @@ public class ParcelableCallUtilsTest extends TelecomTestCase {
     @SmallTest
     @Test
     public void testParcelForSystemNonSystemCallScreening() {
-        mCall.putExtras(Call.SOURCE_CONNECTION_SERVICE, getSomeExtras());
+        mCall.putConnectionServiceExtras(getSomeExtras());
         ParcelableCall call = ParcelableCallUtils.toParcelableCallForScreening(mCall,
                 false /* isPartOfSystemDialer */);
 

@@ -35,6 +35,8 @@
 
 using namespace testing;
 using android::sp;
+using android::modules::sdklevel::IsAtLeastS;
+using android::modules::sdklevel::IsAtLeastU;
 using android::os::statsd::Predicate;
 using std::map;
 using std::set;
@@ -90,6 +92,22 @@ StatsdConfig buildGoodConfig() {
     metric->set_bucket(ONE_MINUTE);
     metric->mutable_dimensions_in_what()->set_field(2 /*SCREEN_STATE_CHANGE*/);
     metric->mutable_dimensions_in_what()->add_child()->set_field(1);
+    return config;
+}
+
+StatsdConfig buildGoodRestrictedConfig() {
+    StatsdConfig config;
+    config.set_id(12345);
+    config.set_restricted_metrics_delegate_package_name("delegate");
+
+    AtomMatcher* eventMatcher = config.add_atom_matcher();
+    eventMatcher->set_id(StringToId("SCREEN_IS_ON"));
+    SimpleAtomMatcher* simpleAtomMatcher = eventMatcher->mutable_simple_atom_matcher();
+    simpleAtomMatcher->set_atom_id(2 /*SCREEN_STATE_CHANGE*/);
+
+    EventMetric* metric = config.add_event_metric();
+    metric->set_id(3);
+    metric->set_what(StringToId("SCREEN_IS_ON"));
     return config;
 }
 
@@ -264,6 +282,43 @@ TEST(MetricsManagerTest, TestLogSourcesOnConfigUpdate) {
                 UnorderedElementsAreArray(unionSet({defaultPullUids, app2Uids, {AID_ADB}})));
 }
 
+struct MetricsManagerServerFlagParam {
+    string flagValue;
+    string label;
+};
+
+class MetricsManagerTest_SPlus
+    : public ::testing::Test,
+      public ::testing::WithParamInterface<MetricsManagerServerFlagParam> {
+protected:
+    void SetUp() override {
+        if (shouldSkipTest()) {
+            GTEST_SKIP() << skipReason();
+        }
+    }
+
+    bool shouldSkipTest() const {
+        return !IsAtLeastS();
+    }
+
+    string skipReason() const {
+        return "Skipping MetricsManagerTest_SPlus because device is not S+";
+    }
+
+    std::optional<string> originalFlagValue;
+};
+
+INSTANTIATE_TEST_SUITE_P(
+        MetricsManagerTest_SPlus, MetricsManagerTest_SPlus,
+        testing::ValuesIn<MetricsManagerServerFlagParam>({
+                // Server flag values
+                {FLAG_TRUE, "ServerFlagTrue"},
+                {FLAG_FALSE, "ServerFlagFalse"},
+        }),
+        [](const testing::TestParamInfo<MetricsManagerTest_SPlus::ParamType>& info) {
+            return info.param.label;
+        });
+
 TEST(MetricsManagerTest, TestCheckLogCredentialsWhitelistedAtom) {
     sp<UidMap> uidMap;
     sp<StatsPullerManager> pullerManager = new StatsPullerManager();
@@ -314,6 +369,54 @@ TEST(MetricsManagerTest, TestWhitelistedAtomStateTracker) {
 
     EXPECT_EQ(0, StateManager::getInstance().getStateTrackersCount());
     EXPECT_FALSE(metricsManager.isConfigValid());
+}
+
+TEST_P(MetricsManagerTest_SPlus, TestRestrictedMetricsConfig) {
+    sp<UidMap> uidMap;
+    sp<StatsPullerManager> pullerManager = new StatsPullerManager();
+    sp<AlarmMonitor> anomalyAlarmMonitor;
+    sp<AlarmMonitor> periodicAlarmMonitor;
+
+    StatsdConfig config = buildGoodRestrictedConfig();
+    config.add_allowed_log_source("AID_SYSTEM");
+    config.set_restricted_metrics_delegate_package_name("rm");
+
+    MetricsManager metricsManager(kConfigKey, config, timeBaseSec, timeBaseSec, uidMap,
+                                  pullerManager, anomalyAlarmMonitor, periodicAlarmMonitor);
+
+    if (IsAtLeastU()) {
+        EXPECT_TRUE(metricsManager.isConfigValid());
+    } else {
+        EXPECT_EQ(metricsManager.mInvalidConfigReason,
+                  INVALID_CONFIG_REASON_RESTRICTED_METRIC_NOT_ENABLED);
+        ASSERT_FALSE(metricsManager.isConfigValid());
+    }
+}
+
+TEST_P(MetricsManagerTest_SPlus, TestRestrictedMetricsConfigUpdate) {
+    sp<UidMap> uidMap;
+    sp<StatsPullerManager> pullerManager = new StatsPullerManager();
+    sp<AlarmMonitor> anomalyAlarmMonitor;
+    sp<AlarmMonitor> periodicAlarmMonitor;
+
+    StatsdConfig config = buildGoodRestrictedConfig();
+    config.add_allowed_log_source("AID_SYSTEM");
+    config.set_restricted_metrics_delegate_package_name("rm");
+
+    MetricsManager metricsManager(kConfigKey, config, timeBaseSec, timeBaseSec, uidMap,
+                                  pullerManager, anomalyAlarmMonitor, periodicAlarmMonitor);
+
+    StatsdConfig config2 = buildGoodRestrictedConfig();
+    metricsManager.updateConfig(config, timeBaseSec, timeBaseSec, anomalyAlarmMonitor,
+                                periodicAlarmMonitor);
+
+    if (IsAtLeastU()) {
+        EXPECT_TRUE(metricsManager.isConfigValid());
+    } else {
+        EXPECT_EQ(metricsManager.mInvalidConfigReason,
+                  INVALID_CONFIG_REASON_RESTRICTED_METRIC_NOT_ENABLED);
+        ASSERT_FALSE(metricsManager.isConfigValid());
+    }
 }
 
 }  // namespace statsd

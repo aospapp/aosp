@@ -14,6 +14,7 @@
 
 package {
     default_applicable_licenses: ["Android-Apache-2.0"],
+    default_visibility: ["//packages/modules/common/javatests:__subpackages__"],
 }
 
 android_test_helper_app {
@@ -25,5 +26,6 @@ android_test_helper_app {
         "truth-prebuilt",
     ],
     sdk_version: "current",
+    min_sdk_version: "31",
     target_sdk_version: "31",
 }

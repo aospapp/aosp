@@ -40,6 +40,8 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import android.car.media.CarAudioManager;
+import android.car.oem.AudioFocusEntry;
+import android.car.oem.OemCarAudioFocusResult;
 import android.content.ContentResolver;
 import android.content.pm.PackageManager;
 import android.media.AudioFocusInfo;
@@ -47,7 +49,13 @@ import android.media.AudioManager;
 import android.media.audiopolicy.AudioPolicy;
 import android.util.SparseArray;
 
+import com.android.car.CarLocalServices;
+import com.android.car.oem.CarOemAudioFocusProxyService;
+import com.android.car.oem.CarOemProxyService;
+
 import org.mockito.Mock;
+
+import java.util.List;
 
 abstract class CarZonesAudioFocusTestBase {
     protected static final String INVALID_CLIENT_ID = "invalid-client-id";
@@ -169,13 +177,31 @@ abstract class CarZonesAudioFocusTestBase {
     @Mock
     protected CarZonesAudioFocus.CarFocusCallback mMockCarFocusCallback;
     @Mock
+    protected CarOemProxyService mMockCarOemProxyService;
+    @Mock
+    protected CarOemAudioFocusProxyService mMockCarOemAudioFocusProxyService;
+    @Mock
     private ContentResolver mContentResolver;
     @Mock
     private CarAudioSettings mCarAudioSettings;
     @Mock
     private PackageManager mMockPackageManager;
+    @Mock
+    private CarVolumeInfoWrapper mMockCarVolumeInfoWrapper;
 
     protected SparseArray<CarAudioZone> mCarAudioZones;
+
+    public void setUp() {
+        mCarAudioZones = generateAudioZones();
+        CarLocalServices.removeServiceForTest(CarOemProxyService.class);
+        CarLocalServices.addService(CarOemProxyService.class, mMockCarOemProxyService);
+        when(mMockCarOemProxyService.isOemServiceReady()).thenReturn(false);
+        when(mMockCarOemProxyService.isOemServiceEnabled()).thenReturn(false);
+    }
+
+    public void tearDown() {
+        CarLocalServices.removeServiceForTest(CarOemProxyService.class);
+    }
 
     protected AudioFocusInfo generateCallRequestForPrimaryZone() {
         return new AudioFocusInfoBuilder().setUsage(USAGE_VOICE_COMMUNICATION)
@@ -213,21 +239,41 @@ abstract class CarZonesAudioFocusTestBase {
     }
 
     protected SparseArray<CarAudioZone> generateAudioZones() {
+        int testZoneConfigId = 0;
         SparseArray<CarAudioZone> zones = new SparseArray<>(2);
-        zones.put(PRIMARY_ZONE_ID, new CarAudioZone(PRIMARY_ZONE_ID, "Primary zone"));
-        zones.put(SECONDARY_ZONE_ID, new CarAudioZone(SECONDARY_ZONE_ID, "Secondary zone"));
+        CarAudioContext testCarAudioContext =
+                new CarAudioContext(CarAudioContext.getAllContextsInfo(),
+                        /* useCoreAudioRouting= */ false);
+        CarAudioZone primaryZone = new CarAudioZone(testCarAudioContext, "Primary zone",
+                PRIMARY_ZONE_ID);
+        CarAudioZone secondaryZone = new CarAudioZone(testCarAudioContext, "Secondary zone",
+                SECONDARY_ZONE_ID);
+        CarAudioZoneConfig primaryZoneConfig =
+                new CarAudioZoneConfig.Builder("Primary zone config", PRIMARY_ZONE_ID,
+                        testZoneConfigId, /* isDefault= */ true).build();
+        CarAudioZoneConfig secondaryZoneConfig =
+                new CarAudioZoneConfig.Builder("Secondary zone config", SECONDARY_ZONE_ID,
+                        testZoneConfigId, /* isDefault= */ true).build();
+        primaryZone.addZoneConfig(primaryZoneConfig);
+        secondaryZone.addZoneConfig(secondaryZoneConfig);
+        zones.put(PRIMARY_ZONE_ID, primaryZone);
+        zones.put(SECONDARY_ZONE_ID, secondaryZone);
         return zones;
     }
 
-    protected CarZonesAudioFocus getCarZonesAudioFocus() {
+    protected CarZonesAudioFocus getCarZonesAudioFocus(CarZonesAudioFocus.CarFocusCallback
+            carFocusCallback) {
         CarZonesAudioFocus carZonesAudioFocus =
-                CarZonesAudioFocus.createCarZonesAudioFocus(mMockAudioManager, mMockPackageManager,
-                        mCarAudioZones,
-                        mCarAudioSettings, mMockCarFocusCallback);
+                CarZonesAudioFocus.createCarZonesAudioFocus(mMockAudioManager,
+                        mMockPackageManager, mCarAudioZones, mCarAudioSettings,
+                        carFocusCallback, mMockCarVolumeInfoWrapper);
         carZonesAudioFocus.setOwningPolicy(mCarAudioService, mAudioPolicy);
 
-
         return carZonesAudioFocus;
+    }
+
+    protected CarZonesAudioFocus getCarZonesAudioFocus() {
+        return getCarZonesAudioFocus(mMockCarFocusCallback);
     }
 
     protected void setUpRejectNavigationOnCallValue(boolean rejectNavigationOnCall) {
@@ -235,6 +281,12 @@ abstract class CarZonesAudioFocusTestBase {
                 .thenReturn(mContentResolver);
         when(mCarAudioSettings.isRejectNavigationOnCallEnabledInSettings(TEST_USER_ID))
                 .thenReturn(rejectNavigationOnCall);
+    }
+
+    protected OemCarAudioFocusResult getAudioFocusResults(AudioFocusEntry entry,
+            List<AudioFocusEntry> lostEntries, List<AudioFocusEntry> blockedEntries, int results) {
+        return new OemCarAudioFocusResult.Builder(lostEntries, blockedEntries, results)
+                .setAudioFocusEntry(entry).build();
     }
 
     public static final class AudioClientInfo {

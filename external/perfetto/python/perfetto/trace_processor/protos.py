@@ -43,6 +43,8 @@ class ProtoFactory:
 
     def create_message_factory(message_type):
       message_desc = self.descriptor_pool.FindMessageTypeByName(message_type)
+      if hasattr(message_factory, 'GetMessageClass'):
+        return message_factory.GetMessageClass(message_desc)
       return message_factory.MessageFactory().GetPrototype(message_desc)
 
     # Create proto messages to correctly communicate with the RPC API by sending
@@ -54,7 +56,7 @@ class ProtoFactory:
         'perfetto.protos.ComputeMetricArgs')
     self.ComputeMetricResult = create_message_factory(
         'perfetto.protos.ComputeMetricResult')
-    self.RawQueryArgs = create_message_factory('perfetto.protos.RawQueryArgs')
+    self.QueryArgs = create_message_factory('perfetto.protos.QueryArgs')
     self.QueryResult = create_message_factory('perfetto.protos.QueryResult')
     self.TraceMetrics = create_message_factory('perfetto.protos.TraceMetrics')
     self.DisableAndReadMetatraceResult = create_message_factory(

@@ -15,11 +15,11 @@
 #include <android/binder_interface_utils.h>
 #include <gtest/gtest.h>
 
+#include <vector>
+
 #include "src/StatsLogProcessor.h"
 #include "src/stats_log_util.h"
 #include "tests/statsd_test_util.h"
-
-#include <vector>
 
 using ::ndk::SharedRefBase;
 
@@ -60,6 +60,8 @@ StatsdConfig CreateStatsdConfig(bool useCondition = true) {
     valueMetric->set_use_absolute_value_on_reset(true);
     valueMetric->set_skip_zero_diff_output(false);
     valueMetric->set_max_pull_delay_sec(INT_MAX);
+    valueMetric->set_split_bucket_for_app_upgrade(true);
+    valueMetric->set_min_bucket_size_nanos(1000);
     return config;
 }
 
@@ -301,6 +303,23 @@ TEST(ValueMetricE2eTest, TestPulledEvents) {
     EXPECT_EQ(baseTimeNs + 7 * bucketSizeNs, data.bucket_info(3).start_bucket_elapsed_nanos());
     EXPECT_EQ(baseTimeNs + 8 * bucketSizeNs, data.bucket_info(3).end_bucket_elapsed_nanos());
     ASSERT_EQ(1, data.bucket_info(3).values_size());
+
+    valueMetrics = reports.reports(0).metrics(0).value_metrics();
+    ASSERT_EQ(2, valueMetrics.skipped_size());
+
+    StatsLogReport::SkippedBuckets skipped = valueMetrics.skipped(0);
+    EXPECT_EQ(BucketDropReason::CONDITION_UNKNOWN, skipped.drop_event(0).drop_reason());
+    EXPECT_EQ(MillisToNano(NanoToMillis(baseTimeNs + 2 * bucketSizeNs)),
+              skipped.start_bucket_elapsed_nanos());
+    EXPECT_EQ(MillisToNano(NanoToMillis(baseTimeNs + 3 * bucketSizeNs)),
+              skipped.end_bucket_elapsed_nanos());
+
+    skipped = valueMetrics.skipped(1);
+    EXPECT_EQ(BucketDropReason::NO_DATA, skipped.drop_event(0).drop_reason());
+    EXPECT_EQ(MillisToNano(NanoToMillis(baseTimeNs + 5 * bucketSizeNs)),
+              skipped.start_bucket_elapsed_nanos());
+    EXPECT_EQ(MillisToNano(NanoToMillis(baseTimeNs + 6 * bucketSizeNs)),
+              skipped.end_bucket_elapsed_nanos());
 }
 
 TEST(ValueMetricE2eTest, TestPulledEvents_LateAlarm) {
@@ -404,6 +423,30 @@ TEST(ValueMetricE2eTest, TestPulledEvents_LateAlarm) {
     EXPECT_EQ(baseTimeNs + 9 * bucketSizeNs, data.bucket_info(2).start_bucket_elapsed_nanos());
     EXPECT_EQ(baseTimeNs + 10 * bucketSizeNs, data.bucket_info(2).end_bucket_elapsed_nanos());
     ASSERT_EQ(1, data.bucket_info(2).values_size());
+
+    valueMetrics = reports.reports(0).metrics(0).value_metrics();
+    ASSERT_EQ(3, valueMetrics.skipped_size());
+
+    StatsLogReport::SkippedBuckets skipped = valueMetrics.skipped(0);
+    EXPECT_EQ(BucketDropReason::CONDITION_UNKNOWN, skipped.drop_event(0).drop_reason());
+    EXPECT_EQ(MillisToNano(NanoToMillis(baseTimeNs + 2 * bucketSizeNs)),
+              skipped.start_bucket_elapsed_nanos());
+    EXPECT_EQ(MillisToNano(NanoToMillis(baseTimeNs + 5 * bucketSizeNs)),
+              skipped.end_bucket_elapsed_nanos());
+
+    skipped = valueMetrics.skipped(1);
+    EXPECT_EQ(BucketDropReason::NO_DATA, skipped.drop_event(0).drop_reason());
+    EXPECT_EQ(MillisToNano(NanoToMillis(baseTimeNs + 6 * bucketSizeNs)),
+              skipped.start_bucket_elapsed_nanos());
+    EXPECT_EQ(MillisToNano(NanoToMillis(baseTimeNs + 7 * bucketSizeNs)),
+              skipped.end_bucket_elapsed_nanos());
+
+    skipped = valueMetrics.skipped(2);
+    EXPECT_EQ(BucketDropReason::NO_DATA, skipped.drop_event(0).drop_reason());
+    EXPECT_EQ(MillisToNano(NanoToMillis(baseTimeNs + 7 * bucketSizeNs)),
+              skipped.start_bucket_elapsed_nanos());
+    EXPECT_EQ(MillisToNano(NanoToMillis(baseTimeNs + 8 * bucketSizeNs)),
+              skipped.end_bucket_elapsed_nanos());
 }
 
 TEST(ValueMetricE2eTest, TestPulledEvents_WithActivation) {
@@ -422,6 +465,8 @@ TEST(ValueMetricE2eTest, TestPulledEvents_WithActivation) {
     event_activation->set_atom_matcher_id(batterySaverStartMatcher.id());
     event_activation->set_ttl_seconds(ttlNs / 1000000000);
 
+    StatsdStats::getInstance().reset();
+
     ConfigKey cfgKey;
     auto processor = CreateStatsLogProcessor(baseTimeNs, configAddedTimeNs, config, cfgKey,
                                              SharedRefBase::make<FakeSubsystemSleepCallback>(),
@@ -430,10 +475,10 @@ TEST(ValueMetricE2eTest, TestPulledEvents_WithActivation) {
     EXPECT_TRUE(processor->mMetricsManagers.begin()->second->isConfigValid());
     processor->mPullerManager->ForceClearPullerCache();
 
-    int startBucketNum = processor->mMetricsManagers.begin()
-                                 ->second->mAllMetricProducers[0]
-                                 ->getCurrentBucketNum();
-    EXPECT_GT(startBucketNum, (int64_t)0);
+    const int startBucketNum = processor->mMetricsManagers.begin()
+                                       ->second->mAllMetricProducers[0]
+                                       ->getCurrentBucketNum();
+    EXPECT_EQ(startBucketNum, 2);
     EXPECT_FALSE(processor->mMetricsManagers.begin()->second->mAllMetricProducers[0]->isActive());
 
     // When creating the config, the value metric producer should register the alarm at the
@@ -445,38 +490,110 @@ TEST(ValueMetricE2eTest, TestPulledEvents_WithActivation) {
             processor->mPullerManager->mReceivers.begin()->second.front().nextPullTimeNs;
     EXPECT_EQ(baseTimeNs + startBucketNum * bucketSizeNs + bucketSizeNs, expectedPullTimeNs);
 
-    // Pulling alarm arrives on time and reset the sequential pulling alarm.
+    // Initialize metric.
+    const int64_t metricInitTimeNs = configAddedTimeNs + 1;  // 10 mins + 1 ns.
+    processor->onStatsdInitCompleted(metricInitTimeNs);
+
+    // Check no pull occurred since metric not active.
+    StatsdStatsReport_PulledAtomStats pulledAtomStats =
+            getPulledAtomStats(util::SUBSYSTEM_SLEEP_STATE);
+    EXPECT_EQ(pulledAtomStats.atom_id(), util::SUBSYSTEM_SLEEP_STATE);
+    EXPECT_EQ(pulledAtomStats.total_pull(), 0);
+
+    // Check skip bucket is not added when metric is not active.
+    int64_t dumpReportTimeNs = metricInitTimeNs + 1;  // 10 mins + 2 ns.
+    vector<uint8_t> buffer;
+    processor->onDumpReport(cfgKey, dumpReportTimeNs, true /* include_current_partial_bucket */,
+                            true /* erase_data */, ADB_DUMP, FAST, &buffer);
+    ConfigMetricsReportList reports;
+    EXPECT_TRUE(buffer.size() > 0);
+    EXPECT_TRUE(reports.ParseFromArray(&buffer[0], buffer.size()));
+    ASSERT_EQ(1, reports.reports_size());
+    ASSERT_EQ(1, reports.reports(0).metrics_size());
+    StatsLogReport::ValueMetricDataWrapper valueMetrics =
+            reports.reports(0).metrics(0).value_metrics();
+    EXPECT_EQ(valueMetrics.skipped_size(), 0);
+
+    // App upgrade.
+    const int64_t appUpgradeTimeNs = dumpReportTimeNs + 1;  // 10 mins + 3 ns.
+    processor->notifyAppUpgrade(appUpgradeTimeNs, "appName", 1000 /* uid */, 2 /* version */);
+
+    // Check no pull occurred since metric not active.
+    pulledAtomStats = getPulledAtomStats(util::SUBSYSTEM_SLEEP_STATE);
+    EXPECT_EQ(pulledAtomStats.atom_id(), util::SUBSYSTEM_SLEEP_STATE);
+    EXPECT_EQ(pulledAtomStats.total_pull(), 0);
+
+    // Check skip bucket is not added when metric is not active.
+    dumpReportTimeNs = appUpgradeTimeNs + 1;  // 10 mins + 4 ns.
+    buffer.clear();
+    processor->onDumpReport(cfgKey, dumpReportTimeNs, true /* include_current_partial_bucket */,
+                            true /* erase_data */, ADB_DUMP, FAST, &buffer);
+    EXPECT_TRUE(buffer.size() > 0);
+    EXPECT_TRUE(reports.ParseFromArray(&buffer[0], buffer.size()));
+    ASSERT_EQ(1, reports.reports_size());
+    ASSERT_EQ(1, reports.reports(0).metrics_size());
+    valueMetrics = reports.reports(0).metrics(0).value_metrics();
+    EXPECT_EQ(valueMetrics.skipped_size(), 0);
+
+    // Dump report with a pull. The pull should not happen because metric is inactive.
+    dumpReportTimeNs = dumpReportTimeNs + 1;  // 10 mins + 6 ns.
+    buffer.clear();
+    processor->onDumpReport(cfgKey, dumpReportTimeNs, true /* include_current_partial_bucket */,
+                            true /* erase_data */, ADB_DUMP, NO_TIME_CONSTRAINTS, &buffer);
+    pulledAtomStats = getPulledAtomStats(util::SUBSYSTEM_SLEEP_STATE);
+    EXPECT_EQ(pulledAtomStats.atom_id(), util::SUBSYSTEM_SLEEP_STATE);
+    EXPECT_EQ(pulledAtomStats.total_pull(), 0);
+
+    // Check skipped bucket is not added from the dump operation when metric is not active.
+    EXPECT_TRUE(buffer.size() > 0);
+    EXPECT_TRUE(reports.ParseFromArray(&buffer[0], buffer.size()));
+    ASSERT_EQ(1, reports.reports_size());
+    ASSERT_EQ(1, reports.reports(0).metrics_size());
+    valueMetrics = reports.reports(0).metrics(0).value_metrics();
+    EXPECT_EQ(valueMetrics.skipped_size(), 0);
+
+    // Pulling alarm arrives on time and reset the sequential pulling alarm. This bucket is skipped.
     processor->informPullAlarmFired(expectedPullTimeNs + 1);  // 15 mins + 1 ns.
     EXPECT_EQ(baseTimeNs + startBucketNum * bucketSizeNs + 2 * bucketSizeNs, expectedPullTimeNs);
     EXPECT_FALSE(processor->mMetricsManagers.begin()->second->mAllMetricProducers[0]->isActive());
 
-    // Activate the metric. A pull occurs here
+    // Activate the metric. A pull occurs here that sets the base.
+    // 15 mins + 2 ms
     const int64_t activationNs = configAddedTimeNs + bucketSizeNs + (2 * 1000 * 1000);  // 2 millis.
     auto batterySaverOnEvent = CreateBatterySaverOnEvent(activationNs);
     processor->OnLogEvent(batterySaverOnEvent.get());  // 15 mins + 2 ms.
     EXPECT_TRUE(processor->mMetricsManagers.begin()->second->mAllMetricProducers[0]->isActive());
 
+    // This bucket should be kept. 1 total
     processor->informPullAlarmFired(expectedPullTimeNs + 1);  // 20 mins + 1 ns.
     EXPECT_EQ(baseTimeNs + startBucketNum * bucketSizeNs + 3 * bucketSizeNs, expectedPullTimeNs);
 
+    // 25 mins + 2 ns.
+    // This bucket should be kept. 2 total
     processor->informPullAlarmFired(expectedPullTimeNs + 2);  // 25 mins + 2 ns.
     EXPECT_EQ(baseTimeNs + startBucketNum * bucketSizeNs + 4 * bucketSizeNs, expectedPullTimeNs);
 
     // Create random event to deactivate metric.
-    auto deactivationEvent = CreateScreenBrightnessChangedEvent(activationNs + ttlNs + 1, 50);
+    // A pull occurs here and a partial bucket is created. The bucket ending here is kept. 3 total.
+    // 25 mins + 2 ms + 1 ns.
+    const int64_t deactivationNs = activationNs + ttlNs + 1;
+    auto deactivationEvent = CreateScreenBrightnessChangedEvent(deactivationNs, 50);
     processor->OnLogEvent(deactivationEvent.get());
     EXPECT_FALSE(processor->mMetricsManagers.begin()->second->mAllMetricProducers[0]->isActive());
 
+    // 30 mins + 3 ns. This bucket is skipped.
     processor->informPullAlarmFired(expectedPullTimeNs + 3);
     EXPECT_EQ(baseTimeNs + startBucketNum * bucketSizeNs + 5 * bucketSizeNs, expectedPullTimeNs);
 
+    // 35 mins + 4 ns. This bucket is skipped
     processor->informPullAlarmFired(expectedPullTimeNs + 4);
     EXPECT_EQ(baseTimeNs + startBucketNum * bucketSizeNs + 6 * bucketSizeNs, expectedPullTimeNs);
 
-    ConfigMetricsReportList reports;
-    vector<uint8_t> buffer;
-    processor->onDumpReport(cfgKey, configAddedTimeNs + 7 * bucketSizeNs + 10, false, true,
-                            ADB_DUMP, FAST, &buffer);
+    dumpReportTimeNs = configAddedTimeNs + 6 * bucketSizeNs + 10;
+    buffer.clear();
+    // 40 mins + 10 ns.
+    processor->onDumpReport(cfgKey, dumpReportTimeNs, false /* include_current_partial_bucket */,
+                            true /* erase_data */, ADB_DUMP, FAST, &buffer);
     EXPECT_TRUE(buffer.size() > 0);
     EXPECT_TRUE(reports.ParseFromArray(&buffer[0], buffer.size()));
     backfillDimensionPath(&reports);
@@ -484,7 +601,7 @@ TEST(ValueMetricE2eTest, TestPulledEvents_WithActivation) {
     backfillStartEndTimestamp(&reports);
     ASSERT_EQ(1, reports.reports_size());
     ASSERT_EQ(1, reports.reports(0).metrics_size());
-    StatsLogReport::ValueMetricDataWrapper valueMetrics;
+    valueMetrics = StatsLogReport::ValueMetricDataWrapper();
     sortMetricDataByDimensionsValue(reports.reports(0).metrics(0).value_metrics(), &valueMetrics);
     ASSERT_GT((int)valueMetrics.data_size(), 0);
 
@@ -494,8 +611,8 @@ TEST(ValueMetricE2eTest, TestPulledEvents_WithActivation) {
     EXPECT_EQ(1 /* subsystem name field */,
               data.dimensions_in_what().value_tuple().dimensions_value(0).field());
     EXPECT_FALSE(data.dimensions_in_what().value_tuple().dimensions_value(0).value_str().empty());
-    // We have 2 full buckets, the two surrounding the activation are dropped.
-    ASSERT_EQ(2, data.bucket_info_size());
+    // We have 3 full buckets, the two surrounding the activation are dropped.
+    ASSERT_EQ(3, data.bucket_info_size());
 
     auto bucketInfo = data.bucket_info(0);
     EXPECT_EQ(baseTimeNs + 3 * bucketSizeNs, bucketInfo.start_bucket_elapsed_nanos());
@@ -506,6 +623,25 @@ TEST(ValueMetricE2eTest, TestPulledEvents_WithActivation) {
     EXPECT_EQ(baseTimeNs + 4 * bucketSizeNs, bucketInfo.start_bucket_elapsed_nanos());
     EXPECT_EQ(baseTimeNs + 5 * bucketSizeNs, bucketInfo.end_bucket_elapsed_nanos());
     ASSERT_EQ(1, bucketInfo.values_size());
+
+    bucketInfo = data.bucket_info(2);
+    EXPECT_EQ(MillisToNano(NanoToMillis(baseTimeNs + 5 * bucketSizeNs)),
+              bucketInfo.start_bucket_elapsed_nanos());
+    EXPECT_EQ(MillisToNano(NanoToMillis(deactivationNs)), bucketInfo.end_bucket_elapsed_nanos());
+    ASSERT_EQ(1, bucketInfo.values_size());
+
+    // Check skipped bucket is not added after deactivation.
+    dumpReportTimeNs = configAddedTimeNs + 7 * bucketSizeNs + 10;
+    buffer.clear();
+    // 45 mins + 10 ns.
+    processor->onDumpReport(cfgKey, dumpReportTimeNs, true /* include_current_partial_bucket */,
+                            true /* erase_data */, ADB_DUMP, FAST, &buffer);
+    EXPECT_TRUE(buffer.size() > 0);
+    EXPECT_TRUE(reports.ParseFromArray(&buffer[0], buffer.size()));
+    ASSERT_EQ(1, reports.reports_size());
+    ASSERT_EQ(1, reports.reports(0).metrics_size());
+    valueMetrics = reports.reports(0).metrics(0).value_metrics();
+    EXPECT_EQ(valueMetrics.skipped_size(), 0);
 }
 
 /**

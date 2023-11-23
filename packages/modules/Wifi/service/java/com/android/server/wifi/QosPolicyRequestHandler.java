@@ -85,7 +85,7 @@ public class QosPolicyRequestHandler {
         pw.println("mQosPolicyStatusList size: " + mQosPolicyStatusList.size());
         for (QosPolicyStatus status : mQosPolicyStatusList) {
             pw.println("    Policy id: " + status.policyId + ", status: "
-                    + status.dscpPolicyStatus);
+                    + status.statusCode);
         }
         pw.println("mQosPolicyRequestQueue size: " + mQosPolicyRequestQueue.size());
         for (Pair<Integer, List<QosPolicyRequest>> request : mQosPolicyRequestQueue) {

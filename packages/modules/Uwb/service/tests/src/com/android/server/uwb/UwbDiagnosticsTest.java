@@ -16,13 +16,15 @@
 
 package com.android.server.uwb;
 
+import static com.google.common.truth.Truth.assertThat;
+
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.when;
 
 import android.content.Context;
+import android.content.pm.PackageManager;
+import android.content.pm.ResolveInfo;
 import android.os.BugreportManager;
 import android.platform.test.annotations.Presubmit;
 import android.test.suitebuilder.annotation.SmallTest;
@@ -34,6 +36,8 @@ import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+
+import java.util.List;
 
 /**
  * Unit tests for {@link com.android.server.uwb.UwbDiagnostics}.
@@ -47,6 +51,8 @@ public class UwbDiagnosticsTest {
     @Mock UwbInjector mUwbInjector;
     @Mock DeviceConfigFacade mDeviceConfigFacade;
     @Mock BugreportManager mBugreportManager;
+    @Mock PackageManager mPackageManager;
+    @Mock List<ResolveInfo>  mResolveInfoList;
     UwbDiagnostics mUwbDiagnostics;
 
     private static final int BUG_REPORT_MIN_INTERVAL_MS = 3600_000;
@@ -57,8 +63,10 @@ public class UwbDiagnosticsTest {
         when(mUwbInjector.getDeviceConfigFacade()).thenReturn(mDeviceConfigFacade);
         when(mDeviceConfigFacade.getBugReportMinIntervalMs())
                 .thenReturn(BUG_REPORT_MIN_INTERVAL_MS);
-        when(mBuildProperties.isUserBuild()).thenReturn(false);
+        when(mBuildProperties.isUserdebugBuild()).thenReturn(true);
         when(mContext.getSystemService(BugreportManager.class)).thenReturn(mBugreportManager);
+        when(mContext.getPackageManager()).thenReturn(mPackageManager);
+        when(mPackageManager.queryIntentActivities(any(), anyInt())).thenReturn(mResolveInfoList);
         mUwbDiagnostics = new UwbDiagnostics(mContext, mUwbInjector, mBuildProperties);
     }
 
@@ -66,7 +74,7 @@ public class UwbDiagnosticsTest {
     public void takeBugReportDoesNothingOnUserBuild() throws Exception {
         when(mBuildProperties.isUserBuild()).thenReturn(true);
         mUwbDiagnostics.takeBugReport("");
-        verify(mBugreportManager, never()).requestBugreport(any(), any(), any());
+        assertThat(mUwbDiagnostics.getLastBugReportTimeMs()).isEqualTo(0);
     }
 
     @Test
@@ -74,10 +82,10 @@ public class UwbDiagnosticsTest {
         // 1st attempt should succeed
         when(mUwbInjector.getElapsedSinceBootMillis()).thenReturn(10L);
         mUwbDiagnostics.takeBugReport("");
-        verify(mBugreportManager, times(1)).requestBugreport(any(), any(), any());
+        assertThat(mUwbDiagnostics.getLastBugReportTimeMs()).isEqualTo(10L);
         // 2nd attempt should fail
-        when(mUwbInjector.getWallClockMillis()).thenReturn(BUG_REPORT_MIN_INTERVAL_MS - 20L);
+        when(mUwbInjector.getElapsedSinceBootMillis()).thenReturn(BUG_REPORT_MIN_INTERVAL_MS - 20L);
         mUwbDiagnostics.takeBugReport("");
-        verify(mBugreportManager, times(1)).requestBugreport(any(), any(), any());
+        assertThat(mUwbDiagnostics.getLastBugReportTimeMs()).isEqualTo(10L);
     }
 }

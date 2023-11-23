@@ -32,6 +32,7 @@ import static android.Manifest.permission.READ_EXTERNAL_STORAGE;
 import static android.Manifest.permission.READ_MEDIA_AUDIO;
 import static android.Manifest.permission.READ_MEDIA_IMAGES;
 import static android.Manifest.permission.READ_MEDIA_VIDEO;
+import static android.Manifest.permission.READ_MEDIA_VISUAL_USER_SELECTED;
 import static android.Manifest.permission.READ_PHONE_STATE;
 import static android.Manifest.permission.READ_PRIVILEGED_PHONE_STATE;
 import static android.Manifest.permission.WRITE_CALL_LOG;
@@ -49,6 +50,7 @@ import android.permission.PermissionManager;
 import android.permission.PermissionManager.SplitPermissionInfo;
 
 import androidx.test.InstrumentationRegistry;
+import androidx.test.filters.SdkSuppress;
 import androidx.test.runner.AndroidJUnit4;
 
 import com.android.compatibility.common.util.ApiLevelUtil;
@@ -62,6 +64,7 @@ import java.util.List;
 import java.util.Set;
 
 @RunWith(AndroidJUnit4.class)
+@SdkSuppress(minSdkVersion = Build.VERSION_CODES.UPSIDE_DOWN_CAKE, codeName = "UpsideDownCake")
 public class SplitPermissionsSystemTest {
 
     private static final int NO_TARGET = Build.VERSION_CODES.CUR_DEVELOPMENT + 1;
@@ -141,24 +144,31 @@ public class SplitPermissionsSystemTest {
                     assertSplit(split, NO_TARGET, READ_PHONE_STATE);
                     break;
                 case BLUETOOTH_CONNECT:
-                    // STOPSHIP(b/184180558): replace with "S" once SDK is finalized
-                    assertSplit(split, Build.VERSION_CODES.R + 1, BLUETOOTH, BLUETOOTH_ADMIN);
+                    assertSplit(split, Build.VERSION_CODES.S, BLUETOOTH, BLUETOOTH_ADMIN);
                     break;
                 case BLUETOOTH_SCAN:
-                    // STOPSHIP(b/184180558): replace with "S" once SDK is finalized
-                    assertSplit(split, Build.VERSION_CODES.R + 1, BLUETOOTH, BLUETOOTH_ADMIN);
+                    assertSplit(split, Build.VERSION_CODES.S, BLUETOOTH, BLUETOOTH_ADMIN);
                     break;
                 case BODY_SENSORS:
-                    // STOPSHIP(b/212583342): replace with "T" once SDK is finalized
-                    assertSplit(split, Build.VERSION_CODES.S_V2 + 1, BODY_SENSORS_BACKGROUND);
+                    assertSplit(split, Build.VERSION_CODES.TIRAMISU, BODY_SENSORS_BACKGROUND);
+                    break;
+                case ACCESS_MEDIA_LOCATION:
+                case READ_MEDIA_IMAGES:
+                case READ_MEDIA_VIDEO:
+                    assertSplit(split, READ_MEDIA_VISUAL_USER_SELECTED);
+                    break;
             }
         }
 
-        assertEquals(21, seenSplits.size());
+        assertEquals(24, seenSplits.size());
     }
 
     private void assertSplit(SplitPermissionInfo split, int targetSdk, String... permission) {
         assertThat(split.getNewPermissions()).containsExactlyElementsIn(permission);
         assertThat(split.getTargetSdk()).isEqualTo(targetSdk);
+    }
+
+    private void assertSplit(SplitPermissionInfo split, String... permission) {
+        assertThat(split.getNewPermissions()).containsExactlyElementsIn(permission);
     }
 }

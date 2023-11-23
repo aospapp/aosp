@@ -34,7 +34,7 @@ java_library {
 
   srcs: ["**/*.java"],
   apex_available: [
-        "com.android.bluetooth",
+        "com.android.btservices",
   ],
   sdk_version: "module_current",
   min_sdk_version: "Tiramisu",

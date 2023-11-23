@@ -1,4 +1,4 @@
-// Copyright (c) 2015-2020 The Khronos Group Inc.
+// Copyright (c) 2015-2022 The Khronos Group Inc.
 // Modifications Copyright (C) 2020 Advanced Micro Devices, Inc. All rights
 // reserved.
 //
@@ -453,6 +453,7 @@ bool spvOpcodeIsAbort(SpvOp opcode) {
     case SpvOpTerminateInvocation:
     case SpvOpTerminateRayKHR:
     case SpvOpIgnoreIntersectionKHR:
+    case SpvOpEmitMeshTasksEXT:
       return true;
     default:
       return false;
@@ -465,11 +466,6 @@ bool spvOpcodeIsReturnOrAbort(SpvOp opcode) {
 
 bool spvOpcodeIsBlockTerminator(SpvOp opcode) {
   return spvOpcodeIsBranch(opcode) || spvOpcodeIsReturnOrAbort(opcode);
-}
-
-bool spvOpcodeTerminatesExecution(SpvOp opcode) {
-  return opcode == SpvOpKill || opcode == SpvOpTerminateInvocation ||
-         opcode == SpvOpTerminateRayKHR || opcode == SpvOpIgnoreIntersectionKHR;
 }
 
 bool spvOpcodeIsBaseOpaqueType(SpvOp opcode) {
@@ -528,6 +524,7 @@ bool spvOpcodeIsNonUniformGroupOperation(SpvOp opcode) {
     case SpvOpGroupNonUniformLogicalXor:
     case SpvOpGroupNonUniformQuadBroadcast:
     case SpvOpGroupNonUniformQuadSwap:
+    case SpvOpGroupNonUniformRotateKHR:
       return true;
     default:
       return false;
@@ -631,6 +628,7 @@ bool spvOpcodeIsDebug(SpvOp opcode) {
     case SpvOpString:
     case SpvOpLine:
     case SpvOpNoLine:
+    case SpvOpModuleProcessed:
       return true;
     default:
       return false;

@@ -53,7 +53,7 @@ class security_NosymfollowMountOption(test.test):
         """
         try:
             subprocess.check_output(["/bin/umount", MOUNT_PATH])
-        except subprocess.CalledProcessError, e:
+        except subprocess.CalledProcessError as e:
             self._fail("umount call failed")
 
     def mount_and_test_with_string(self, mount_options, restrict_symlinks):
@@ -91,7 +91,7 @@ class security_NosymfollowMountOption(test.test):
                 if arg == "nosymfollow":
                     continue
                 else:
-                    if output.find(arg) == -1:
+                    if output.find(str.encode(arg)) == -1:
                         self._fail("filesystem missing '%s' arg" % arg)
                         return
 

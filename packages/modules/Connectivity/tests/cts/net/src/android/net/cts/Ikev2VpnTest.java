@@ -24,7 +24,6 @@ import static android.net.cts.util.CtsNetUtils.TestNetworkCallback;
 import static com.android.compatibility.common.util.SystemUtil.runWithShellPermissionIdentity;
 import static com.android.modules.utils.build.SdkLevel.isAtLeastT;
 import static com.android.testutils.DevSdkIgnoreRuleKt.SC_V2;
-import static com.android.testutils.TestableNetworkCallbackKt.anyNetwork;
 
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
@@ -61,7 +60,11 @@ import androidx.test.InstrumentationRegistry;
 
 import com.android.internal.util.HexDump;
 import com.android.networkstack.apishim.ConstantsShim;
+import com.android.networkstack.apishim.Ikev2VpnProfileBuilderShimImpl;
+import com.android.networkstack.apishim.Ikev2VpnProfileShimImpl;
 import com.android.networkstack.apishim.VpnManagerShimImpl;
+import com.android.networkstack.apishim.common.Ikev2VpnProfileBuilderShim;
+import com.android.networkstack.apishim.common.Ikev2VpnProfileShim;
 import com.android.networkstack.apishim.common.VpnManagerShim;
 import com.android.networkstack.apishim.common.VpnProfileStateShim;
 import com.android.testutils.DevSdkIgnoreRule;
@@ -224,17 +227,28 @@ public class Ikev2VpnTest {
     }
 
     private Ikev2VpnProfile buildIkev2VpnProfileCommon(
-            @NonNull Ikev2VpnProfile.Builder builder, boolean isRestrictedToTestNetworks,
-            boolean requiresValidation) throws Exception {
+            @NonNull Ikev2VpnProfileBuilderShim builderShim, boolean isRestrictedToTestNetworks,
+            boolean requiresValidation, boolean automaticIpVersionSelectionEnabled,
+            boolean automaticNattKeepaliveTimerEnabled) throws Exception {
 
-        builder.setBypassable(true)
+        builderShim.setBypassable(true)
                 .setAllowedAlgorithms(TEST_ALLOWED_ALGORITHMS)
                 .setProxy(TEST_PROXY_INFO)
                 .setMaxMtu(TEST_MTU)
                 .setMetered(false);
         if (TestUtils.shouldTestTApis()) {
-            builder.setRequiresInternetValidation(requiresValidation);
+            builderShim.setRequiresInternetValidation(requiresValidation);
         }
+
+        if (TestUtils.shouldTestUApis()) {
+            builderShim.setAutomaticIpVersionSelectionEnabled(automaticIpVersionSelectionEnabled);
+            builderShim.setAutomaticNattKeepaliveTimerEnabled(automaticNattKeepaliveTimerEnabled);
+        }
+
+        // Convert shim back to Ikev2VpnProfile.Builder since restrictToTestNetworks is a hidden
+        // method and is not defined in shims.
+        // TODO: replace it in alternative way to remove the hidden method usage
+        final Ikev2VpnProfile.Builder builder = (Ikev2VpnProfile.Builder) builderShim.getBuilder();
         if (isRestrictedToTestNetworks) {
             builder.restrictToTestNetworks();
         }
@@ -250,13 +264,16 @@ public class Ikev2VpnTest {
                         ? IkeSessionTestUtils.IKE_PARAMS_V6 : IkeSessionTestUtils.IKE_PARAMS_V4,
                         IkeSessionTestUtils.CHILD_PARAMS);
 
-        final Ikev2VpnProfile.Builder builder =
-                new Ikev2VpnProfile.Builder(params)
+        final Ikev2VpnProfileBuilderShim builderShim =
+                Ikev2VpnProfileBuilderShimImpl.newInstance(params)
                         .setRequiresInternetValidation(requiresValidation)
                         .setProxy(TEST_PROXY_INFO)
                         .setMaxMtu(TEST_MTU)
                         .setMetered(false);
-
+        // Convert shim back to Ikev2VpnProfile.Builder since restrictToTestNetworks is a hidden
+        // method and is not defined in shims.
+        // TODO: replace it in alternative way to remove the hidden method usage
+        final Ikev2VpnProfile.Builder builder = (Ikev2VpnProfile.Builder) builderShim.getBuilder();
         if (isRestrictedToTestNetworks) {
             builder.restrictToTestNetworks();
         }
@@ -264,31 +281,35 @@ public class Ikev2VpnTest {
     }
 
     private Ikev2VpnProfile buildIkev2VpnProfilePsk(@NonNull String remote,
-            boolean isRestrictedToTestNetworks, boolean requiresValidation) throws Exception {
-        final Ikev2VpnProfile.Builder builder =
-                new Ikev2VpnProfile.Builder(remote, TEST_IDENTITY).setAuthPsk(TEST_PSK);
+            boolean isRestrictedToTestNetworks, boolean requiresValidation)
+            throws Exception {
+        final Ikev2VpnProfileBuilderShim builder =
+                Ikev2VpnProfileBuilderShimImpl.newInstance(remote, TEST_IDENTITY)
+                        .setAuthPsk(TEST_PSK);
         return buildIkev2VpnProfileCommon(builder, isRestrictedToTestNetworks,
-                requiresValidation);
+                requiresValidation, false /* automaticIpVersionSelectionEnabled */,
+                false /* automaticNattKeepaliveTimerEnabled */);
     }
 
     private Ikev2VpnProfile buildIkev2VpnProfileUsernamePassword(boolean isRestrictedToTestNetworks)
             throws Exception {
-
-        final Ikev2VpnProfile.Builder builder =
-                new Ikev2VpnProfile.Builder(TEST_SERVER_ADDR_V6, TEST_IDENTITY)
+        final Ikev2VpnProfileBuilderShim builder =
+                Ikev2VpnProfileBuilderShimImpl.newInstance(TEST_SERVER_ADDR_V6, TEST_IDENTITY)
                         .setAuthUsernamePassword(TEST_USER, TEST_PASSWORD, mServerRootCa);
         return buildIkev2VpnProfileCommon(builder, isRestrictedToTestNetworks,
-                false /* requiresValidation */);
+                false /* requiresValidation */, false /* automaticIpVersionSelectionEnabled */,
+                false /* automaticNattKeepaliveTimerEnabled */);
     }
 
     private Ikev2VpnProfile buildIkev2VpnProfileDigitalSignature(boolean isRestrictedToTestNetworks)
             throws Exception {
-        final Ikev2VpnProfile.Builder builder =
-                new Ikev2VpnProfile.Builder(TEST_SERVER_ADDR_V6, TEST_IDENTITY)
+        final Ikev2VpnProfileBuilderShim builder =
+                Ikev2VpnProfileBuilderShimImpl.newInstance(TEST_SERVER_ADDR_V6, TEST_IDENTITY)
                         .setAuthDigitalSignature(
                                 mUserCertKey.cert, mUserCertKey.key, mServerRootCa);
         return buildIkev2VpnProfileCommon(builder, isRestrictedToTestNetworks,
-                false /* requiresValidation */);
+                false /* requiresValidation */, false /* automaticIpVersionSelectionEnabled */,
+                false /* automaticNattKeepaliveTimerEnabled */);
     }
 
     private void checkBasicIkev2VpnProfile(@NonNull Ikev2VpnProfile profile) throws Exception {
@@ -520,8 +541,7 @@ public class Ikev2VpnTest {
                 HexDump.hexStringToByteArray(authResp));
 
         // Verify the VPN network came up
-        final Network vpnNetwork = cb.expectCallback(CallbackEntry.AVAILABLE, anyNetwork())
-                .getNetwork();
+        final Network vpnNetwork = cb.expect(CallbackEntry.AVAILABLE).getNetwork();
 
         if (testSessionKey) {
             final VpnProfileStateShim profileState = mVmShim.getProvisionedVpnProfileState();
@@ -531,13 +551,12 @@ public class Ikev2VpnTest {
             assertFalse(profileState.isLockdownEnabled());
         }
 
-        cb.expectCapabilitiesThat(vpnNetwork, TIMEOUT_MS,
-                caps -> caps.hasTransport(TRANSPORT_VPN)
-                && caps.hasCapability(NET_CAPABILITY_INTERNET)
-                && !caps.hasCapability(NET_CAPABILITY_VALIDATED)
-                && Process.myUid() == caps.getOwnerUid());
-        cb.expectCallback(CallbackEntry.LINK_PROPERTIES_CHANGED, vpnNetwork);
-        cb.expectCallback(CallbackEntry.BLOCKED_STATUS, vpnNetwork);
+        cb.expectCaps(vpnNetwork, TIMEOUT_MS, c -> c.hasTransport(TRANSPORT_VPN)
+                && c.hasCapability(NET_CAPABILITY_INTERNET)
+                && !c.hasCapability(NET_CAPABILITY_VALIDATED)
+                && Process.myUid() == c.getOwnerUid());
+        cb.expect(CallbackEntry.LINK_PROPERTIES_CHANGED, vpnNetwork);
+        cb.expect(CallbackEntry.BLOCKED_STATUS, vpnNetwork);
 
         // A VPN that requires validation is initially not validated, while one that doesn't
         // immediately validate automatically. Because this VPN can't actually access Internet,
@@ -688,6 +707,56 @@ public class Ikev2VpnTest {
         assumeTrue(TestUtils.shouldTestTApis());
         doTestStartStopVpnProfile(true /* testIpv6Only */, false /* requiresValidation */,
                 true /* testSessionKey */, false /* testIkeTunConnParams */);
+    }
+
+    @Test
+    public void testBuildIkev2VpnProfileWithAutomaticNattKeepaliveTimerEnabled() throws Exception {
+        // Cannot use @IgnoreUpTo(Build.VERSION_CODES.TIRAMISU) because this test also requires API
+        // 34 shims, and @IgnoreUpTo does not check that.
+        assumeTrue(TestUtils.shouldTestUApis());
+
+        final Ikev2VpnProfile profileWithDefaultValue = buildIkev2VpnProfilePsk(TEST_SERVER_ADDR_V6,
+                false /* isRestrictedToTestNetworks */, false /* requiresValidation */);
+        final Ikev2VpnProfileShim<Ikev2VpnProfile> shimWithDefaultValue =
+                Ikev2VpnProfileShimImpl.newInstance(profileWithDefaultValue);
+        assertFalse(shimWithDefaultValue.isAutomaticNattKeepaliveTimerEnabled());
+
+        final Ikev2VpnProfileBuilderShim builder =
+                Ikev2VpnProfileBuilderShimImpl.newInstance(TEST_SERVER_ADDR_V6, TEST_IDENTITY)
+                        .setAuthPsk(TEST_PSK);
+        final Ikev2VpnProfile profile = buildIkev2VpnProfileCommon(builder,
+                false /* isRestrictedToTestNetworks */,
+                false /* requiresValidation */,
+                false /* automaticIpVersionSelectionEnabled */,
+                true /* automaticNattKeepaliveTimerEnabled */);
+        final Ikev2VpnProfileShim<Ikev2VpnProfile> shim =
+                Ikev2VpnProfileShimImpl.newInstance(profile);
+        assertTrue(shim.isAutomaticNattKeepaliveTimerEnabled());
+    }
+
+    @Test
+    public void testBuildIkev2VpnProfileWithAutomaticIpVersionSelectionEnabled() throws Exception {
+        // Cannot use @IgnoreUpTo(Build.VERSION_CODES.TIRAMISU) because this test also requires API
+        // 34 shims, and @IgnoreUpTo does not check that.
+        assumeTrue(TestUtils.shouldTestUApis());
+
+        final Ikev2VpnProfile profileWithDefaultValue = buildIkev2VpnProfilePsk(TEST_SERVER_ADDR_V6,
+                false /* isRestrictedToTestNetworks */, false /* requiresValidation */);
+        final Ikev2VpnProfileShim<Ikev2VpnProfile> shimWithDefaultValue =
+                Ikev2VpnProfileShimImpl.newInstance(profileWithDefaultValue);
+        assertFalse(shimWithDefaultValue.isAutomaticIpVersionSelectionEnabled());
+
+        final Ikev2VpnProfileBuilderShim builder =
+                Ikev2VpnProfileBuilderShimImpl.newInstance(TEST_SERVER_ADDR_V6, TEST_IDENTITY)
+                        .setAuthPsk(TEST_PSK);
+        final Ikev2VpnProfile profile = buildIkev2VpnProfileCommon(builder,
+                false /* isRestrictedToTestNetworks */,
+                false /* requiresValidation */,
+                true /* automaticIpVersionSelectionEnabled */,
+                false /* automaticNattKeepaliveTimerEnabled */);
+        final Ikev2VpnProfileShim<Ikev2VpnProfile> shim =
+                Ikev2VpnProfileShimImpl.newInstance(profile);
+        assertTrue(shim.isAutomaticIpVersionSelectionEnabled());
     }
 
     private static class CertificateAndKey {

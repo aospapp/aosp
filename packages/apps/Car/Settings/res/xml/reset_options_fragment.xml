@@ -21,6 +21,11 @@
     android:title="@string/reset_options_title"
     android:key="@string/psk_reset_options">
     <Preference
+        android:key="@string/pk_restart_infotainment_system"
+        android:title="@string/restart_infotainment_system_title"
+        settings:controller="com.android.car.settings.system.RestartSystemPreferenceController">
+    </Preference>
+    <Preference
         android:fragment="com.android.car.settings.system.ResetNetworkFragment"
         android:key="@string/pk_reset_network"
         android:title="@string/reset_network_title"

@@ -643,9 +643,9 @@ public class LiveWallpaperPreview extends Activity {
                     final int displayId = getWindow().getDecorView().getDisplay().getDisplayId();
                     final View root = getWindow().getDecorView();
                     mService.attach(this, root.getWindowToken(),
-                            LayoutParams.TYPE_APPLICATION_MEDIA,
-                            true, root.getWidth(), root.getHeight(),
-                            new Rect(0, 0, 0, 0), displayId);
+                            LayoutParams.TYPE_APPLICATION_MEDIA, true, root.getWidth(),
+                            root.getHeight(), new Rect(0, 0, 0, 0), displayId,
+                            WallpaperManager.FLAG_SYSTEM);
                 } catch (RemoteException e) {
                     Log.w(LOG_TAG, "Failed attaching wallpaper; clearing", e);
                 }

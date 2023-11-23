@@ -16,9 +16,14 @@
 
 package com.android.car.hal;
 
+import static com.android.car.internal.ExcludeFromCodeCoverageGeneratedReport.BOILERPLATE_CODE;
+import static com.android.car.internal.ExcludeFromCodeCoverageGeneratedReport.DUMP_INFO;
+
 import static org.mockito.ArgumentMatchers.argThat;
 
 import android.util.Log;
+
+import com.android.car.internal.ExcludeFromCodeCoverageGeneratedReport;
 
 import org.mockito.ArgumentMatcher;
 
@@ -82,11 +87,13 @@ public final class HalPropValueMatcher {
         }
 
         @Override
+        @ExcludeFromCodeCoverageGeneratedReport(reason = DUMP_INFO)
         public String toString() {
             return "prop: " + mProp + " values: " + Arrays.toString(mValues);
         }
     }
 
+    @ExcludeFromCodeCoverageGeneratedReport(reason = BOILERPLATE_CODE)
     private HalPropValueMatcher() {
         throw new UnsupportedOperationException("contains only static methods");
     }

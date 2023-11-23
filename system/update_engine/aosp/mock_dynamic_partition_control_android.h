@@ -77,6 +77,10 @@ class MockDynamicPartitionControlAndroid
               GetVirtualAbCompressionXorFeatureFlag,
               (),
               (override));
+  MOCK_METHOD(FeatureFlag,
+              GetVirtualAbUserspaceSnapshotsFeatureFlag,
+              (),
+              (override));
   MOCK_METHOD(bool, FinishUpdate, (bool), (override));
   MOCK_METHOD(bool,
               GetSystemOtherPath,

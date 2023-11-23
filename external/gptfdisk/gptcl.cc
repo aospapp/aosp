@@ -1,7 +1,7 @@
 /*
     Implementation of GPTData class derivative with popt-based command
     line processing
-    Copyright (C) 2010-2014 Roderick W. Smith
+    Copyright (C) 2010-2022 Roderick W. Smith
 
     This program is free software; you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -25,10 +25,13 @@
 #include <errno.h>
 #include "gptcl.h"
 
+using namespace std;
+
 GPTDataCL::GPTDataCL(void) {
    attributeOperation = backupFile = partName = hybrids = newPartInfo = NULL;
    mbrParts = twoParts = outDevice = typeCode = partGUID = diskGUID = NULL;
    alignment = DEFAULT_ALIGNMENT;
+   alignEnd = false;
    deletePartNum = infoPartNum = largestPartNum = bsdPartNum = 0;
    tableSize = GPT_SIZE;
 } // GPTDataCL constructor
@@ -63,6 +66,7 @@ int GPTDataCL::DoOptions(int argc, char* argv[]) {
    GPTData secondDevice;
    int opt, numOptions = 0, saveData = 0, neverSaveData = 0;
    int partNum = 0, newPartNum = -1, saveNonGPT = 1, retval = 0, pretend = 0;
+   int byteSwapPartNum = 0;
    uint64_t low, high, startSector, endSector, sSize, mainTableLBA;
    uint64_t temp; // temporary variable; free to use in any case
    char *device;
@@ -75,6 +79,7 @@ int GPTDataCL::DoOptions(int argc, char* argv[]) {
           "list|[partnum:show|or|nand|xor|=|set|clear|toggle|get[:bitnum|hexbitmask]]"},
       {"set-alignment", 'a', POPT_ARG_INT, &alignment, 'a', "set sector alignment", "value"},
       {"backup", 'b', POPT_ARG_STRING, &backupFile, 'b', "backup GPT to file", "file"},
+      {"byte-swap-name", 'B',  POPT_ARG_INT, &byteSwapPartNum, 'B', "byte-swap partition's name", "partnum"},
       {"change-name", 'c', POPT_ARG_STRING, &partName, 'c', "change partition's name", "partnum:name"},
       {"recompute-chs", 'C', POPT_ARG_NONE, NULL, 'C', "recompute CHS values in protective/hybrid MBR", ""},
       {"delete", 'd', POPT_ARG_INT, &deletePartNum, 'd', "delete a partition", "partnum"},
@@ -87,6 +92,7 @@ int GPTDataCL::DoOptions(int argc, char* argv[]) {
       {"randomize-guids", 'G', POPT_ARG_NONE, NULL, 'G', "randomize disk and partition GUIDs", ""},
       {"hybrid", 'h', POPT_ARG_STRING, &hybrids, 'h', "create hybrid MBR", "partnum[:partnum...][:EE]"},
       {"info", 'i', POPT_ARG_INT, &infoPartNum, 'i', "show detailed information on partition", "partnum"},
+      {"align-end", 'I', POPT_ARG_NONE, NULL, 'I', "align partition end points", ""},
       {"move-main-table", 'j', POPT_ARG_INT, &mainTableLBA, 'j', "adjust the location of the main partition table", "sector"},
       {"load-backup", 'l', POPT_ARG_STRING, &backupFile, 'l', "load GPT backup from file", "file"},
       {"list-types", 'L', POPT_ARG_NONE, NULL, 'L', "list known partition types", ""},
@@ -149,9 +155,10 @@ int GPTDataCL::DoOptions(int argc, char* argv[]) {
 
    // Assume first non-option argument is the device filename....
    device = (char*) poptGetArg(poptCon);
-   poptResetContext(poptCon);
 
    if (device != NULL) {
+      device = strdup(device);
+      poptResetContext(poptCon);
       JustLooking(); // reset as necessary
       BeQuiet(); // Tell called functions to be less verbose & interactive
       if (LoadPartitions((string) device)) {
@@ -190,17 +197,24 @@ int GPTDataCL::DoOptions(int argc, char* argv[]) {
                case 'a':
                   SetAlignment(alignment);
                   break;
+               case 'B':
+                  if (IsUsedPartNum(byteSwapPartNum - 1)) {
+                     partitions[byteSwapPartNum - 1].ReverseNameBytes();
+                     cout << "Changed partition " << byteSwapPartNum << "'s name to "
+                          << partitions[byteSwapPartNum - 1].GetDescription() << "\n";
+                     JustLooking(0);
+                     saveData = 1;
+                  }
+                  break;
                case 'b':
                   SaveGPTBackup(backupFile);
                   free(backupFile);
                   break;
                case 'c':
-                  cout << "Setting name!\n";
                   JustLooking(0);
                   partNum = (int) GetInt(partName, 1) - 1;
                   if (partNum < 0)
                      partNum = newPartNum;
-                  cout << "partNum is " << partNum << "\n";
                   if ((partNum >= 0) && (partNum < (int) GetNumParts())) {
                      name = GetString(partName, 2);
                      if (SetName(partNum, (UnicodeString) name.c_str())) {
@@ -262,6 +276,9 @@ int GPTDataCL::DoOptions(int argc, char* argv[]) {
                case 'i':
                   ShowPartDetails(infoPartNum - 1);
                   break;
+               case 'I':
+                  alignEnd = true;
+                  break;
                case 'j':
                    if (MoveMainTable(mainTableLBA)) {
                        JustLooking(0);
@@ -297,9 +314,9 @@ int GPTDataCL::DoOptions(int argc, char* argv[]) {
                      newPartNum = FindFirstFreePart();
                   low = FindFirstInLargest();
                   Align(&low);
-                  high = FindLastInFree(low);
-                  startSector = IeeeToInt(GetString(newPartInfo, 2), sSize, low, high, low);
-                  endSector = IeeeToInt(GetString(newPartInfo, 3), sSize, startSector, high, high);
+                  high = FindLastInFree(low, alignEnd);
+                  startSector = IeeeToInt(GetString(newPartInfo, 2), sSize, low, high, sectorAlignment, low);
+                  endSector = IeeeToInt(GetString(newPartInfo, 3), sSize, startSector, high, sectorAlignment, high);
                   if (CreatePartition(newPartNum, startSector, endSector)) {
                      saveData = 1;
                   } else {
@@ -313,9 +330,11 @@ int GPTDataCL::DoOptions(int argc, char* argv[]) {
                   JustLooking(0);
                   startSector = FindFirstInLargest();
                   Align(&startSector);
-                  endSector = FindLastInFree(startSector);
-                  if (largestPartNum <= 0)
+                  endSector = FindLastInFree(startSector, alignEnd);
+                  if (largestPartNum <= 0) {
                      largestPartNum = FindFirstFreePart() + 1;
+                     newPartNum = largestPartNum - 1;
+                  }
                   if (CreatePartition(largestPartNum - 1, startSector, endSector)) {
                      saveData = 1;
                   } else {
@@ -379,7 +398,7 @@ int GPTDataCL::DoOptions(int argc, char* argv[]) {
                         typeRaw[partNum] = StrToHex(raw, 0);
                      }
                      typeHelper = GetString(typeCode, 2);
-                     if ((typeHelper != (GUIDData) "00000000-0000-0000-0000-000000000000") &&
+                     if ((typeHelper != PartType::unusedPartType) &&
                          (ChangePartType(partNum, typeHelper))) {
                         saveData = 1;
                         } else {
@@ -486,6 +505,7 @@ int GPTDataCL::DoOptions(int argc, char* argv[]) {
          cerr << "Error encountered; not saving changes.\n";
          retval = 4;
       } // if
+      free(device);
    } // if (device != NULL)
    poptFreeContext(poptCon);
    return retval;
@@ -494,7 +514,7 @@ int GPTDataCL::DoOptions(int argc, char* argv[]) {
 // Create a hybrid or regular MBR from GPT data structures
 int GPTDataCL::BuildMBR(char* argument, int isHybrid) {
    int numParts, allOK = 1, i, origPartNum;
-   int eeLast, mbrNum = 0;
+   int eeLast = 0, mbrNum = 0;
    MBRPart newPart;
    BasicMBRData newMBR;
 

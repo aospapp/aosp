@@ -17,6 +17,7 @@
 package com.android.managedprovisioning.provisioning;
 
 import android.app.Activity;
+import android.content.Context;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ImageView;
@@ -41,6 +42,7 @@ import com.android.server.utils.Slogf;
 
 import com.airbnb.lottie.LottieAnimationView;
 import com.google.auto.value.AutoValue;
+import com.google.common.collect.ImmutableList;
 
 import java.util.function.Supplier;
 
@@ -82,10 +84,9 @@ abstract class CarProvisioningActivityBridgeImpl implements ProvisioningActivity
                 mainLayoutId, /* headerResId= */ null);
         activity.setTitle(titleResId);
 
-        CarSetupWizardLayoutHelper layoutHelper = setupBasicLayout(activity, subLayoutId);
+        setupBasicLayout(activity, subLayoutId);
 
-        setupEducationViews(layoutHelper.getBaseLayout(), activity,
-                getShouldSkipEducationScreens(), getProgressLabelResId());
+        setupEducationViews(getShouldSkipEducationScreens(), getProgressLabelResId());
     }
 
     @Override
@@ -161,7 +162,7 @@ abstract class CarProvisioningActivityBridgeImpl implements ProvisioningActivity
                         space1, space2);
 
         ProvisioningModeWrapper provisioningModeWrapper =
-                getProvisioningModeWrapperForFullyManaged();
+                getProvisioningModeWrapperForFullyManaged(activity.getApplicationContext());
 
         mTransitionAnimationHelper = new TransitionAnimationHelper(
                 animationComponents,
@@ -174,7 +175,7 @@ abstract class CarProvisioningActivityBridgeImpl implements ProvisioningActivity
                 + R.bool.show_edu_animations);
     }
 
-    private ProvisioningModeWrapper getProvisioningModeWrapperForFullyManaged() {
+    private ProvisioningModeWrapper getProvisioningModeWrapperForFullyManaged(Context context) {
         int provisioningSummaryId;
         TransitionScreenWrapper.Builder secondScreenBuilder =
                 new TransitionScreenWrapper.Builder()
@@ -204,9 +205,11 @@ abstract class CarProvisioningActivityBridgeImpl implements ProvisioningActivity
         TransitionScreenWrapper firstScreen = new TransitionScreenWrapper(
                 R.string.fully_managed_device_provisioning_step_1_header,
                 R.string.fully_managed_device_provisioning_step_1_description,
-                /* drawable= */ 0, /* shouldLoop= */ false);
-        return new ProvisioningModeWrapper(new TransitionScreenWrapper[] {
-                firstScreen, secondScreenBuilder.build()}, provisioningSummaryId);
+                /* drawable= */ 0,
+                /* shouldLoop= */ false);
+        return new ProvisioningModeWrapper(
+                ImmutableList.of(firstScreen, secondScreenBuilder.build()),
+                provisioningSummaryId);
     }
 
     @Override
@@ -219,8 +222,6 @@ abstract class CarProvisioningActivityBridgeImpl implements ProvisioningActivity
     }
 
     private void setupEducationViews(
-            CarSetupWizardCompatLayout layout,
-            Activity activity,
             boolean shouldSkipEducationScreens,
             @StringRes int progressLabelResId) {
 

@@ -24,6 +24,17 @@ import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
+import libcore.java.security.StandardNames;
+import libcore.java.security.TestKeyStore;
+
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
+import org.junit.runners.Parameterized.Parameter;
+import org.junit.runners.Parameterized.Parameters;
+
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
@@ -50,7 +61,6 @@ import java.security.UnrecoverableKeyException;
 import java.security.cert.Certificate;
 import java.security.cert.X509Certificate;
 import java.security.interfaces.RSAPrivateKey;
-import java.security.interfaces.RSAPrivateCrtKey;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -60,15 +70,11 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+
 import javax.crypto.KeyGenerator;
 import javax.crypto.SecretKey;
-import junit.framework.TestCase;
 
-import libcore.java.security.StandardNames;
-import libcore.java.security.TestKeyStore;
-
-import org.junit.Test;
-
+@RunWith(Parameterized.class)
 public class KeyStoreTest {
 
     private static final HashMap<String, PrivateKeyEntry> sPrivateKeys
@@ -107,6 +113,24 @@ public class KeyStoreTest {
     private static final ProtectionParameter PARAM_STORE = new PasswordProtection(PASSWORD_STORE);
     private static final ProtectionParameter PARAM_KEY = new PasswordProtection(PASSWORD_KEY);
     private static final ProtectionParameter PARAM_BAD = new PasswordProtection(PASSWORD_BAD);
+
+    @Parameters
+    public static Object[] data() {
+        return new Object[] {"true", "false"};
+    }
+
+    @Parameter
+    public String mApexCertsEnabled;
+
+    @Before
+    public void setUp() {
+        System.setProperty("system.certs.enabled", mApexCertsEnabled);
+    }
+
+    @After
+    public void tearDown() {
+        System.clearProperty("system.certs.enabled");
+    }
 
     private static PrivateKeyEntry getPrivateKey() {
         return getPrivateKey("RSA");
@@ -2541,23 +2565,31 @@ public class KeyStoreTest {
             Certificate c = null;
             try {
                 c = ks.getCertificate(alias);
-                assertNotNull(c);
-                assertTrue(ks.isCertificateEntry(alias));
-                assertTrue(ks.entryInstanceOf(alias, TrustedCertificateEntry.class));
-                assertEquals(alias, ks.getCertificateAlias(c));
+                assertNotNull("Certificate not found", c);
+                assertTrue("This is not a certificate", ks.isCertificateEntry(alias));
+                assertTrue("Certificate is not an instance of TrustedCertificateEntry",
+                        ks.entryInstanceOf(alias, TrustedCertificateEntry.class));
+                assertEquals("No matching certificate entry found in keystore",
+                        alias, ks.getCertificateAlias(c));
 
-                assertTrue(c instanceof X509Certificate);
+                assertTrue("This is not X.509 type certificate ", c instanceof X509Certificate);
                 X509Certificate cert = (X509Certificate) c;
-                assertEquals(cert.getSubjectUniqueID(), cert.getIssuerUniqueID());
-                assertNotNull(cert.getPublicKey());
+                assertEquals("Mismatch in subject-unique-identifier and issuer-unique-identifier",
+                        cert.getSubjectUniqueID(), cert.getIssuerUniqueID());
+                assertNotNull("Public key not found in certificate", cert.getPublicKey());
 
-                assertTrue(ks.containsAlias(alias));
-                assertNotNull(ks.getCreationDate(alias));
-                assertNotNull(ks.getEntry(alias, null));
+                assertTrue("Alias doesn't exist in keystore", ks.containsAlias(alias));
+                assertNotNull("Creation date of the entry identified by the given alias not found",
+                        ks.getCreationDate(alias));
+                assertNotNull("Keystore entry for specified alias doesn't exist",
+                        ks.getEntry(alias, null));
 
-                assertFalse(ks.isKeyEntry(alias));
-                assertNull(ks.getKey(alias, null));
-                assertNull(ks.getCertificateChain(alias));
+                assertFalse("Keystore entry identified by the alias is not a key-related entry",
+                        ks.isKeyEntry(alias));
+                assertNull("Alias doesn't exist or doesn't identify a key-related entry.",
+                        ks.getKey(alias, null));
+                assertNull("Alias doesn't exist or doesn't contain certificate chain",
+                        ks.getCertificateChain(alias));
 
             } catch (Throwable t) {
                 throw new Exception("alias=" + alias + " cert=" + c, t);

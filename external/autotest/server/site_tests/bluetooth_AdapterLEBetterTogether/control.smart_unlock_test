@@ -8,12 +8,13 @@ AUTHOR = 'chromeos-bluetooth'
 NAME = 'bluetooth_AdapterLEBetterTogether.smart_unlock_test'
 PURPOSE = ('Better together smart unlock test')
 CRITERIA = 'Pass the test'
-ATTRIBUTES = 'suite:bluetooth, suite:bluetooth_e2e'
+ATTRIBUTES = 'suite:bluetooth, suite:bluetooth_e2e, suite:bluetooth_e2e_cq'
 TIME = 'MEDIUM'
 TEST_CATEGORY = 'Functional'
 TEST_CLASS = 'bluetooth'
 TEST_TYPE = 'server'
 DEPENDENCIES = 'bluetooth, working_bluetooth_btpeer:1'
+PY_VERSION = 3
 
 DOC = """
 	The test is to verify the Bluetooth features used by Smat Unlock feature of

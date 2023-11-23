@@ -23,7 +23,7 @@
 #include <assert.h>
 
 #include "ixheaacd_type_def.h"
-
+#include "ixheaacd_constants.h"
 #include "ixheaacd_cnst.h"
 
 #include "ixheaacd_bitbuffer.h"
@@ -54,49 +54,33 @@
 #include "ixheaacd_pvc_dec.h"
 #include "ixheaacd_sbr_dec.h"
 #include "ixheaacd_mps_polyphase.h"
-#include "ixheaacd_sbr_const.h"
-
-#include "ixheaacd_main.h"
-
-#include "ixheaacd_arith_dec.h"
 
 #include "ixheaacd_memory_standards.h"
-#include "ixheaacd_sbrdecsettings.h"
 #include "ixheaacd_defines.h"
 #include "ixheaacd_aac_rom.h"
-#include "ixheaacd_common_rom.h"
-#include "ixheaacd_sbr_rom.h"
 #include "ixheaacd_bitbuffer.h"
 #include "ixheaacd_pulsedata.h"
 #include "ixheaacd_pns.h"
 
-#include "ixheaacd_lt_predict.h"
-
+#include "ixheaacd_ec_defines.h"
+#include "ixheaacd_ec_struct_def.h"
+#include "ixheaacd_main.h"
 #include "ixheaacd_channelinfo.h"
-#include "ixheaacd_channel.h"
-#include "ixheaacd_channelinfo.h"
-#include "ixheaacd_sbrdecoder.h"
+#include "ixheaacd_ec.h"
 #include "ixheaacd_audioobjtypes.h"
 #include "ixheaacd_latmdemux.h"
 #include "ixheaacd_aacdec.h"
-#include "ixheaacd_sbr_common.h"
-
-#include "ixheaacd_mps_polyphase.h"
-#include "ixheaacd_config.h"
+#include "ixheaacd_mps_struct_def.h"
+#include "ixheaacd_mps_res_rom.h"
+#include "ixheaacd_mps_aac_struct.h"
 #include "ixheaacd_mps_dec.h"
 #include "ixheaacd_struct_def.h"
 
 #include "ixheaacd_create.h"
 
-#include "ixheaacd_process.h"
-
-#include "ixheaacd_sbrdecoder.h"
-
 #include "ixheaacd_mps_interface.h"
 
-#include "ixheaacd_bit_extract.h"
 #include "ixheaacd_func_def.h"
-#include "ixheaacd_interface.h"
 
 extern const ia_huff_code_word_struct ixheaacd_huff_book_scl[];
 
@@ -231,6 +215,7 @@ WORD32 ixheaacd_decode_init(
   WORD32 num_elements = ptr_usac_dec_config->num_elements;
   WORD32 chan = 0;
 
+  usac_data->ec_flag = codec_handle->aac_config.ui_err_conceal;
   usac_data->huffman_code_book_scl = aac_dec_handle->huffman_code_book_scl;
   usac_data->huffman_code_book_scl_index =
       aac_dec_handle->huffman_code_book_scl_index;
@@ -242,6 +227,10 @@ WORD32 ixheaacd_decode_init(
   usac_data->tns_max_bands_tbl_usac =
       &aac_dec_handle->pstr_aac_tables->pstr_block_tables
            ->tns_max_bands_tbl_usac;
+  for (WORD32 ch = 0; ch < MAX_NUM_CHANNELS; ch++) {
+    ixheaacd_usac_ec_init(&usac_data->str_error_concealment[ch], usac_data->core_mode);
+    memset(&usac_data->overlap_data_ptr[ch][0], 0, sizeof(usac_data->overlap_data_ptr[ch]));
+  }
 
   for (i = 0; i < 11; i++) {
     if (ixheaacd_sampling_boundaries[i] <= sample_rate) break;
@@ -284,6 +273,16 @@ WORD32 ixheaacd_decode_init(
       usac_data->str_tddec[i]->fscale =
           ((fscale)*usac_data->ccfl) / LEN_SUPERFRAME;
     usac_data->len_subfrm = usac_data->ccfl / 4;
+
+    {
+      WORD32 fac_length = usac_data->len_subfrm / 4;
+      if (fac_length & (fac_length - 1)) {
+        if ((fac_length != 48) && (fac_length != 96) && (fac_length != 192) &&
+            (fac_length != 384) && (fac_length != 768)) {
+          return -1;
+        }
+      }
+    }
     usac_data->num_subfrm = (MAX_NUM_SUBFR * usac_data->ccfl) / LEN_SUPERFRAME;
 
     ixheaacd_init_acelp_data(usac_data, usac_data->str_tddec[i]);
@@ -301,11 +300,13 @@ WORD32 ixheaacd_decode_init(
 
     if (ptr_usac_ele_config) {
       if (usac_data->tw_mdct[ele_id]) {
-        return -1;
+        if (usac_data->ec_flag) {
+          usac_data->tw_mdct[ele_id] = 0;
+        } else
+          return -1;
       }
 
-      usac_data->noise_filling_config[ele_id] =
-          ptr_usac_ele_config->noise_filling;
+      usac_data->noise_filling_config[ele_id] = ptr_usac_ele_config->noise_filling;
     }
 
     ele_type = ptr_usac_config->str_usac_dec_config.usac_element_type[ele_id];
@@ -342,6 +343,7 @@ WORD32 ixheaacd_decode_init(
               &(ptr_usac_config->str_usac_dec_config
                     .str_usac_element_config[ele_id]
                     .str_usac_mps212_config);
+          aac_dec_handle->mps_dec_handle.ec_flag = aac_dec_handle->ec_enable;
 
           if (ixheaacd_mps_create(&aac_dec_handle->mps_dec_handle,
                                   bs_frame_length, bs_residual_coding,
@@ -369,9 +371,6 @@ WORD32 ixheaacd_dec_data_init(VOID *handle,
                               ia_usac_data_struct *usac_data) {
   ia_audio_specific_config_struct *pstr_stream_config, *layer_config;
   WORD32 err_code = 0;
-
-  WORD32 num_out_chan = 0;
-
   WORD32 i_ch, i, ele_id;
   WORD32 num_elements;
 
@@ -380,6 +379,8 @@ WORD32 ixheaacd_dec_data_init(VOID *handle,
   ia_usac_config_struct *ptr_usac_config =
       &(pstr_frame_data->str_audio_specific_config.str_usac_config);
 
+  usac_data->last_frame_ok = 1;
+  usac_data->frame_ok = 1;
   usac_data->window_shape_prev[0] = WIN_SEL_0;
   usac_data->window_shape_prev[1] = WIN_SEL_0;
 
@@ -421,8 +422,6 @@ WORD32 ixheaacd_dec_data_init(VOID *handle,
   usac_data->sbr_ratio_idx = sbr_ratio_idx;
   usac_data->esbr_bit_str[0].no_elements = 0;
   usac_data->esbr_bit_str[1].no_elements = 0;
-
-  num_out_chan = ptr_usac_config->num_out_channels;
 
   if (usac_data->ccfl == 768)
     pstr_frame_data->str_layer.sample_rate_layer =
@@ -559,7 +558,14 @@ WORD32 ixheaacd_decode_create(ia_exhaacplus_dec_api_struct *handle,
         err = ixheaacd_dec_data_init(handle, pstr_frame_data,
                                      &(pstr_dec_data->str_usac_data));
 
-        if (err != 0) return err;
+        if (err != 0) {
+          if (handle->aac_config.ui_err_conceal) {
+            pstr_dec_data->str_usac_data.frame_ok = 0;
+          } else
+            return err;
+        }
+
+        pstr_dec_data->str_usac_data.sampling_rate = pstr_frame_data->str_layer.sample_rate_layer;
 
         switch (pstr_dec_data->str_usac_data.sbr_ratio_idx) {
           case 0:
@@ -579,6 +585,15 @@ WORD32 ixheaacd_decode_create(ia_exhaacplus_dec_api_struct *handle,
             handle->aac_config.ui_sbr_mode = 0;
         }
 
+        if (!aac_dec_handle->peak_lim_init && !handle->aac_config.peak_limiter_off &&
+            handle->aac_config.ui_err_conceal) {
+          memset(&aac_dec_handle->peak_limiter, 0, sizeof(ia_peak_limiter_struct));
+          ixheaacd_peak_limiter_init(&aac_dec_handle->peak_limiter, MAX_NUM_CHANNELS,
+                                     pstr_dec_data->str_usac_data.sampling_rate,
+                                     &aac_dec_handle->peak_limiter.buffer[0],
+                                     &aac_dec_handle->delay_in_samples);
+          aac_dec_handle->peak_lim_init++;
+        }
 
         break;
 
@@ -602,9 +617,6 @@ WORD32 ixheaacd_decode_create(ia_exhaacplus_dec_api_struct *handle,
     ia_usac_config_struct *ptr_usac_config =
         &(pstr_frame_data->str_audio_specific_config.str_usac_config);
 
-    WORD32 inter_tes[MAX_NUM_ELEMENTS] = {0};
-    WORD32 bs_pvc[MAX_NUM_ELEMENTS] = {0};
-    WORD32 harmonic_sbr[MAX_NUM_ELEMENTS] = {0};
     WORD32 inter_test_flag = 0;
     WORD32 bs_pvc_flag = 0;
     WORD32 harmonic_Sbr_flag = 0;
@@ -626,12 +638,6 @@ WORD32 ixheaacd_decode_create(ia_exhaacplus_dec_api_struct *handle,
       ia_usac_dec_sbr_config_struct *ptr_usac_sbr_config =
           &(ptr_usac_dec_config->str_usac_element_config[elem_idx]
                 .str_usac_sbr_config);
-      inter_tes[elem_idx] =
-          (ptr_usac_sbr_config != NULL) ? ptr_usac_sbr_config->bs_inter_tes : 0;
-      bs_pvc[elem_idx] =
-          (ptr_usac_sbr_config != NULL) ? ptr_usac_sbr_config->bs_pvc : 0;
-      harmonic_sbr[elem_idx] =
-          (ptr_usac_sbr_config != NULL) ? ptr_usac_sbr_config->harmonic_sbr : 0;
 
       if (ptr_usac_sbr_config->bs_inter_tes) inter_test_flag = 1;
       if (ptr_usac_sbr_config->bs_pvc) bs_pvc_flag = 1;
@@ -686,7 +692,7 @@ WORD32 ixheaacd_decode_create(ia_exhaacplus_dec_api_struct *handle,
             pstr_dec_data->str_usac_data.sbr_ratio_idx,
             pstr_dec_data->str_usac_data.output_samples, &harmonic_Sbr_flag,
             (void *)&usac_def_header, aac_dec_handle->str_sbr_config,
-            pstr_dec_data->str_usac_data.audio_object_type);
+            pstr_dec_data->str_usac_data.audio_object_type, 0, 0);
         pstr_dec_data->str_usac_data.sbr_scratch_mem_base =
             aac_dec_handle->sbr_scratch_mem_u;
         if (num_ele)

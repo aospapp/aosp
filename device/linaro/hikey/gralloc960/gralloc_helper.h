@@ -41,7 +41,7 @@
 
 #define GRALLOC_ALIGN(value, base) (((value) + ((base)-1)) & ~((base)-1))
 
-#define GRALLOC_UNUSED(x) ((void)x)
+#define GRALLOC_UNUSED(x) ((void)(x))
 
 static inline size_t round_up_to_page_size(size_t x)
 {

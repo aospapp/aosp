@@ -15,10 +15,11 @@ limitations under the License.
 
 #include "tensorflow/compiler/xla/service/gpu/gpu_conv_padding_legalization.h"
 
-#include "absl/memory/memory.h"
+#include <memory>
+
 #include "tensorflow/compiler/xla/literal.h"
 #include "tensorflow/compiler/xla/literal_util.h"
-#include "tensorflow/compiler/xla/service/gpu/ir_emission_utils.h"
+#include "tensorflow/compiler/xla/service/gpu/cublas_cudnn.h"
 #include "tensorflow/compiler/xla/service/hlo_casting_utils.h"
 #include "tensorflow/compiler/xla/service/hlo_creation_utils.h"
 #include "tensorflow/compiler/xla/service/shape_inference.h"
@@ -82,7 +83,8 @@ HloInstruction* MaybePaddedAndSlicedInput(
     PrimitiveType element_type = input->shape().element_type();
     HloInstruction* padding = computation->AddInstruction(
         HloInstruction::CreateConstant(LiteralUtil::Zero(element_type)));
-    input = MakePadHlo(input, padding, padding_config).ValueOrDie();
+    input = MakePadHlo(input, padding, padding_config, &input->metadata())
+                .ValueOrDie();
   }
 
   if (window_util::HasNegativePadding(*conv_window)) {
@@ -91,10 +93,10 @@ HloInstruction* MaybePaddedAndSlicedInput(
     //
     // For each dimension, initialize the start index to 0 and the limit index
     // to the size of that dimension.
-    std::vector<int64> start_indices(input->shape().dimensions_size(), 0);
-    std::vector<int64> limit_indices(input->shape().dimensions().begin(),
-                                     input->shape().dimensions().end());
-    std::vector<int64> strides(input->shape().dimensions_size(), 1);
+    std::vector<int64_t> start_indices(input->shape().dimensions_size(), 0);
+    std::vector<int64_t> limit_indices(input->shape().dimensions().begin(),
+                                       input->shape().dimensions().end());
+    std::vector<int64_t> strides(input->shape().dimensions_size(), 1);
     for (size_t i = 0; i < conv_dnums.input_spatial_dimensions().size(); ++i) {
       int64_t dim = conv_dnums.input_spatial_dimensions(i);
       // If dimension "dim" has negative padding, increase the start index or
@@ -142,7 +144,8 @@ HloInstruction* MaybePaddedKernel(const Window& conv_window,
   PrimitiveType element_type = kernel->shape().element_type();
   HloInstruction* padding = computation->AddInstruction(
       HloInstruction::CreateConstant(LiteralUtil::Zero(element_type)));
-  return MakePadHlo(kernel, padding, padding_config).ValueOrDie();
+  return MakePadHlo(kernel, padding, padding_config, &kernel->metadata())
+      .ValueOrDie();
 }
 }  // namespace
 
@@ -348,12 +351,13 @@ bool GpuConvPaddingLegalization::CanonicalizeBackwardInputConvolution(
   // Slice the new backward convolution.
   //
   // Initialize start_indices and limit_indices as no slicing.
-  std::vector<int64> start_indices(new_backward_conv->shape().dimensions_size(),
-                                   0LL);
-  std::vector<int64> limit_indices(
+  std::vector<int64_t> start_indices(
+      new_backward_conv->shape().dimensions_size(), 0LL);
+  std::vector<int64_t> limit_indices(
       new_backward_conv->shape().dimensions().begin(),
       new_backward_conv->shape().dimensions().end());
-  std::vector<int64> strides(new_backward_conv->shape().dimensions_size(), 1LL);
+  std::vector<int64_t> strides(new_backward_conv->shape().dimensions_size(),
+                               1LL);
   for (size_t i = 0; i < backward_conv->window().dimensions_size(); ++i) {
     int64_t padding_low = backward_conv->window().dimensions(i).padding_low();
     int64_t padding_high = backward_conv->window().dimensions(i).padding_high();
@@ -378,7 +382,7 @@ bool GpuConvPaddingLegalization::CanonicalizeBackwardInputConvolution(
   Shape slice_shape =
       ShapeInference::InferSliceShape(new_backward_conv->shape(), start_indices,
                                       limit_indices, strides)
-          .ConsumeValueOrDie();
+          .value();
   CHECK(ShapeUtil::Compatible(slice_shape, backward_conv_shape))
       << ShapeUtil::HumanString(slice_shape) << " vs "
       << ShapeUtil::HumanString(backward_conv_shape);
@@ -423,9 +427,12 @@ StatusOr<bool> GpuConvPaddingLegalization::RunOnComputation(
   return changed;
 }
 
-StatusOr<bool> GpuConvPaddingLegalization::Run(HloModule* module) {
+StatusOr<bool> GpuConvPaddingLegalization::Run(
+    HloModule* module,
+    const absl::flat_hash_set<absl::string_view>& execution_threads) {
   bool changed = false;
-  for (HloComputation* computation : module->MakeNonfusionComputations()) {
+  for (HloComputation* computation :
+       module->MakeNonfusionComputations(execution_threads)) {
     TF_ASSIGN_OR_RETURN(bool result, RunOnComputation(computation));
     changed |= result;
   }

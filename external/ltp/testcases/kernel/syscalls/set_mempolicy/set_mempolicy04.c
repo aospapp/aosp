@@ -1,6 +1,5 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
- * SPDX-License-Identifier: GPL-2.0-or-later
- *
  * Copyright (c) 2018 Cyril Hrubis <chrubis@suse.cz>
  */
 
@@ -41,9 +40,11 @@ static struct tst_nodemap *nodes;
 
 static void setup(void)
 {
+	int node_min_pages = FILES * (FILES + 1) / 2 * 10 + FILES * 10;
+
 	page_size = getpagesize();
 
-	nodes = tst_get_nodemap(TST_NUMA_MEM, 20 * FILES * page_size / 1024);
+	nodes = tst_get_nodemap(TST_NUMA_MEM, node_min_pages * page_size / 1024);
 	if (nodes->cnt <= 1)
 		tst_brk(TCONF, "Test requires at least two NUMA memory nodes");
 }

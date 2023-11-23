@@ -30,7 +30,7 @@
     <string name="notification_disconnectedCall_body" msgid="600491714584417536">"आणीबाणी कॉल केल्यामुळे <xliff:g id="CALLER">%s</xliff:g> ला केलेला कॉल डिस्कनेक्ट केला गेला."</string>
     <string name="notification_disconnectedCall_generic_body" msgid="5282765206349184853">"आणीबाणी कॉल केल्यामुळे तुमचा कॉल डिस्कनेक्ट केला गेला आहे."</string>
     <string name="notification_audioProcessing_title" msgid="1619035039880584575">"बॅकग्राउंड कॉल"</string>
-    <string name="notification_audioProcessing_body" msgid="6397005913770420388">"<xliff:g id="AUDIO_PROCESSING_APP_NAME">%s</xliff:g> यांनी कॉल बॅकग्राउंडवर ठेवला आहे हे अ‍ॅप कदाचित कॉलद्वारे ऑडिओ ॲक्सेस आणि प्ले करत आहे."</string>
+    <string name="notification_audioProcessing_body" msgid="8811420157964118913">"<xliff:g id="AUDIO_PROCESSING_APP_NAME">%s</xliff:g> बॅकग्राउंडमध्ये कॉलवर प्रक्रिया करत आहे. हे अ‍ॅप कदाचित कॉलमधील ऑडिओ ॲक्सेस आणि प्ले करत आहे."</string>
     <string name="notification_incallservice_not_responding_title" msgid="5347557574288598548">"<xliff:g id="IN_CALL_SERVICE_APP_NAME">%s</xliff:g> ने प्रतिसाद देणे थांबवले आहे"</string>
     <string name="notification_incallservice_not_responding_body" msgid="9209308270131968623">"तुमच्या कॉलने डिव्हाइससोबत दिलेले फोन अ‍ॅप वापरले आहे"</string>
     <string name="accessibility_call_muted" msgid="2968461092554300779">"कॉल म्यूट केला."</string>
@@ -100,6 +100,7 @@
     <string name="notification_channel_background_calls" msgid="7785659903711350506">"बॅकग्राउंड कॉल"</string>
     <string name="notification_channel_disconnected_calls" msgid="8228636543997645757">"डिस्कनेक्ट केलेले कॉल"</string>
     <string name="notification_channel_in_call_service_crash" msgid="7313237519166984267">"क्रॅश झालेली फोन ॲप्स"</string>
+    <string name="notification_channel_call_streaming" msgid="5100510699787538991">"कॉल स्ट्रीमिंग"</string>
     <string name="alert_outgoing_call" msgid="5319895109298927431">"हा कॉल केल्याने तुमचा <xliff:g id="OTHER_APP">%1$s</xliff:g> कॉल समाप्त होईल."</string>
     <string name="alert_redirect_outgoing_call_or_not" msgid="665409645789521636">"हा कॉल कसा करायचा ते निवडा"</string>
     <string name="alert_place_outgoing_call_with_redirection" msgid="5221065030959024121">"<xliff:g id="OTHER_APP">%1$s</xliff:g> वापरून कॉल रीडिरेक्ट करा"</string>
@@ -123,4 +124,14 @@
     <string name="developer_title" msgid="9146088855661672353">"टेलिकॉम डेव्‍हलपर मेनू"</string>
     <string name="toast_emergency_can_not_pull_call" msgid="9074229465338410869">"आणीबाणी कॉल दरम्यान कॉल घेतला जाऊ शकत नाही."</string>
     <string name="cancel" msgid="6733466216239934756">"रद्द करा"</string>
+    <string name="back" msgid="6915955601805550206">"मागे जा"</string>
+    <string name="callendpoint_name_earpiece" msgid="7047285080319678594">"इअरपिस"</string>
+    <string name="callendpoint_name_bluetooth" msgid="210210953208913172">"ब्लूटूथ"</string>
+    <string name="callendpoint_name_wiredheadset" msgid="6860787176412079742">"वायर्ड हेडसेट"</string>
+    <string name="callendpoint_name_speaker" msgid="1971760468695323189">"स्पीकर"</string>
+    <string name="callendpoint_name_streaming" msgid="2337595450408275576">"बाह्य"</string>
+    <string name="callendpoint_name_unknown" msgid="2199074708477193852">"अज्ञात"</string>
+    <string name="call_streaming_notification_body" msgid="502216105683378263">"ऑडिओ हा दुसऱ्या डिव्हाइसवर स्ट्रीम करत आहे"</string>
+    <string name="call_streaming_notification_action_hang_up" msgid="7017663335289063827">"बंद करा"</string>
+    <string name="call_streaming_notification_action_switch_here" msgid="3524180754186221228">"येथे स्विच करा"</string>
 </resources>

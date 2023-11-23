@@ -68,7 +68,8 @@ cc_test {
     srcs: ["derive_sdk_test.cpp"],
     require_root: true,
     static_libs: ["libderive_sdk"],
-    test_suites: ["device-tests"],
+    test_suites: ["general-tests"],
+    test_mainline_modules: ["com.google.android.sdkext.apex"],
 }
 
 prebuilt_etc {

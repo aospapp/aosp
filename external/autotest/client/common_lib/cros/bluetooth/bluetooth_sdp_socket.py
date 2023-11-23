@@ -1,12 +1,18 @@
+# Lint as: python2, python3
 # Copyright (c) 2013 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
+
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
 
 import logging
 import socket
 import struct
 
 import btsocket
+from six.moves import range
 
 SDP_HDR_FORMAT        = '>BHH'
 SDP_HDR_SIZE          = struct.calcsize(SDP_HDR_FORMAT)
@@ -215,7 +221,7 @@ class BluetoothSDPSocket(btsocket.socket):
             header = struct.pack('>BI', SDP_SEQ32, size)
         else:
             raise BluetoothSDPSocketError('List is too long')
-        return header + data_element_list
+        return header + data_element_list.encode('utf-8')
 
 
     def _pack_uuids(self, uuids, preferred_size):
@@ -317,7 +323,7 @@ class BluetoothSDPSocket(btsocket.socket):
         handles = []
 
         while True:
-            request = pattern + cont_state
+            request = pattern + cont_state.encode('utf-8')
 
             # Request without any continuation state is an example of invalid
             # request syntax.
@@ -484,8 +490,8 @@ class BluetoothSDPSocket(btsocket.socket):
         complete_response = ''
 
         while True:
-            request = (invalid_request if invalid_request
-                       else pattern + cont_state)
+            request = (invalid_request if invalid_request else pattern +
+                       cont_state.encode('utf-8'))
 
             code, response = self.send_request_and_wait(
                     SDP_SVC_ATTR_REQ, request, forced_pdu_size)
@@ -552,7 +558,7 @@ class BluetoothSDPSocket(btsocket.socket):
         complete_response = ''
 
         while True:
-            request = pattern + cont_state
+            request = pattern + cont_state.encode('utf-8')
             if invalid_request:
                 request = invalid_request + request
 

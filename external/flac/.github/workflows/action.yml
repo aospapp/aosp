@@ -1,6 +1,10 @@
 name: GitHub Actions
 
-on: [push]
+on:
+  push:
+  pull_request:
+  schedule:
+    - cron: '0 0 1 * *'
 
 jobs:
   build:
@@ -14,6 +18,7 @@ jobs:
             ubuntu-latest-clang-cmake,
             macos-latest-clang-autotools,
             macos-latest-clang-cmake,
+            windows-latest-cmake,
             ubuntu-latest-gcc-autotools-64-bit-words,
             ubuntu-latest-clang-autotools-64-bit-words,
             ubuntu-latest-gcc-cmake-64-bit-words,
@@ -64,6 +69,16 @@ jobs:
             build-system: cmake
             configure-opts: ''
 
+          - name: windows-latest-cmake
+            os: windows-latest
+            build-system: cmake
+            configure-opts: ''
+
+          - name: windows-latest-cmake-shared
+            os: windows-latest
+            build-system: cmake
+            configure-opts: '-DBUILD_SHARED_LIBS=ON'
+
           - name: ubuntu-latest-gcc-autotools-64-bit-words
             os: ubuntu-latest
             cc: gcc
@@ -109,19 +124,30 @@ jobs:
     runs-on: ${{ matrix.os }}
 
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
+
+      - uses: actions/checkout@v3
+        if: startsWith(matrix.build-system,'cmake')
+        with:
+          repository: xiph/ogg
+          path: ./ogg
 
       - name: Install MacOS dependencies
-        if: startsWith(matrix.os,'macos')
+        if: startsWith(matrix.os,'macos') && !startsWith(matrix.build-system,'cmake')
         run: |
           brew update
           brew install automake pkg-config libogg
 
-      - name: Install Lunux dependencies
+      - name: Install Linux dependencies
         if: startsWith(matrix.os,'ubuntu')
         run: |
           sudo apt-get update
-          sudo apt-get install -y libtool-bin libogg-dev doxygen libxml2-utils w3c-sgml-lib
+          sudo apt-get install -y libtool-bin libogg-dev
+
+      - name: Install Windows dependencies
+        if: startsWith(matrix.os,'windows')
+        run: |
+          choco install busybox
 
       - name: Build with Autotools
         if: startsWith(matrix.build-system,'autotools')
@@ -134,20 +160,40 @@ jobs:
           make
           make check
 
-      - name: Build with CMake
+      - name: Prepare CMake build directory
         if: startsWith(matrix.build-system,'cmake')
         env:
           CC: ${{ matrix.cc }}
           CXX: ${{ matrix.cxx }}
-        run: |
-          mkdir cmake-build
-          cd cmake-build
-          cmake .. -DCMAKE_BUILD_TYPE=Release -DCMAKE_VERBOSE_MAKEFILE:BOOL=ON ${{ matrix.configure-opts }} -DCMAKE_FIND_FRAMEWORK=NEVER
-          cmake --build .
-          ctest -V
+        run: mkdir cmake-build
 
-      - name: Check documentation
-        if: startsWith(matrix.os,'ubuntu') && startsWith(matrix.build-system,'autotools')
-        run: |
-          xmllint --valid --noout doc/html/*.html;
-          xmllint --valid --noout doc/html/api/*.html;
+      - name: CMake generator
+        if: startsWith(matrix.build-system,'cmake')
+        env:
+          CC: ${{ matrix.cc }}
+          CXX: ${{ matrix.cxx }}
+        working-directory: cmake-build
+        run: cmake .. -DCMAKE_BUILD_TYPE=Release -DINSTALL_MANPAGES=OFF -DCMAKE_VERBOSE_MAKEFILE:BOOL=ON ${{ matrix.configure-opts }} -DCMAKE_FIND_FRAMEWORK=NEVER
+
+      - name: CMake build
+        if: startsWith(matrix.build-system,'cmake')
+        env:
+          CC: ${{ matrix.cc }}
+          CXX: ${{ matrix.cxx }}
+        working-directory: cmake-build
+        run: cmake --build . --config Release
+
+      - name: CMake test
+        if: startsWith(matrix.build-system,'cmake')
+        env:
+          CC: ${{ matrix.cc }}
+          CXX: ${{ matrix.cxx }}
+        working-directory: cmake-build
+        run: ctest -V -C Release
+
+      - name: Upload logs on failure
+        uses: actions/upload-artifact@v2
+        if: failure()
+        with:
+          name: flac-${{ github.sha }}-${{ github.run_id }}-logs
+          path: ./**/*.log

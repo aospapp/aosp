@@ -1,9 +1,12 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 /*
- * Copyright (c) 2019 Federico Bonfiglio fedebonfi95@gmail.com
+ * Copyright (c) 2019 Federico Bonfiglio <fedebonfi95@gmail.com>
+ * Copyright (c) Linux Test Project, 2019-2022
  */
 
-/*
+/*\
+ * [Description]
+ *
  * Test ioctl_ns with NS_GET_OWNER_UID request.
  *
  * Calls ioctl for a UTS namespace, which isn't a user namespace.
@@ -33,19 +36,17 @@ static void run(void)
 
 	owner_fd = ioctl(fd, NS_GET_OWNER_UID, &uid);
 	if (owner_fd == -1) {
-		if (errno == ENOTTY) {
-			tst_brk(TCONF,
-			        "ioctl(NS_GET_OWNER_UID) not implemented");
-		}
+		if (errno == ENOTTY)
+			tst_brk(TCONF, "ioctl(NS_GET_OWNER_UID) not implemented");
 
 		if (errno == EINVAL)
 			tst_res(TPASS, "NS_GET_OWNER_UID fails, UTS namespace");
 		else
 			tst_res(TFAIL | TERRNO, "unexpected ioctl error");
 	} else {
-		SAFE_CLOSE(fd);
 		tst_res(TFAIL, "call to ioctl succeded");
 	}
+	SAFE_CLOSE(fd);
 }
 
 static struct tst_test test = {

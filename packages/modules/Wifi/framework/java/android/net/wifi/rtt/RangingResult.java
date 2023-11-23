@@ -21,6 +21,8 @@ import android.annotation.NonNull;
 import android.annotation.Nullable;
 import android.annotation.SystemApi;
 import android.net.MacAddress;
+import android.net.wifi.ScanResult;
+import android.net.wifi.WifiAnnotations.ChannelWidth;
 import android.net.wifi.aware.PeerHandle;
 import android.os.Parcel;
 import android.os.Parcelable;
@@ -72,6 +74,11 @@ public final class RangingResult implements Parcelable {
      */
     public static final int STATUS_RESPONDER_DOES_NOT_SUPPORT_IEEE80211MC = 2;
 
+    /**
+     * The unspecified value.
+     */
+    public static final int UNSPECIFIED = -1;
+
     /** @hide */
     public final int mStatus;
 
@@ -112,6 +119,35 @@ public final class RangingResult implements Parcelable {
     public final boolean mIs80211mcMeasurement;
 
     /** @hide */
+    public final int mFrequencyMHz;
+
+    /** @hide */
+    public final int mPacketBw;
+
+    /** @hide */
+    public RangingResult(@RangeResultStatus int status, @NonNull MacAddress mac, int distanceMm,
+            int distanceStdDevMm, int rssi, int numAttemptedMeasurements,
+            int numSuccessfulMeasurements, byte[] lci, byte[] lcr,
+            ResponderLocation responderLocation, long timestamp, boolean is80211McMeasurement,
+            int frequencyMHz, int packetBw) {
+        mStatus = status;
+        mMac = mac;
+        mPeerHandle = null;
+        mDistanceMm = distanceMm;
+        mDistanceStdDevMm = distanceStdDevMm;
+        mRssi = rssi;
+        mNumAttemptedMeasurements = numAttemptedMeasurements;
+        mNumSuccessfulMeasurements = numSuccessfulMeasurements;
+        mLci = lci == null ? EMPTY_BYTE_ARRAY : lci;
+        mLcr = lcr == null ? EMPTY_BYTE_ARRAY : lcr;
+        mResponderLocation = responderLocation;
+        mTimestamp = timestamp;
+        mIs80211mcMeasurement = is80211McMeasurement;
+        mFrequencyMHz = frequencyMHz;
+        mPacketBw = packetBw;
+    }
+
+    /** @hide */
     public RangingResult(@RangeResultStatus int status, @NonNull MacAddress mac, int distanceMm,
             int distanceStdDevMm, int rssi, int numAttemptedMeasurements,
             int numSuccessfulMeasurements, byte[] lci, byte[] lcr,
@@ -129,6 +165,8 @@ public final class RangingResult implements Parcelable {
         mResponderLocation = responderLocation;
         mTimestamp = timestamp;
         mIs80211mcMeasurement = is80211McMeasurement;
+        mFrequencyMHz = UNSPECIFIED;
+        mPacketBw = UNSPECIFIED;
     }
 
     /** @hide */
@@ -149,6 +187,8 @@ public final class RangingResult implements Parcelable {
         mResponderLocation = responderLocation;
         mTimestamp = timestamp;
         mIs80211mcMeasurement = true;
+        mFrequencyMHz = UNSPECIFIED;
+        mPacketBw = UNSPECIFIED;
     }
 
     /**
@@ -368,6 +408,44 @@ public final class RangingResult implements Parcelable {
         return mIs80211mcMeasurement;
     }
 
+    /**
+     * The center frequency of the primary 20 MHz frequency (in MHz) of the channel over
+     * which the measurement frames are sent.
+     * @return center frequency in Mhz of the channel if available, otherwise {@link #UNSPECIFIED}
+     * is returned.
+     * <p>
+     * @throws IllegalStateException if {@link #getStatus()} does not return
+     * {@link #STATUS_SUCCESS}.
+     */
+    public int getMeasurementChannelFrequencyMHz() {
+        if (mStatus != STATUS_SUCCESS) {
+            throw new IllegalStateException(
+                    "getMeasurementChannelFrequencyMHz():"
+                    + " invoked on an invalid result: getStatus()= " + mStatus);
+        }
+        return mFrequencyMHz;
+    }
+
+    /**
+     * The bandwidth used to transmit the RTT measurement frame.
+     * @return one of {@link ScanResult#CHANNEL_WIDTH_20MHZ},
+     * {@link ScanResult#CHANNEL_WIDTH_40MHZ},
+     * {@link ScanResult#CHANNEL_WIDTH_80MHZ}, {@link ScanResult#CHANNEL_WIDTH_160MHZ},
+     * {@link ScanResult #CHANNEL_WIDTH_80MHZ_PLUS_MHZ} or {@link ScanResult #CHANNEL_WIDTH_320MHZ}
+     * if available, otherwise {@link #UNSPECIFIED} is returned.
+     * <p>
+     * @throws IllegalStateException if {@link #getStatus()} does not return
+     * {@link #STATUS_SUCCESS}.
+     */
+    public @ChannelWidth int getMeasurementBandwidth() {
+        if (mStatus != STATUS_SUCCESS) {
+            throw new IllegalStateException(
+                    "getMeasurementBandwidth(): invoked on an invalid result: getStatus()="
+                            + mStatus);
+        }
+        return mPacketBw;
+    }
+
     @Override
     public int describeContents() {
         return 0;
@@ -398,6 +476,8 @@ public final class RangingResult implements Parcelable {
         dest.writeParcelable(mResponderLocation, flags);
         dest.writeLong(mTimestamp);
         dest.writeBoolean(mIs80211mcMeasurement);
+        dest.writeInt(mFrequencyMHz);
+        dest.writeInt(mPacketBw);
     }
 
     public static final @android.annotation.NonNull Creator<RangingResult> CREATOR = new Creator<RangingResult>() {
@@ -430,6 +510,8 @@ public final class RangingResult implements Parcelable {
                     in.readParcelable(this.getClass().getClassLoader());
             long timestamp = in.readLong();
             boolean isllmcMeasurement = in.readBoolean();
+            int frequencyMHz = in.readInt();
+            int packetBw = in.readInt();
             if (peerHandlePresent) {
                 return new RangingResult(status, peerHandle, distanceMm, distanceStdDevMm, rssi,
                         numAttemptedMeasurements, numSuccessfulMeasurements, lci, lcr,
@@ -437,7 +519,7 @@ public final class RangingResult implements Parcelable {
             } else {
                 return new RangingResult(status, mac, distanceMm, distanceStdDevMm, rssi,
                         numAttemptedMeasurements, numSuccessfulMeasurements, lci, lcr,
-                        responderLocation, timestamp, isllmcMeasurement);
+                        responderLocation, timestamp, isllmcMeasurement, frequencyMHz, packetBw);
             }
         }
     };
@@ -445,16 +527,23 @@ public final class RangingResult implements Parcelable {
     /** @hide */
     @Override
     public String toString() {
-        return new StringBuilder("RangingResult: [status=").append(mStatus).append(", mac=").append(
-                mMac).append(", peerHandle=").append(
-                mPeerHandle == null ? "<null>" : mPeerHandle.peerId).append(", distanceMm=").append(
-                mDistanceMm).append(", distanceStdDevMm=").append(mDistanceStdDevMm).append(
-                ", rssi=").append(mRssi).append(", numAttemptedMeasurements=").append(
-                mNumAttemptedMeasurements).append(", numSuccessfulMeasurements=").append(
-                mNumSuccessfulMeasurements).append(", lci=").append(mLci).append(", lcr=").append(
-                mLcr).append(", responderLocation=").append(mResponderLocation)
+        return new StringBuilder("RangingResult: [status=").append(mStatus)
+                .append(", mac=").append(mMac)
+                .append(", peerHandle=").append(
+                        mPeerHandle == null ? "<null>" : mPeerHandle.peerId)
+                .append(", distanceMm=").append(mDistanceMm)
+                .append(", distanceStdDevMm=").append(mDistanceStdDevMm)
+                .append(", rssi=").append(mRssi)
+                .append(", numAttemptedMeasurements=").append(mNumAttemptedMeasurements)
+                .append(", numSuccessfulMeasurements=").append(mNumSuccessfulMeasurements)
+                .append(", lci=").append(Arrays.toString(mLci))
+                .append(", lcr=").append(Arrays.toString(mLcr))
+                .append(", responderLocation=").append(mResponderLocation)
                 .append(", timestamp=").append(mTimestamp).append(", is80211mcMeasurement=")
-                .append(mIs80211mcMeasurement).append("]").toString();
+                .append(mIs80211mcMeasurement)
+                .append(", frequencyMHz=").append(mFrequencyMHz)
+                .append(", packetBw=").append(mPacketBw)
+                .append("]").toString();
     }
 
     @Override
@@ -477,13 +566,16 @@ public final class RangingResult implements Parcelable {
                 && Arrays.equals(mLci, lhs.mLci) && Arrays.equals(mLcr, lhs.mLcr)
                 && mTimestamp == lhs.mTimestamp
                 && mIs80211mcMeasurement == lhs.mIs80211mcMeasurement
-                && Objects.equals(mResponderLocation, lhs.mResponderLocation);
+                && Objects.equals(mResponderLocation, lhs.mResponderLocation)
+                && mFrequencyMHz == lhs.mFrequencyMHz
+                && mPacketBw == lhs.mPacketBw;
     }
 
     @Override
     public int hashCode() {
         return Objects.hash(mStatus, mMac, mPeerHandle, mDistanceMm, mDistanceStdDevMm, mRssi,
-                mNumAttemptedMeasurements, mNumSuccessfulMeasurements, mLci, mLcr,
-                mResponderLocation, mTimestamp, mIs80211mcMeasurement);
+                mNumAttemptedMeasurements, mNumSuccessfulMeasurements, Arrays.hashCode(mLci),
+                Arrays.hashCode(mLcr), mResponderLocation, mTimestamp, mIs80211mcMeasurement,
+                mFrequencyMHz, mPacketBw);
     }
 }

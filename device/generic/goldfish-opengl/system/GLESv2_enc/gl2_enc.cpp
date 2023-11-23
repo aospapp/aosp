@@ -12,7 +12,7 @@
 
 #include <stdio.h>
 
-#include "android/base/Tracing.h"
+#include "aemu/base/Tracing.h"
 
 #include "EncoderDebug.h"
 
@@ -12322,6 +12322,373 @@ GLboolean glBufferDataSyncAEMU_enc(void *self , GLenum target, GLsizeiptr size, 
 	return retval;
 }
 
+void glTexBufferOES_enc(void *self , GLenum target, GLenum internalFormat, GLuint buffer)
+{
+	ENCODER_DEBUG_LOG("glTexBufferOES(target:0x%08x, internalFormat:0x%08x, buffer:%u)", target, internalFormat, buffer);
+	AEMU_SCOPED_TRACE("glTexBufferOES encode");
+
+	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
+	IOStream *stream = ctx->m_stream;
+	ChecksumCalculator *checksumCalculator = ctx->m_checksumCalculator;
+	bool useChecksum = checksumCalculator->getVersion() > 0;
+
+	 unsigned char *ptr;
+	 unsigned char *buf;
+	 const size_t sizeWithoutChecksum = 8 + 4 + 4 + 4;
+	 const size_t checksumSize = checksumCalculator->checksumByteSize();
+	 const size_t totalSize = sizeWithoutChecksum + checksumSize;
+	buf = stream->alloc(totalSize);
+	ptr = buf;
+	int tmp = OP_glTexBufferOES;memcpy(ptr, &tmp, 4); ptr += 4;
+	memcpy(ptr, &totalSize, 4);  ptr += 4;
+
+		memcpy(ptr, &target, 4); ptr += 4;
+		memcpy(ptr, &internalFormat, 4); ptr += 4;
+		memcpy(ptr, &buffer, 4); ptr += 4;
+
+	if (useChecksum) checksumCalculator->addBuffer(buf, ptr-buf);
+	if (useChecksum) checksumCalculator->writeChecksum(ptr, checksumSize); ptr += checksumSize;
+
+}
+
+void glTexBufferRangeOES_enc(void *self , GLenum target, GLenum internalFormat, GLuint buffer, GLintptr offset, GLsizeiptr size)
+{
+	ENCODER_DEBUG_LOG("glTexBufferRangeOES(target:0x%08x, internalFormat:0x%08x, buffer:%u, offset:0x%08lx, size:0x%08lx)", target, internalFormat, buffer, offset, size);
+	AEMU_SCOPED_TRACE("glTexBufferRangeOES encode");
+
+	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
+	IOStream *stream = ctx->m_stream;
+	ChecksumCalculator *checksumCalculator = ctx->m_checksumCalculator;
+	bool useChecksum = checksumCalculator->getVersion() > 0;
+
+	 unsigned char *ptr;
+	 unsigned char *buf;
+	 const size_t sizeWithoutChecksum = 8 + 4 + 4 + 4 + 4 + 4;
+	 const size_t checksumSize = checksumCalculator->checksumByteSize();
+	 const size_t totalSize = sizeWithoutChecksum + checksumSize;
+	buf = stream->alloc(totalSize);
+	ptr = buf;
+	int tmp = OP_glTexBufferRangeOES;memcpy(ptr, &tmp, 4); ptr += 4;
+	memcpy(ptr, &totalSize, 4);  ptr += 4;
+
+		memcpy(ptr, &target, 4); ptr += 4;
+		memcpy(ptr, &internalFormat, 4); ptr += 4;
+		memcpy(ptr, &buffer, 4); ptr += 4;
+		memcpy(ptr, &offset, 4); ptr += 4;
+		memcpy(ptr, &size, 4); ptr += 4;
+
+	if (useChecksum) checksumCalculator->addBuffer(buf, ptr-buf);
+	if (useChecksum) checksumCalculator->writeChecksum(ptr, checksumSize); ptr += checksumSize;
+
+}
+
+void glTexBufferEXT_enc(void *self , GLenum target, GLenum internalFormat, GLuint buffer)
+{
+	ENCODER_DEBUG_LOG("glTexBufferEXT(target:0x%08x, internalFormat:0x%08x, buffer:%u)", target, internalFormat, buffer);
+	AEMU_SCOPED_TRACE("glTexBufferEXT encode");
+
+	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
+	IOStream *stream = ctx->m_stream;
+	ChecksumCalculator *checksumCalculator = ctx->m_checksumCalculator;
+	bool useChecksum = checksumCalculator->getVersion() > 0;
+
+	 unsigned char *ptr;
+	 unsigned char *buf;
+	 const size_t sizeWithoutChecksum = 8 + 4 + 4 + 4;
+	 const size_t checksumSize = checksumCalculator->checksumByteSize();
+	 const size_t totalSize = sizeWithoutChecksum + checksumSize;
+	buf = stream->alloc(totalSize);
+	ptr = buf;
+	int tmp = OP_glTexBufferEXT;memcpy(ptr, &tmp, 4); ptr += 4;
+	memcpy(ptr, &totalSize, 4);  ptr += 4;
+
+		memcpy(ptr, &target, 4); ptr += 4;
+		memcpy(ptr, &internalFormat, 4); ptr += 4;
+		memcpy(ptr, &buffer, 4); ptr += 4;
+
+	if (useChecksum) checksumCalculator->addBuffer(buf, ptr-buf);
+	if (useChecksum) checksumCalculator->writeChecksum(ptr, checksumSize); ptr += checksumSize;
+
+}
+
+void glTexBufferRangeEXT_enc(void *self , GLenum target, GLenum internalFormat, GLuint buffer, GLintptr offset, GLsizeiptr size)
+{
+	ENCODER_DEBUG_LOG("glTexBufferRangeEXT(target:0x%08x, internalFormat:0x%08x, buffer:%u, offset:0x%08lx, size:0x%08lx)", target, internalFormat, buffer, offset, size);
+	AEMU_SCOPED_TRACE("glTexBufferRangeEXT encode");
+
+	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
+	IOStream *stream = ctx->m_stream;
+	ChecksumCalculator *checksumCalculator = ctx->m_checksumCalculator;
+	bool useChecksum = checksumCalculator->getVersion() > 0;
+
+	 unsigned char *ptr;
+	 unsigned char *buf;
+	 const size_t sizeWithoutChecksum = 8 + 4 + 4 + 4 + 4 + 4;
+	 const size_t checksumSize = checksumCalculator->checksumByteSize();
+	 const size_t totalSize = sizeWithoutChecksum + checksumSize;
+	buf = stream->alloc(totalSize);
+	ptr = buf;
+	int tmp = OP_glTexBufferRangeEXT;memcpy(ptr, &tmp, 4); ptr += 4;
+	memcpy(ptr, &totalSize, 4);  ptr += 4;
+
+		memcpy(ptr, &target, 4); ptr += 4;
+		memcpy(ptr, &internalFormat, 4); ptr += 4;
+		memcpy(ptr, &buffer, 4); ptr += 4;
+		memcpy(ptr, &offset, 4); ptr += 4;
+		memcpy(ptr, &size, 4); ptr += 4;
+
+	if (useChecksum) checksumCalculator->addBuffer(buf, ptr-buf);
+	if (useChecksum) checksumCalculator->writeChecksum(ptr, checksumSize); ptr += checksumSize;
+
+}
+
+void glEnableiEXT_enc(void *self , GLenum cap, GLuint index)
+{
+	ENCODER_DEBUG_LOG("glEnableiEXT(cap:0x%08x, index:%u)", cap, index);
+	AEMU_SCOPED_TRACE("glEnableiEXT encode");
+
+	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
+	IOStream *stream = ctx->m_stream;
+	ChecksumCalculator *checksumCalculator = ctx->m_checksumCalculator;
+	bool useChecksum = checksumCalculator->getVersion() > 0;
+
+	 unsigned char *ptr;
+	 unsigned char *buf;
+	 const size_t sizeWithoutChecksum = 8 + 4 + 4;
+	 const size_t checksumSize = checksumCalculator->checksumByteSize();
+	 const size_t totalSize = sizeWithoutChecksum + checksumSize;
+	buf = stream->alloc(totalSize);
+	ptr = buf;
+	int tmp = OP_glEnableiEXT;memcpy(ptr, &tmp, 4); ptr += 4;
+	memcpy(ptr, &totalSize, 4);  ptr += 4;
+
+		memcpy(ptr, &cap, 4); ptr += 4;
+		memcpy(ptr, &index, 4); ptr += 4;
+
+	if (useChecksum) checksumCalculator->addBuffer(buf, ptr-buf);
+	if (useChecksum) checksumCalculator->writeChecksum(ptr, checksumSize); ptr += checksumSize;
+
+}
+
+void glDisableiEXT_enc(void *self , GLenum cap, GLuint index)
+{
+	ENCODER_DEBUG_LOG("glDisableiEXT(cap:0x%08x, index:%u)", cap, index);
+	AEMU_SCOPED_TRACE("glDisableiEXT encode");
+
+	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
+	IOStream *stream = ctx->m_stream;
+	ChecksumCalculator *checksumCalculator = ctx->m_checksumCalculator;
+	bool useChecksum = checksumCalculator->getVersion() > 0;
+
+	 unsigned char *ptr;
+	 unsigned char *buf;
+	 const size_t sizeWithoutChecksum = 8 + 4 + 4;
+	 const size_t checksumSize = checksumCalculator->checksumByteSize();
+	 const size_t totalSize = sizeWithoutChecksum + checksumSize;
+	buf = stream->alloc(totalSize);
+	ptr = buf;
+	int tmp = OP_glDisableiEXT;memcpy(ptr, &tmp, 4); ptr += 4;
+	memcpy(ptr, &totalSize, 4);  ptr += 4;
+
+		memcpy(ptr, &cap, 4); ptr += 4;
+		memcpy(ptr, &index, 4); ptr += 4;
+
+	if (useChecksum) checksumCalculator->addBuffer(buf, ptr-buf);
+	if (useChecksum) checksumCalculator->writeChecksum(ptr, checksumSize); ptr += checksumSize;
+
+}
+
+void glBlendEquationiEXT_enc(void *self , GLuint index, GLenum mode)
+{
+	ENCODER_DEBUG_LOG("glBlendEquationiEXT(index:%u, mode:0x%08x)", index, mode);
+	AEMU_SCOPED_TRACE("glBlendEquationiEXT encode");
+
+	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
+	IOStream *stream = ctx->m_stream;
+	ChecksumCalculator *checksumCalculator = ctx->m_checksumCalculator;
+	bool useChecksum = checksumCalculator->getVersion() > 0;
+
+	 unsigned char *ptr;
+	 unsigned char *buf;
+	 const size_t sizeWithoutChecksum = 8 + 4 + 4;
+	 const size_t checksumSize = checksumCalculator->checksumByteSize();
+	 const size_t totalSize = sizeWithoutChecksum + checksumSize;
+	buf = stream->alloc(totalSize);
+	ptr = buf;
+	int tmp = OP_glBlendEquationiEXT;memcpy(ptr, &tmp, 4); ptr += 4;
+	memcpy(ptr, &totalSize, 4);  ptr += 4;
+
+		memcpy(ptr, &index, 4); ptr += 4;
+		memcpy(ptr, &mode, 4); ptr += 4;
+
+	if (useChecksum) checksumCalculator->addBuffer(buf, ptr-buf);
+	if (useChecksum) checksumCalculator->writeChecksum(ptr, checksumSize); ptr += checksumSize;
+
+}
+
+void glBlendEquationSeparateiEXT_enc(void *self , GLuint index, GLenum modeRGB, GLenum modeAlpha)
+{
+	ENCODER_DEBUG_LOG("glBlendEquationSeparateiEXT(index:%u, modeRGB:0x%08x, modeAlpha:0x%08x)", index, modeRGB, modeAlpha);
+	AEMU_SCOPED_TRACE("glBlendEquationSeparateiEXT encode");
+
+	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
+	IOStream *stream = ctx->m_stream;
+	ChecksumCalculator *checksumCalculator = ctx->m_checksumCalculator;
+	bool useChecksum = checksumCalculator->getVersion() > 0;
+
+	 unsigned char *ptr;
+	 unsigned char *buf;
+	 const size_t sizeWithoutChecksum = 8 + 4 + 4 + 4;
+	 const size_t checksumSize = checksumCalculator->checksumByteSize();
+	 const size_t totalSize = sizeWithoutChecksum + checksumSize;
+	buf = stream->alloc(totalSize);
+	ptr = buf;
+	int tmp = OP_glBlendEquationSeparateiEXT;memcpy(ptr, &tmp, 4); ptr += 4;
+	memcpy(ptr, &totalSize, 4);  ptr += 4;
+
+		memcpy(ptr, &index, 4); ptr += 4;
+		memcpy(ptr, &modeRGB, 4); ptr += 4;
+		memcpy(ptr, &modeAlpha, 4); ptr += 4;
+
+	if (useChecksum) checksumCalculator->addBuffer(buf, ptr-buf);
+	if (useChecksum) checksumCalculator->writeChecksum(ptr, checksumSize); ptr += checksumSize;
+
+}
+
+void glBlendFunciEXT_enc(void *self , GLuint index, GLenum sfactor, GLenum dfactor)
+{
+	ENCODER_DEBUG_LOG("glBlendFunciEXT(index:%u, sfactor:0x%08x, dfactor:0x%08x)", index, sfactor, dfactor);
+	AEMU_SCOPED_TRACE("glBlendFunciEXT encode");
+
+	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
+	IOStream *stream = ctx->m_stream;
+	ChecksumCalculator *checksumCalculator = ctx->m_checksumCalculator;
+	bool useChecksum = checksumCalculator->getVersion() > 0;
+
+	 unsigned char *ptr;
+	 unsigned char *buf;
+	 const size_t sizeWithoutChecksum = 8 + 4 + 4 + 4;
+	 const size_t checksumSize = checksumCalculator->checksumByteSize();
+	 const size_t totalSize = sizeWithoutChecksum + checksumSize;
+	buf = stream->alloc(totalSize);
+	ptr = buf;
+	int tmp = OP_glBlendFunciEXT;memcpy(ptr, &tmp, 4); ptr += 4;
+	memcpy(ptr, &totalSize, 4);  ptr += 4;
+
+		memcpy(ptr, &index, 4); ptr += 4;
+		memcpy(ptr, &sfactor, 4); ptr += 4;
+		memcpy(ptr, &dfactor, 4); ptr += 4;
+
+	if (useChecksum) checksumCalculator->addBuffer(buf, ptr-buf);
+	if (useChecksum) checksumCalculator->writeChecksum(ptr, checksumSize); ptr += checksumSize;
+
+}
+
+void glBlendFuncSeparateiEXT_enc(void *self , GLuint index, GLenum srcRGB, GLenum dstRGB, GLenum srcAlpha, GLenum dstAlpha)
+{
+	ENCODER_DEBUG_LOG("glBlendFuncSeparateiEXT(index:%u, srcRGB:0x%08x, dstRGB:0x%08x, srcAlpha:0x%08x, dstAlpha:0x%08x)", index, srcRGB, dstRGB, srcAlpha, dstAlpha);
+	AEMU_SCOPED_TRACE("glBlendFuncSeparateiEXT encode");
+
+	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
+	IOStream *stream = ctx->m_stream;
+	ChecksumCalculator *checksumCalculator = ctx->m_checksumCalculator;
+	bool useChecksum = checksumCalculator->getVersion() > 0;
+
+	 unsigned char *ptr;
+	 unsigned char *buf;
+	 const size_t sizeWithoutChecksum = 8 + 4 + 4 + 4 + 4 + 4;
+	 const size_t checksumSize = checksumCalculator->checksumByteSize();
+	 const size_t totalSize = sizeWithoutChecksum + checksumSize;
+	buf = stream->alloc(totalSize);
+	ptr = buf;
+	int tmp = OP_glBlendFuncSeparateiEXT;memcpy(ptr, &tmp, 4); ptr += 4;
+	memcpy(ptr, &totalSize, 4);  ptr += 4;
+
+		memcpy(ptr, &index, 4); ptr += 4;
+		memcpy(ptr, &srcRGB, 4); ptr += 4;
+		memcpy(ptr, &dstRGB, 4); ptr += 4;
+		memcpy(ptr, &srcAlpha, 4); ptr += 4;
+		memcpy(ptr, &dstAlpha, 4); ptr += 4;
+
+	if (useChecksum) checksumCalculator->addBuffer(buf, ptr-buf);
+	if (useChecksum) checksumCalculator->writeChecksum(ptr, checksumSize); ptr += checksumSize;
+
+}
+
+void glColorMaskiEXT_enc(void *self , GLuint index, GLboolean red, GLboolean green, GLboolean blue, GLboolean alpha)
+{
+	ENCODER_DEBUG_LOG("glColorMaskiEXT(index:%u, red:%d, green:%d, blue:%d, alpha:%d)", index, red, green, blue, alpha);
+	AEMU_SCOPED_TRACE("glColorMaskiEXT encode");
+
+	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
+	IOStream *stream = ctx->m_stream;
+	ChecksumCalculator *checksumCalculator = ctx->m_checksumCalculator;
+	bool useChecksum = checksumCalculator->getVersion() > 0;
+
+	 unsigned char *ptr;
+	 unsigned char *buf;
+	 const size_t sizeWithoutChecksum = 8 + 4 + 1 + 1 + 1 + 1;
+	 const size_t checksumSize = checksumCalculator->checksumByteSize();
+	 const size_t totalSize = sizeWithoutChecksum + checksumSize;
+	buf = stream->alloc(totalSize);
+	ptr = buf;
+	int tmp = OP_glColorMaskiEXT;memcpy(ptr, &tmp, 4); ptr += 4;
+	memcpy(ptr, &totalSize, 4);  ptr += 4;
+
+		memcpy(ptr, &index, 4); ptr += 4;
+		memcpy(ptr, &red, 1); ptr += 1;
+		memcpy(ptr, &green, 1); ptr += 1;
+		memcpy(ptr, &blue, 1); ptr += 1;
+		memcpy(ptr, &alpha, 1); ptr += 1;
+
+	if (useChecksum) checksumCalculator->addBuffer(buf, ptr-buf);
+	if (useChecksum) checksumCalculator->writeChecksum(ptr, checksumSize); ptr += checksumSize;
+
+}
+
+GLboolean glIsEnablediEXT_enc(void *self , GLenum cap, GLuint index)
+{
+	ENCODER_DEBUG_LOG("glIsEnablediEXT(cap:0x%08x, index:%u)", cap, index);
+	AEMU_SCOPED_TRACE("glIsEnablediEXT encode");
+
+	gl2_encoder_context_t *ctx = (gl2_encoder_context_t *)self;
+	IOStream *stream = ctx->m_stream;
+	ChecksumCalculator *checksumCalculator = ctx->m_checksumCalculator;
+	bool useChecksum = checksumCalculator->getVersion() > 0;
+
+	 unsigned char *ptr;
+	 unsigned char *buf;
+	 const size_t sizeWithoutChecksum = 8 + 4 + 4;
+	 const size_t checksumSize = checksumCalculator->checksumByteSize();
+	 const size_t totalSize = sizeWithoutChecksum + checksumSize;
+	buf = stream->alloc(totalSize);
+	ptr = buf;
+	int tmp = OP_glIsEnablediEXT;memcpy(ptr, &tmp, 4); ptr += 4;
+	memcpy(ptr, &totalSize, 4);  ptr += 4;
+
+		memcpy(ptr, &cap, 4); ptr += 4;
+		memcpy(ptr, &index, 4); ptr += 4;
+
+	if (useChecksum) checksumCalculator->addBuffer(buf, ptr-buf);
+	if (useChecksum) checksumCalculator->writeChecksum(ptr, checksumSize); ptr += checksumSize;
+
+
+	GLboolean retval;
+	stream->readback(&retval, 1);
+	if (useChecksum) checksumCalculator->addBuffer(&retval, 1);
+	if (useChecksum) {
+		unsigned char *checksumBufPtr = NULL;
+		unsigned char checksumBuf[ChecksumCalculator::kMaxChecksumSize];
+		if (checksumSize > 0) checksumBufPtr = &checksumBuf[0];
+		stream->readback(checksumBufPtr, checksumSize);
+		if (!checksumCalculator->validate(checksumBufPtr, checksumSize)) {
+			ALOGE("glIsEnablediEXT: GL communication error, please report this issue to b.android.com.\n");
+			abort();
+		}
+	}
+	return retval;
+}
+
 }  // namespace
 
 gl2_encoder_context_t::gl2_encoder_context_t(IOStream *stream, ChecksumCalculator *checksumCalculator)
@@ -12756,5 +13123,17 @@ gl2_encoder_context_t::gl2_encoder_context_t(IOStream *stream, ChecksumCalculato
 	this->glUnmapBufferAsyncAEMU = &glUnmapBufferAsyncAEMU_enc;
 	this->glFlushMappedBufferRangeAEMU2 = &glFlushMappedBufferRangeAEMU2_enc;
 	this->glBufferDataSyncAEMU = &glBufferDataSyncAEMU_enc;
+	this->glTexBufferOES = &glTexBufferOES_enc;
+	this->glTexBufferRangeOES = &glTexBufferRangeOES_enc;
+	this->glTexBufferEXT = &glTexBufferEXT_enc;
+	this->glTexBufferRangeEXT = &glTexBufferRangeEXT_enc;
+	this->glEnableiEXT = &glEnableiEXT_enc;
+	this->glDisableiEXT = &glDisableiEXT_enc;
+	this->glBlendEquationiEXT = &glBlendEquationiEXT_enc;
+	this->glBlendEquationSeparateiEXT = &glBlendEquationSeparateiEXT_enc;
+	this->glBlendFunciEXT = &glBlendFunciEXT_enc;
+	this->glBlendFuncSeparateiEXT = &glBlendFuncSeparateiEXT_enc;
+	this->glColorMaskiEXT = &glColorMaskiEXT_enc;
+	this->glIsEnablediEXT = &glIsEnablediEXT_enc;
 }
 

@@ -1,4 +1,7 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes"?>
 <carrier_config>
     <boolean name="show_4g_for_lte_data_icon_bool" value="true"/>
+    <string-array name="carrier_certificate_string_array" num="1">
+        <item value="815641A2394999AA9AD4D499BFBD23CD073024D13A8A8639F834B5166C80B8DB:br.com.timbrasil.meutim"/>
+    </string-array>
 </carrier_config>

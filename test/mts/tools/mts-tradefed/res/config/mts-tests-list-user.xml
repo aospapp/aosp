@@ -14,25 +14,27 @@
      limitations under the License.
 -->
 <configuration description="List all tests that do not need root access in active test plans.">
-    <include name="mts-adservices-tests-list" />
     <include name="mts-appsearch-tests-list" />
     <include name="mts-art-tests-list-user" />
+    <include name="mts-art-extra-tests-list-user" />
     <include name="mts-cellbroadcast-oem-tests-list" />
+    <include name="mts-configinfrastructure-tests-list" />
     <include name="mts-conscrypt-tests-list-user" />
     <include name="mts-core-tests-list-user" />
     <include name="mts-dnsresolver-tests-list-user" />
     <include name="mts-documentsUI-oem-tests-list" />
     <include name="mts-documentsUI-usedapi-tests-list" />
     <include name="mts-extservices-tests-list" />
+    <include name="mts-healthfitness-tests-list">
     <include name="mts-linkerconfig-tests-list" />
     <include name="mts-ipsec-tests-list" />
     <include name="mts-media-tests-list" />
     <include name="mts-mediaprovider-tests-list-user" />
-    <include name="mts-network-tests-list" />
+    <include name="mts-network-tests-list-user" />
     <include name="mts-neuralnetworks-tests-list" />
-    <include name="mts-ondevicepersonalization-tests-list" />
     <include name="mts-permission-tests-list-oem" />
     <include name="mts-preload-verify-tests-list" />
+    <include name="mts-rkpd-tests-list-user" />
     <include name="mts-scheduling-tests-list" />
     <include name="mts-sdkextensions-tests-list" />
     <include name="mts-statsd-tests-list-user" />

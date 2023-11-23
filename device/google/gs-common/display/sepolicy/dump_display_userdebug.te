@@ -1,0 +1,8 @@
+pixel_bugreport(dump_display_userdebug)
+
+userdebug_or_eng(`
+  allow dump_display_userdebug vendor_toolbox_exec:file execute_no_trans;
+  allow dump_display_userdebug vendor_log_file:dir search;
+  allow dump_display_userdebug vendor_hwc_log_file:dir r_dir_perms;
+  allow dump_display_userdebug vendor_hwc_log_file:file r_file_perms;
+')

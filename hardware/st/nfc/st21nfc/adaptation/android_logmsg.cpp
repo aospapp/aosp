@@ -22,6 +22,7 @@
 
 void DispHal(const char* title, const void* data, size_t length);
 unsigned char hal_trace_level = STNFC_TRACE_LEVEL_DEBUG;
+unsigned char hal_conf_trace_level = STNFC_TRACE_LEVEL_DEBUG;
 uint16_t hal_log_cnt = 0;
 pthread_mutex_t halLogMutex;
 
@@ -49,8 +50,10 @@ unsigned char InitializeSTLogLevel() {
   int ret;
 
   num = 1;
-  if (GetNumValue(NAME_STNFC_HAL_LOGLEVEL, &num, sizeof(num)))
-    hal_trace_level = (unsigned char)num;
+  if (GetNumValue(NAME_STNFC_HAL_LOGLEVEL, &num, sizeof(num))) {
+    hal_conf_trace_level = (unsigned char)num;
+    hal_trace_level = hal_conf_trace_level;
+  }
 
   STLOG_HAL_D("%s: HAL log level=%u, hal_log_cnt (before reset): #%04X",
               __func__, hal_trace_level, hal_log_cnt);
@@ -123,13 +126,15 @@ void DispHal(const char* title, const void* data, size_t length) {
           STLOG_HAL_D("%s\n", line);
         }
       }
-      line[k] = 0;
+      if (k < 100) {
+        line[k] = 0;
+      }
     }
-    sprintf(&line[k * 3], "%02x ", d[i]);
+    snprintf(&line[k * 3], sizeof(line) - (k * 3), "%02x ", d[i]);
   }
 
   if (privacy) {
-    sprintf(&line[k * 3], "(hidden)");
+    snprintf(&line[k * 3], sizeof(line) - (k * 3), "(hidden)");
   }
 
   if (first_line == true) {

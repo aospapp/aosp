@@ -254,6 +254,7 @@ void HttpServer::HandleCorsPreflightRequest(const HttpRequest& req) {
           "Access-Control-Allow-Methods: POST, GET, OPTIONS",  //
           "Access-Control-Allow-Headers: *",                   //
           "Access-Control-Max-Age: 86400",                     //
+          "Access-Control-Allow-Private-Network: true",        //
       });
 }
 
@@ -564,12 +565,12 @@ HttpServerConnection::HttpServerConnection(std::unique_ptr<UnixSocket> s)
 
 HttpServerConnection::~HttpServerConnection() = default;
 
-Optional<StringView> HttpRequest::GetHeader(StringView name) const {
+std::optional<StringView> HttpRequest::GetHeader(StringView name) const {
   for (size_t i = 0; i < num_headers; i++) {
     if (headers[i].name.CaseInsensitiveEq(name))
       return headers[i].value;
   }
-  return nullopt;
+  return std::nullopt;
 }
 
 HttpRequestHandler::~HttpRequestHandler() = default;

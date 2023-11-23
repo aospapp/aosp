@@ -17,6 +17,7 @@
 
 #pragma once
 #include <list>
+#include <vector>
 
 #include "types/bluetooth/uuid.h"
 #include "types/raw_address.h"

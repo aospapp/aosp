@@ -64,7 +64,7 @@
     <string name="enable_alerts_master_toggle_summary" msgid="5583168548073938617">"ကြိုးမဲ့ အရေးပေါ် သတိပေးအကြောင်းကြားချက် လက်ခံရန်"</string>
     <string name="alert_reminder_interval_title" msgid="3283595202268218149">"အရေးပေါ်သတိပေးချက်"</string>
     <string name="enable_alert_speech_title" msgid="8052104771053526941">"စကားပြော သတိပေးမက်ဆေ့ဂျ်"</string>
-    <string name="enable_alert_speech_summary" msgid="2855629032890937297">"ကြိုးမဲ့ အရေးပေါ်သတိပေးချက် မက်ဆေ့ဂျ်များ ပြောကြားရန် \'စာသားမှ စကားပြောသို့\' ကိုအသုံးပြုပါ"</string>
+    <string name="enable_alert_speech_summary" msgid="2855629032890937297">"ကြိုးမဲ့ အရေးပေါ်သတိပေးချက် မက်ဆေ့ဂျ်များ ပြောကြားရန် \'စာ-မှ-စကား\' ကိုအသုံးပြုပါ"</string>
     <string name="alert_reminder_dialog_title" msgid="2299010977651377315">"သတိပေးချက်အသံကို ပုံမှန်အကျယ်ဖြင့် ဖွင့်ပါမည်"</string>
     <string name="emergency_alert_history_title" msgid="8310173569237268431">"အရေးပေါ်သတိပေးချက် မှတ်တမ်း"</string>
     <string name="alert_preferences_title" msgid="6001469026393248468">"သတိပေးချက် ရွေးချယ်မှုများ"</string>

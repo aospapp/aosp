@@ -33,7 +33,6 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.ViewTreeObserver.OnPreDrawListener;
-import android.view.inputmethod.InputMethodManager;
 import android.widget.ImageView;
 import android.widget.TextView;
 
@@ -600,10 +599,7 @@ public class SelectFromListWizardFragment extends Fragment {
         mHandler.post(new Runnable() {
             @Override
             public void run() {
-                InputMethodManager inputMethodManager = (InputMethodManager) getActivity()
-                        .getSystemService(Context.INPUT_METHOD_SERVICE);
-                inputMethodManager.hideSoftInputFromWindow(
-                        mMainView.getApplicationWindowToken(), 0);
+                AccessibilityHelper.dismissKeyboard(getActivity(), mMainView);
             }
         });
     }

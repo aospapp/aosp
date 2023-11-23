@@ -14,129 +14,15 @@
 // limitations under the License.
 //
 
-// NetworkStats related libraries.
-
-filegroup {
-    name: "framework-connectivity-netstats-internal-sources",
-    srcs: [
-        "src/android/app/usage/*.java",
-        "src/android/net/DataUsageRequest.*",
-        "src/android/net/INetworkStatsService.aidl",
-        "src/android/net/INetworkStatsSession.aidl",
-        "src/android/net/NetworkIdentity.java",
-        "src/android/net/NetworkIdentitySet.java",
-        "src/android/net/NetworkStateSnapshot.*",
-        "src/android/net/NetworkStats.*",
-        "src/android/net/NetworkStatsAccess.*",
-        "src/android/net/NetworkStatsCollection.*",
-        "src/android/net/NetworkStatsHistory.*",
-        "src/android/net/NetworkTemplate.*",
-        "src/android/net/TrafficStats.java",
-        "src/android/net/UnderlyingNetworkInfo.*",
-        "src/android/net/netstats/**/*.*",
-    ],
-    path: "src",
-    visibility: [
-        "//visibility:private",
-    ],
-}
-
-filegroup {
-    name: "framework-connectivity-netstats-sources",
-    srcs: [
-        ":framework-connectivity-netstats-internal-sources",
-    ],
-    visibility: [
-        "//visibility:private",
-    ],
-}
-
-// Nsd related libraries.
-
-filegroup {
-    name: "framework-connectivity-nsd-internal-sources",
-    srcs: [
-        "src/android/net/nsd/*.aidl",
-        "src/android/net/nsd/*.java",
-    ],
-    path: "src",
-    visibility: [
-        "//visibility:private",
-    ],
-}
-
-filegroup {
-    name: "framework-connectivity-nsd-sources",
-    srcs: [
-        ":framework-connectivity-nsd-internal-sources",
-    ],
-    visibility: [
-        "//visibility:private",
-    ],
-}
-
-// IpSec related libraries.
-
-filegroup {
-    name: "framework-connectivity-ipsec-sources",
-    srcs: [
-        "src/android/net/IIpSecService.aidl",
-        "src/android/net/IpSec*.*",
-    ],
-    path: "src",
-    visibility: [
-        "//visibility:private",
-    ],
-}
-
-// Ethernet related libraries.
-
-filegroup {
-    name: "framework-connectivity-ethernet-sources",
-    srcs: [
-        "src/android/net/EthernetManager.java",
-        "src/android/net/EthernetNetworkManagementException.java",
-        "src/android/net/EthernetNetworkManagementException.aidl",
-        "src/android/net/EthernetNetworkSpecifier.java",
-        "src/android/net/EthernetNetworkUpdateRequest.java",
-        "src/android/net/EthernetNetworkUpdateRequest.aidl",
-        "src/android/net/IEthernetManager.aidl",
-        "src/android/net/IEthernetServiceListener.aidl",
-        "src/android/net/INetworkInterfaceOutcomeReceiver.aidl",
-        "src/android/net/ITetheredInterfaceCallback.aidl",
-    ],
-    path: "src",
-    visibility: [
-        "//visibility:private",
-    ],
-}
-
-// Connectivity-T common libraries.
-
-filegroup {
-    name: "framework-connectivity-tiramisu-internal-sources",
-    srcs: [
-        "src/android/net/ConnectivityFrameworkInitializerTiramisu.java",
-    ],
-    path: "src",
-    visibility: [
-        "//visibility:private",
-    ],
-}
-
 filegroup {
     name: "framework-connectivity-tiramisu-updatable-sources",
+    defaults: ["framework-sources-module-defaults"],
     srcs: [
-        ":framework-connectivity-ethernet-sources",
-        ":framework-connectivity-ipsec-sources",
-        ":framework-connectivity-netstats-sources",
-        ":framework-connectivity-nsd-sources",
-        ":framework-connectivity-tiramisu-internal-sources",
+        "src/**/*.java",
+        "src/**/*.aidl",
     ],
-    visibility: [
-        "//frameworks/base",
-        "//packages/modules/Connectivity:__subpackages__",
-    ],
+    path: "src",
+    visibility: ["//packages/modules/Connectivity:__subpackages__"],
 }
 
 cc_library_shared {

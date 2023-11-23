@@ -72,7 +72,6 @@ _TEST_MODULE_A_JOIN_PATH_DICT = {
 
 # pylint: disable=invalid-name
 # pylint: disable=protected-access
-# ptlint: disable=too-many-format-args
 class AidegenModuleInfoUtilUnittests(unittest.TestCase):
     """Unit tests for module_info_utils.py"""
 
@@ -228,7 +227,7 @@ class AidegenModuleInfoUtilUnittests(unittest.TestCase):
         module_info_util._merge_module_keys(test_m_dict, test_b_dict)
         self.assertEqual(_TEST_DEP_SRC_DICT, test_m_dict)
 
-    def test_merge_module_keys_with_key_not_in_orginial_dict(self):
+    def test_merge_module_keys_with_key_not_in_original_dict(self):
         """Test _merge_module_keys with the key does not exist in the dictionary
         to be merged into.
         """
@@ -237,8 +236,8 @@ class AidegenModuleInfoUtilUnittests(unittest.TestCase):
         module_info_util._merge_module_keys(test_m_dict, test_b_dict)
         self.assertEqual(_TEST_DEP_SRC_DICT, test_m_dict)
 
-    def test_merge_module_keys_with_key_in_orginial_dict(self):
-        """Test _merge_module_keys with with the key exists in the dictionary
+    def test_merge_module_keys_with_key_in_original_dict(self):
+        """Test _merge_module_keys with the key exists in the dictionary
         to be merged into.
         """
         test_b_dict = _TEST_SRCS_BAZ_DICT
@@ -251,7 +250,7 @@ class AidegenModuleInfoUtilUnittests(unittest.TestCase):
             set(test_m_dict['dependencies']))
 
     def test_merge_module_keys_with_duplicated_item_dict(self):
-        """Test _merge_module_keys with with the key exists in the dictionary
+        """Test _merge_module_keys with the key exists in the dictionary
         to be merged into.
         """
         test_b_dict = _TEST_CLASS_DICT
@@ -356,7 +355,7 @@ class AidegenModuleInfoUtilUnittests(unittest.TestCase):
 
     @mock.patch.object(common_util, 'get_blueprint_json_files_relative_dict')
     def test_get_generated_json_files(self, mock_get_bp_dict):
-        """Test _get_generated_json_files function with condictions,"""
+        """Test _get_generated_json_files function with conditions."""
         a_env = 'GEN_A'
         b_env = 'GEN_B'
         a_file_path = 'a/b/path/to/a_file'
@@ -584,6 +583,7 @@ class AidegenModuleInfoUtilUnittests(unittest.TestCase):
         mock_islink.return_value = True
         module_info_util._generate_rust_project_link()
         self.assertTrue(mock_print.called)
+
 
 if __name__ == '__main__':
     unittest.main()

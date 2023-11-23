@@ -18,6 +18,10 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
      package="android.localemanager.atom.app">
 
+    <queries>
+        <package android:name="android.localemanager.app" />
+    </queries>
+
     <application>
         <activity android:name=".ActivityForSettingLocalesOfAnotherApp"
              android:exported="true">

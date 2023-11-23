@@ -133,6 +133,7 @@
     <string name="cdma_call_waiting_in_ims_off" msgid="1099246114368636334">"IMS-এ CDMA কল ওয়েটিং সুবিধা বন্ধ আছে"</string>
     <string name="updating_title" msgid="6130548922615719689">"কল সেটিংস"</string>
     <string name="call_settings_admin_user_only" msgid="7238947387649986286">"কেবলমাত্র প্রশাসক ব্যবহারকারী কল সেটিংস পরিবর্তন করতে পারবেন৷"</string>
+    <string name="phone_account_settings_user_restriction" msgid="9142685151087208396">"শুধুমাত্র অ্যাডমিন বা অফিস প্রোফাইল ব্যবহারকারী ফোনের অ্যাকাউন্ট সেটিংস পরিবর্তন করতে পারবেন।"</string>
     <string name="call_settings_with_label" msgid="8460230435361579511">"সেটিংস (<xliff:g id="SUBSCRIPTIONLABEL">%s</xliff:g>)"</string>
     <string name="error_updating_title" msgid="2024290892676808965">"কল সেটিংসে ত্রুটি"</string>
     <string name="reading_settings" msgid="1605904432450871183">"সেটিংস পড়ছে…"</string>
@@ -556,6 +557,7 @@
     <string name="incall_error_supp_service_hold" msgid="8535056414643540997">"কলগুলি ধরে রাখা যাবে না।"</string>
     <string name="incall_error_wfc_only_no_wireless_network" msgid="5860742792811400109">"একটি কল করতে কোনো ওয়্যারলেস নেটওয়ার্কে সংযোগ করুন৷"</string>
     <string name="incall_error_promote_wfc" msgid="9164896813931363415">"কোনো কল করতে Wi-Fi কলিং সক্ষম করুন৷"</string>
+    <string name="incall_error_satellite_enabled" msgid="1936541518147323016">"কল করার জন্য \'উপগ্রহ\' মোড বন্ধ করুন।"</string>
     <string name="emergency_information_hint" msgid="9208897544917793012">"জরুরি তথ্য"</string>
     <string name="emergency_information_owner_hint" msgid="6256909888049185316">"মালিক"</string>
     <string name="emergency_information_confirm_hint" msgid="5109017615894918914">"তথ্য দেখার জন্য আবার ট্যাপ করুন"</string>
@@ -713,6 +715,7 @@
     <string name="clh_callFailed_powerOff_txt" msgid="8279934912560765361">"ফ্লাইট মোড চালু আছে"</string>
     <string name="clh_callFailed_simError_txt" msgid="5128538525762326413">"সিম কার্ড অ্যাক্সেস করা যাচ্ছে না"</string>
     <string name="clh_incall_error_out_of_service_txt" msgid="2736010617446749869">"মোবাইল নেটওয়ার্ক নেই"</string>
+    <string name="clh_callFailed_satelliteEnabled_txt" msgid="1675517238240377396">"\'উপগ্রহ\' মোড চালু আছে"</string>
     <string name="clh_callFailed_unassigned_number_txt" msgid="141967660286695682">"আপনি যে নম্বর ডায়াল করছেন সেটিতে কোনও সমস্যা আছে। ত্রুটি কোড ১।"</string>
     <string name="clh_callFailed_no_route_to_destination_txt" msgid="4805015149822352308">"কল করা যায়নি। ত্রুটি কোড ৩।"</string>
     <string name="clh_callFailed_channel_unacceptable_txt" msgid="4062754579408613021">"কল করা যায়নি। ত্রুটি কোড ৬।"</string>
@@ -837,6 +840,7 @@
     <string name="dsds_dialog_cancel" msgid="3245958947099586655">"বাদ দিন"</string>
     <string name="removable_esim_string" msgid="7931369811671787649">"সরিয়ে দেওয়া যায় এমন eSIM ডিফল্ট হিসেবে সেট করুন"</string>
     <string name="radio_info_radio_power" msgid="8805595022160471587">"মোবাইল রেডিওর গুণমান"</string>
+    <string name="simulate_out_of_service_string" msgid="7787925611727597193">"আউট-অফ-সার্ভিস সিমুলেট করা (শুধুমাত্র ডিবাগ বিল্ডের জন্য)"</string>
     <string name="radioInfo_menu_viewADN" msgid="4533179730908559846">"সিম অ্যাড্রেস বুক দেখুন"</string>
     <string name="radioInfo_menu_viewFDN" msgid="1847236480527032061">"স্থায়ী ডায়াল নম্বরগুলি দেখুন"</string>
     <string name="radioInfo_menu_viewSDN" msgid="2613431584522392842">"সার্ভিস ডায়াল নম্বরগুলি দেখুন"</string>
@@ -861,6 +865,7 @@
     <string name="radioInfo_data_connected" msgid="7637335645634239508">"কানেক্ট করা হয়েছে"</string>
     <string name="radioInfo_data_suspended" msgid="8695262782642002785">"সাসপেন্ড করা হয়েছে"</string>
     <string name="radioInfo_unknown" msgid="5401423738500672850">"অজানা"</string>
+    <string name="radioInfo_imei_primary" msgid="5948747378637224400">"প্রাথমিক"</string>
     <string name="radioInfo_display_packets" msgid="6794302192441084157">"pkts"</string>
     <string name="radioInfo_display_bytes" msgid="7701006329222413797">"বাইট"</string>
     <string name="radioInfo_display_dbm" msgid="7491944975710865703">"dBm"</string>
@@ -887,10 +892,12 @@
     <string name="radio_info_ppp_sent_label" msgid="6542208429356199695">"ডেটা পাঠানো হয়েছে:"</string>
     <string name="radio_info_message_waiting_label" msgid="1886549432566952078">"মেসেজের জন্য অপেক্ষা করা হচ্ছে:"</string>
     <string name="radio_info_phone_number_label" msgid="2533852539562512203">"ফোন নম্বর:"</string>
-    <string name="radio_info_band_mode_label" msgid="23480556225515290">"রেডিও ব্যান্ড বেছে নিন"</string>
     <string name="radio_info_voice_network_type_label" msgid="2395347336419593265">"ভয়েস নেটওয়ার্কের প্রকার:"</string>
     <string name="radio_info_data_network_type_label" msgid="8886597029237501929">"ডেটা নেটওয়ার্কের প্রকার:"</string>
     <string name="radio_info_override_network_type_label" msgid="4176280017221092005">"ওভাররাইড নেটওয়ার্কের ধরন:"</string>
+    <string name="radio_info_voice_raw_registration_state_label" msgid="2822988327145825128">"ভয়েস Raw রেজিস্ট্রেশনের স্ট্যাটাস:"</string>
+    <string name="radio_info_data_raw_registration_state_label" msgid="2895895513822604539">"ডেটা Raw রেজিস্ট্রেশনের স্ট্যাটাস:"</string>
+    <string name="radio_info_wlan_data_raw_registration_state_label" msgid="6396894835757296612">"WLAN ডেটা Raw রেজিস্ট্রেশনের স্ট্যাটাস:"</string>
     <string name="phone_index_label" msgid="6222406512768964268">"ফোনের ইন্ডেক্স বেছে নিন"</string>
     <string name="radio_info_set_perferred_label" msgid="7408131389363136210">"পছন্দের নেটওয়ার্ক সেট করুন:"</string>
     <string name="radio_info_ping_hostname_v4" msgid="6951237885381284790">"হোস্টনামে(www.google.com) IPv4 পিং করুন:"</string>
@@ -919,4 +926,9 @@
     <string name="call_quality_notification_bluetooth_details" msgid="8348950331707346711">"আপনার ডিভাইসের ব্লুটুথ সিগনাল ভাল না। বদল করে স্পিকারফোন বেছে নিন।"</string>
     <string name="call_quality_notification_name" msgid="3476828289553948830">"ফোন কলের কোয়ালিটি সংক্রান্ত বিজ্ঞপ্তি"</string>
     <string name="notification_channel_sip_account" msgid="1261816025156179637">"পুরনো SIP অ্যাকাউন্ট"</string>
+    <string name="send_from_work_profile_title" msgid="7044759579507604732">"ব্যক্তিগত অ্যাপ থেকে মেসেজ পাঠানো যাবে না"</string>
+    <string name="send_from_work_profile_description" msgid="2174402508727161974">"আপনার সংস্থা শুধু অফিসের অ্যাপ থেকেই আপনাকে মেসেজ পাঠানোর অনুমতি দেয়"</string>
+    <string name="send_from_work_profile_cancel" msgid="177746511030381711">"বাতিল করুন"</string>
+    <string name="send_from_work_profile_action_str" msgid="6892775562934243337">"অফিস প্রোফাইলে পাল্টে নিন"</string>
+    <string name="install_messages_on_work_profile_action_str" msgid="3773440996395152903">"অফিসের জন্য একটি মেসেজিং অ্যাপ ইনস্টল করুন"</string>
 </resources>

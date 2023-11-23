@@ -181,7 +181,23 @@ public class ColorCustomizationManager implements CustomizationManager<ColorOpti
         if (lockWallpaperColors != null && mLockWallpaperColors.equals(mHomeWallpaperColors)) {
             lockWallpaperColors = null;
         }
-        mProvider.fetch(callback, reload, mHomeWallpaperColors, lockWallpaperColors);
+        mProvider.fetch(callback, reload, mHomeWallpaperColors,
+                lockWallpaperColors,  /* shouldUseRevampedUi= */ false);
+    }
+
+    /**
+     * Fetch options function for the customization hub revamped UI
+     *
+     * TODO (b/276417460): refactor to reduce code repetition with the other fetch options function
+     */
+    public void fetchRevampedUIOptions(OptionsFetchedListener<ColorOption> callback,
+            boolean reload) {
+        WallpaperColors lockWallpaperColors = mLockWallpaperColors;
+        if (lockWallpaperColors != null && mLockWallpaperColors.equals(mHomeWallpaperColors)) {
+            lockWallpaperColors = null;
+        }
+        mProvider.fetch(callback, reload, mHomeWallpaperColors,
+                lockWallpaperColors,  /* shouldUseRevampedUi= */ true);
     }
 
     /**
@@ -210,7 +226,7 @@ public class ColorCustomizationManager implements CustomizationManager<ColorOpti
      * or {@link ColorOptionsProvider#COLOR_SOURCE_PRESET}.
      */
     @ColorSource
-    public String getCurrentColorSource() {
+    public @Nullable String getCurrentColorSource() {
         if (mCurrentSource == null) {
             parseSettings(getStoredOverlays());
         }
@@ -221,7 +237,7 @@ public class ColorCustomizationManager implements CustomizationManager<ColorOpti
      * @return The style of the currently applied color. One of enum values in
      * {@link com.android.systemui.monet.Style}.
      */
-    public String getCurrentStyle() {
+    public @Nullable String getCurrentStyle() {
         if (mCurrentStyle == null) {
             parseSettings(getStoredOverlays());
         }

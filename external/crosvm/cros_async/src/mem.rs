@@ -1,6 +1,8 @@
-// Copyright 2020 The Chromium OS Authors. All rights reserved.
+// Copyright 2020 The ChromiumOS Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
+
+use std::borrow::Cow;
 
 use data_model::VolatileSlice;
 use remain::sorted;
@@ -16,7 +18,7 @@ pub enum Error {
 pub type Result<T> = std::result::Result<T, Error>;
 
 /// Used to index subslices of backing memory. Like an iovec, but relative to the start of the
-/// memory region instead of an absolute pointer.
+/// backing memory instead of an absolute pointer.
 /// The backing memory referenced by the region can be an array, an mmapped file, or guest memory.
 /// The offset is a u64 to allow having file or guest offsets >4GB when run on a 32bit host.
 #[derive(Copy, Clone, Debug)]
@@ -25,7 +27,31 @@ pub struct MemRegion {
     pub len: usize,
 }
 
-/// Trait for memory that can yeild both iovecs in to the backing memory.
+impl MemRegion {
+    /// Truncates `regions` such that their sum is less than or equal to `max`.
+    pub fn truncate(max: usize, regions: &[MemRegion]) -> Cow<[MemRegion]> {
+        if regions.iter().map(|x| x.len).sum::<usize>() <= max {
+            return Cow::Borrowed(regions);
+        }
+        Cow::Owned(
+            regions
+                .iter()
+                .copied()
+                .scan(max, |left, mut region| {
+                    if *left == 0 {
+                        return None;
+                    }
+                    region.len = std::cmp::min(region.len, *left);
+                    *left -= region.len;
+                    Some(region)
+                })
+                .collect(),
+        )
+    }
+}
+
+/// Trait for memory that can yield both iovecs in to the backing memory.
+/// # Safety
 /// Must be OK to modify the backing memory without owning a mut able reference. For example,
 /// this is safe for GuestMemory and VolatileSlices in crosvm as those types guarantee they are
 /// dealt with as volatile.
@@ -45,7 +71,7 @@ pub unsafe trait BackingMemory {
 /// starting at the time that `VecIoWrapper` is constructed until the time it is turned back in to a
 /// `Vec` using `to_inner`. The returned `Vec` is guaranteed to be valid as any combination of bits
 /// in a `Vec` of `u8` is valid.
-pub(crate) struct VecIoWrapper {
+pub struct VecIoWrapper {
     inner: Box<[u8]>,
 }
 
@@ -63,6 +89,7 @@ impl From<VecIoWrapper> for Vec<u8> {
 
 impl VecIoWrapper {
     /// Get the length of the Vec that is wrapped.
+    #[cfg_attr(windows, allow(dead_code))]
     pub fn len(&self) -> usize {
         self.inner.len()
     }

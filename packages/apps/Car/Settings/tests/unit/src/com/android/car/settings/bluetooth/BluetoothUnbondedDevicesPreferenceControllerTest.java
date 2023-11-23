@@ -240,4 +240,31 @@ public class BluetoothUnbondedDevicesPreferenceControllerTest {
 
         assertThat(mController.getAvailabilityStatus()).isEqualTo(DISABLED_FOR_PROFILE);
     }
+
+    @Test
+    public void getAvailabilityStatus_disallowConfigBluetooth_disabledForUser_zoneWrite() {
+        when(mUserManager.hasUserRestriction(DISALLOW_CONFIG_BLUETOOTH)).thenReturn(true);
+        mController.setAvailabilityStatusForZone("write");
+
+        PreferenceControllerTestUtil.assertAvailability(mController.getAvailabilityStatus(),
+                DISABLED_FOR_PROFILE);
+    }
+
+    @Test
+    public void getAvailabilityStatus_disallowConfigBluetooth_disabledForUser_zoneRead() {
+        when(mUserManager.hasUserRestriction(DISALLOW_CONFIG_BLUETOOTH)).thenReturn(true);
+        mController.setAvailabilityStatusForZone("read");
+
+        PreferenceControllerTestUtil.assertAvailability(mController.getAvailabilityStatus(),
+                DISABLED_FOR_PROFILE);
+    }
+
+    @Test
+    public void getAvailabilityStatus_disallowConfigBluetooth_disabledForUser_zoneHidden() {
+        when(mUserManager.hasUserRestriction(DISALLOW_CONFIG_BLUETOOTH)).thenReturn(true);
+        mController.setAvailabilityStatusForZone("hidden");
+
+        PreferenceControllerTestUtil.assertAvailability(mController.getAvailabilityStatus(),
+                DISABLED_FOR_PROFILE);
+    }
 }

@@ -1,0 +1,4 @@
+# Touch
+genfscon sysfs /devices/virtual/goog_touch_interface                            u:object_r:sysfs_touch_gti:s0
+genfscon proc  /goog_touch_interface                                            u:object_r:proc_touch_gti:s0
+

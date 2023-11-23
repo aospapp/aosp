@@ -16,21 +16,29 @@
 
 package android.security.cts;
 
-import static org.junit.Assert.assertThrows;
-
-import java.lang.reflect.Field;
-import org.junit.Test;
-import org.junit.runner.RunWith;
+import static org.junit.Assert.*;
 
 import android.content.AttributionSource;
 import android.content.Context;
 import android.platform.test.annotations.AsbSecurityTest;
+
 import androidx.test.core.app.ApplicationProvider;
 import androidx.test.runner.AndroidJUnit4;
+
 import com.android.sts.common.util.StsExtraBusinessLogicTestCase;
+
+import org.junit.Test;
+import org.junit.runner.RunWith;
+
+import java.lang.reflect.Field;
 
 @RunWith(AndroidJUnit4.class)
 public class AttributionSourceTest extends StsExtraBusinessLogicTestCase {
+    private static final String TAG = "AttributionSourceTest";
+
+    private static final int WAIT_TIME = 2000; // Time to wait for process to launch (ms).
+
+    public static final String ATTRIBUTION_SOURCE_KEY = "attributionSource";
 
     @AsbSecurityTest(cveBugId = 200288596)
     @Test
@@ -50,6 +58,40 @@ public class AttributionSourceTest extends StsExtraBusinessLogicTestCase {
         attSourceState.getClass().getField("pid").setInt(attSourceState, 0);
         final AttributionSource attributionSourceFinal = attributionSource;
         assertThrows(SecurityException.class, () -> attributionSourceFinal.enforceCallingPid());
+    }
+
+    @Test
+    @AsbSecurityTest(cveBugId = 267231571)
+    public void testOutsideTransaction() throws Exception {
+        Context context = ApplicationProvider.getApplicationContext();
+        AttributionSourceService.AttributionSourceServiceConnection connection =
+                new AttributionSourceService.AttributionSourceServiceConnection(context);
+        connection.start();
+
+        try {
+            assertTrue("Service successfully unparceled AttributionSource off transaction thread",
+                    !connection.postAttributionSource(context.getAttributionSource(), WAIT_TIME,
+                            true));
+        } finally {
+            connection.stop();
+        }
+    }
+
+    @Test
+    @AsbSecurityTest(cveBugId = 267231571)
+    public void testInsideTransaction() throws Exception {
+        Context context = ApplicationProvider.getApplicationContext();
+        AttributionSourceService.AttributionSourceServiceConnection connection =
+                new AttributionSourceService.AttributionSourceServiceConnection(context);
+        connection.start();
+
+        try {
+            assertTrue("Service successfully unparceled AttributionSource off transaction thread",
+                    connection.postAttributionSource(context.getAttributionSource(), WAIT_TIME,
+                            false));
+        } finally {
+            connection.stop();
+        }
     }
 }
 

@@ -46,6 +46,7 @@ static bool run_test(std::string* error_msg) {
   void* taxicab_number = dlsym(handle, "dlopen_testlib_taxicab_number");
   if (taxicab_number == nullptr) {
     *error_msg = dlerror();
+    dlclose(handle);
     return false;
   }
 

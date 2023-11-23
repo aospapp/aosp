@@ -70,8 +70,12 @@ public interface ColorOptionsProvider {
      * @param homeWallpaperColors to get seed colors from
      * @param lockWallpaperColors WallpaperColors from the lockscreen wallpaper to get seeds from,
      *                            if different than homeWallpaperColors
+     * @param shouldUseRevampedUi fetches color options with new preview mappings for the revamped
+     *                            UI if set to true
      */
     void fetch(OptionsFetchedListener<ColorOption> callback, boolean reload,
             @Nullable WallpaperColors homeWallpaperColors,
-            @Nullable WallpaperColors lockWallpaperColors);
+            @Nullable WallpaperColors lockWallpaperColors,
+            boolean shouldUseRevampedUi
+    );
 }

@@ -13,12 +13,12 @@
 #include <memory>
 
 #include "api/call/transport.h"
+#include "api/sequence_checker.h"
 #include "api/task_queue/task_queue_base.h"
 #include "api/test/simulated_network.h"
 #include "call/call.h"
 #include "call/simulated_packet_receiver.h"
 #include "rtc_base/synchronization/mutex.h"
-#include "rtc_base/synchronization/sequence_checker.h"
 #include "rtc_base/task_utils/repeating_task.h"
 #include "rtc_base/thread_annotations.h"
 
@@ -31,10 +31,13 @@ class Demuxer {
  public:
   explicit Demuxer(const std::map<uint8_t, MediaType>& payload_type_map);
   ~Demuxer() = default;
+
+  Demuxer(const Demuxer&) = delete;
+  Demuxer& operator=(const Demuxer&) = delete;
+
   MediaType GetMediaType(const uint8_t* packet_data,
-                         const size_t packet_length) const;
+                         size_t packet_length) const;
   const std::map<uint8_t, MediaType> payload_type_map_;
-  RTC_DISALLOW_COPY_AND_ASSIGN(Demuxer);
 };
 
 // Objects of this class are expected to be allocated and destroyed  on the

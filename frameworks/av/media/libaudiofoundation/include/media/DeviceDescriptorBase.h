@@ -18,7 +18,7 @@
 
 #include <vector>
 
-#include <android/media/AudioPort.h>
+#include <android/media/AudioPortFw.h>
 #include <binder/Parcel.h>
 #include <binder/Parcelable.h>
 #include <media/AudioContainers.h>
@@ -53,7 +53,7 @@ public:
 
     // AudioPortConfig
     virtual sp<AudioPort> getAudioPort() const {
-        return static_cast<AudioPort*>(const_cast<DeviceDescriptorBase*>(this));
+        return sp<AudioPort>::fromExisting(const_cast<DeviceDescriptorBase*>(this));
     }
     virtual void toAudioPortConfig(struct audio_port_config *dstConfig,
             const struct audio_port_config *srcConfig = NULL) const;
@@ -79,8 +79,8 @@ public:
 
     bool equals(const sp<DeviceDescriptorBase>& other) const;
 
-    status_t writeToParcelable(media::AudioPort* parcelable) const;
-    status_t readFromParcelable(const media::AudioPort& parcelable);
+    status_t writeToParcelable(media::AudioPortFw* parcelable) const;
+    status_t readFromParcelable(const media::AudioPortFw& parcelable);
 
 protected:
     AudioDeviceTypeAddr mDeviceTypeAddr;
@@ -116,8 +116,8 @@ AudioDeviceTypeAddrVector deviceTypeAddrsFromDescriptors(const DeviceDescriptorB
 
 // Conversion routines, according to AidlConversion.h conventions.
 ConversionResult<sp<DeviceDescriptorBase>>
-aidl2legacy_DeviceDescriptorBase(const media::AudioPort& aidl);
-ConversionResult<media::AudioPort>
+aidl2legacy_DeviceDescriptorBase(const media::AudioPortFw& aidl);
+ConversionResult<media::AudioPortFw>
 legacy2aidl_DeviceDescriptorBase(const sp<DeviceDescriptorBase>& legacy);
 
 } // namespace android

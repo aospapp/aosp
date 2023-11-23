@@ -16,6 +16,7 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="pws_other_message_identifiers" msgid="3594437796498866115">"VE – teave"</string>
-    <string name="enable_emergency_alerts_message_title" msgid="8589973943848979179">"VE – tavapärane kärjeteadete kanal"</string>
+    <string name="pws_other_message_identifiers" msgid="1136328633218138012">"Operaatori hoiatus"</string>
+    <string name="enable_emergency_alerts_message_title" msgid="1179764867218337219">"Operaatori hoiatused"</string>
+    <string name="enable_emergency_alerts_message_summary" msgid="3149077347504309345">"Operaatori hoiatuste kanal"</string>
 </resources>

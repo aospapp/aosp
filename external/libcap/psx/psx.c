@@ -229,7 +229,7 @@ static void psx_syscall_start(void) {
     psx_tracker.psx_sig = SIGSYS;
 
     psx_confirm_sigaction();
-    psx_do_registration(); // register the main thread.
+    psx_do_registration(); /* register the main thread. */
 
     psx_tracker.initialized = 1;
 }
@@ -454,6 +454,10 @@ static void *_psx_start_fn(void *data) {
 int __wrap_pthread_create(pthread_t *thread, const pthread_attr_t *attr,
 			  void *(*start_routine) (void *), void *arg) {
     psx_starter_t *starter = calloc(1, sizeof(psx_starter_t));
+    if (starter == NULL) {
+	perror("failed at thread creation");
+	exit(1);
+    }
     starter->fn = start_routine;
     starter->arg = arg;
     /*

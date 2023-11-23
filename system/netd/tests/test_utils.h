@@ -21,6 +21,9 @@
 #include <string>
 #include <vector>
 
+#include <gtest/gtest.h>
+#include <unistd.h>
+
 int randomUid();
 
 std::vector<std::string> runCommand(const std::string& command);
@@ -37,3 +40,21 @@ std::vector<std::string> listIpRoutes(const char* ipVersion, const char* table);
 
 bool ipRouteExists(const char* ipVersion, const char* table,
                    const std::vector<std::string>& ipRouteSubstrings);
+
+// Require root (for seteuid).
+class ScopedUidChange {
+  public:
+    explicit ScopedUidChange(uid_t uid) : mInputUid(uid) {
+        mStoredUid = geteuid();
+        if (mInputUid == mStoredUid) return;
+        EXPECT_TRUE(seteuid(uid) == 0);
+    }
+    ~ScopedUidChange() {
+        if (mInputUid == mStoredUid) return;
+        EXPECT_TRUE(seteuid(mStoredUid) == 0);
+    }
+
+  private:
+    uid_t mInputUid;
+    uid_t mStoredUid;
+};

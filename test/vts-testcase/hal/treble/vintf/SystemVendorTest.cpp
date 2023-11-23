@@ -19,8 +19,11 @@
 #include "SystemVendorTest.h"
 
 #include <android-base/logging.h>
+#include <android-base/properties.h>
 #include <android-base/strings.h>
+#include <gmock/gmock.h>
 #include <vintf/VintfObject.h>
+
 #include <iostream>
 
 #include "SingleManifestTest.h"
@@ -30,6 +33,10 @@ namespace vintf {
 namespace testing {
 
 using std::endl;
+using ::testing::Combine;
+using ::testing::Contains;
+using ::testing::Values;
+using ::testing::ValuesIn;
 
 // Tests that device manifest and framework compatibility matrix are compatible.
 TEST_F(SystemVendorTest, DeviceManifestFrameworkMatrixCompatibility) {
@@ -93,9 +100,20 @@ TEST_F(SystemVendorTest, KernelCompatibility) {
 TEST_F(SystemVendorTest, NoMainlineKernel) {
   auto runtime_info = VintfObject::GetRuntimeInfo();
   ASSERT_NE(nullptr, runtime_info) << "Failed to get runtime info.";
-  ASSERT_FALSE(runtime_info->isMainlineKernel())
-      << "uname returns \"" << runtime_info->osRelease()
-      << "\". Mainline kernel is not allowed.";
+
+  const bool is_release =
+      base::GetProperty("ro.build.version.codename", "") == "REL";
+
+  if (runtime_info->isMainlineKernel()) {
+    if (is_release) {
+      ADD_FAILURE() << "uname returns \"" << runtime_info->osRelease()
+                    << "\". Mainline kernel is not allowed.";
+    } else {
+      GTEST_LOG_(ERROR)
+          << "uname returns \"" << runtime_info->osRelease()
+          << "\". Mainline kernel will not be allowed upon release.";
+    }
+  }
 }
 
 // Tests that vendor and framework are compatible.
@@ -117,40 +135,67 @@ static void insert(D *d, const S &s) {
   d->insert(s.begin(), s.end());
 }
 
-// This needs to be tested besides
-// SingleManifestTest.ServedHwbinderHalsAreInManifest because some HALs may
-// refuse to provide its PID, and the partition cannot be inferred.
-TEST_F(SystemVendorTest, ServedHwbinderHalsAreInManifest) {
+std::set<std::string>
+    SystemVendorSingleHwbinderHalTest::manifest_hwbinder_hals_;
+void SystemVendorSingleHwbinderHalTest::SetUpTestSuite() {
   auto device_manifest = VintfObject::GetDeviceHalManifest();
   ASSERT_NE(device_manifest, nullptr) << "Failed to get device HAL manifest.";
   auto fwk_manifest = VintfObject::GetFrameworkHalManifest();
   ASSERT_NE(fwk_manifest, nullptr) << "Failed to get framework HAL manifest.";
 
-  std::set<std::string> manifest_hwbinder_hals;
-
-  insert(&manifest_hwbinder_hals, GetHwbinderHals(fwk_manifest));
-  insert(&manifest_hwbinder_hals, GetHwbinderHals(device_manifest));
-
-  Return<void> ret = default_manager_->list([&](const auto &list) {
-    for (const auto &name : list) {
-      // TODO(b/73774955): use standardized parsing code for fqinstancename
-      if (std::string(name).find(IBase::descriptor) == 0) continue;
-
-      EXPECT_NE(manifest_hwbinder_hals.find(name), manifest_hwbinder_hals.end())
-          << name << " is being served, but it is not in a manifest.";
-    }
-  });
-  EXPECT_TRUE(ret.isOk());
+  insert(&manifest_hwbinder_hals_,
+         GetDeclaredHidlHalsOfTransport(fwk_manifest, Transport::HWBINDER));
+  insert(&manifest_hwbinder_hals_,
+         GetDeclaredHidlHalsOfTransport(device_manifest, Transport::HWBINDER));
 }
 
-static std::vector<HalManifestPtr> GetTestManifests() {
-  return {
-      VintfObject::GetFrameworkHalManifest(),
-  };
+std::string SystemVendorSingleHwbinderHalTest::GetTestCaseSuffix(
+    const ::testing::TestParamInfo<ParamType> &info) {
+  return SanitizeTestCaseName(info.param) + "_" +
+         std::to_string(info.index);
 }
 
-INSTANTIATE_TEST_CASE_P(FrameworkManifest, SingleManifestTest,
-                        ::testing::ValuesIn(GetTestManifests()));
+// This needs to be tested besides
+// SingleManifestTest.ServedHwbinderHalIsInManifest because some HALs may
+// refuse to provide its PID, and the partition cannot be inferred.
+TEST_P(SystemVendorSingleHwbinderHalTest, ServedHwbinderHalIsInManifests) {
+  const auto &fq_instance_name = GetParam();
+  if (fq_instance_name.find(IBase::descriptor) == 0) {
+    GTEST_SKIP() << "Skipping for IBase: " << fq_instance_name;
+  }
+
+  EXPECT_THAT(manifest_hwbinder_hals_, Contains(fq_instance_name))
+      << fq_instance_name << " is being served, but it is not in a manifest.";
+}
+
+GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(
+    SystemVendorSingleHwbinderHalTest);
+INSTANTIATE_TEST_CASE_P(
+    SystemVendorTest, SystemVendorSingleHwbinderHalTest,
+    ValuesIn(SingleHwbinderHalTest::ListRegisteredHwbinderHals()),
+    &SystemVendorSingleHwbinderHalTest::GetTestCaseSuffix);
+
+// Test framework manifest only
+
+INSTANTIATE_TEST_CASE_P(
+    FrameworkManifest, SingleHidlTest,
+    Combine(ValuesIn(VtsTrebleVintfTestBase::GetHidlInstances(
+                VintfObject::GetFrameworkHalManifest())),
+            Values(VintfObject::GetFrameworkHalManifest())),
+    &GetTestCaseSuffix<SingleHidlTest>);
+
+INSTANTIATE_TEST_CASE_P(
+    FrameworkManifest, SingleHwbinderHalTest,
+    Combine(ValuesIn(SingleHwbinderHalTest::ListRegisteredHwbinderHals()),
+            Values(VintfObject::GetFrameworkHalManifest())),
+    &SingleHwbinderHalTest::GetTestCaseSuffix);
+
+INSTANTIATE_TEST_CASE_P(
+    FrameworkManifest, SingleAidlTest,
+    Combine(ValuesIn(VtsTrebleVintfTestBase::GetAidlInstances(
+                VintfObject::GetFrameworkHalManifest())),
+            Values(VintfObject::GetFrameworkHalManifest())),
+    &GetTestCaseSuffix<SingleAidlTest>);
 
 }  // namespace testing
 }  // namespace vintf

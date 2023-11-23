@@ -79,31 +79,30 @@ static inline void vrend_printf(const char *fmt, ...)
    va_end(va);
 }
 
-#ifndef NDEBUG
+#ifdef NDEBUG
+#define VREND_DEBUG_ENABLED (false)
+#else
+#define VREND_DEBUG_ENABLED (true)
+#endif
+
 #define VREND_DEBUG(flag, ctx,  ...) \
-   if (vrend_debug(ctx, flag)) \
+   if (VREND_DEBUG_ENABLED && vrend_debug(ctx, flag)) \
       do { \
             vrend_print_context_name(ctx); \
             vrend_printf(__VA_ARGS__); \
       } while (0)
 
 #define VREND_DEBUG_EXT(flag, ctx, X) \
-   if (vrend_debug(ctx, flag)) \
+   if (VREND_DEBUG_ENABLED && vrend_debug(ctx, flag)) \
       do { \
             vrend_print_context_name(ctx); \
             X; \
       } while (0)
 
 #define VREND_DEBUG_NOCTX(flag, ctx, ...) \
-   if (vrend_debug(ctx, flag)) \
+   if (VREND_DEBUG_ENABLED && vrend_debug(ctx, flag)) \
       do { \
             vrend_printf(__VA_ARGS__); \
       } while (0)
-
-#else
-#define VREND_DEBUG(flag, ctx, ...) (void)ctx
-#define VREND_DEBUG_EXT(flag, ctx, X) (void)ctx
-#define VREND_DEBUG_NOCTX(flag, ctx, ...) (void)ctx
-#endif
 
 #endif

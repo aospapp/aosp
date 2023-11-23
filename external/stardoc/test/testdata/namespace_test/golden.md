@@ -1,6 +1,8 @@
 <!-- Generated with Stardoc: http://skydoc.bazel.build -->
 
-<a name="#my_namespace.assert_non_empty"></a>
+A test that verifies documenting a namespace of functions.
+
+<a id="my_namespace.assert_non_empty"></a>
 
 ## my_namespace.assert_non_empty
 
@@ -14,12 +16,12 @@ Asserts the two given lists are not empty.
 
 
 | Name  | Description | Default Value |
-| :-------------: | :-------------: | :-------------: |
-| some_list |  The first list   |  none |
-| other_list |  The second list   |  none |
+| :------------- | :------------- | :------------- |
+| <a id="my_namespace.assert_non_empty-some_list"></a>some_list |  The first list   |  none |
+| <a id="my_namespace.assert_non_empty-other_list"></a>other_list |  The second list   |  none |
 
 
-<a name="#my_namespace.min"></a>
+<a id="my_namespace.min"></a>
 
 ## my_namespace.min
 
@@ -33,11 +35,15 @@ Returns the minimum of given elements.
 
 
 | Name  | Description | Default Value |
-| :-------------: | :-------------: | :-------------: |
-| integers |  A list of integers. Must not be empty.   |  none |
+| :------------- | :------------- | :------------- |
+| <a id="my_namespace.min-integers"></a>integers |  A list of integers. Must not be empty.   |  none |
+
+**RETURNS**
+
+The minimum integer in the given list.
 
 
-<a name="#my_namespace.join_strings"></a>
+<a id="my_namespace.join_strings"></a>
 
 ## my_namespace.join_strings
 
@@ -51,8 +57,12 @@ Joins the given strings with a delimiter.
 
 
 | Name  | Description | Default Value |
-| :-------------: | :-------------: | :-------------: |
-| strings |  A list of strings to join.   |  none |
-| delimiter |  The delimiter to use   |  <code>", "</code> |
+| :------------- | :------------- | :------------- |
+| <a id="my_namespace.join_strings-strings"></a>strings |  A list of strings to join.   |  none |
+| <a id="my_namespace.join_strings-delimiter"></a>delimiter |  The delimiter to use   |  <code>", "</code> |
+
+**RETURNS**
+
+The joined string.
 
 

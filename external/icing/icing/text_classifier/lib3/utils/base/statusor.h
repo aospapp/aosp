@@ -201,12 +201,19 @@ template <typename T>
 inline StatusOr<T>::StatusOr(T&& value) : value_(std::move(value)) {}
 
 template <typename T>
-inline StatusOr<T>::StatusOr(const StatusOr& other)
-    : status_(other.status_), value_(other.value_) {}
+inline StatusOr<T>::StatusOr(const StatusOr& other) : status_(other.status_) {
+  if (other.ok()) {
+    MakeValue(other.value_);
+  }
+}
 
 template <typename T>
 inline StatusOr<T>::StatusOr(StatusOr&& other)
-    : status_(other.status_), value_(std::move(other.value_)) {}
+    : status_(std::move(other.status_)) {
+  if (other.ok()) {
+    MakeValue(std::move(other.value_));
+  }
+}
 
 template <typename T>
 template <
@@ -216,7 +223,11 @@ template <
                                       std::is_convertible<const U&, T>>::value,
                      int>>
 inline StatusOr<T>::StatusOr(const StatusOr<U>& other)
-    : status_(other.status_), value_(other.value_) {}
+    : status_(other.status_) {
+  if (other.ok()) {
+    MakeValue(other.value_);
+  }
+}
 
 template <typename T>
 template <typename U,
@@ -225,7 +236,11 @@ template <typename U,
                                             std::is_convertible<U&&, T>>::value,
                            int>>
 inline StatusOr<T>::StatusOr(StatusOr<U>&& other)
-    : status_(other.status_), value_(std::move(other.value_)) {}
+    : status_(std::move(other.status_)) {
+  if (other.ok()) {
+    MakeValue(std::move(other.value_));
+  }
+}
 
 template <typename T>
 template <

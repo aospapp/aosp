@@ -8,13 +8,14 @@ AUTHOR = "chromeos-chameleon"
 NAME = "display_Resolution.extended"
 PURPOSE = "Remotely controlled display resolution test."
 CRITERIA = "This test will fail if the captured display checksum mismatches."
-ATTRIBUTES = "suite:chameleon_dp, suite:chameleon_dp_hdmi, suite:chameleon_hdmi_perbuild, suite:chameleon_hdmi"
+ATTRIBUTES = "suite:chameleon_hdmi_perbuild"
 TIME = "SHORT"
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "display"
 TEST_TYPE = "server"
 DEPENDENCIES = 'chameleon'
-JOB_RETRIES = 2
+JOB_RETRIES = 1
+PY_VERSION = 3
 
 DOC = """
 This test remotely tests display resolution functions.

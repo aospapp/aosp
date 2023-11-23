@@ -33,16 +33,30 @@ public class GrammarInfo implements Freezable<GrammarInfo>{
     public enum GrammaticalTarget {nominal}
 
     /**
-     * The ordering of these values is intended to put the default values first, and to group values together that tend to have similar forms for the most common cases,
-     * then have the rest in alphabetical order.
+     * There is no standard order of grammatical case values across languages.
+     * This ordering is based on the French order for Indo-European cases, then interleaving others (Finnish) where clear,
+     * then adding the rest in alphabetical order.
+     * Note that any given language will only see the values that their language uses.
+     * We may refine this order over time.
      */
-    public enum CaseValues {nominative, vocative, accusative, oblique, genitive, dative, locative, instrumental, prepositional, ablative,
-        abessive, adessive, allative, causal, comitative, delative, elative, ergative, essive, illative, inessive, locativecopulative, partitive, sociative, sublative, superessive, terminative, translative;
+    public enum CaseValues {nominative, vocative, accusative, oblique, genitive, partitive, locative, dative, instrumental, prepositional, ablative,
+        inessive, elative, illative,
+        adessive, allative,
+        essive, translative, abessive, comitative,
+        causal, delative, ergative, locativecopulative, sociative, sublative, superessive, terminative;
         public static Comparator<String> COMPARATOR = EnumComparator.create(CaseValues.class);
     }
-    public enum GenderValues {neuter, masculine, inanimate, animate, common, personal, feminine;
+    /**
+     * There is no standard order of grammatical gender values across languages.
+     * The ordering uses Polish order https://en.wikipedia.org/wiki/Polish_grammar#Gender as a base (since it has most of the values),
+     * then interleaves common (a merger of masculine and feminine) into the ordering.
+     * Note that any given language will only see the values that their language uses.
+     * We may refine this order over time.
+     */
+    public enum GenderValues {personal, animate, inanimate, masculine, feminine, common, neuter;
         public static Comparator<String> COMPARATOR = EnumComparator.create(GenderValues.class);
     }
+
     public enum DefinitenessValues {unspecified, indefinite, definite, construct;
         public static Comparator<String> COMPARATOR = EnumComparator.create(DefinitenessValues.class);
     }
@@ -534,6 +548,11 @@ public class GrammarInfo implements Freezable<GrammarInfo>{
         "month",
         "year"
         );
+
+    public static Set<String> getSpecialsToTranslate() {
+        return INCLUDE_OTHER;
+    }
+
     public static final boolean DEBUG = false;
     /**
      * Internal class for thread-safety
@@ -555,8 +574,15 @@ public class GrammarInfo implements Freezable<GrammarInfo>{
                     continue;
                 }
                 Set<UnitSystem> systems = converter.getSystemsEnum(shortUnit);
-                if (converter.isSimple(shortUnit)
-                    && !Collections.disjoint(systems, UnitSystem.SiOrMetric)) {
+
+                // v40 code added simple units that were metric
+//                if (converter.isSimple(shortUnit)
+//                    && !Collections.disjoint(systems, UnitSystem.SiOrMetric)) {
+//                    _data.add(unit);
+//                    continue;
+//                }
+                // we now add all metric
+                if (!Collections.disjoint(systems, UnitSystem.SiOrMetric)) {
                     _data.add(unit);
                     continue;
                 }

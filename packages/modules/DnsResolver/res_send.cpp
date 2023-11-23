@@ -141,7 +141,6 @@ using android::net::NsRcode;
 using android::net::NsType;
 using android::net::PrivateDnsConfiguration;
 using android::net::PrivateDnsMode;
-using android::net::PrivateDnsModes;
 using android::net::PrivateDnsStatus;
 using android::net::PROTO_DOH;
 using android::net::PROTO_MDNS;
@@ -157,10 +156,9 @@ const std::vector<IPSockAddr> mdns_addrs = {IPSockAddr::toIPSockAddr("ff02::fb",
 
 static int setupUdpSocket(ResState* statp, const sockaddr* sockap, unique_fd* fd_out, int* terrno);
 static int send_dg(ResState* statp, res_params* params, span<const uint8_t> msg, span<uint8_t> ans,
-                   int* terrno, size_t* ns, int* v_circuit, int* gotsomewhere, time_t* at,
-                   int* rcode, int* delay);
+                   int* terrno, size_t* ns, int* v_circuit, int* gotsomewhere, int* rcode);
 static int send_vc(ResState* statp, res_params* params, span<const uint8_t> msg, span<uint8_t> ans,
-                   int* terrno, size_t ns, time_t* at, int* rcode, int* delay);
+                   int* terrno, size_t ns, int* rcode);
 static int send_mdns(ResState* statp, span<const uint8_t> msg, span<uint8_t> ans, int* terrno,
                      int* rcode);
 static void dump_error(const char*, const struct sockaddr*);
@@ -174,6 +172,7 @@ static int res_private_dns_send(ResState*, const Slice query, const Slice answer
 static int res_tls_send(const std::list<DnsTlsServer>& tlsServers, ResState*, const Slice query,
                         const Slice answer, int* rcode, PrivateDnsMode mode);
 static ssize_t res_doh_send(ResState*, const Slice query, const Slice answer, int* rcode);
+static int elapsedTimeInMs(const timespec& from);
 
 NsType getQueryType(span<const uint8_t> msg) {
     ns_msg handle;
@@ -504,7 +503,7 @@ int res_nsend(ResState* statp, span<const uint8_t> msg, span<uint8_t> ans, int* 
         // asking the same question will block for PENDING_REQUEST_TIMEOUT seconds instead
         // of failing fast.
         _resolv_cache_query_failed(statp->netid, msg, flags);
-
+        LOG(DEBUG) << __func__ << ": no nameserver";
         // TODO: Remove errno once callers stop using it
         errno = ESRCH;
         return -ESRCH;
@@ -526,6 +525,7 @@ int res_nsend(ResState* statp, span<const uint8_t> msg, span<uint8_t> ans, int* 
         }
         if (!fallback) {
             _resolv_cache_query_failed(statp->netid, msg, flags);
+            LOG(DEBUG) << __func__ << ": private DNS failed";
             return -ETIMEDOUT;
         }
     }
@@ -540,6 +540,7 @@ int res_nsend(ResState* statp, span<const uint8_t> msg, span<uint8_t> ans, int* 
     res_params params;
     int revision_id = resolv_cache_get_resolver_stats(statp->netid, &params, stats, statp->nsaddrs);
     if (revision_id < 0) {
+        LOG(ERROR) << __func__ << ": revision_id < 0";
         // TODO: Remove errno once callers stop using it
         errno = ESRCH;
         return -ESRCH;
@@ -579,14 +580,11 @@ int res_nsend(ResState* statp, span<const uint8_t> msg, span<uint8_t> ans, int* 
             if (!usable_servers[ns]) continue;
 
             *rcode = RCODE_INTERNAL_ERROR;
-
-            // Get server addr
-            const IPSockAddr& serverSockAddr = statp->nsaddrs[ns];
             LOG(DEBUG) << __func__ << ": Querying server (# " << ns + 1
-                       << ") address = " << serverSockAddr.toString();
+                       << ") address = " << statp->nsaddrs[ns].toString();
 
             ::android::net::Protocol query_proto = useTcp ? PROTO_TCP : PROTO_UDP;
-            time_t query_time = 0;
+            const time_t query_time = time(nullptr);
             int delay = 0;
             bool fallbackTCP = false;
             const bool shouldRecordStats = (attempt == 0);
@@ -599,8 +597,8 @@ int res_nsend(ResState* statp, span<const uint8_t> msg, span<uint8_t> ans, int* 
             if (useTcp) {
                 // TCP; at most one attempt per server.
                 attempt = retryTimes;
-                resplen =
-                        send_vc(statp, &params, msg, ans, &terrno, ns, &query_time, rcode, &delay);
+                resplen = send_vc(statp, &params, msg, ans, &terrno, ns, rcode);
+                delay = elapsedTimeInMs(statp->tcp_nssock_ts);
 
                 if (msg.size() <= PACKETSZ && resplen <= 0 &&
                     statp->tc_mode == aidl::android::net::IDnsResolver::TC_MODE_UDP_TCP) {
@@ -612,7 +610,8 @@ int res_nsend(ResState* statp, span<const uint8_t> msg, span<uint8_t> ans, int* 
             } else {
                 // UDP
                 resplen = send_dg(statp, &params, msg, ans, &terrno, &actualNs, &useTcp,
-                                  &gotsomewhere, &query_time, rcode, &delay);
+                                  &gotsomewhere, rcode);
+                delay = elapsedTimeInMs(statp->udpsocks_ts[actualNs]);
                 fallbackTCP = useTcp ? true : false;
                 retry_count_for_event = attempt;
                 LOG(INFO) << __func__ << ": used send_dg " << resplen << " terrno: " << terrno;
@@ -646,11 +645,9 @@ int res_nsend(ResState* statp, span<const uint8_t> msg, span<uint8_t> ans, int* 
                 if (!isNetworkRestricted(terrno)) {
                     res_sample sample;
                     res_stats_set_sample(&sample, query_time, *rcode, delay);
-                    // KeepListening UDP mechanism is incompatible with usable_servers of legacy
-                    // stats, so keep the old logic for now.
-                    // TODO: Replace usable_servers of legacy stats with new one.
-                    resolv_cache_add_resolver_stats_sample(
-                            statp->netid, revision_id, serverSockAddr, sample, params.max_samples);
+                    resolv_cache_add_resolver_stats_sample(statp->netid, revision_id,
+                                                           receivedServerAddr, sample,
+                                                           params.max_samples);
                     resolv_stats_add(statp->netid, receivedServerAddr, dnsQueryEvent);
                 }
             }
@@ -700,7 +697,7 @@ static struct timespec get_timeout(ResState* statp, const res_params* params, co
     if (msec < 1000) {
         msec = 1000;  // Use at least 1000ms
     }
-    LOG(INFO) << __func__ << ": using timeout of " << msec << " msec";
+    LOG(DEBUG) << __func__ << ": using timeout of " << msec << " msec";
 
     struct timespec result;
     result.tv_sec = msec / 1000;
@@ -709,9 +706,7 @@ static struct timespec get_timeout(ResState* statp, const res_params* params, co
 }
 
 static int send_vc(ResState* statp, res_params* params, span<const uint8_t> msg, span<uint8_t> ans,
-                   int* terrno, size_t ns, time_t* at, int* rcode, int* delay) {
-    *at = time(NULL);
-    *delay = 0;
+                   int* terrno, size_t ns, int* rcode) {
     const HEADER* hp = (const HEADER*)(const void*)msg.data();
     HEADER* anhp = (HEADER*)(void*)ans.data();
     struct sockaddr* nsap;
@@ -719,7 +714,7 @@ static int send_vc(ResState* statp, res_params* params, span<const uint8_t> msg,
     int truncating, connreset, n;
     uint8_t* cp;
 
-    LOG(INFO) << __func__ << ": using send_vc";
+    LOG(DEBUG) << __func__ << ": using send_vc";
 
     // It should never happen, but just in case.
     if (ns >= statp->nsaddrs.size()) {
@@ -735,8 +730,6 @@ static int send_vc(ResState* statp, res_params* params, span<const uint8_t> msg,
     connreset = 0;
 same_ns:
     truncating = 0;
-
-    struct timespec start_time = evNowTime();
 
     /* Are we still talking to whom we want to talk to? */
     if (statp->tcp_nssock >= 0 && (statp->flags & RES_F_VC) != 0) {
@@ -768,6 +761,7 @@ same_ns:
                     return -1;
             }
         }
+        statp->tcp_nssock_ts = evNowTime();
         const uid_t uid = statp->enforce_dns_uid ? AID_DNS : statp->uid;
         resolv_tag_socket(statp->tcp_nssock, uid, statp->pid);
         if (statp->mark != MARK_UNSET) {
@@ -913,8 +907,6 @@ read_len:
      * next nameserver ought not be tried.
      */
     if (resplen > 0) {
-        struct timespec done = evNowTime();
-        *delay = res_stats_calculate_rtt(&done, &start_time);
         *rcode = anhp->rcode;
     }
     *terrno = 0;
@@ -937,7 +929,7 @@ static int connect_with_timeout(int sock, const sockaddr* nsap, socklen_t salen,
     if (res != 0) {
         timespec now = evNowTime();
         timespec finish = evAddTime(now, timeout);
-        LOG(INFO) << __func__ << ": " << sock << " send_vc";
+        LOG(DEBUG) << __func__ << ": " << sock << " send_vc";
         res = retrying_poll(sock, POLLIN | POLLOUT, &finish);
         if (res <= 0) {
             res = -1;
@@ -953,7 +945,7 @@ static int retrying_poll(const int sock, const short events, const struct timesp
     struct timespec now, timeout;
 
 retry:
-    LOG(INFO) << __func__ << ": " << sock << " retrying_poll";
+    LOG(DEBUG) << __func__ << ": " << sock << " retrying_poll";
 
     now = evNowTime();
     if (evCmpTime(*finish, now) > 0)
@@ -963,7 +955,7 @@ retry:
     struct pollfd fds = {.fd = sock, .events = events};
     int n = ppoll(&fds, 1, &timeout, /*__mask=*/NULL);
     if (n == 0) {
-        LOG(INFO) << __func__ << ": " << sock << " retrying_poll timeout";
+        LOG(DEBUG) << __func__ << ": " << sock << " retrying_poll timeout";
         errno = ETIMEDOUT;
         return 0;
     }
@@ -981,7 +973,7 @@ retry:
             return -1;
         }
     }
-    LOG(INFO) << __func__ << ": " << sock << " retrying_poll returning " << n;
+    LOG(DEBUG) << __func__ << ": " << sock << " retrying_poll returning " << n;
     return n;
 }
 
@@ -1091,8 +1083,7 @@ static int setupUdpSocket(ResState* statp, const sockaddr* sockap, unique_fd* fd
 }
 
 static int send_dg(ResState* statp, res_params* params, span<const uint8_t> msg, span<uint8_t> ans,
-                   int* terrno, size_t* ns, int* v_circuit, int* gotsomewhere, time_t* at,
-                   int* rcode, int* delay) {
+                   int* terrno, size_t* ns, int* v_circuit, int* gotsomewhere, int* rcode) {
     // It should never happen, but just in case.
     if (*ns >= statp->nsaddrs.size()) {
         LOG(ERROR) << __func__ << ": Out-of-bound indexing: " << ns;
@@ -1100,14 +1091,13 @@ static int send_dg(ResState* statp, res_params* params, span<const uint8_t> msg,
         return -1;
     }
 
-    *at = time(nullptr);
-    *delay = 0;
     const sockaddr_storage ss = statp->nsaddrs[*ns];
     const sockaddr* nsap = reinterpret_cast<const sockaddr*>(&ss);
 
     if (statp->udpsocks[*ns] == -1) {
         int result = setupUdpSocket(statp, nsap, &statp->udpsocks[*ns], terrno);
         if (result <= 0) return result;
+        statp->udpsocks_ts[*ns] = evNowTime();
 
         // Use a "connected" datagram socket to receive an ECONNREFUSED error
         // on the next socket operation when the server responds with an
@@ -1186,8 +1176,6 @@ static int send_dg(ResState* statp, res_params* params, span<const uint8_t> msg,
                 continue;
             }
 
-            timespec done = evNowTime();
-            *delay = res_stats_calculate_rtt(&done, &start_time);
             if (anhp->rcode == SERVFAIL || anhp->rcode == NOTIMP || anhp->rcode == REFUSED) {
                 LOG(DEBUG) << __func__ << ": server rejected query:";
                 res_pquery({ans.data(), (resplen > ans.size()) ? ans.size() : resplen});
@@ -1309,19 +1297,6 @@ static int sock_eq(struct sockaddr* a, struct sockaddr* b) {
     }
 }
 
-PrivateDnsModes convertEnumType(PrivateDnsMode privateDnsmode) {
-    switch (privateDnsmode) {
-        case PrivateDnsMode::OFF:
-            return PrivateDnsModes::PDM_OFF;
-        case PrivateDnsMode::OPPORTUNISTIC:
-            return PrivateDnsModes::PDM_OPPORTUNISTIC;
-        case PrivateDnsMode::STRICT:
-            return PrivateDnsModes::PDM_STRICT;
-        default:
-            return PrivateDnsModes::PDM_UNKNOWN;
-    }
-}
-
 static int res_private_dns_send(ResState* statp, const Slice query, const Slice answer, int* rcode,
                                 bool* fallback) {
     const unsigned netId = statp->netid;
@@ -1396,7 +1371,7 @@ static int res_private_dns_send(ResState* statp, const Slice query, const Slice 
 ssize_t res_doh_send(ResState* statp, const Slice query, const Slice answer, int* rcode) {
     auto& privateDnsConfiguration = PrivateDnsConfiguration::getInstance();
     const unsigned netId = statp->netid;
-    LOG(INFO) << __func__ << ": performing query over Https";
+    LOG(DEBUG) << __func__ << ": performing query over Https";
     Stopwatch queryStopwatch;
     int queryTimeout = Experiments::getInstance()->getFlag(
             "doh_query_timeout_ms", PrivateDnsConfiguration::kDohQueryDefaultTimeoutMs);
@@ -1433,7 +1408,7 @@ ssize_t res_doh_send(ResState* statp, const Slice query, const Slice answer, int
 int res_tls_send(const std::list<DnsTlsServer>& tlsServers, ResState* statp, const Slice query,
                  const Slice answer, int* rcode, PrivateDnsMode mode) {
     if (tlsServers.empty()) return -1;
-    LOG(INFO) << __func__ << ": performing query over TLS";
+    LOG(DEBUG) << __func__ << ": performing query over TLS";
     const bool dotQuickFallback =
             (mode == PrivateDnsMode::STRICT)
                     ? 0
@@ -1454,9 +1429,7 @@ int res_tls_send(const std::list<DnsTlsServer>& tlsServers, ResState* statp, con
             // It's OPPORTUNISTIC mode,
             // hence it's not required to do anything because it'll fallback to UDP.
             case DnsTlsTransport::Response::network_error:
-                [[fallthrough]];
             case DnsTlsTransport::Response::internal_error:
-                [[fallthrough]];
             default:
                 return -1;
         }
@@ -1486,4 +1459,10 @@ int resolv_res_nsend(const android_net_context* netContext, span<const uint8_t> 
     resolv_populate_res_for_net(&res);
     *rcode = NOERROR;
     return res_nsend(&res, msg, ans, rcode, flags);
+}
+
+// Returns the elapsed time in milliseconds since the given time `from`.
+int elapsedTimeInMs(const timespec& from) {
+    const timespec now = evNowTime();
+    return res_stats_calculate_rtt(&now, &from);
 }

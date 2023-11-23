@@ -33,13 +33,15 @@ import java.net.InetAddress;
 @SystemApi
 public abstract class QosFilter {
 
-    /**
-     * The constructor is kept hidden from outside this package to ensure that all derived types
-     * are known and properly handled when being passed to and from {@link NetworkAgent}.
-     *
-     * @hide
-     */
-    QosFilter() {
+    /** @hide */
+    protected QosFilter() {
+        // Ensure that all derived types are known, and known to be properly handled when being
+        // passed to and from NetworkAgent.
+        // For now the only known derived type is QosSocketFilter.
+        if (!(this instanceof QosSocketFilter)) {
+            throw new UnsupportedOperationException(
+                    "Unsupported QosFilter type: " + this.getClass().getName());
+        }
     }
 
     /**
@@ -90,5 +92,20 @@ public abstract class QosFilter {
      */
     public abstract boolean matchesRemoteAddress(@NonNull InetAddress address,
             int startPort, int endPort);
+
+    /**
+     * Determines whether or not the parameter will be matched with this filter.
+     *
+     * @param protocol the protocol such as TCP or UDP included in IP packet filter set of a QoS
+     *                 flow assigned on {@link Network}. Only {@code IPPROTO_TCP} and {@code
+     *                 IPPROTO_UDP} currently supported.
+     * @return whether the parameters match the socket type of the filter
+     */
+    // Since this method is added in U, it's required to be default method for binary compatibility
+    // with existing @SystemApi.
+    // IPPROTO_* are not compile-time constants, so they are not annotated with @IntDef.
+    public boolean matchesProtocol(int protocol) {
+        return false;
+    }
 }
 

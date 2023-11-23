@@ -34,11 +34,15 @@ import android.os.Build;
 import android.os.Environment;
 import android.os.RemoteException;
 import android.os.SystemClock;
+import android.os.Trace;
 import android.os.UserHandle;
 import android.platform.helpers.exceptions.AccountException;
 import android.platform.helpers.exceptions.TestHelperException;
 import android.platform.helpers.exceptions.UnknownUiException;
 import android.platform.helpers.watchers.AppIsNotRespondingWatcher;
+import android.platform.spectatio.configs.UiElement;
+import android.platform.spectatio.utils.SpectatioConfigUtil;
+import android.platform.spectatio.utils.SpectatioUiUtil;
 import android.support.test.launcherhelper.ILauncherStrategy;
 import android.support.test.launcherhelper.LauncherStrategyFactory;
 import android.support.test.uiautomator.By;
@@ -87,6 +91,10 @@ public abstract class AbstractStandardAppHelper implements IAppHelper {
     private int mPreviousFlagValues = 0;
     private boolean mChangedPermState = false;
 
+    // Spectatio Utils
+    private SpectatioConfigUtil mSpectatioConfigUtil;
+    private SpectatioUiUtil mSpectatioUiUtil;
+
     public AbstractStandardAppHelper(Instrumentation instr) {
         mInstrumentation = instr;
         mDevice = UiDevice.getInstance(instr);
@@ -109,66 +117,163 @@ public abstract class AbstractStandardAppHelper implements IAppHelper {
                                 .getString(
                                         LAUNCH_TIMEOUT_OPTION,
                                         String.valueOf(TimeUnit.SECONDS.toMillis(30))));
+
+        initializeSpectatioUtils();
+    }
+
+    // Start Spectatio Util Helper Methods
+
+    private void initializeSpectatioUtils() {
+        mSpectatioUiUtil = SpectatioUiUtil.getInstance(mInstrumentation);
+        mSpectatioConfigUtil = SpectatioConfigUtil.getInstance();
+    }
+
+    protected SpectatioUiUtil getSpectatioUiUtil() {
+        return mSpectatioUiUtil;
     }
 
     /**
-     * {@inheritDoc}
+     * Get action from Config.
+     *
+     * <p>e.g. JSON Config { "ACTIONS": { "ACTION_NAME1": "ACTION_VALUE1", "ACTION_NAME2":
+     * "ACTION_VALUE2", ... } }
+     *
+     * @param actionName is the Key for the action to read from config
      */
+    protected String getActionFromConfig(String actionName) {
+        return mSpectatioConfigUtil.getActionFromConfig(actionName);
+    }
+
+    /**
+     * Get command from Config.
+     *
+     * <p>e.g. JSON Config { "COMMANDS": { "CMD_NAME1": "CMD_VALUE1", "CMD_NAME2": "CMD_VALUE2", ...
+     * } }
+     *
+     * @param commandName is the Key for the Command to read from config
+     */
+    protected String getCommandFromConfig(String commandName) {
+        return mSpectatioConfigUtil.getCommandFromConfig(commandName);
+    }
+
+    /**
+     * Get package from Config.
+     *
+     * <p>e.g. JSON Config { "PACKAGES": { "PKG_NAME1": "PKG_VALUE1", "PKG_NAME2": "PKG_VALUE2", ...
+     * } }
+     *
+     * @param packageName is the Key for the package to read from config
+     */
+    protected String getPackageFromConfig(String packageName) {
+        return mSpectatioConfigUtil.getPackageFromConfig(packageName);
+    }
+
+    /**
+     * Get Ui Element Selector from Config.
+     *
+     * <p>e.g. JSON Config { "UI_ELEMENTS": { "UI_ELEMENT_NAME1": { "TYPE": "RESOURCE_TYPE1",
+     * "VALUE": "RESOURCE_VALUE1", "PACKAGE": "RESOURCE_PACKAGE1" }, "UI_ELEMENT_NAME2": { "TYPE":
+     * "RESOURCE_TYPE2", "VALUE": "RESOURCE_VALUE2", "PACKAGE": "RESOURCE_PACKAGE2" }, ... } }
+     *
+     * <p>RESOURCE_TYPE: TEXT, DESCRIPTION, RESOURCE_ID, TEXT_CONTAINS, CLASS; RESOURCE_VALUE: Value
+     * of the Resource; RESOURCE_PACKAGE: Package is required only to type RESOURCE_ID
+     *
+     * <p>Resource Values are referred in code using {@link UiElement} class
+     *
+     * @param uiElementName is the Key for the Ui Element to read from config
+     */
+    protected androidx.test.uiautomator.BySelector getUiElementFromConfig(String uiElementName) {
+        return mSpectatioConfigUtil.getUiElementFromConfig(uiElementName);
+    }
+
+    protected void executeWorkflow(String workflowName) {
+        mSpectatioConfigUtil.executeWorkflow(workflowName, mSpectatioUiUtil);
+    }
+
+    // End Spectatio Util Helper Methods
+
+    /** {@inheritDoc} */
     @Override
     public void open() {
+        Trace.beginSection("open app");
         // Grant notification permission if necessary - otherwise the app may display a permission
         // prompt that interferes with tests
+        Trace.beginSection("notification permission");
         maybeGrantNotificationPermission();
+        Trace.endSection();
 
         // Turn on the screen if necessary.
         try {
+            Trace.beginSection("wake screen");
             if (!mDevice.isScreenOn()) {
                 mDevice.wakeUp();
             }
         } catch (RemoteException e) {
             throw new TestHelperException("Could not unlock the device.", e);
+        } finally {
+            Trace.endSection();
         }
         // Unlock the screen if necessary.
+        Trace.beginSection("unlock screen");
         if (mDevice.hasObject(By.res("com.android.systemui", "keyguard_bottom_area"))) {
             mDevice.pressMenu();
             mDevice.waitForIdle();
         }
+        Trace.endSection();
         // Launch the application as normal.
         String pkg = getPackage();
         long launchInitiationTimeMs = System.currentTimeMillis();
 
+        Trace.beginSection("register dialog watchers");
         registerDialogWatchers();
+        Trace.endSection();
         if (mFavorShellCommands) {
+            Trace.beginSection("favor shell commands, launching");
             String output = null;
             try {
                 Log.i(LOG_TAG, String.format("Sending command to launch: %s", pkg));
                 mInstrumentation
                         .getContext()
-                        .startActivity(getOpenAppIntent().addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+                        .startActivityAsUser(
+                                getOpenAppIntent().addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+                                UserHandle.CURRENT);
             } catch (ActivityNotFoundException e) {
                 removeDialogWatchers();
                 throw new TestHelperException(String.format("Failed to find package: %s", pkg), e);
+            } finally {
+                Trace.endSection();
             }
         } else {
+            Trace.beginSection("launch using launcher strategy");
             // Launch using the UI and launcher strategy.
             String id = getLauncherName();
             if (!mDevice.hasObject(By.pkg(pkg).depth(0))) {
                 getLauncherStrategy().launch(id, pkg);
                 Log.i(LOG_TAG, "Launched package: id=" + id + ", pkg=" + pkg);
             }
+            Trace.endSection();
         }
 
-        // Ensure the package is in the foreground for success.
-        if (!mDevice.wait(Until.hasObject(By.pkg(pkg).depth(0)), mLaunchTimeout)) {
-            removeDialogWatchers();
-            throw new IllegalStateException(
+        Trace.beginSection("wait for foreground");
+        try {
+            // Ensure the package is in the foreground for success.
+            if (!mDevice.wait(Until.hasObject(By.pkg(pkg).depth(0)), mLaunchTimeout)) {
+                removeDialogWatchers();
+                throw new IllegalStateException(
                     String.format(
-                            "Did not find package, %s, in foreground after %d ms.",
-                            pkg, System.currentTimeMillis() - launchInitiationTimeMs));
+                        "Did not find package, %s, in foreground after %d ms.",
+                        pkg, System.currentTimeMillis() - launchInitiationTimeMs));
+            }
+        } finally {
+            Trace.endSection();
         }
+        Trace.beginSection("removeDialogWatchers");
         removeDialogWatchers();
+        Trace.endSection();
+        Trace.beginSection("idleApp: " + mAppIdle);
         // Idle for specified time after app launch
         idleApp();
+        Trace.endSection();
     }
 
     private void idleApp() {
@@ -443,7 +548,11 @@ public abstract class AbstractStandardAppHelper implements IAppHelper {
     private boolean packageNeedsNotificationPermission(PackageManager pm, String pkg) {
         PackageInfo pInfo;
         try {
-            pInfo = pm.getPackageInfo(pkg, PackageManager.PackageInfoFlags.of(0));
+            pInfo =
+                    pm.getPackageInfoAsUser(
+                            pkg,
+                            PackageManager.PackageInfoFlags.of(PackageManager.GET_PERMISSIONS),
+                            ActivityManager.getCurrentUser());
         } catch (NameNotFoundException e) {
             Log.w(LOG_TAG, "package name not found");
             return false;
@@ -485,10 +594,13 @@ public abstract class AbstractStandardAppHelper implements IAppHelper {
         if (packageNeedsNotificationPermission(pm, getPackage())) {
             UserHandle user = UserHandle.of(ActivityManager.getCurrentUser());
             mChangedPermState = true;
-            mAutomation.grantRuntimePermission(getPackage(),
-                    NOTIF_PERM);
-            mPreviousFlagValues = pm.getPermissionFlags(NOTIF_PERM, getPackage(),
-                    user);
+            Log.d(
+                    LOG_TAG,
+                    String.format(
+                            "Granting missing notification permission for user: %d",
+                            user.getIdentifier()));
+            mAutomation.grantRuntimePermission(getPackage(), NOTIF_PERM, user);
+            mPreviousFlagValues = pm.getPermissionFlags(NOTIF_PERM, getPackage(), user);
             pm.updatePermissionFlags(NOTIF_PERM,
                     getPackage(),
                     FLAG_PERMISSION_USER_SET

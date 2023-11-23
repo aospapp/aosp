@@ -16,6 +16,9 @@
 
 package com.android.car.telemetry.publisher.statsconverters;
 
+import static com.android.car.telemetry.publisher.Constants.STATS_BUNDLE_KEY_ELAPSED_TIMESTAMP;
+import static com.android.car.telemetry.publisher.Constants.STATS_BUNDLE_KEY_PREFIX;
+
 import static com.google.common.truth.Truth.assertThat;
 
 import android.os.PersistableBundle;
@@ -71,14 +74,25 @@ public class ConfigMetricsReportListConverterTest {
                         .setValueStrHash(hash))
                 .build();
 
+        // This report list contains 2 metrics, an event and a gauge metric. There are empty
+        // reports, these should be skipped.
         ConfigMetricsReportList reportList = ConfigMetricsReportList.newBuilder()
-                .addReports(ConfigMetricsReport.newBuilder()
+                .addReports(ConfigMetricsReport.newBuilder()  // Empty event metric report
+                        .addMetrics(StatsLogReport.newBuilder()
+                                .setMetricId(12345L)))
+                .addReports(ConfigMetricsReport.newBuilder()  // Event metric report
                         .addMetrics(StatsLogReport.newBuilder()
                                 .setMetricId(12345L)
                                 .setEventMetrics(
                                         StatsLogReport.EventMetricDataWrapper.newBuilder()
                                                 .addData(eventData))))
-                .addReports(ConfigMetricsReport.newBuilder()
+                .addReports(ConfigMetricsReport.newBuilder()  // Empty event metric report
+                        .addMetrics(StatsLogReport.newBuilder()
+                                .setMetricId(12345L)))
+                .addReports(ConfigMetricsReport.newBuilder()  // Empty gauge metric report
+                        .addMetrics(StatsLogReport.newBuilder()
+                                .setMetricId(23456L)))
+                .addReports(ConfigMetricsReport.newBuilder()  // Gauge metric report
                         .addMetrics(StatsLogReport.newBuilder()
                                 .setMetricId(23456L)
                                 .setGaugeMetrics(
@@ -91,6 +105,9 @@ public class ConfigMetricsReportListConverterTest {
                                                 .addDimensionsValue(DimensionsValue.newBuilder()
                                                         .setField(2)))))
                         .addStrings(testGaugeMetricProcessName))
+                .addReports(ConfigMetricsReport.newBuilder()  // Empty gauge metric report
+                        .addMetrics(StatsLogReport.newBuilder()
+                                .setMetricId(23456L)))
                 .build();
         SparseArray<AtomFieldAccessor<AppStartMemoryStateCaptured, ?>> appMemAccessorMap =
                 new AppStartMemoryStateCapturedConverter().getAtomFieldAccessorMap();
@@ -101,33 +118,34 @@ public class ConfigMetricsReportListConverterTest {
 
         assertThat(new ArrayList<Long>(map.keySet())).containsExactly(12345L, 23456L);
         PersistableBundle eventBundle = map.get(12345L);
-        assertThat(eventBundle.getLongArray(EventMetricDataConverter.ELAPSED_TIME_NANOS))
+        assertThat(eventBundle.getLongArray(STATS_BUNDLE_KEY_ELAPSED_TIMESTAMP))
             .asList().containsExactly(99999999L);
         assertThat(eventBundle.getIntArray(
-                appMemAccessorMap.get(AppStartMemoryStateCaptured.UID_FIELD_NUMBER)
-                .getFieldName()))
+                STATS_BUNDLE_KEY_PREFIX + appMemAccessorMap.get(
+                        AppStartMemoryStateCaptured.UID_FIELD_NUMBER).getFieldName()))
             .asList().containsExactly(1000);
         assertThat(Arrays.asList(eventBundle.getStringArray(
-                appMemAccessorMap.get(AppStartMemoryStateCaptured.ACTIVITY_NAME_FIELD_NUMBER)
-                .getFieldName())))
+                STATS_BUNDLE_KEY_PREFIX + appMemAccessorMap.get(
+                        AppStartMemoryStateCaptured.ACTIVITY_NAME_FIELD_NUMBER).getFieldName())))
             .containsExactly("activityName");
         assertThat(eventBundle.getLongArray(
-                appMemAccessorMap.get(AppStartMemoryStateCaptured.RSS_IN_BYTES_FIELD_NUMBER)
-                .getFieldName()))
+                STATS_BUNDLE_KEY_PREFIX + appMemAccessorMap.get(
+                        AppStartMemoryStateCaptured.RSS_IN_BYTES_FIELD_NUMBER).getFieldName()))
             .asList().containsExactly(1234L);
         PersistableBundle gaugeBundle = map.get(23456L);
         assertThat(gaugeBundle.getIntArray(
-                procMemAccessorMap.get(ProcessMemoryState.UID_FIELD_NUMBER).getFieldName()))
+                STATS_BUNDLE_KEY_PREFIX + procMemAccessorMap.get(
+                        ProcessMemoryState.UID_FIELD_NUMBER).getFieldName()))
             .asList().containsExactly(234);
         assertThat(Arrays.asList(gaugeBundle.getStringArray(
-                procMemAccessorMap.get(ProcessMemoryState.PROCESS_NAME_FIELD_NUMBER)
-                .getFieldName())))
+                STATS_BUNDLE_KEY_PREFIX + procMemAccessorMap.get(
+                        ProcessMemoryState.PROCESS_NAME_FIELD_NUMBER).getFieldName())))
             .containsExactly("process.name");
         assertThat(gaugeBundle.getLongArray(
-                procMemAccessorMap.get(ProcessMemoryState.RSS_IN_BYTES_FIELD_NUMBER)
-                .getFieldName()))
+                STATS_BUNDLE_KEY_PREFIX + procMemAccessorMap.get(
+                        ProcessMemoryState.RSS_IN_BYTES_FIELD_NUMBER).getFieldName()))
             .asList().containsExactly(4567L);
-        assertThat(gaugeBundle.getLongArray(GaugeMetricDataConverter.ELAPSED_TIME_NANOS))
+        assertThat(gaugeBundle.getLongArray(STATS_BUNDLE_KEY_ELAPSED_TIMESTAMP))
             .asList().containsExactly(445678901L);
     }
 }

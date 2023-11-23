@@ -1,0 +1,11 @@
+drops {
+  android_build_drop {
+    build_id: "8097755"
+    target: "lynx"
+    source_file: "syna_touch.ko"
+  }
+  dest_file: "syna_touch.ko"
+  version: "Linux version 5.10.91-android13-0-00271-g973230a4ca1d-ab8097755 (build-user@build-host) (Android (8075178, based on r437112b) clang version 14.0.1 (https://android.googlesource.com/toolchain/llvm-project 8671348b81b95fc603505dfc881b45103bee1731), LLD 14.0.1) #1 SMP PREEMPT Mon Jan 17 07:53:42 UTC 2022"
+  version_group: "kernel-and-modules"
+  git_project: "device/google/lynx-kernel"
+}

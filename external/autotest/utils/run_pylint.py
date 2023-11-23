@@ -69,6 +69,10 @@ Example:
 run_pylint.py filename.py
 """
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
 import fnmatch
 import logging
 import os
@@ -81,11 +85,11 @@ from autotest_lib.client.common_lib import autotemp, revision_control
 # Do a basic check to see if pylint is even installed.
 try:
     import pylint
-    from pylint.__pkginfo__ import version as pylint_version
+    from pylint import __version__ as pylint_version
 except ImportError:
     print ("Unable to import pylint, it may need to be installed."
            " Run 'sudo aptitude install pylint' if you haven't already.")
-    sys.exit(1)
+    raise
 
 pylint_version_parsed = tuple(map(int, pylint_version.split('.')))
 
@@ -95,6 +99,10 @@ SKIPLIST = ['/site-packages/*', '/contrib/*', '/frontend/afe/management.py']
 import astroid
 import pylint.lint
 from pylint.checkers import base, imports, variables
+import six
+from six.moves import filter
+from six.moves import map
+from six.moves import zip
 
 # need to put autotest root dir on sys.path so pylint will be happy
 autotest_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
@@ -297,14 +305,14 @@ def should_check_file(file_path):
 
 def check_file(file_path, base_opts):
     """
-    Invokes pylint on files after confirming that they're not black listed.
+    Invokes pylint on files after confirming that they're not block listed.
 
     @param base_opts: pylint base options.
     @param file_path: path to the file we need to run pylint on.
 
     @returns pylint return code
     """
-    if not isinstance(file_path, basestring):
+    if not isinstance(file_path, six.string_types):
         raise TypeError('expected a string as filepath, got %s'%
             type(file_path))
 
@@ -339,7 +347,7 @@ def check_dir(dir_path, base_opts):
     """
     files = []
 
-    os.path.walk(dir_path, visit, files)
+    os.walk(dir_path, visit, files)
 
     return batch_check_files(files, base_opts)
 

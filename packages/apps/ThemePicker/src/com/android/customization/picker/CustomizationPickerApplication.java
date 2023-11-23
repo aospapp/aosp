@@ -17,7 +17,7 @@ package com.android.customization.picker;
 
 import android.app.Application;
 
-import com.android.customization.module.DefaultCustomizationInjector;
+import com.android.customization.module.ThemePickerInjector;
 import com.android.wallpaper.module.InjectorProvider;
 
 public class CustomizationPickerApplication extends Application {
@@ -26,6 +26,6 @@ public class CustomizationPickerApplication extends Application {
         super.onCreate();
 
         // Initialize the injector.
-        InjectorProvider.setInjector(new DefaultCustomizationInjector());
+        InjectorProvider.setInjector(new ThemePickerInjector());
     }
 }

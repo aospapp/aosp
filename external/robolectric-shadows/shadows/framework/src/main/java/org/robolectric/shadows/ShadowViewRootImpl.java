@@ -163,7 +163,7 @@ public class ShadowViewRootImpl {
               ClassParameter.from(boolean.class, false),
               ClassParameter.from(int.class, 0));
       // END-INTERNAL
-    } else if (apiLevel >= Build.VERSION_CODES.TIRAMISU) {
+    } else if (apiLevel <= Build.VERSION_CODES.TIRAMISU) {
       // BEGIN-INTERNAL
       ReflectionHelpers.callInstanceMethod(ViewRootImpl.class, component, "dispatchResized",
               ClassParameter.from(ClientWindowFrames.class, clientWindowFrame),
@@ -175,6 +175,19 @@ public class ShadowViewRootImpl {
               ClassParameter.from(int.class, 0),
               ClassParameter.from(int.class, 0),
               ClassParameter.from(int.class, 0));
+      // END-INTERNAL
+    } else if (apiLevel >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+      // BEGIN-INTERNAL
+      ReflectionHelpers.callInstanceMethod(ViewRootImpl.class, component, "dispatchResized",
+              ClassParameter.from(ClientWindowFrames.class, clientWindowFrame),
+              ClassParameter.from(boolean.class, true),
+              ClassParameter.from(MergedConfiguration.class, new MergedConfiguration()),
+              ClassParameter.from(InsetsState.class, new InsetsState()),
+              ClassParameter.from(boolean.class, false),
+              ClassParameter.from(boolean.class, false),
+              ClassParameter.from(int.class, 0),
+              ClassParameter.from(int.class, 0),
+              ClassParameter.from(boolean.class, false));
       // END-INTERNAL
     } else {
       throw new RuntimeException("Could not find AndroidRuntimeAdapter for API level: " + apiLevel);

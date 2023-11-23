@@ -40,7 +40,7 @@ import java.util.Collection;
  */
 public class X509CertificateUtils {
 
-    private static CertificateFactory sCertFactory = null;
+    private static volatile CertificateFactory sCertFactory = null;
 
     // The PEM certificate header and footer as specified in RFC 7468:
     //   There is exactly one space character (SP) separating the "BEGIN" or
@@ -51,6 +51,14 @@ public class X509CertificateUtils {
     public static final byte[] END_CERT_FOOTER = "-----END CERTIFICATE-----".getBytes();
 
     private static void buildCertFactory() {
+        if (sCertFactory != null) {
+            return;
+        }
+
+        buildCertFactoryHelper();
+    }
+
+    private static synchronized void buildCertFactoryHelper() {
         if (sCertFactory != null) {
             return;
         }
@@ -84,9 +92,7 @@ public class X509CertificateUtils {
      */
     public static X509Certificate generateCertificate(byte[] encodedForm)
             throws CertificateException {
-        if (sCertFactory == null) {
-            buildCertFactory();
-        }
+        buildCertFactory();
         return generateCertificate(encodedForm, sCertFactory);
     }
 
@@ -149,9 +155,7 @@ public class X509CertificateUtils {
      */
     public static Collection<? extends java.security.cert.Certificate> generateCertificates(
             InputStream in) throws CertificateException {
-        if (sCertFactory == null) {
-            buildCertFactory();
-        }
+        buildCertFactory();
         return generateCertificates(in, sCertFactory);
     }
 

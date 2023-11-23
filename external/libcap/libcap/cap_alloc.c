@@ -147,6 +147,22 @@ cap_launch_t cap_new_launcher(const char *arg0, const char * const *argv,
 }
 
 /*
+ * cap_func_launcher allocates some memory for a launcher and
+ * initializes it. The purpose of this launcher, unlike one created
+ * with cap_new_launcher(), is to execute some function code from a
+ * forked copy of the program. The forked process will exit when the
+ * callback function, func, returns.
+ */
+cap_launch_t cap_func_launcher(int (callback_fn)(void *detail))
+{
+    __u32 *data = calloc(1, sizeof(__u32) + sizeof(struct cap_launch_s));
+    *(data++) = CAP_LAUNCH_MAGIC;
+    struct cap_launch_s *attr = (struct cap_launch_s *) data;
+    attr->custom_setup_fn = callback_fn;
+    return attr;
+}
+
+/*
  * Scrub and then liberate an internal capability set.
  */
 

@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # Copyright 2015 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -95,7 +96,7 @@ class audio_AudioAfterReboot(audio_test.AudioTest):
         """Checks the node selected by Cras is correct."""
         # Selects and checks the node selected by cras is correct.
         audio_test_utils.check_and_set_chrome_active_node_types(
-                self.facade, self.audio_nodes[0][0], self.audio_nodes[1][0])
+                self.facade, self.audio_nodes[0][0], None)
         audio_test_utils.check_audio_nodes(self.facade, self.audio_nodes)
 
     def play_reboot_play_and_record(self, source_widget, recorder_widget):
@@ -146,7 +147,8 @@ class audio_AudioAfterReboot(audio_test.AudioTest):
                  source=None,
                  recorder=None,
                  is_internal=False,
-                 cfm_speaker=False):
+                 cfm_speaker=False,
+                 blocked_boards=[]):
         """Runs the test main workflow.
 
         @param host: A host object representing the DUT.
@@ -164,8 +166,11 @@ class audio_AudioAfterReboot(audio_test.AudioTest):
         @param is_internal: whether internal audio is tested flag
         @param cfm_speaker: whether cfm_speaker's audio is tested which is an
             external USB speaker on CFM (ChromeBox For Meetings) devices.
+        @blocked_boards: boards to ignore and exit.
 
         """
+        if self.host.get_board().split(':')[1] in blocked_boards:
+            raise error.TestNAError('Board NOT APPLICABLE to test!')
         if ((bind_from == chameleon_audio_ids.CrosIds.HEADPHONE
              or bind_to == chameleon_audio_ids.CrosIds.EXTERNAL_MIC)
                     and not audio_test_utils.has_audio_jack(self.host)):
@@ -226,7 +231,7 @@ class audio_AudioAfterReboot(audio_test.AudioTest):
 
         # Selects and checks the node selected by cras is correct.
         audio_test_utils.check_and_set_chrome_active_node_types(
-                self.facade, audio_nodes[0][0], audio_nodes[1][0])
+                self.facade, audio_nodes[0][0], None)
 
         # Play only, reboot, then play and record.
         if binder_widget != None:

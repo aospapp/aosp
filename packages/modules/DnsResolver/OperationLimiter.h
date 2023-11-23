@@ -56,10 +56,8 @@ class OperationLimiter {
     //
     // Note: each successful start(key) must be matched by exactly one call to
     // finish(key).
-    bool start(KeyType key) EXCLUDES(mMutex) {
+    bool start(KeyType key, int globalLimit = INT_MAX) EXCLUDES(mMutex) {
         std::lock_guard lock(mMutex);
-        int globalLimit =
-                android::net::Experiments::getInstance()->getFlag("max_queries_global", INT_MAX);
         if (globalLimit < mLimitPerKey) {
             LOG(ERROR) << "Misconfiguration on max_queries_global " << globalLimit;
             globalLimit = INT_MAX;

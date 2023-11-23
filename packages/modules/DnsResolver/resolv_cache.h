@@ -139,3 +139,7 @@ android::net::NetworkType convert_network_type(const std::vector<int32_t>& trans
 
 // Dump net configuration log for a given network.
 void resolv_netconfig_dump(android::netdutils::DumpWriter& dw, unsigned netid);
+
+// Get the maximum cache size of a network.
+// Return positive value on success, -1 on failure.
+int resolv_get_max_cache_entries(unsigned netid);

@@ -116,8 +116,18 @@ static int is_ibmz(int virt_type)
 static int try_systemd_detect_virt(void)
 {
 	FILE *f;
-	char virt_type[64];
+	char virt_buf[64];
 	int ret;
+	char *virt_type = getenv("LTP_VIRT_OVERRIDE");
+
+	if (virt_type) {
+		if (!strcmp("", virt_type))
+			return 0;
+
+		goto cmp;
+	}
+
+	virt_type = virt_buf;
 
 	/* See tst_cmd.c */
 	void *old_handler = signal(SIGCHLD, SIG_DFL);
@@ -145,6 +155,7 @@ static int try_systemd_detect_virt(void)
 	if (ret)
 		return 0;
 
+cmp:
 	if (!strncmp("kvm", virt_type, 3))
 		return VIRT_KVM;
 
@@ -153,6 +164,9 @@ static int try_systemd_detect_virt(void)
 
 	if (!strncmp("zvm", virt_type, 3))
 		return VIRT_IBMZ_ZVM;
+
+	if (!strncmp("microsoft", virt_type, 9))
+		return VIRT_HYPERV;
 
 	return VIRT_OTHER;
 }
@@ -179,6 +193,7 @@ int tst_is_virt(int virt_type)
 	case VIRT_IBMZ_LPAR:
 	case VIRT_IBMZ_ZVM:
 		return is_ibmz(virt_type);
+	case VIRT_HYPERV:
 	case VIRT_OTHER:
 		return 0;
 	}

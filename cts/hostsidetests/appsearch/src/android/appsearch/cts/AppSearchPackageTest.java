@@ -16,7 +16,10 @@
 
 package android.appsearch.cts;
 
+import static com.google.common.truth.Truth.assertThat;
+
 import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
+import com.android.tradefed.util.RunUtil;
 
 import org.junit.After;
 import org.junit.Before;
@@ -60,10 +63,11 @@ public class AppSearchPackageTest extends AppSearchHostTestBase {
         runDeviceTestAsUserInPkgA("testPutDocuments", mPrimaryUserId);
         // query the document from another package.
         runDeviceTestAsUserInPkgB("testGlobalGetDocuments_exist", mPrimaryUserId);
-        // remove the package.
-        uninstallPackage(TARGET_PKG_A);
-        // Max waiting time is 5 second.
-        for (int i = 0; i < 5; i++) {
+        // remove the package. Success will return Null, otherwise return error code.
+        assertThat(uninstallPackage(TARGET_PKG_A)).isNull();
+
+        // Max waiting time is 10 second.
+        for (int i = 0; i < 10; i++) {
             try {
                 // query the document from another package, verify the document of package A is
                 // removed
@@ -72,7 +76,7 @@ public class AppSearchPackageTest extends AppSearchHostTestBase {
                 return;
             } catch (AssertionError e) {
                 // The package hasn't uninstalled yet, sleeping 1s before polling again.
-                Thread.sleep(1000);
+                RunUtil.getDefault().sleep(1000);
             }
         }
         throw new AssertionError("Failed to prune package data after 5 seconds");

@@ -8,7 +8,6 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#include <xnnpack/params.h>
 #include <xnnpack/common.h>
 
 #ifdef __cplusplus
@@ -29,9 +28,9 @@ extern "C" {
     const uint32_t fill_pattern);
 
 DECLARE_PAD_UKERNEL_FUNCTION(xnn_xx_pad_ukernel__neon)
-DECLARE_PAD_UKERNEL_FUNCTION(xnn_xx_pad_ukernel__wasmsimd)
-DECLARE_PAD_UKERNEL_FUNCTION(xnn_xx_pad_ukernel__sse2)
 DECLARE_PAD_UKERNEL_FUNCTION(xnn_xx_pad_ukernel__scalar)
+DECLARE_PAD_UKERNEL_FUNCTION(xnn_xx_pad_ukernel__sse2)
+DECLARE_PAD_UKERNEL_FUNCTION(xnn_xx_pad_ukernel__wasmsimd)
 
 
 #ifdef __cplusplus

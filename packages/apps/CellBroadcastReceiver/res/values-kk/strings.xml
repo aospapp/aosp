@@ -19,7 +19,7 @@
     <string name="app_label" msgid="2008319089248760277">"Төтенше жағдай туралы сымсыз хабарландырулар"</string>
     <string name="sms_cb_settings" msgid="9021266457863671070">"Төтенше жағдай туралы сымсыз хабарландырулар"</string>
     <string name="sms_cb_sender_name_default" msgid="972946539768958828">"Төтенше жағдай туралы сымсыз хабарландырулар"</string>
-    <string name="sms_cb_sender_name_presidential" msgid="5302753979711319380">"Төтенше жағдай туралы сымсыз хабарландырулар"</string>
+    <string name="sms_cb_sender_name_presidential" msgid="5302753979711319380">"Сымсыз шұғыл хабарландырулар"</string>
     <string name="sms_cb_sender_name_emergency" msgid="2937067842997478965">"Төтенше жағдай туралы сымсыз хабарландырулар"</string>
     <string name="sms_cb_sender_name_public_safety" msgid="5230033387708907922">"Ақпараттық хабарландыру"</string>
     <string name="cell_broadcast_settings_not_available" msgid="3908142962162375221">"Төтенше жағдай туралы сымсыз хабарландыру параметрлері бұл пайдаланушы үшін қолжетімді емес."</string>
@@ -139,7 +139,7 @@
     <string name="cmas_opt_out_dialog_text" msgid="4820577535626084938">"Төтенше жағдай туралы сымсыз хабарландыруларды алып жүрсіз. Оларды әрі қарай ала бересіз бе?"</string>
     <string name="cmas_opt_out_button_yes" msgid="7248930667195432936">"Иә"</string>
     <string name="cmas_opt_out_button_no" msgid="3110484064328538553">"Жоқ"</string>
-    <string name="cb_list_activity_title" msgid="1433502151877791724">"Төтенше жағдай туралы хабарландыру тарихы"</string>
+    <string name="cb_list_activity_title" msgid="1433502151877791724">"Шұғыл хабарландырулар тарихы"</string>
     <string name="action_delete" msgid="7435661404543945861">"Жою"</string>
     <string name="action_detail_info" msgid="8486524382178381810">"Мәліметтерді көрсету"</string>
   <string-array name="alert_reminder_interval_entries">

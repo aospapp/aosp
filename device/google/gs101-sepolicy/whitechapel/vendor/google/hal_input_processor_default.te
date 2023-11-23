@@ -1,0 +1,2 @@
+# allow InputProcessor HAL to read the display resolution system property
+get_prop(hal_input_processor_default, vendor_display_prop)

@@ -44,6 +44,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.List;
 
 
 public final class KitchenSinkBackupTransport extends BackupTransport {
@@ -698,7 +699,7 @@ public final class KitchenSinkBackupTransport extends BackupTransport {
                 mRestorePackages[mRestorePackageIndex].packageName);
         // the restore set is the concatenation of the individual record blobs,
         // each of which is a file in the package's directory.
-        ArrayList<DecodedFilename> blobs = contentsByKey(packageDir);
+        List<DecodedFilename> blobs = contentsByKey(packageDir);
         if (blobs == null) {  // nextRestorePackage() ensures the dir exists, so this is an error
             Log.e(TAG, "No keys for package: " + packageDir);
             return TRANSPORT_ERROR;
@@ -744,14 +745,14 @@ public final class KitchenSinkBackupTransport extends BackupTransport {
 
     // Return a list of the files in the given directory, sorted lexically by
     // the Base64-decoded file name, not by the on-disk filename
-    private ArrayList<DecodedFilename> contentsByKey(File dir) {
+    private List<DecodedFilename> contentsByKey(File dir) {
         File[] allFiles = dir.listFiles();
         if (allFiles == null || allFiles.length == 0) {
-            return null;
+            return Collections.emptyList();
         }
 
         // Decode the filenames into keys then sort lexically by key
-        ArrayList<DecodedFilename> contents = new ArrayList<>();
+        List<DecodedFilename> contents = new ArrayList<>();
         for (File f : allFiles) {
             contents.add(new DecodedFilename(f));
         }

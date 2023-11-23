@@ -16,8 +16,10 @@
 
 package other_package;
 
+import other_package.Enum;
 import some_package.IBar;
 
 interface IBaz {
+    const int ZERO = Enum.ZERO;
     void CanYouDealWithThisBar(in IBar bar);
 }

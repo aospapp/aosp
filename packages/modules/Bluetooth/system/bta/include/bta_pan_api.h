@@ -118,7 +118,7 @@ typedef void(tBTA_PAN_CBACK)(tBTA_PAN_EVT event, tBTA_PAN* p_data);
  * Returns          void
  *
  ******************************************************************************/
-extern void BTA_PanEnable(tBTA_PAN_CBACK p_cback);
+void BTA_PanEnable(tBTA_PAN_CBACK p_cback);
 
 /*******************************************************************************
  *
@@ -129,7 +129,7 @@ extern void BTA_PanEnable(tBTA_PAN_CBACK p_cback);
  * Returns          void
  *
  ******************************************************************************/
-extern void BTA_PanDisable(void);
+void BTA_PanDisable(void);
 
 /*******************************************************************************
  *
@@ -170,6 +170,6 @@ void BTA_PanOpen(const RawAddress& bd_addr, tBTA_PAN_ROLE local_role,
  * Returns          void
  *
  ******************************************************************************/
-extern void BTA_PanClose(uint16_t handle);
+void BTA_PanClose(uint16_t handle);
 
 #endif /* BTA_PAN_API_H */

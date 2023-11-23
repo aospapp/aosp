@@ -545,7 +545,7 @@ void init_mdns_transport_discovery_thread(void) {
         if (error_codes[i] != kDNSServiceErr_NoError) {
             D("Got %d browsing for mDNS service %s.", error_codes[i], kADBDNSServices[i]);
         } else {
-            fdevent_run_on_main_thread([i]() {
+            fdevent_run_on_looper([i]() {
                 g_service_ref_fdes[i] = fdevent_create(adb_DNSServiceRefSockFD(g_service_refs[i]),
                                                        pump_service_ref, &g_service_refs[i]);
                 fdevent_set(g_service_ref_fdes[i], FDE_READ);

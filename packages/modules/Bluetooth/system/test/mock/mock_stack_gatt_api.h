@@ -27,8 +27,6 @@
 #include <map>
 #include <string>
 
-extern std::map<std::string, int> mock_function_count_map;
-
 // Original included files, if any
 // NOTE: Since this is a mock file with mock definitions some number of
 //       include files may not be required.  The include-what-you-use
@@ -51,6 +49,7 @@ extern std::map<std::string, int> mock_function_count_map;
 #include "stack/gatt/gatt_int.h"
 #include "stack/include/bt_hdr.h"
 #include "stack/include/gatt_api.h"
+#include "test/common/mock_functions.h"
 #include "types/bluetooth/uuid.h"
 #include "types/bt_transport.h"
 #include "types/raw_address.h"
@@ -63,6 +62,60 @@ using bluetooth::Uuid;
 namespace test {
 namespace mock {
 namespace stack_gatt_api {
+
+// Shared state between mocked functions and tests
+// Name: GATTC_GetAndRemoveListOfConnIdsWaitingForMtuRequest
+// Params: RawAddress& remote_bda
+// Return: std::list<uint16_t>
+struct GATTC_GetAndRemoveListOfConnIdsWaitingForMtuRequest {
+  static std::list<uint16_t> return_value;
+  std::function<std::list<uint16_t>(const RawAddress& remote_bda)> body{
+      [](const RawAddress& remote_bda) { return return_value; }};
+  std::list<uint16_t> operator()(const RawAddress& remote_bda) {
+    return body(remote_bda);
+  };
+};
+extern struct GATTC_GetAndRemoveListOfConnIdsWaitingForMtuRequest
+    GATTC_GetAndRemoveListOfConnIdsWaitingForMtuRequest;
+
+// Shared state between mocked functions and tests
+// Name: GATTC_ConfigureMTU
+// Params: RawAddress& remote_bda, tBT_TRANSPORT transport, uint16_t conn_id,
+//         uint16_t *current_mtu
+// Return: tGATTC_TryMtuRequestResult
+struct GATTC_TryMtuRequest {
+  static tGATTC_TryMtuRequestResult return_value;
+  std::function<tGATTC_TryMtuRequestResult(
+      const RawAddress& remote_bda, tBT_TRANSPORT transport, uint16_t conn_id,
+      uint16_t* current_mtu)>
+      body{[](const RawAddress& remote_bda, tBT_TRANSPORT transport,
+              uint16_t conn_id,
+              uint16_t* current_mtu) { return return_value; }};
+  tGATTC_TryMtuRequestResult operator()(const RawAddress& remote_bda,
+                                        tBT_TRANSPORT transport,
+                                        uint16_t conn_id,
+                                        uint16_t* current_mtu) {
+    return body(remote_bda, transport, conn_id, current_mtu);
+  };
+};
+extern struct GATTC_TryMtuRequest GATTC_TryMtuRequest;
+
+// Shared state between mocked functions and tests
+// Name: GATTC_ConfigureMTU
+// Params: RawAddress& remote_bda, tBT_TRANSPORT transport,
+//         uint16_t user_mtu
+// Return: void
+struct GATTC_UpdateUserAttMtuIfNeeded {
+  std::function<void(const RawAddress& remote_bda, tBT_TRANSPORT transport,
+                     uint16_t user_mtu)>
+      body{[](const RawAddress& remote_bda, tBT_TRANSPORT transport,
+              uint16_t user_mtu) {}};
+  void operator()(const RawAddress& remote_bda, tBT_TRANSPORT transport,
+                  uint16_t user_mtu) {
+    body(remote_bda, transport, user_mtu);
+  };
+};
+extern struct GATTC_UpdateUserAttMtuIfNeeded GATTC_UpdateUserAttMtuIfNeeded;
 
 // Shared state between mocked functions and tests
 // Name: GATTC_ConfigureMTU
@@ -278,16 +331,19 @@ extern struct GATT_CancelConnect GATT_CancelConnect;
 struct GATT_Connect {
   static bool return_value;
   std::function<bool(tGATT_IF gatt_if, const RawAddress& bd_addr,
-                     bool is_direct, tBT_TRANSPORT transport,
-                     bool opportunistic, uint8_t initiating_phys)>
-      body{[](tGATT_IF gatt_if, const RawAddress& bd_addr, bool is_direct,
-              tBT_TRANSPORT transport, bool opportunistic,
+                     tBLE_ADDR_TYPE addr_type, bool is_direct,
+                     tBT_TRANSPORT transport, bool opportunistic,
+                     uint8_t initiating_phys)>
+      body{[](tGATT_IF gatt_if, const RawAddress& bd_addr,
+              tBLE_ADDR_TYPE addr_type, bool is_direct, tBT_TRANSPORT transport,
+              bool opportunistic,
               uint8_t initiating_phys) { return return_value; }};
-  bool operator()(tGATT_IF gatt_if, const RawAddress& bd_addr, bool is_direct,
+  bool operator()(tGATT_IF gatt_if, const RawAddress& bd_addr,
+                  tBLE_ADDR_TYPE addr_type, bool is_direct,
                   tBT_TRANSPORT transport, bool opportunistic,
                   uint8_t initiating_phys) {
-    return body(gatt_if, bd_addr, is_direct, transport, opportunistic,
-                initiating_phys);
+    return body(gatt_if, bd_addr, addr_type, is_direct, transport,
+                opportunistic, initiating_phys);
   };
 };
 extern struct GATT_Connect GATT_Connect;
@@ -349,11 +405,12 @@ extern struct GATT_GetConnectionInfor GATT_GetConnectionInfor;
 // bool eatt_support Return: tGATT_IF
 struct GATT_Register {
   static tGATT_IF return_value;
-  std::function<tGATT_IF(const Uuid& app_uuid128, std::string name,
+  std::function<tGATT_IF(const Uuid& app_uuid128, const std::string& name,
                          tGATT_CBACK* p_cb_info, bool eatt_support)>
-      body{[](const Uuid& app_uuid128, std::string name, tGATT_CBACK* p_cb_info,
+      body{[](const Uuid& app_uuid128, const std::string& name,
+              tGATT_CBACK* p_cb_info,
               bool eatt_support) { return return_value; }};
-  tGATT_IF operator()(const Uuid& app_uuid128, std::string name,
+  tGATT_IF operator()(const Uuid& app_uuid128, const std::string& name,
                       tGATT_CBACK* p_cb_info, bool eatt_support) {
     return body(app_uuid128, name, p_cb_info, eatt_support);
   };
@@ -365,12 +422,12 @@ extern struct GATT_Register GATT_Register;
 // transport Return: void
 struct GATT_SetIdleTimeout {
   std::function<void(const RawAddress& bd_addr, uint16_t idle_tout,
-                     tBT_TRANSPORT transport)>
+                     tBT_TRANSPORT transport, bool is_active)>
       body{[](const RawAddress& bd_addr, uint16_t idle_tout,
-              tBT_TRANSPORT transport) {}};
+              tBT_TRANSPORT transport, bool is_active) {}};
   void operator()(const RawAddress& bd_addr, uint16_t idle_tout,
-                  tBT_TRANSPORT transport) {
-    body(bd_addr, idle_tout, transport);
+                  tBT_TRANSPORT transport, bool is_active) {
+    body(bd_addr, idle_tout, transport, is_active);
   };
 };
 extern struct GATT_SetIdleTimeout GATT_SetIdleTimeout;

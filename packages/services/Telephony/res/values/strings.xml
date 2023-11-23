@@ -289,6 +289,8 @@
     <string name="updating_title">Call settings</string>
     <!-- Toast in Call settings when asked to launch settings for a secondary user -->
     <string name="call_settings_admin_user_only">Call settings can only be changed by the admin user.</string>
+    <!-- Toast in Phone Account settings when asked to launch settings for a secondary/guest user -->
+    <string name="phone_account_settings_user_restriction">Phone account settings can only be changed by the admin or work user.</string>
     <!-- Title of the "Call settings" settings screen, with a text label identifying which SIM the settings are for. -->
     <string name="call_settings_with_label">Settings (<xliff:g id="subscriptionlabel" example="Mock Carrier">%s</xliff:g>)</string>
     <!-- Title of the alert dialog displayed if an error occurs while updating Call settings -->
@@ -1237,6 +1239,8 @@
     <string name="incall_error_wfc_only_no_wireless_network">Connect to a wireless network to make a call.</string>
     <!-- In-call screen: call failure message displayed in an error dialog when the user is connected to a wireless network, but wifi calling is turned off. [CHAR_LIMIT=NONE] -->
     <string name="incall_error_promote_wfc">Enable Wi-Fi calling to make a call.</string>
+    <!-- In-call screen: call failure message displayed in an error dialog when the satellite modem is on. [CHAR_LIMIT=NONE] -->
+    <string name="incall_error_satellite_enabled">Disable satellite mode to make a call.</string>
 
     <!-- Hint for the button of emergency information -->
     <string name="emergency_information_hint">Emergency information</string>
@@ -1709,6 +1713,8 @@
     <string name="clh_callFailed_simError_txt">Can\'t access SIM card</string>
     <!-- In-call screen: call failure message displayed in an error dialog -->
     <string name="clh_incall_error_out_of_service_txt">Mobile network not available</string>
+    <!-- In-call screen: call failure reason (satellite modem is enabled) -->
+    <string name="clh_callFailed_satelliteEnabled_txt">Satellite mode is on</string>
 
     <!-- See CallFailCause for details on what causes each message -->
     <!-- In-call screen: call failure reason (Cause Number 1) -->
@@ -2010,6 +2016,9 @@
     <!-- Title for controlling on/off for Mobile phone's radio power. Only shown in diagnostic screen, so precise translation is not needed. -->
     <string name="radio_info_radio_power">Mobile Radio Power</string>
 
+    <!-- Title for simulating device out of service. -->
+    <string name="simulate_out_of_service_string">Simulate Out of Service (Debug Build only)</string>
+
     <!-- Phone Info screen. Menu item label.  Used for diagnostic info screens, precise translation isn't needed -->
     <string name="radioInfo_menu_viewADN">View SIM Address Book</string>
     <!-- Phone Info screen. Menu item label.  Used for diagnostic info screens, precise translation isn't needed -->
@@ -2067,6 +2076,8 @@
 
     <!-- Used for diagnostic info screens, precise translation isn't needed -->
     <string name="radioInfo_unknown">Unknown</string>
+    <!-- Used for diagnostic info screens, precise translation isn't needed -->
+    <string name="radioInfo_imei_primary">Primary</string>
     <!-- Phone Info screen. Units shown after a value.  Used for diagnostic info screens, precise translation isn't needed -->
     <string name="radioInfo_display_packets">pkts</string>
     <!-- Phone Info screen. Units shown after a value.  Used for diagnostic info screens, precise translation isn't needed -->
@@ -2124,13 +2135,17 @@
     <!-- Radio Info screen. Label for a status item.  Used for diagnostic info screens, precise translation isn't needed -->
     <string name="radio_info_phone_number_label">Phone Number:</string>
     <!-- Radio Info screen. Label for a status item.  Used for diagnostic info screens, precise translation isn't needed -->
-    <string name="radio_info_band_mode_label">Select Radio Band</string>
-    <!-- Radio Info screen. Label for a status item.  Used for diagnostic info screens, precise translation isn't needed -->
     <string name="radio_info_voice_network_type_label">Voice Network Type:</string>
     <!-- Radio Info screen. Label for a status item.  Used for diagnostic info screens, precise translation isn't needed -->
     <string name="radio_info_data_network_type_label">Data Network Type:</string>
     <!-- Radio Info screen. Label for a status item.  Used for diagnostic info screens, precise translation isn't needed -->
     <string name="radio_info_override_network_type_label">Override Network Type:</string>
+    <!-- Radio Info screen. Label for a status item.  Used for diagnostic info screens, precise translation isn't needed -->
+    <string name="radio_info_voice_raw_registration_state_label">Voice Raw Registration State:</string>
+    <!-- Radio Info screen. Label for a status item.  Used for diagnostic info screens, precise translation isn't needed -->
+    <string name="radio_info_data_raw_registration_state_label">Data Raw Registration State:</string>
+    <!-- Radio Info screen. Label for a status item.  Used for diagnostic info screens, precise translation isn't needed -->
+    <string name="radio_info_wlan_data_raw_registration_state_label">WLAN Data Raw Registration State:</string>
     <!-- Radio Info screen. Label for a status item.  Used for diagnostic info screens, precise translation isn't needed -->
     <string name="phone_index_label">Select phone index</string>
     <!-- Radio Info screen. Label for a status item.  Used for diagnostic info screens, precise translation isn't needed -->
@@ -2198,4 +2213,11 @@
     <!-- Telephony notification channel name for a channel containing SIP accounts removed
      notificatios -->
     <string name="notification_channel_sip_account">Deprecated SIP accounts</string>
+
+    <string name="send_from_work_profile_title">Can\'t message from a personal app</string>
+    <string name="send_from_work_profile_description">Your organization only allows you to send messages from work apps</string>
+    <string name="send_from_work_profile_cancel">Cancel</string>
+    <string name="send_from_work_profile_action_str">Switch to work profile</string>
+    <string name="install_messages_on_work_profile_action_str">Install a work messages app</string>
+
 </resources>

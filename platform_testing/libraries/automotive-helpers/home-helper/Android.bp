@@ -20,14 +20,12 @@ package {
 
 java_library {
     name: "automotive-home-helper",
-    libs: [
-        "ub-uiautomator",
-        "app-helpers-auto-interfaces",
-    ],
+
     static_libs: [
-        "androidx.test.runner",
+        "spectatio-lib",
         "android-support-annotations",
-        "automotive-standard-app-helper",
+        "app-helpers-auto-interfaces",
+        "automotive-config-lib",
     ],
     srcs: ["src/**/*.java"],
     sdk_version: "test_current",

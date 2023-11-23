@@ -1,12 +1,12 @@
 package com.android.bluetooth.sap;
 
-import android.hardware.radio.V1_0.ISap;
-import android.hardware.radio.V1_0.SapApduType;
-import android.hardware.radio.V1_0.SapTransferProtocol;
+import android.hardware.radio.sap.SapApduType;
+import android.hardware.radio.sap.SapTransferProtocol;
 import android.os.RemoteException;
 import android.util.Log;
 
-import com.google.protobuf.micro.CodedOutputStreamMicro;
+import com.android.internal.annotations.VisibleForTesting;
+
 import com.google.protobuf.micro.InvalidProtocolBufferMicroException;
 
 import org.android.btsap.SapApi;
@@ -24,7 +24,6 @@ import org.android.btsap.SapApi.RIL_SIM_SAP_TRANSFER_CARD_READER_STATUS_RSP;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.util.ArrayList;
 import java.util.Hashtable;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -33,7 +32,6 @@ import java.util.concurrent.atomic.AtomicInteger;
  * SapMessage is used for incoming and outgoing messages.
  *
  * For incoming messages
- *
  */
 public class SapMessage {
 
@@ -192,13 +190,15 @@ public class SapMessage {
 
     /**
      * Create a SapMessage
+     *
      * @param msgType the SAP message type
      */
     public SapMessage(int msgType) {
         this.mMsgType = msgType;
     }
 
-    private static void resetPendingRilMessages() {
+    @VisibleForTesting
+    static void resetPendingRilMessages() {
         int numMessages = sOngoingRequests.size();
         if (numMessages != 0) {
             Log.w(TAG, "Clearing message queue with size: " + numMessages);
@@ -330,7 +330,8 @@ public class SapMessage {
         this.mTestMode = testMode;
     }
 
-    private int getParamCount() {
+    @VisibleForTesting
+    int getParamCount() {
         int paramCount = 0;
         if (mMaxMsgSize != INVALID_VALUE) {
             paramCount++;
@@ -370,8 +371,9 @@ public class SapMessage {
 
     /**
      * Construct a SapMessage based on the incoming rfcomm request.
+     *
      * @param requestType The type of the request
-     * @param is the input stream to read the data from
+     * @param is          the input stream to read the data from
      * @return the resulting message, or null if an error occurs
      */
     @SuppressWarnings("unused")
@@ -439,9 +441,10 @@ public class SapMessage {
 
     /**
      * Blocking read of an entire array of data.
-     * @param is the input stream to read from
+     *
+     * @param is     the input stream to read from
      * @param buffer the buffer to read into - the length of the buffer will
-     *        determine how many bytes will be read.
+     *               determine how many bytes will be read.
      */
     private static void read(InputStream is, byte[] buffer) throws IOException {
         int bytesToRead = buffer.length;
@@ -459,7 +462,8 @@ public class SapMessage {
 
     /**
      * Skip a number of bytes in an InputStream.
-     * @param is the input stream
+     *
+     * @param is    the input stream
      * @param count the number of bytes to skip
      * @throws IOException In case of reaching EOF or a stream error
      */
@@ -473,10 +477,10 @@ public class SapMessage {
      * Read the parameters from the stream and update the relevant members.
      * This function will ensure that all parameters are read from the stream, even
      * if an error is detected.
+     *
      * @param count the number of parameters to read
-     * @param is the input stream
+     * @param is    the input stream
      * @return True if all parameters were successfully parsed, False if an error were detected.
-     * @throws IOException
      */
     private boolean parseParameters(int count, InputStream is) throws IOException {
         int paramId;
@@ -617,9 +621,10 @@ public class SapMessage {
 
     /**
      * Writes a single value parameter of 1 or 2 bytes in length.
-     * @param os The BufferedOutputStream to write to.
-     * @param id The Parameter ID
-     * @param value The parameter value
+     *
+     * @param os     The BufferedOutputStream to write to.
+     * @param id     The Parameter ID
+     * @param value  The parameter value
      * @param length The length of the parameter value
      * @throws IOException if the write to os fails
      */
@@ -652,8 +657,9 @@ public class SapMessage {
 
     /**
      * Writes a byte[] parameter of any length.
-     * @param os The BufferedOutputStream to write to.
-     * @param id The Parameter ID
+     *
+     * @param os    The BufferedOutputStream to write to.
+     * @param id    The Parameter ID
      * @param value The byte array to write, the length will be extracted from the array.
      * @throws IOException if the write to os fails
      */
@@ -725,32 +731,11 @@ public class SapMessage {
      * RILD Interface message conversion functions.
      ***************************************************************************/
 
-    /**
-     * We use this function to
-     * @param length
-     * @param rawOut
-     * @throws IOException
-     */
-    private void writeLength(int length, CodedOutputStreamMicro out) throws IOException {
-        byte[] dataLength = new byte[4];
-        dataLength[0] = dataLength[1] = 0;
-        dataLength[2] = (byte) ((length >> 8) & 0xff);
-        dataLength[3] = (byte) ((length) & 0xff);
-        out.writeRawBytes(dataLength);
-    }
-
-    private ArrayList<Byte> primitiveArrayToContainerArrayList(byte[] arr) {
-        ArrayList<Byte> arrayList = new ArrayList<>(arr.length);
-        for (byte b : arr) {
-            arrayList.add(b);
-        }
-        return arrayList;
-    }
 
     /**
      * Send the message by calling corresponding ISap api.
      */
-    public void send(ISap sapProxy) throws RemoteException, RuntimeException {
+    public void send(ISapRilReceiver sapProxy) throws RemoteException, RuntimeException {
         int rilSerial = sNextSerial.getAndIncrement();
 
         Log.e(TAG, "callISapReq: called for mMsgType " + mMsgType + " rilSerial " + rilSerial);
@@ -773,13 +758,13 @@ public class SapMessage {
             }
             case ID_TRANSFER_APDU_REQ: {
                 int type;
-                ArrayList<Byte> command;
+                byte[] command;
                 if (mApdu != null) {
                     type = SapApduType.APDU;
-                    command = primitiveArrayToContainerArrayList(mApdu);
+                    command = mApdu;
                 } else if (mApdu7816 != null) {
                     type = SapApduType.APDU7816;
-                    command = primitiveArrayToContainerArrayList(mApdu7816);
+                    command = mApdu7816;
                 } else {
                     Log.e(TAG, "Missing Apdu parameter in TRANSFER_APDU_REQ");
                     throw new IllegalArgumentException();
@@ -986,7 +971,7 @@ public class SapMessage {
                 switch (resMsg.getResponse()) {
                     case RIL_SIM_SAP_APDU_RSP.RIL_E_SUCCESS:
                         mResultCode = RESULT_OK;
-                /* resMsg.getType is unused as the client knows the type of request used. */
+                        /* resMsg.getType is unused as the client knows the type of request used. */
                         if (resMsg.hasApduResponse()) {
                             mApduResp = resMsg.getApduResponse().toByteArray();
                         }

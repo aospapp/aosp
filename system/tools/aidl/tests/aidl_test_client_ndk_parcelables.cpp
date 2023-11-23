@@ -20,6 +20,7 @@
 
 #include <android/binder_auto_utils.h>
 #include <android/binder_manager.h>
+#include <binder/ProcessState.h>
 #include <gtest/gtest.h>
 
 #include <aidl/android/aidl/fixedsizearray/FixedSizeArrayExample.h>
@@ -51,7 +52,9 @@ using ndk::SpAIBinder;
 struct AidlTest : testing::Test {
   template <typename T>
   std::shared_ptr<T> getService() {
-    ndk::SpAIBinder binder = ndk::SpAIBinder(AServiceManager_getService(T::descriptor));
+    android::ProcessState::self()->setThreadPoolMaxThreadCount(1);
+    android::ProcessState::self()->startThreadPool();
+    ndk::SpAIBinder binder = ndk::SpAIBinder(AServiceManager_waitForService(T::descriptor));
     return T::fromBinder(binder);
   }
 };

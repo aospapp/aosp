@@ -1,3 +1,5 @@
+c: Copyright (C) Daniel Stenberg, <daniel@haxx.se>, et al.
+SPDX-License-Identifier: curl
 Long: help
 Arg: <category>
 Short: h
@@ -5,6 +7,8 @@ Help: Get help for commands
 Category: important curl
 Example: --help all
 Added: 4.0
+See-also: verbose
+Multi: custom
 ---
 Usage help. This lists all commands of the <category>.
 If no arg was provided, curl will display the most important

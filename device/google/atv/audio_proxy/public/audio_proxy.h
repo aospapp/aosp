@@ -46,7 +46,10 @@ enum {
   AUDIO_PROXY_FORMAT_INVALID = 0xFFFFFFFFu,
   AUDIO_PROXY_FORMAT_PCM_16_BIT = 0x1u,
   AUDIO_PROXY_FORMAT_PCM_8_BIT = 0x2u,
+  AUDIO_PROXY_FORMAT_PCM_32_BIT = 0x3u,
+  AUDIO_PROXY_FORMAT_PCM_8_24_BIT = 0x4u,
   AUDIO_PROXY_FORMAT_PCM_FLOAT = 0x5u,
+  AUDIO_PROXY_FORMAT_PCM_24_BIT_PACKED = 0x6u,
 };
 typedef uint32_t audio_proxy_format_t;
 
@@ -55,6 +58,35 @@ enum {
   AUDIO_PROXY_CHANNEL_INVALID = 0xC0000000u,
   AUDIO_PROXY_CHANNEL_OUT_MONO = 0x1u,
   AUDIO_PROXY_CHANNEL_OUT_STEREO = 0x3u,
+  AUDIO_PROXY_CHANNEL_OUT_2POINT1 = 0xBu,
+  AUDIO_PROXY_CHANNEL_OUT_TRI = 0x7u,
+  AUDIO_PROXY_CHANNEL_OUT_TRI_BACK = 0x103u,
+  AUDIO_PROXY_CHANNEL_OUT_3POINT1 = 0xFu,
+  AUDIO_PROXY_CHANNEL_OUT_2POINT0POINT2 = 0xC0003u,
+  AUDIO_PROXY_CHANNEL_OUT_2POINT1POINT2 = 0xC000Bu,
+  AUDIO_PROXY_CHANNEL_OUT_3POINT0POINT2 = 0xC0007u,
+  AUDIO_PROXY_CHANNEL_OUT_3POINT1POINT2 = 0xC000Fu,
+  AUDIO_PROXY_CHANNEL_OUT_QUAD = 0x33u,
+  // AUDIO_PROXY_CHANNEL_OUT_QUAD_BACK = 0x33u,
+  AUDIO_PROXY_CHANNEL_OUT_QUAD_SIDE = 0x603u,
+  AUDIO_PROXY_CHANNEL_OUT_SURROUND = 0x107u,
+  AUDIO_PROXY_CHANNEL_OUT_PENTA = 0x37u,
+  AUDIO_PROXY_CHANNEL_OUT_5POINT1 = 0x3Fu,
+  // AUDIO_PROXY_CHANNEL_OUT_5POINT1_BACK = 0x3Fu,
+  AUDIO_PROXY_CHANNEL_OUT_5POINT1_SIDE = 0x60Fu,
+  AUDIO_PROXY_CHANNEL_OUT_5POINT1POINT2 = 0xC003Fu,
+  AUDIO_PROXY_CHANNEL_OUT_5POINT1POINT4 = 0x2D03Fu,
+  AUDIO_PROXY_CHANNEL_OUT_6POINT1 = 0x13Fu,
+  AUDIO_PROXY_CHANNEL_OUT_7POINT1 = 0x63Fu,
+  AUDIO_PROXY_CHANNEL_OUT_7POINT1POINT2 = 0xC063Fu,
+  AUDIO_PROXY_CHANNEL_OUT_7POINT1POINT4 = 0x2D63Fu,
+  AUDIO_PROXY_CHANNEL_OUT_13POINT_360RA = 0x72F607u,
+  AUDIO_PROXY_CHANNEL_OUT_22POINT2 = 0xFFFFFFu,
+  AUDIO_PROXY_CHANNEL_OUT_MONO_HAPTIC_A = 0x20000001u,
+  AUDIO_PROXY_CHANNEL_OUT_STEREO_HAPTIC_A = 0x20000003u,
+  AUDIO_PROXY_CHANNEL_OUT_HAPTIC_AB = 0x30000000u,
+  AUDIO_PROXY_CHANNEL_OUT_MONO_HAPTIC_AB = 0x30000001u,
+  AUDIO_PROXY_CHANNEL_OUT_STEREO_HAPTIC_AB = 0x30000003u,
 };
 typedef uint32_t audio_proxy_channel_mask_t;
 
@@ -75,13 +107,21 @@ typedef int32_t audio_proxy_output_flags_t;
 
 // AudioConfig
 typedef struct {
+  int64_t buffer_size_bytes;
+  int32_t latency_ms;
+
+  // Points to extra fields defined in the future versions.
+  void* extension;
+} audio_proxy_config_v2_t;
+
+typedef struct {
   uint32_t sample_rate;
   audio_proxy_channel_mask_t channel_mask;
   audio_proxy_format_t format;
   uint32_t frame_count;
 
-  // Points to extra fields defined in the future versions.
-  void* extension;
+  // Points to extra fields.
+  audio_proxy_config_v2_t* v2;
 } audio_proxy_config_t;
 
 // Util structure for key value pair.
@@ -93,10 +133,32 @@ typedef struct {
 typedef void (*audio_proxy_get_parameters_callback_t)(
     void*, const audio_proxy_key_val_t*);
 
-// The following struct/functions mirror those definitions in audio HAL. They
-// should have the same requirement as audio HAL interfaces, unless specified.
+enum {
+  AUDIO_PROXY_MMAP_BUFFER_FLAG_NONE = 0x0,
+  AUDIO_PROXY_MMAP_BUFFER_FLAG_APPLICATION_SHAREABLE = 0x1,
+};
+typedef int32_t audio_proxy_mmap_buffer_flag_t;
+
+typedef struct {
+  int shared_memory_fd;
+  int32_t buffer_size_frames;
+  int32_t burst_size_frames;
+  audio_proxy_mmap_buffer_flag_t flags;
+} audio_proxy_mmap_buffer_info_t;
 
 // IStreamOut.
+struct audio_proxy_stream_out_v2 {
+  void (*start)(struct audio_proxy_stream_out_v2* stream);
+  void (*stop)(struct audio_proxy_stream_out_v2* stream);
+  audio_proxy_mmap_buffer_info_t (*create_mmap_buffer)(
+      struct audio_proxy_stream_out_v2* stream, int32_t min_buffer_size_frames);
+  void (*get_mmap_position)(struct audio_proxy_stream_out_v2* stream,
+                            int64_t* frames, struct timespec* timestamp);
+  // Pointer to the next version structure, for compatibility.
+  void* extension;
+};
+typedef struct audio_proxy_stream_out_v2 audio_proxy_stream_out_v2_t;
+
 struct audio_proxy_stream_out {
   size_t (*get_buffer_size)(const struct audio_proxy_stream_out* stream);
   uint64_t (*get_frame_count)(const struct audio_proxy_stream_out* stream);
@@ -191,8 +253,8 @@ struct audio_proxy_stream_out {
   // optional.
   int (*dump)(const struct audio_proxy_stream_out* stream, int fd);
 
-  // Pointer to the next version structure, for compatibility.
-  void* extension;
+  // Pointer to the next version structure.
+  audio_proxy_stream_out_v2_t* v2;
 };
 
 typedef struct audio_proxy_stream_out audio_proxy_stream_out_t;

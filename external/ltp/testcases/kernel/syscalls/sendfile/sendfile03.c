@@ -18,11 +18,7 @@
  * - out_fd opened with O_RDONLY
  */
 
-#include <stdio.h>
-#include <errno.h>
-#include <fcntl.h>
 #include <sys/sendfile.h>
-
 #include "tst_test.h"
 
 static int in_fd;
@@ -54,7 +50,7 @@ static void cleanup(void)
 
 static void run(unsigned int i)
 {
-	TST_EXP_FAIL(sendfile(*(tc[i].out_fd), *(tc[i].in_fd), NULL, 1),
+	TST_EXP_FAIL2(sendfile(*(tc[i].out_fd), *(tc[i].in_fd), NULL, 1),
 		     EBADF, "sendfile(..) with %s", tc[i].desc);
 }
 

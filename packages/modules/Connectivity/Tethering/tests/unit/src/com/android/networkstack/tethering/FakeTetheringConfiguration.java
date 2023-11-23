@@ -18,22 +18,27 @@ package com.android.networkstack.tethering;
 
 import android.content.Context;
 import android.content.res.Resources;
-import android.net.util.SharedLog;
+
+import androidx.annotation.NonNull;
+
+import com.android.net.module.util.SharedLog;
 
 /** FakeTetheringConfiguration is used to override static method for testing. */
 public class FakeTetheringConfiguration extends TetheringConfiguration {
     FakeTetheringConfiguration(Context ctx, SharedLog log, int id) {
-        super(ctx, log, id);
-    }
+        super(ctx, log, id, new Dependencies() {
+            @Override
+            boolean isFeatureEnabled(@NonNull Context context, @NonNull String namespace,
+                    @NonNull String name, @NonNull String moduleName, boolean defaultEnabled) {
+                return defaultEnabled;
+            }
 
-    @Override
-    protected String getDeviceConfigProperty(final String name) {
-        return null;
-    }
-
-    @Override
-    protected boolean isFeatureEnabled(Context ctx, String featureVersionFlag) {
-        return false;
+            @Override
+            boolean getDeviceConfigBoolean(@NonNull String namespace, @NonNull String name,
+                    boolean defaultValue) {
+                return defaultValue;
+            }
+        });
     }
 
     @Override

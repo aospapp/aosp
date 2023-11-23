@@ -33,7 +33,7 @@
 
 #include "gtest/gtest.h"
 
-namespace art {
+namespace art HIDDEN {
 
 // Return all combinations of ISA and code generator that are executable on
 // hardware, or on simulator, and that we'd like to test.
@@ -64,7 +64,7 @@ static ::std::vector<CodegenTargetConfig> GetTargetConfigs() {
   return v;
 }
 
-class CodegenTest : public OptimizingUnitTest {
+class CodegenTest : public CommonCompilerTest, public OptimizingUnitTestHelper {
  protected:
   void TestCode(const std::vector<uint16_t>& data, bool has_result = false, int32_t expected = 0);
   void TestCodeLong(const std::vector<uint16_t>& data, bool has_result, int64_t expected);

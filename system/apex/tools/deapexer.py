@@ -37,8 +37,8 @@ BLOCK_SIZE = 4096
 
 class ApexImageEntry(object):
 
-  def __init__(self, name, base_dir, permissions, size, ino, extents, is_directory=False,
-               is_symlink=False):
+  def __init__(self, name, base_dir, permissions, size, ino, extents,
+               is_directory, is_symlink, security_context):
     self._name = name
     self._base_dir = base_dir
     self._permissions = permissions
@@ -47,14 +47,24 @@ class ApexImageEntry(object):
     self._is_symlink = is_symlink
     self._ino = ino
     self._extents = extents
+    self._security_context = security_context
 
   @property
   def name(self):
     return self._name
 
   @property
+  def root(self):
+    return self._base_dir == './' and self._name == '.'
+
+  @property
   def full_path(self):
-    return os.path.join(self._base_dir, self._name)
+    if self.root:
+      return self._base_dir  # './'
+    path = os.path.join(self._base_dir, self._name)
+    if self.is_directory:
+      path += '/'
+    return path
 
   @property
   def is_directory(self):
@@ -83,6 +93,10 @@ class ApexImageEntry(object):
   @property
   def extents(self):
     return self._extents
+
+  @property
+  def security_context(self):
+    return self._security_context
 
   def __str__(self):
     ret = ''
@@ -132,6 +146,8 @@ class Apex(object):
 
   def __init__(self, args):
     self._debugfs = args.debugfs_path
+    self._fsckerofs = args.fsckerofs_path
+    self._blkid = args.blkid_path
     self._apex = args.apex
     self._tempdir = tempfile.mkdtemp()
     # TODO(b/139125405): support flattened APEXes.
@@ -199,16 +215,46 @@ class Apex(object):
         except:
           extents = [] # [] means that we failed to retrieve the file location successfully
 
-      entries.append(ApexImageEntry(name, base_dir=path, permissions=int(bits[3:], 8), size=size,
-                                    is_directory=is_directory, is_symlink=is_symlink, ino=ino,
-                                    extents=extents))
+      # get 'security.selinux' attribute
+      entry_path = os.path.join(path, name)
+      stdout = subprocess.check_output([
+        self._debugfs,
+        '-R',
+        f'ea_get -V {entry_path} security.selinux',
+        self._payload
+      ], text=True, stderr=subprocess.DEVNULL)
+      security_context = stdout.rstrip('\n\x00')
+
+      entries.append(ApexImageEntry(name,
+                                    base_dir=path,
+                                    permissions=int(bits[3:], 8),
+                                    size=size,
+                                    is_directory=is_directory,
+                                    is_symlink=is_symlink,
+                                    ino=ino,
+                                    extents=extents,
+                                    security_context=security_context))
 
     return ApexImageDirectory(path, entries, self)
 
   def _extract(self, path, dest):
-    process = subprocess.Popen([self._debugfs, '-R', 'rdump %s %s' % (path, dest), self._payload],
+    # get filesystem type
+    process = subprocess.Popen([self._blkid, '-o', 'value', '-s', 'TYPE', self._payload],
                                stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                                universal_newlines=True)
+    output, stderr = process.communicate()
+    if process.returncode != 0:
+      print(stderr, file=sys.stderr)
+
+    if output.rstrip() == 'erofs':
+      process = subprocess.Popen([self._fsckerofs, '--extract=%s' % (dest), '--overwrite', self._payload],
+                                 stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                                 universal_newlines=True)
+    else:
+      process = subprocess.Popen([self._debugfs, '-R', 'rdump %s %s' % (path, dest), self._payload],
+                                 stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                                 universal_newlines=True)
+
     _, stderr = process.communicate()
     if process.returncode != 0:
       print(stderr, file=sys.stderr)
@@ -226,14 +272,17 @@ def RunList(args):
 
   with Apex(args) as apex:
     for e in apex.list(is_recursive=True):
-      if e.is_directory:
-        continue
+      # dot(., ..) directories
+      if not e.root and e.name in ('.', '..'):
+          continue
       res = ''
       if args.size:
         res += e.size + ' '
       res += e.full_path
       if args.extents:
         res += ' [' + '-'.join(str(x) for x in e.extents) + ']'
+      if args.contexts:
+        res += ' ' + e.security_context
       print(res)
 
 
@@ -251,8 +300,8 @@ def RunExtract(args):
     if not os.path.exists(args.dest):
       os.makedirs(args.dest, mode=0o755)
     apex.extract(args.dest)
-    shutil.rmtree(os.path.join(args.dest, "lost+found"))
-
+    if os.path.isdir(os.path.join(args.dest, "lost+found")):
+      shutil.rmtree(os.path.join(args.dest, "lost+found"))
 
 class ApexType(enum.Enum):
   INVALID = 0
@@ -323,9 +372,15 @@ def main(argv):
   parser = argparse.ArgumentParser()
 
   debugfs_default = None
+  fsckerofs_default = None
+  blkid_default = None
   if 'ANDROID_HOST_OUT' in os.environ:
     debugfs_default = '%s/bin/debugfs_static' % os.environ['ANDROID_HOST_OUT']
+    fsckerofs_default = '%s/bin/fsck.erofs' % os.environ['ANDROID_HOST_OUT']
+    blkid_default = '%s/bin/blkid_static' % os.environ['ANDROID_HOST_OUT']
   parser.add_argument('--debugfs_path', help='The path to debugfs binary', default=debugfs_default)
+  parser.add_argument('--fsckerofs_path', help='The path to fsck.erofs binary', default=fsckerofs_default)
+  parser.add_argument('--blkid_path', help='The path to blkid binary', default=blkid_default)
 
   subparsers = parser.add_subparsers(required=True, dest='cmd')
 
@@ -333,6 +388,9 @@ def main(argv):
   parser_list.add_argument('apex', type=str, help='APEX file')
   parser_list.add_argument('--size', help='also show the size of the files', action="store_true")
   parser_list.add_argument('--extents', help='also show the location of the files', action="store_true")
+  parser_list.add_argument('-Z', '--contexts',
+                           help='also show the security context of the files',
+                           action='store_true')
   parser_list.set_defaults(func=RunList)
 
   parser_extract = subparsers.add_parser('extract', help='extracts content of an APEX to the given '
@@ -367,6 +425,27 @@ def main(argv):
     print('ANDROID_HOST_OUT environment variable is not defined, --debugfs_path must be set',
           file=sys.stderr)
     sys.exit(1)
+
+  if args.cmd == 'extract':
+    if not args.blkid_path:
+      print('ANDROID_HOST_OUT environment variable is not defined, --blkid_path must be set',
+            file=sys.stderr)
+      sys.exit(1)
+
+    if not os.path.isfile(args.blkid_path):
+      print(f'Cannot find blkid specified at {args.blkid_path}',
+            file=sys.stderr)
+      sys.exit(1)
+
+    if not args.fsckerofs_path:
+      print('ANDROID_HOST_OUT environment variable is not defined, --fsckerofs_path must be set',
+            file=sys.stderr)
+      sys.exit(1)
+
+    if not os.path.isfile(args.fsckerofs_path):
+      print(f'Cannot find fsck.erofs specified at {args.fsckerofs_path}',
+            file=sys.stderr)
+      sys.exit(1)
 
   args.func(args)
 

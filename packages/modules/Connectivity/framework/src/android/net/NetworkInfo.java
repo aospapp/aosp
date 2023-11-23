@@ -334,6 +334,24 @@ public class NetworkInfo implements Parcelable {
     }
 
     /**
+     * Indicates whether this network is suspended.
+     * @deprecated Apps should instead use the
+     *             {@link android.net.ConnectivityManager.NetworkCallback} API to
+     *             learn about connectivity changes. See
+     *             {@link ConnectivityManager#registerDefaultNetworkCallback} and
+     *             {@link ConnectivityManager#registerNetworkCallback}. These will
+     *             give a more accurate picture of the connectivity state of
+     *             the device and let apps react more easily and quickly to changes.
+     * @hide
+     */
+    @Deprecated
+    public boolean isSuspended() {
+        synchronized (this) {
+            return mState == State.SUSPENDED;
+        }
+    }
+
+    /**
      * Indicates whether network connectivity is possible. A network is unavailable
      * when a persistent or semi-persistent condition prevents the possibility
      * of connecting to that network. Examples include

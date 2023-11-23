@@ -21,7 +21,7 @@ GOOGLE_MAPS_PROCESS_NAME = 'com.google.android.apps.maps'
 MIN_NETSTATS_DATA_RECEIVED = 3
 
 function onProcessCpuTime(published_data, state)
-    local processNameArray = published_data['process_name']
+    local processNameArray = published_data['stats.process_name']
     local mapsIndex = indexOf(processNameArray, GOOGLE_MAPS_PROCESS_NAME)
     -- if there is no atom data for Google Maps process, return
     if mapsIndex == nil then
@@ -40,7 +40,7 @@ function onProcessCpuTime(published_data, state)
 end
 
 function onProcessMemory(published_data, state)
-    local processNameArray = published_data['process_name']
+    local processNameArray = published_data['stats.process_name']
     local mapsIndex = indexOf(processNameArray, GOOGLE_MAPS_PROCESS_NAME)
     -- if there is no atom data for Google Maps process, return
     if mapsIndex == nil then
@@ -74,12 +74,12 @@ end
 -- See ConnectivityPublisher for the data schema.
 function onWifiNetstatsForTopConsumers(data, state)
     local sortedTable = {}
-    for i = 1, data.size do
-        local totalBytes = data.rxBytes[i] + data.txBytes[i]
+    for i = 1, data['conn.size'] do
+        local totalBytes = data['conn.rxBytes'][i] + data['conn.txBytes'][i]
         table.insert(sortedTable, {
             ["totalBytes"] = totalBytes,
-            ["uid"] = data.uid[i],
-            ["packages"] = data.packages[i],
+            ["uid"] = data['conn.uid'][i],
+            ["packages"] = data['conn.packages'][i],
         })
     end
     -- Reverse sort by totalBytes
@@ -87,7 +87,7 @@ function onWifiNetstatsForTopConsumers(data, state)
             return a.totalBytes > b.totalBytes
         end)
     local lines = {}
-    for i = 1, math.min(5, data.size) do
+    for i = 1, math.min(5, data['conn.size']) do
         table.insert(lines, "{" ..
             "totalBytes=" .. sortedTable[i].totalBytes ..
             " uid=" .. sortedTable[i].uid ..
@@ -95,5 +95,8 @@ function onWifiNetstatsForTopConsumers(data, state)
             "}")
     end
     local resultStr = table.concat(lines, ", ")
-    on_script_finished({["top_data_usage"] = resultStr})
+    local res = {}
+    res["top_data_usage"] = resultStr
+    res["bootCount"] = data["session.bootCount"]
+    on_script_finished(res)
 end

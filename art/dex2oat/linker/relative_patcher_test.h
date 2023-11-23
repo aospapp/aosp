@@ -24,9 +24,9 @@
 #include "base/array_ref.h"
 #include "base/globals.h"
 #include "base/macros.h"
-#include "compiled_method-inl.h"
 #include "dex/method_reference.h"
 #include "dex/string_reference.h"
+#include "driver/compiled_method-inl.h"
 #include "driver/compiled_method_storage.h"
 #include "linker/relative_patcher.h"
 #include "oat_quick_method_header.h"
@@ -132,7 +132,7 @@ class RelativePatcherTest : public testing::Test {
       offset += alignment_size;
 
       offset += sizeof(OatQuickMethodHeader);
-      uint32_t quick_code_offset = offset + compiled_method->CodeDelta();
+      uint32_t quick_code_offset = offset + compiled_method->GetEntryPointAdjustment();
       const auto code = compiled_method->GetQuickCode();
       offset += code.size();
 
@@ -172,7 +172,8 @@ class RelativePatcherTest : public testing::Test {
           if (patch.GetType() == LinkerPatch::Type::kCallRelative) {
             auto result = method_offset_map_.FindMethodOffset(patch.TargetMethod());
             uint32_t target_offset =
-                result.first ? result.second : kTrampolineOffset + compiled_method->CodeDelta();
+                result.first ? result.second
+                             : kTrampolineOffset + compiled_method->GetEntryPointAdjustment();
             patcher_->PatchCall(&patched_code_,
                                 patch.LiteralOffset(),
                                 offset + patch.LiteralOffset(),
@@ -227,7 +228,7 @@ class RelativePatcherTest : public testing::Test {
 
     auto result = method_offset_map_.FindMethodOffset(method_ref);
     CHECK(result.first);  // Must have been linked.
-    size_t offset = result.second - compiled_methods_[idx]->CodeDelta();
+    size_t offset = result.second - compiled_methods_[idx]->GetEntryPointAdjustment();
     CHECK_LT(offset, output_.size());
     CHECK_LE(offset + expected_code.size(), output_.size());
     ArrayRef<const uint8_t> linked_code(&output_[offset], expected_code.size());

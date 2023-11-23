@@ -7,5 +7,6 @@
   "dependencies": true,
   "device": true,
   "run": true,
-  "tests": true
+  "tests": true,
+  "vendor-available": true
 }

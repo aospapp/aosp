@@ -16,6 +16,7 @@
 
 package dagger.hilt.processor.internal.aliasof;
 
+import com.google.common.collect.ImmutableList;
 import com.squareup.javapoet.AnnotationSpec;
 import dagger.hilt.processor.internal.ClassNames;
 import dagger.hilt.processor.internal.Processors;
@@ -28,26 +29,32 @@ final class AliasOfPropagatedDataGenerator {
 
   private final ProcessingEnvironment processingEnv;
   private final TypeElement aliasScope;
-  private final TypeElement defineComponentScope;
+  private final ImmutableList<TypeElement> defineComponentScopes;
 
   AliasOfPropagatedDataGenerator(
       ProcessingEnvironment processingEnv,
       TypeElement aliasScope,
-      TypeElement defineComponentScope) {
+      ImmutableList<TypeElement> defineComponentScopes) {
     this.processingEnv = processingEnv;
     this.aliasScope = aliasScope;
-    this.defineComponentScope = defineComponentScope;
+    this.defineComponentScopes = defineComponentScopes;
   }
 
   void generate() throws IOException {
     Processors.generateAggregatingClass(
         ClassNames.ALIAS_OF_PROPAGATED_DATA_PACKAGE,
-        AnnotationSpec.builder(ClassNames.ALIAS_OF_PROPAGATED_DATA)
-                    .addMember("defineComponentScope", "$T.class", defineComponentScope)
-                    .addMember("alias", "$T.class", aliasScope)
-                    .build(),
+        propagatedDataAnnotation(),
         aliasScope,
         getClass(),
         processingEnv);
+  }
+
+  private AnnotationSpec propagatedDataAnnotation() {
+    AnnotationSpec.Builder builder = AnnotationSpec.builder(ClassNames.ALIAS_OF_PROPAGATED_DATA);
+    for (TypeElement defineComponentScope : defineComponentScopes) {
+      builder.addMember("defineComponentScopes", "$T.class", defineComponentScope);
+    }
+    builder.addMember("alias", "$T.class", aliasScope);
+    return builder.build();
   }
 }

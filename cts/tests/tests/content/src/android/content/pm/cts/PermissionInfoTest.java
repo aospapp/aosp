@@ -24,9 +24,15 @@ import android.os.Parcel;
 import android.platform.test.annotations.AppModeFull;
 import android.test.AndroidTestCase;
 
+import java.util.Collections;
+import java.util.Set;
+
 @AppModeFull // TODO(Instant) Figure out which APIs should work.
 public class PermissionInfoTest extends AndroidTestCase {
     private static final String PERMISSION_NAME = "android.permission.INTERNET";
+    private static final Set<String> TEST_CERTS = Collections.singleton(
+        "1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF1234567890ABCDEF"
+    );
     private static final String DEFAULT_DISCPRIPTION = "Allows the app to create network sockets "
             + "and use custom network protocols. The browser and other applications provide means "
             + "to send data to the internet, so this permission is not required to send data to "
@@ -38,6 +44,7 @@ public class PermissionInfoTest extends AndroidTestCase {
         // Test constructors
         new PermissionInfo();
         PermissionInfo permissionInfo = pm.getPermissionInfo(PERMISSION_NAME, 0);
+        permissionInfo.knownCerts = TEST_CERTS;
         PermissionInfo infoFromExisted = new PermissionInfo(permissionInfo);
         checkInfoSame(permissionInfo, infoFromExisted);
 
@@ -59,5 +66,6 @@ public class PermissionInfoTest extends AndroidTestCase {
         assertEquals(expected.descriptionRes, actual.descriptionRes);
         assertEquals(expected.protectionLevel, actual.protectionLevel);
         assertEquals(expected.nonLocalizedDescription, actual.nonLocalizedDescription);
+        assertEquals(expected.knownCerts, actual.knownCerts);
     }
 }

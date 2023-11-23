@@ -312,18 +312,17 @@ class EMBenchmarkHelper {
       add_inputs_[0] = TensorValue(&gpu_inputs_[0]);
       add_inputs_[1] = TensorValue(&gpu_inputs_[1]);
     }
-    params->inputs = &add_inputs_;
-    params->input_alloc_attrs = nullptr;
+    params->inputs = add_inputs_;
     SetOutputAttrs(params, &allocator_attrs_);
   }
 
   struct TimeSet {
     int iter = 0;
-    int64 start = 0;
-    int64 copy_done = 0;
-    int64 compute_done = 0;
-    int64 final_copy = 0;
-    int64 all_done = 0;
+    int64_t start = 0;
+    int64_t copy_done = 0;
+    int64_t compute_done = 0;
+    int64_t final_copy = 0;
+    int64_t all_done = 0;
   };
 
   // Display sampled iteration times giving the approximate breakdown

@@ -59,7 +59,7 @@ namespace {
 // StepId must leave the most-significant 7 bits empty for future use.
 static const int64_t kStepIdMask = (((1uLL << 56) - 1) | (1uLL << 56));
 
-int64 NewRandomStepId() {
+int64_t NewRandomStepId() {
   int64_t step_id = random::New64();
   // Leave MS 8 bits clear for future use.
   step_id &= kStepIdMask;
@@ -80,7 +80,7 @@ void RpcCollectiveExecutorMgr::RefreshStepIdSequenceAsync(
       gks = it->second;
     }
     gks->next_step_id_ = NewRandomStepId();
-    done(Status::OK());
+    done(OkStatus());
   } else {
     WorkerInterface* wi = worker_cache_->GetOrCreateWorker(group_leader_);
     GetStepSequenceRequest* req = new GetStepSequenceRequest;
@@ -124,7 +124,7 @@ void RpcCollectiveExecutorMgr::GetStepSequenceAsync(
       ss->set_graph_key(graph_key);
       ss->set_next_step_id(gks->next_step_id_);
     }
-    done(Status::OK());
+    done(OkStatus());
   }
 }
 
@@ -142,10 +142,10 @@ Status RpcCollectiveExecutorMgr::UpdateStepSequences(
     }
     gks->next_step_id_ = ss.next_step_id();
   }
-  return Status::OK();
+  return OkStatus();
 }
 
-int64 RpcCollectiveExecutorMgr::NextStepId(int64_t graph_key) {
+int64_t RpcCollectiveExecutorMgr::NextStepId(int64_t graph_key) {
   mutex_lock l(sequence_mu_);
   auto it = sequence_table_.find(graph_key);
   if (it != sequence_table_.end()) {
@@ -173,11 +173,11 @@ std::unique_ptr<RpcCollectiveExecutorMgr> CreateProdRpcCollectiveExecutorMgr(
     const ConfigProto& config, const DeviceMgr* device_mgr,
     std::unique_ptr<NcclCommunicatorInterface> nccl_communicator,
     WorkerCacheInterface* worker_cache, const string& default_worker_name) {
-  auto dev_resolver = absl::make_unique<DeviceResolverDistributed>(device_mgr);
-  auto param_resolver = absl::make_unique<CollectiveParamResolverDistributed>(
+  auto dev_resolver = std::make_unique<DeviceResolverDistributed>(device_mgr);
+  auto param_resolver = std::make_unique<CollectiveParamResolverDistributed>(
       config, device_mgr, dev_resolver.get(), nccl_communicator.get(),
       worker_cache, default_worker_name);
-  return absl::make_unique<RpcCollectiveExecutorMgr>(
+  return std::make_unique<RpcCollectiveExecutorMgr>(
       config, device_mgr, std::move(dev_resolver), std::move(param_resolver),
       std::move(nccl_communicator), worker_cache, default_worker_name);
 }

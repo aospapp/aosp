@@ -18,6 +18,8 @@
 
 #define LOG_TAG "bta_ag_cmd"
 
+#include <base/logging.h>
+
 #include <cstdint>
 #include <cstring>
 
@@ -25,13 +27,19 @@
 #include "bta/ag/bta_ag_int.h"
 #include "bta/include/bta_ag_api.h"
 #include "bta/include/utl.h"
+
+#ifdef __ANDROID__
+#include "bta/le_audio/devices.h"
+#endif
+
 #include "device/include/interop.h"
+#include "os/system_properties.h"
 #include "osi/include/compat.h"
 #include "osi/include/log.h"
 #include "osi/include/osi.h"  // UNUSED_ATTR
+#include "osi/include/properties.h"
+#include "stack/btm/btm_sco_hfp_hal.h"
 #include "stack/include/port_api.h"
-
-#include <base/logging.h>
 
 /*****************************************************************************
  *  Constants
@@ -379,7 +387,6 @@ static bool bta_ag_parse_cmer(char* p_s, char* p_end, bool* p_enabled) {
 
     /* get integer value */
     if (p > p_end) {
-      android_errorWriteLog(0x534e4554, "112860487");
       return false;
     }
     *p = 0;
@@ -453,7 +460,6 @@ static tBTA_AG_PEER_CODEC bta_ag_parse_bac(tBTA_AG_SCB* p_scb, char* p_s,
 
     /* get integer value */
     if (p > p_end) {
-      android_errorWriteLog(0x534e4554, "112860487");
       break;
     }
     bool cont = false;  // Continue processing
@@ -468,6 +474,9 @@ static tBTA_AG_PEER_CODEC bta_ag_parse_bac(tBTA_AG_SCB* p_scb, char* p_s,
         break;
       case UUID_CODEC_MSBC:
         retval |= BTM_SCO_CODEC_MSBC;
+        break;
+      case UUID_CODEC_LC3:
+        retval |= BTM_SCO_CODEC_LC3;
         break;
       default:
         APPL_TRACE_ERROR("Unknown Codec UUID(%d) received", uuid_codec);
@@ -595,7 +604,6 @@ void bta_ag_at_hsp_cback(tBTA_AG_SCB* p_scb, uint16_t command_id,
   if ((p_end - p_arg + 1) >= (long)sizeof(val.str)) {
     APPL_TRACE_ERROR("%s: p_arg is too long, send error and return", __func__);
     bta_ag_send_error(p_scb, BTA_AG_ERR_TEXT_TOO_LONG);
-    android_errorWriteLog(0x534e4554, "112860487");
     return;
   }
   strlcpy(val.str, p_arg, sizeof(val.str));
@@ -763,7 +771,7 @@ static void bta_ag_bind_response(tBTA_AG_SCB* p_scb, uint8_t arg_type) {
 
     bta_ag_send_ok(p_scb);
 
-    /* If the service level connection wan't already open, now it's open */
+    /* If the service level connection wasn't already open, now it's open */
     if (!p_scb->svc_conn) {
       bta_ag_svc_conn_open(p_scb, tBTA_AG_DATA::kEmpty);
     }
@@ -872,7 +880,6 @@ void bta_ag_at_hfp_cback(tBTA_AG_SCB* p_scb, uint16_t cmd, uint8_t arg_type,
   if ((p_end - p_arg + 1) >= (long)sizeof(val.str)) {
     LOG_ERROR("p_arg is too long for cmd 0x%x, send error and return", cmd);
     bta_ag_send_error(p_scb, BTA_AG_ERR_TEXT_TOO_LONG);
-    android_errorWriteLog(0x534e4554, "112860487");
     return;
   }
   strlcpy(val.str, p_arg, sizeof(val.str));
@@ -1251,11 +1258,16 @@ void bta_ag_at_hfp_cback(tBTA_AG_SCB* p_scb, uint16_t cmd, uint8_t arg_type,
         p_scb->peer_codecs = bta_ag_parse_bac(p_scb, p_arg, p_end);
         p_scb->codec_updated = true;
 
-        if (p_scb->peer_codecs & BTM_SCO_CODEC_MSBC) {
-          p_scb->sco_codec = UUID_CODEC_MSBC;
+        bool swb_supported = hfp_hal_interface::get_swb_supported();
+
+        if ((p_scb->peer_codecs & BTM_SCO_CODEC_LC3) && swb_supported) {
+          p_scb->sco_codec = BTM_SCO_CODEC_LC3;
+          APPL_TRACE_DEBUG("Received AT+BAC, updating sco codec to LC3");
+        } else if (p_scb->peer_codecs & BTM_SCO_CODEC_MSBC) {
+          p_scb->sco_codec = BTM_SCO_CODEC_MSBC;
           APPL_TRACE_DEBUG("Received AT+BAC, updating sco codec to MSBC");
         } else {
-          p_scb->sco_codec = UUID_CODEC_CVSD;
+          p_scb->sco_codec = BTM_SCO_CODEC_CVSD;
           APPL_TRACE_DEBUG("Received AT+BAC, updating sco codec to CVSD");
         }
         /* The above logic sets the stack preferred codec based on local and
@@ -1289,6 +1301,9 @@ void bta_ag_at_hfp_cback(tBTA_AG_SCB* p_scb, uint16_t cmd, uint8_t arg_type,
         case UUID_CODEC_MSBC:
           codec_type = BTM_SCO_CODEC_MSBC;
           break;
+        case UUID_CODEC_LC3:
+          codec_type = BTM_SCO_CODEC_LC3;
+          break;
         default:
           APPL_TRACE_ERROR("Unknown codec_uuid %d", int_arg);
           codec_type = 0xFFFF;
@@ -1308,11 +1323,18 @@ void bta_ag_at_hfp_cback(tBTA_AG_SCB* p_scb, uint16_t cmd, uint8_t arg_type,
     }
     case BTA_AG_LOCAL_EVT_BCC: {
       if (!bta_ag_sco_is_active_device(p_scb->peer_addr)) {
-        LOG(WARNING) << __func__ << ": AT+BCC rejected as " << p_scb->peer_addr
-                     << " is not the active device";
+        LOG_WARN(
+            "NOT opening SCO for EVT %s as %s is not the active HFP device",
+            "BTA_AG_LOCAL_EVT_BCC",
+            p_scb->peer_addr.ToStringForLogging().c_str());
         bta_ag_send_error(p_scb, BTA_AG_ERR_OP_NOT_ALLOWED);
         break;
       }
+      if (!bta_ag_is_sco_open_allowed(p_scb, "BTA_AG_LOCAL_EVT_BCC")) {
+        bta_ag_send_error(p_scb, BTA_AG_ERR_OP_NOT_ALLOWED);
+        break;
+      }
+
       bta_ag_send_ok(p_scb);
       bta_ag_sco_open(p_scb, tBTA_AG_DATA::kEmpty);
       break;
@@ -1395,6 +1417,11 @@ static void bta_ag_hsp_result(tBTA_AG_SCB* p_scb,
         } else {
           p_scb->post_sco = BTA_AG_POST_SCO_RING;
         }
+
+        if (!bta_ag_is_sco_open_allowed(p_scb,
+                                        bta_ag_result_text(result.result))) {
+          break;
+        }
         bta_ag_sco_open(p_scb, tBTA_AG_DATA::kEmpty);
       }
       break;
@@ -1410,6 +1437,10 @@ static void bta_ag_hsp_result(tBTA_AG_SCB* p_scb,
         /* if audio connected to this scb AND sco is not opened, open sco */
         if (result.data.audio_handle == bta_ag_scb_to_idx(p_scb) &&
             !bta_ag_sco_is_open(p_scb)) {
+          if (!bta_ag_is_sco_open_allowed(p_scb,
+                                          bta_ag_result_text(result.result))) {
+            break;
+          }
           bta_ag_sco_open(p_scb, tBTA_AG_DATA::kEmpty);
         } else if (result.data.audio_handle == BTA_AG_HANDLE_NONE &&
                    bta_ag_sco_is_open(p_scb)) {
@@ -1499,6 +1530,11 @@ static void bta_ag_hfp_result(tBTA_AG_SCB* p_scb,
         } else {
           /* else open sco, send ring after sco opened */
           p_scb->post_sco = BTA_AG_POST_SCO_RING;
+
+          if (!bta_ag_is_sco_open_allowed(p_scb,
+                                          bta_ag_result_text(result.result))) {
+            break;
+          }
           bta_ag_sco_open(p_scb, tBTA_AG_DATA::kEmpty);
         }
       }
@@ -1515,6 +1551,10 @@ static void bta_ag_hfp_result(tBTA_AG_SCB* p_scb,
       if (!(p_scb->features & BTA_AG_FEAT_NOSCO)) {
         if (result.data.audio_handle == bta_ag_scb_to_idx(p_scb) &&
             !bta_ag_sco_is_open(p_scb)) {
+          if (!bta_ag_is_sco_open_allowed(p_scb,
+                                          bta_ag_result_text(result.result))) {
+            break;
+          }
           bta_ag_sco_open(p_scb, tBTA_AG_DATA::kEmpty);
         } else if ((result.data.audio_handle == BTA_AG_HANDLE_NONE) &&
                    bta_ag_sco_is_open(p_scb)) {
@@ -1534,6 +1574,10 @@ static void bta_ag_hfp_result(tBTA_AG_SCB* p_scb,
       bta_ag_send_call_inds(p_scb, result.result);
       if (result.data.audio_handle == bta_ag_scb_to_idx(p_scb) &&
           !(p_scb->features & BTA_AG_FEAT_NOSCO)) {
+        if (!bta_ag_is_sco_open_allowed(p_scb,
+                                        bta_ag_result_text(result.result))) {
+          break;
+        }
         bta_ag_sco_open(p_scb, tBTA_AG_DATA::kEmpty);
       }
       break;
@@ -1543,6 +1587,10 @@ static void bta_ag_hfp_result(tBTA_AG_SCB* p_scb,
       bta_ag_send_call_inds(p_scb, result.result);
       if (result.data.audio_handle == bta_ag_scb_to_idx(p_scb) &&
           !(p_scb->features & BTA_AG_FEAT_NOSCO)) {
+        if (!bta_ag_is_sco_open_allowed(p_scb,
+                                        bta_ag_result_text(result.result))) {
+          break;
+        }
         bta_ag_sco_open(p_scb, tBTA_AG_DATA::kEmpty);
       }
       break;
@@ -1552,6 +1600,10 @@ static void bta_ag_hfp_result(tBTA_AG_SCB* p_scb,
       APPL_TRACE_DEBUG("Headset Connected in three way call");
       if (!(p_scb->features & BTA_AG_FEAT_NOSCO)) {
         if (result.data.audio_handle == bta_ag_scb_to_idx(p_scb)) {
+          if (!bta_ag_is_sco_open_allowed(p_scb,
+                                          bta_ag_result_text(result.result))) {
+            break;
+          }
           bta_ag_sco_open(p_scb, tBTA_AG_DATA::kEmpty);
         } else if (result.data.audio_handle == BTA_AG_HANDLE_NONE) {
           bta_ag_sco_close(p_scb, tBTA_AG_DATA::kEmpty);
@@ -1566,6 +1618,10 @@ static void bta_ag_hfp_result(tBTA_AG_SCB* p_scb,
       /* open or close sco */
       if (!(p_scb->features & BTA_AG_FEAT_NOSCO)) {
         if (result.data.audio_handle == bta_ag_scb_to_idx(p_scb)) {
+          if (!bta_ag_is_sco_open_allowed(p_scb,
+                                          bta_ag_result_text(result.result))) {
+            break;
+          }
           bta_ag_sco_open(p_scb, tBTA_AG_DATA::kEmpty);
         } else if (result.data.audio_handle == BTA_AG_HANDLE_NONE) {
           bta_ag_sco_close(p_scb, tBTA_AG_DATA::kEmpty);
@@ -1778,6 +1834,9 @@ void bta_ag_send_bcs(tBTA_AG_SCB* p_scb) {
       case BTM_SCO_CODEC_MSBC:
         codec_uuid = UUID_CODEC_MSBC;
         break;
+      case BTM_SCO_CODEC_LC3:
+        codec_uuid = UUID_CODEC_LC3;
+        break;
       default:
         APPL_TRACE_ERROR("bta_ag_send_bcs: unknown codec %d, use CVSD",
                          p_scb->sco_codec);
@@ -1789,6 +1848,34 @@ void bta_ag_send_bcs(tBTA_AG_SCB* p_scb) {
   /* send +BCS */
   APPL_TRACE_DEBUG("send +BCS codec is %d", codec_uuid);
   bta_ag_send_result(p_scb, BTA_AG_LOCAL_RES_BCS, nullptr, codec_uuid);
+}
+
+/*******************************************************************************
+ *
+ * Function         bta_ag_is_sco_open_allowed
+ *
+ * Description      Check if we can open SCO from the BT stack
+ *
+ * Returns          true if we can, false if not
+ *
+ ******************************************************************************/
+bool bta_ag_is_sco_open_allowed(tBTA_AG_SCB* p_scb, const std::string event) {
+#ifdef __ANDROID__
+  /* Do not open SCO if 1. the dual mode audio system property is enabled,
+  2. LEA is active, and 3. LEA is preferred for DUPLEX */
+  if (bluetooth::os::GetSystemPropertyBool(
+          bluetooth::os::kIsDualModeAudioEnabledProperty, false)) {
+    if (LeAudioClient::Get()->isDuplexPreferenceLeAudio(p_scb->peer_addr)) {
+      LOG_INFO("NOT opening SCO for EVT %s on dual mode device %s",
+               event.c_str(), p_scb->peer_addr.ToStringForLogging().c_str());
+      return false;
+    } else {
+      LOG_INFO("Opening SCO for EVT %s on dual mode device %s", event.c_str(),
+               p_scb->peer_addr.ToStringForLogging().c_str());
+    }
+  }
+#endif
+  return true;
 }
 
 /*******************************************************************************

@@ -20,6 +20,8 @@ import static android.content.pm.PackageManager.PERMISSION_GRANTED;
 
 import static com.android.bedstead.nene.permissions.CommonPermissions.MANAGE_APP_OPS_MODES;
 
+import static com.google.common.truth.Truth.assertWithMessage;
+
 import android.app.AppOpsManager;
 import android.app.UiAutomation;
 import android.content.Context;
@@ -34,6 +36,7 @@ import com.android.bedstead.nene.exceptions.NeneException;
 import com.android.bedstead.nene.packages.Package;
 import com.android.bedstead.nene.users.UserReference;
 import com.android.bedstead.nene.utils.ShellCommandUtils;
+import com.android.bedstead.nene.utils.UndoableContext;
 import com.android.bedstead.nene.utils.Versions;
 
 import com.google.common.collect.ImmutableSet;
@@ -82,23 +85,35 @@ public final class Permissions {
     private final Set<String> mInstrumentedRequestedPermissions;
     private Set<String> mExistingPermissions;
 
+    public static UndoableContext ignoringPermissions() {
+        boolean original = Permissions.sIgnorePermissions.get();
+        Permissions.sIgnorePermissions.set(true);
+
+        if (SUPPORTS_ADOPT_SHELL_PERMISSIONS) {
+            ShellCommandUtils.uiAutomation()
+                    .adoptShellPermissionIdentity();
+        }
+
+        return new UndoableContext(() -> {
+            if (SUPPORTS_ADOPT_SHELL_PERMISSIONS) {
+                ShellCommandUtils.uiAutomation().dropShellPermissionIdentity();
+            }
+            Permissions.sIgnorePermissions.set(original);
+        });
+    }
+
     private Permissions() {
         // Packages requires using INTERACT_ACROSS_USERS_FULL but we don't want it to rely on
         // Permissions or it'll recurse forever - so we disable permission checks and just use
         // shell permission adoption directly while initialising
-        sIgnorePermissions.set(true);
-        if (SUPPORTS_ADOPT_SHELL_PERMISSIONS) {
-            ShellCommandUtils.uiAutomation()
-                    .adoptShellPermissionIdentity();
-            mShellPermissions = sShellPackage.requestedPermissions();
-        } else {
-            mShellPermissions = new HashSet<>();
+        try (UndoableContext c = ignoringPermissions()) {
+            if (SUPPORTS_ADOPT_SHELL_PERMISSIONS) {
+                mShellPermissions = sShellPackage.requestedPermissions();
+            } else {
+                mShellPermissions = new HashSet<>();
+            }
+            mInstrumentedRequestedPermissions = sInstrumentedPackage.requestedPermissions();
         }
-        mInstrumentedRequestedPermissions = sInstrumentedPackage.requestedPermissions();
-        if (SUPPORTS_ADOPT_SHELL_PERMISSIONS) {
-            ShellCommandUtils.uiAutomation().dropShellPermissionIdentity();
-        }
-        sIgnorePermissions.set(false);
     }
 
     /**
@@ -595,17 +610,21 @@ public final class Permissions {
             Log.e(LOG_TAG, "Permission not found", e);
         }
 
-        throw new NeneException(message + "\n\nRunning On User: " + sUser
-                + "\nPermission: " + permission
-                + "\nPermission protection level: " + protectionLevel
-                + "\nPermission state: " + sContext.checkSelfPermission(permission)
-                + "\nInstrumented Package: " + sInstrumentedPackage.packageName()
-                + "\n\nRequested Permissions:\n"
-                + sInstrumentedPackage.requestedPermissions()
-                + "\n\nCan adopt shell permissions: " + SUPPORTS_ADOPT_SHELL_PERMISSIONS
-                + "\nShell permissions:"
-                + mShellPermissions
-                + "\nExempt Shell permissions: " + EXEMPT_SHELL_PERMISSIONS);
+
+
+        try (UndoableContext c = ignoringPermissions()){
+            throw new NeneException(message + "\n\nRunning On User: " + sUser
+                    + "\nPermission: " + permission
+                    + "\nPermission protection level: " + protectionLevel
+                    + "\nPermission state: " + sContext.checkSelfPermission(permission)
+                    + "\nInstrumented Package: " + sInstrumentedPackage.packageName()
+                    + "\n\nRequested Permissions:\n"
+                    + sInstrumentedPackage.requestedPermissions()
+                    + "\n\nCan adopt shell permissions: " + SUPPORTS_ADOPT_SHELL_PERMISSIONS
+                    + "\nShell permissions:"
+                    + mShellPermissions
+                    + "\nExempt Shell permissions: " + EXEMPT_SHELL_PERMISSIONS);
+        }
     }
 
     void clearPermissions() {

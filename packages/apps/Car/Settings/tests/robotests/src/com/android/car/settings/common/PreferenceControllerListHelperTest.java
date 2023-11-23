@@ -80,4 +80,33 @@ public class PreferenceControllerListHelperTest {
                         R.xml.preference_controller_list_helper_fail_missing_key,
                         mock(FragmentController.class), UX_RESTRICTIONS));
     }
+
+    @Test
+    public void getControllers_returns_zoneAvailabilityList() {
+        List<Integer> validAvailabilities = Arrays.asList(
+                PreferenceController.AVAILABLE, PreferenceController.CONDITIONALLY_UNAVAILABLE);
+        List<PreferenceController> controllers =
+                PreferenceControllerListHelper.getPreferenceControllersFromXml(
+                        RuntimeEnvironment.application,
+                        R.xml.preference_controller_list_helper_success_occupants,
+                        mock(FragmentController.class),
+                        UX_RESTRICTIONS);
+
+        assertThat(controllers).hasSize(validAvailabilities.size());
+        List<Integer> foundAvailabilities = new ArrayList<>();
+        for (PreferenceController controller : controllers) {
+            assertThat(controller).isInstanceOf(DefaultRestrictionsPreferenceController.class);
+            foundAvailabilities.add(controller.getAvailabilityStatus());
+        }
+        assertThat(foundAvailabilities).containsAtLeastElementsIn(validAvailabilities);
+    }
+
+    @Test
+    public void getControllers_invalidZoneAvailiabilityStatus_throwsIllegalArgumentException() {
+        assertThrows(IllegalArgumentException.class,
+                () -> PreferenceControllerListHelper.getPreferenceControllersFromXml(
+                        RuntimeEnvironment.application,
+                        R.xml.preference_controller_list_helper_fail_invalid_occupants,
+                        mock(FragmentController.class), UX_RESTRICTIONS));
+    }
 }

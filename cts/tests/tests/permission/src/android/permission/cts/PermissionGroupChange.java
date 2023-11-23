@@ -31,15 +31,17 @@ import android.content.Intent;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.content.res.Resources;
+import android.os.Build;
 import android.platform.test.annotations.AppModeFull;
 import android.platform.test.annotations.AsbSecurityTest;
-import android.support.test.uiautomator.By;
-import android.support.test.uiautomator.UiDevice;
-import android.support.test.uiautomator.UiScrollable;
-import android.support.test.uiautomator.UiSelector;
 import android.widget.ScrollView;
 
 import androidx.test.InstrumentationRegistry;
+import androidx.test.filters.SdkSuppress;
+import androidx.test.uiautomator.By;
+import androidx.test.uiautomator.UiDevice;
+import androidx.test.uiautomator.UiScrollable;
+import androidx.test.uiautomator.UiSelector;
 
 import com.android.compatibility.common.util.SystemUtil;
 
@@ -50,6 +52,7 @@ import org.junit.Test;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
 
+@SdkSuppress(minSdkVersion = Build.VERSION_CODES.UPSIDE_DOWN_CAKE, codeName = "UpsideDownCake")
 public class PermissionGroupChange {
     private static final String APP_PKG_NAME = "android.permission.cts.appthatrequestpermission";
     private static final long EXPECTED_BEHAVIOR_TIMEOUT_SEC = 15;
@@ -66,7 +69,8 @@ public class PermissionGroupChange {
     }
 
     @Before
-    public void wakeUpScreen() {
+    public void uninstallAndWakeUpScreen() {
+        runShellCommand("pm uninstall " + APP_PKG_NAME);
         SystemUtil.runShellCommand("input keyevent KEYCODE_WAKEUP");
     }
 

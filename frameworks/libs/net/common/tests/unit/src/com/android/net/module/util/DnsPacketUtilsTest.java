@@ -18,12 +18,20 @@ package com.android.net.module.util;
 
 import static com.android.net.module.util.DnsPacketUtils.DnsRecordParser;
 
+import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertThrows;
+
+import android.net.ParseException;
+import android.os.Build;
 
 import androidx.test.filters.SmallTest;
 import androidx.test.runner.AndroidJUnit4;
 
+import com.android.testutils.DevSdkIgnoreRule;
+
+import org.junit.Assert;
+import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 
@@ -32,6 +40,8 @@ import java.nio.ByteBuffer;
 @RunWith(AndroidJUnit4.class)
 @SmallTest
 public class DnsPacketUtilsTest {
+    @Rule
+    public final DevSdkIgnoreRule mIgnoreRule = new DevSdkIgnoreRule();
 
     /**
      * Verifies that the compressed NAME field in the answer section of the DNS message is parsed
@@ -115,5 +125,32 @@ public class DnsPacketUtilsTest {
         domainName = DnsRecordParser.parseName(
                 notNameCompressedBuf, /* depth= */ 0, /* isNameCompressionSupported= */ false);
         assertEquals(domainName, "www.google.com");
+    }
+
+    // Skip test on R- devices since ParseException only available on S+ devices.
+    @DevSdkIgnoreRule.IgnoreUpTo(Build.VERSION_CODES.R)
+    @Test
+    public void testDomainNameToLabels() throws Exception {
+        assertArrayEquals(
+                new byte[]{3, 'w', 'w', 'w', 6, 'g', 'o', 'o', 'g', 'l', 'e', 3, 'c', 'o', 'm', 0},
+                DnsRecordParser.domainNameToLabels("www.google.com"));
+        assertThrows(ParseException.class, () ->
+                DnsRecordParser.domainNameToLabels("aaa."));
+        assertThrows(ParseException.class, () ->
+                DnsRecordParser.domainNameToLabels("aaa"));
+        assertThrows(ParseException.class, () ->
+                DnsRecordParser.domainNameToLabels("."));
+        assertThrows(ParseException.class, () ->
+                DnsRecordParser.domainNameToLabels(""));
+    }
+
+    @Test
+    public void testIsHostName() {
+        Assert.assertTrue(DnsRecordParser.isHostName("www.google.com"));
+        Assert.assertFalse(DnsRecordParser.isHostName("com"));
+        Assert.assertFalse(DnsRecordParser.isHostName("1.2.3.4"));
+        Assert.assertFalse(DnsRecordParser.isHostName("1234::5678"));
+        Assert.assertFalse(DnsRecordParser.isHostName(null));
+        Assert.assertFalse(DnsRecordParser.isHostName(""));
     }
 }

@@ -13,9 +13,7 @@
 // under the terms of the GNU GPL version 2, as detailed in the COPYING file.
 
 #define __STDC_LIMIT_MACROS
-#ifndef __STDC_CONSTANT_MACROS
 #define __STDC_CONSTANT_MACROS
-#endif
 
 #include <sys/ioctl.h>
 #include <string.h>
@@ -38,6 +36,14 @@
 #include "diskio.h"
 
 using namespace std;
+
+#if defined(__APPLE__) || defined(__linux__)
+#define off64_t off_t
+#define stat64 stat
+#define fstat64 fstat
+#define lstat64 lstat
+#define lseek64 lseek
+#endif
 
 // Returns the official "real" name for a shortened version of same.
 // Trivial here; more important in Windows
@@ -374,7 +380,7 @@ int DiskIO::Read(void* buffer, int numBytes) {
 // size with the number of bytes read.
 // Returns the number of bytes written.
 int DiskIO::Write(void* buffer, int numBytes) {
-   int blockSize = 512, i, numBlocks, retval = 0;
+   int blockSize, i, numBlocks, retval = 0;
    char* tempSpace;
 
    // If disk isn't open, try to open it....
@@ -426,7 +432,7 @@ int DiskIO::Write(void* buffer, int numBytes) {
 // return correct values for disk image files.
 uint64_t DiskIO::DiskSize(int *err) {
    uint64_t sectors = 0; // size in sectors
-   off_t bytes = 0; // size in bytes
+   off64_t bytes = 0; // size in bytes
    struct stat64 st;
    int platformFound = 0;
 #ifdef __sun__

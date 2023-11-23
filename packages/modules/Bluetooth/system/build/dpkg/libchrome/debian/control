@@ -3,7 +3,7 @@ Section: libs
 Priority: optional
 Maintainer: Sonny Sasaka <sonnysasaka@chromium.org>
 Standards-Version: 4.1.4
-Homepage: https://chromium.googlesource.com/aosp/platform/external/libchrome/
+Homepage: https://chromium.googlesource.com/chromiumos/platform/libchrome/
 Build-Depends:
  debhelper (>=11~),
  clang,

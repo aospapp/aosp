@@ -12,6 +12,7 @@ TEST_CATEGORY = "Functional"
 TEST_CLASS = "firmware"
 TEST_TYPE = "server"
 DEPENDENCIES="servo_state:WORKING"
+PY_VERSION = 3
 
 DOC = """
 This test issues a U2F_REGISTER command, clears the TPM, and checks that

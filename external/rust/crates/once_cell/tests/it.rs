@@ -18,6 +18,13 @@ mod unsync {
     }
 
     #[test]
+    fn once_cell_with_value() {
+        const CELL: OnceCell<i32> = OnceCell::with_value(12);
+        let cell = CELL;
+        assert_eq!(cell.get(), Some(&12));
+    }
+
+    #[test]
     fn once_cell_get_mut() {
         let mut c = OnceCell::new();
         assert!(c.get_mut().is_none());
@@ -131,6 +138,41 @@ mod unsync {
     }
 
     #[test]
+    fn lazy_force_mut() {
+        let called = Cell::new(0);
+        let mut x = Lazy::new(|| {
+            called.set(called.get() + 1);
+            92
+        });
+        assert_eq!(called.get(), 0);
+        let v = Lazy::force_mut(&mut x);
+        assert_eq!(called.get(), 1);
+
+        *v /= 2;
+        assert_eq!(*x, 46);
+        assert_eq!(called.get(), 1);
+    }
+
+    #[test]
+    fn lazy_get_mut() {
+        let called = Cell::new(0);
+        let mut x: Lazy<u32, _> = Lazy::new(|| {
+            called.set(called.get() + 1);
+            92
+        });
+
+        assert_eq!(called.get(), 0);
+        assert_eq!(*x, 92);
+
+        let mut_ref: &mut u32 = Lazy::get_mut(&mut x).unwrap();
+        assert_eq!(called.get(), 1);
+
+        *mut_ref /= 2;
+        assert_eq!(*x, 46);
+        assert_eq!(called.get(), 1);
+    }
+
+    #[test]
     fn lazy_default() {
         static CALLED: AtomicUsize = AtomicUsize::new(0);
 
@@ -186,6 +228,7 @@ mod unsync {
 
     #[test]
     #[should_panic(expected = "reentrant init")]
+    #[ignore = "Android: ignore for now. Need to compile these binaries separately."]
     fn reentrant_init() {
         let x: OnceCell<Box<i32>> = OnceCell::new();
         let dangling_ref: Cell<Option<&i32>> = Cell::new(None);
@@ -208,9 +251,15 @@ mod unsync {
     }
 }
 
-#[cfg(feature = "std")]
+#[cfg(any(feature = "std", feature = "critical-section"))]
 mod sync {
     use std::sync::atomic::{AtomicUsize, Ordering::SeqCst};
+
+    #[cfg(feature = "std")]
+    use std::sync::Barrier;
+
+    #[cfg(not(feature = "std"))]
+    use core::cell::Cell;
 
     use crossbeam_utils::thread::scope;
 
@@ -229,6 +278,12 @@ mod sync {
         .unwrap();
         c.get_or_init(|| panic!("Kabom!"));
         assert_eq!(c.get(), Some(&92));
+    }
+
+    #[test]
+    fn once_cell_with_value() {
+        static CELL: OnceCell<i32> = OnceCell::with_value(12);
+        assert_eq!(CELL.get(), Some(&12));
     }
 
     #[test]
@@ -308,6 +363,41 @@ mod sync {
         assert_eq!(cell.get(), Some(&"hello".to_string()));
     }
 
+    #[cfg(feature = "std")]
+    #[test]
+    fn wait() {
+        let cell: OnceCell<String> = OnceCell::new();
+        scope(|s| {
+            s.spawn(|_| cell.set("hello".to_string()));
+            let greeting = cell.wait();
+            assert_eq!(greeting, "hello")
+        })
+        .unwrap();
+    }
+
+    #[cfg(feature = "std")]
+    #[test]
+    fn get_or_init_stress() {
+        let n_threads = if cfg!(miri) { 30 } else { 1_000 };
+        let n_cells = if cfg!(miri) { 30 } else { 1_000 };
+        let cells: Vec<_> = std::iter::repeat_with(|| (Barrier::new(n_threads), OnceCell::new()))
+            .take(n_cells)
+            .collect();
+        scope(|s| {
+            for t in 0..n_threads {
+                let cells = &cells;
+                s.spawn(move |_| {
+                    for (i, (b, s)) in cells.iter().enumerate() {
+                        b.wait();
+                        let j = if t % 2 == 0 { s.wait() } else { s.get_or_init(|| i) };
+                        assert_eq!(*j, i);
+                    }
+                });
+            }
+        })
+        .unwrap();
+    }
+
     #[test]
     fn from_impl() {
         assert_eq!(OnceCell::from("value").get(), Some(&"value"));
@@ -350,6 +440,7 @@ mod sync {
 
     #[test]
     #[cfg_attr(miri, ignore)] // miri doesn't support processes
+    #[cfg(feature = "std")]
     #[ignore = "Android: ignore for now. Need to compile these binaries separately."]
     fn reentrant_init() {
         let examples_dir = {
@@ -376,6 +467,20 @@ mod sync {
                 let _ = self.child.kill();
             }
         }
+    }
+
+    #[cfg(not(feature = "std"))]
+    #[test]
+    #[should_panic(expected = "reentrant init")]
+    fn reentrant_init() {
+        let x: OnceCell<Box<i32>> = OnceCell::new();
+        let dangling_ref: Cell<Option<&i32>> = Cell::new(None);
+        x.get_or_init(|| {
+            let r = x.get_or_init(|| Box::new(92));
+            dangling_ref.set(Some(r));
+            Box::new(62)
+        });
+        eprintln!("use after free: {:?}", dangling_ref.get().unwrap());
     }
 
     #[test]
@@ -533,9 +638,8 @@ mod sync {
     }
 
     #[test]
-    #[cfg_attr(miri, ignore)] // FIXME: deadlocks, likely caused by https://github.com/rust-lang/miri/issues/1388
     fn once_cell_does_not_leak_partially_constructed_boxes() {
-        let n_tries = 100;
+        let n_tries = if cfg!(miri) { 10 } else { 100 };
         let n_readers = 10;
         let n_writers = 3;
         const MSG: &str = "Hello, World";
@@ -559,11 +663,9 @@ mod sync {
         }
     }
 
+    #[cfg(feature = "std")]
     #[test]
-    #[cfg_attr(miri, ignore)] // miri doesn't support Barrier
     fn get_does_not_block() {
-        use std::sync::Barrier;
-
         let cell = OnceCell::new();
         let barrier = Barrier::new(2);
         scope(|scope| {
@@ -595,12 +697,11 @@ mod sync {
 
 #[cfg(feature = "race")]
 mod race {
+    #[cfg(feature = "std")]
+    use std::sync::Barrier;
     use std::{
         num::NonZeroUsize,
-        sync::{
-            atomic::{AtomicUsize, Ordering::SeqCst},
-            Barrier,
-        },
+        sync::atomic::{AtomicUsize, Ordering::SeqCst},
     };
 
     use crossbeam_utils::thread::scope;
@@ -652,6 +753,7 @@ mod race {
         assert_eq!(cell.get(), Some(val1));
     }
 
+    #[cfg(feature = "std")]
     #[test]
     fn once_non_zero_usize_first_wins() {
         let val1 = NonZeroUsize::new(92).unwrap();
@@ -731,12 +833,16 @@ mod race {
 
 #[cfg(all(feature = "race", feature = "alloc"))]
 mod race_once_box {
+    #[cfg(feature = "std")]
+    use std::sync::Barrier;
     use std::sync::{
         atomic::{AtomicUsize, Ordering::SeqCst},
-        Arc, Barrier,
+        Arc,
     };
 
+    #[cfg(feature = "std")]
     use crossbeam_utils::thread::scope;
+
     use once_cell::race::OnceBox;
 
     #[derive(Default)]
@@ -766,6 +872,7 @@ mod race_once_box {
         }
     }
 
+    #[cfg(feature = "std")]
     #[test]
     fn once_box_smoke_test() {
         let heap = Heap::default();
@@ -820,6 +927,7 @@ mod race_once_box {
         assert_eq!(heap.total(), 0);
     }
 
+    #[cfg(feature = "std")]
     #[test]
     fn once_box_first_wins() {
         let cell = OnceBox::new();

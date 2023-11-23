@@ -18,7 +18,7 @@
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
           package="com.android.bedstead.remoteframeworkclasses">
-    <uses-sdk android:minSdkVersion="27" />
+    <uses-sdk android:minSdkVersion="29" />
     <application>
     </application>
 </manifest>

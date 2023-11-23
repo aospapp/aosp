@@ -16,6 +16,8 @@
 
 package android.mediapc.cts;
 
+import static android.mediapc.cts.FrameDropTestBase.DECODE_31S;
+
 import android.media.MediaCodec;
 import android.media.MediaExtractor;
 import android.media.MediaFormat;
@@ -24,8 +26,6 @@ import android.view.Surface;
 import java.io.File;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
-
-import static android.mediapc.cts.FrameDropTestBase.DECODE_31S;
 
 /**
  * The following class calculates the frame drops for the given array of testFiles playback.
@@ -140,6 +140,13 @@ public class PlaybackFrameDrop extends CodecDecoderTestBase {
 
     public int getFrameDropCount() throws Exception {
         ArrayList<MediaFormat> formats = setUpSourceFiles();
+
+        // If the decoder doesn't support the formats, then return Integer.MAX_VALUE to indicate
+        // that all frames were dropped
+        if (!areFormatsSupported(mDecoderName, formats)) {
+            return Integer.MAX_VALUE;
+        }
+
         mCodec = MediaCodec.createByCodecName(mDecoderName);
         configureCodec(formats.get(0), mIsAsync, false, false);
         mCodec.start();

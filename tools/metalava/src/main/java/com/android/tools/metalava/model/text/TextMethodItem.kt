@@ -31,7 +31,7 @@ open class TextMethodItem(
     name: String,
     containingClass: TextClassItem,
     modifiers: TextModifiers,
-    private val returnType: TextTypeItem?,
+    private val returnType: TextTypeItem,
     position: SourcePositionInfo
 ) : TextMemberItem(
     codebase, name, containingClass, position,
@@ -79,7 +79,7 @@ open class TextMethodItem(
 
     override fun isConstructor(): Boolean = false
 
-    override fun returnType(): TypeItem? = returnType
+    override fun returnType(): TypeItem = returnType
 
     override fun superMethods(): List<MethodItem> {
         if (isConstructor()) {

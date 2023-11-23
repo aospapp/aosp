@@ -35,6 +35,7 @@
 #include "KeystoreKey.h"
 #include "StatsReporter.h"
 #include "VerityUtils.h"
+#include "statslog_odsign.h"
 
 #include "odsign_info.pb.h"
 
@@ -370,7 +371,7 @@ art::odrefresh::ExitCode CheckCompOsPendingArtifacts(const SigningKey& signing_k
                                                      bool* digests_verified,
                                                      StatsReporter* stats_reporter) {
     StatsReporter::CompOsArtifactsCheckRecord* compos_check_record =
-        stats_reporter->GetComposArtifactsCheckRecord();
+        stats_reporter->GetOrCreateComposArtifactsCheckRecord();
 
     if (!directoryHasContent(kCompOsPendingArtifactsDir)) {
         // No pending CompOS artifacts, all that matters is the current ones.
@@ -420,7 +421,7 @@ art::odrefresh::ExitCode CheckCompOsPendingArtifacts(const SigningKey& signing_k
         std::map<std::string, std::string> compos_digests(compos_info->file_hashes().begin(),
                                                           compos_info->file_hashes().end());
 
-        auto status = verifyAllFilesUsingCompOs(kArtArtifactsDir, compos_digests, signing_key);
+        auto status = verifyAllFilesUsingCompOs(kArtArtifactsDir, compos_digests);
         if (!status.ok()) {
             LOG(WARNING) << "Faild to verify CompOS artifacts: " << status.error();
         } else {
@@ -468,12 +469,9 @@ art::odrefresh::ExitCode CheckCompOsPendingArtifacts(const SigningKey& signing_k
 }  // namespace
 
 int main(int /* argc */, char** argv) {
-    // stats_reporter is a pointer so that we can explicitly delete it
-    // instead of waiting for the program to die & its destrcutor be called
-    auto stats_reporter = std::make_unique<StatsReporter>();
     android::base::InitLogging(argv, android::base::LogdLogger(android::base::SYSTEM));
 
-    auto errorScopeGuard = []() {
+    auto scope_guard = android::base::make_scope_guard([]() {
         // In case we hit any error, remove the artifacts and tell Zygote not to use
         // anything
         removeDirectory(kArtArtifactsDir);
@@ -485,17 +483,24 @@ int main(int /* argc */, char** argv) {
         SetProperty(kOdsignVerificationDoneProp, "1");
         // Tell init it shouldn't try to restart us - see odsign.rc
         SetProperty(kStopServiceProp, "odsign");
-    };
-    auto scope_guard = android::base::make_scope_guard(errorScopeGuard);
+    });
+
+    // `stats_reporter` must come after `scope_guard` so that its destructor is called before
+    // `scope_guard`.
+    auto stats_reporter = std::make_unique<StatsReporter>();
+    StatsReporter::OdsignRecord* odsign_record = stats_reporter->GetOdsignRecord();
 
     if (!android::base::GetBoolProperty("ro.apex.updatable", false)) {
         LOG(INFO) << "Device doesn't support updatable APEX, exiting.";
+        stats_reporter->SetOdsignRecordEnabled(false);
         return 0;
     }
     auto keystoreResult =
         KeystoreKey::getInstance(kPublicKeySignature, kKeyAlias, kKeyNspace, kKeyBootLevel);
     if (!keystoreResult.ok()) {
         LOG(ERROR) << "Could not create keystore key: " << keystoreResult.error();
+        odsign_record->status =
+            art::metrics::statsd::ODSIGN_REPORTED__STATUS__STATUS_KEYSTORE_FAILED;
         return -1;
     }
     SigningKey* key = keystoreResult.value();
@@ -517,16 +522,12 @@ int main(int /* argc */, char** argv) {
             if (!new_cert.ok()) {
                 LOG(ERROR) << "Failed to create X509 certificate: " << new_cert.error();
                 // TODO apparently the key become invalid - delete the blob / cert
+                odsign_record->status =
+                    art::metrics::statsd::ODSIGN_REPORTED__STATUS__STATUS_CERT_FAILED;
                 return -1;
             }
         } else {
             LOG(INFO) << "Found and verified existing public key certificate: " << kSigningKeyCert;
-        }
-        auto cert_add_result = addCertToFsVerityKeyring(kSigningKeyCert, "fsv_ods");
-        if (!cert_add_result.ok()) {
-            LOG(ERROR) << "Failed to add certificate to fs-verity keyring: "
-                       << cert_add_result.error();
-            return -1;
         }
     }
 
@@ -534,12 +535,6 @@ int main(int /* argc */, char** argv) {
     art::odrefresh::ExitCode odrefresh_status =
         useCompOs ? CheckCompOsPendingArtifacts(*key, &digests_verified, stats_reporter.get())
                   : checkArtifacts();
-
-    // Explicitly reset the pointer - We rely on stats_reporter's
-    // destructor for actually writing the buffered metrics. This will otherwise not be called
-    // if the program doesn't exit normally (for ex, killed by init, which actually happens
-    // because odsign (after it finishes) sets kStopServiceProp instructing init to kill it).
-    stats_reporter.reset();
 
     // The artifacts dir doesn't necessarily need to exist; if the existing
     // artifacts on the system partition are valid, those can be used.
@@ -578,6 +573,8 @@ int main(int /* argc */, char** argv) {
                 // instead prevent Zygote from using them (which is taken care of
                 // in the exit handler).
                 LOG(ERROR) << "Failed to remove unknown artifacts.";
+                odsign_record->status =
+                    art::metrics::statsd::ODSIGN_REPORTED__STATUS__STATUS_CLEANUP_FAILED;
                 return -1;
             }
         }
@@ -591,14 +588,19 @@ int main(int /* argc */, char** argv) {
     if (odrefresh_status == art::odrefresh::ExitCode::kOkay) {
         // No new artifacts generated, and we verified existing ones above, nothing left to do.
         LOG(INFO) << "odrefresh said artifacts are VALID";
+        stats_reporter->SetOdsignRecordEnabled(false);
     } else if (odrefresh_status == art::odrefresh::ExitCode::kCompilationSuccess ||
                odrefresh_status == art::odrefresh::ExitCode::kCompilationFailed) {
         const bool compiled_all = odrefresh_status == art::odrefresh::ExitCode::kCompilationSuccess;
         LOG(INFO) << "odrefresh compiled " << (compiled_all ? "all" : "partial")
                   << " artifacts, returned " << odrefresh_status;
+        // This value may be overwritten later.
+        odsign_record->status =
+            compiled_all ? art::metrics::statsd::ODSIGN_REPORTED__STATUS__STATUS_ALL_OK
+                         : art::metrics::statsd::ODSIGN_REPORTED__STATUS__STATUS_PARTIAL_OK;
         Result<std::map<std::string, std::string>> digests;
         if (supportsFsVerity) {
-            digests = addFilesToVerityRecursive(kArtArtifactsDir, *key);
+            digests = addFilesToVerityRecursive(kArtArtifactsDir);
         } else {
             // If we can't use verity, just compute the root hashes and store
             // those, so we can reverify them at the next boot.
@@ -606,24 +608,39 @@ int main(int /* argc */, char** argv) {
         }
         if (!digests.ok()) {
             LOG(ERROR) << digests.error();
+            odsign_record->status =
+                art::metrics::statsd::ODSIGN_REPORTED__STATUS__STATUS_SIGNING_FAILED;
             return -1;
         }
         auto persistStatus = persistDigests(*digests, *key);
         if (!persistStatus.ok()) {
             LOG(ERROR) << persistStatus.error();
+            odsign_record->status =
+                art::metrics::statsd::ODSIGN_REPORTED__STATUS__STATUS_SIGNING_FAILED;
             return -1;
         }
     } else if (odrefresh_status == art::odrefresh::ExitCode::kCleanupFailed) {
         LOG(ERROR) << "odrefresh failed cleaning up existing artifacts";
+        odsign_record->status =
+            art::metrics::statsd::ODSIGN_REPORTED__STATUS__STATUS_ODREFRESH_FAILED;
         return -1;
     } else {
         LOG(ERROR) << "odrefresh exited unexpectedly, returned " << odrefresh_status;
+        odsign_record->status =
+            art::metrics::statsd::ODSIGN_REPORTED__STATUS__STATUS_ODREFRESH_FAILED;
         return -1;
     }
 
     LOG(INFO) << "On-device signing done.";
 
     scope_guard.Disable();
+
+    // Explicitly reset the pointer - We rely on stats_reporter's
+    // destructor for actually writing the buffered metrics. This will otherwise not be called
+    // if the program doesn't exit normally (for ex, killed by init, which actually happens
+    // because odsign (after it finishes) sets kStopServiceProp instructing init to kill it).
+    stats_reporter.reset();
+
     // At this point, we're done with the key for sure
     SetProperty(kOdsignKeyDoneProp, "1");
     // And we did a successful verification

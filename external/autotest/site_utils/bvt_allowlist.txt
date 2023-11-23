@@ -9,11 +9,11 @@ cheets_SettingsBridge
 graphics_GLBench
 graphics_GLMark2
 graphics_Idle
-graphics_Sanity
-logging_CrashSender
+graphics_Check
 logging_UdevCrash
 logging_UserCrash
 login_LoginSuccess
+login_UserPolicyKeys
 platform_DMVerityBitCorruption
 platform_DMVerityCorruption
 platform_MemCheck

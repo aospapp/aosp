@@ -33,6 +33,7 @@
 #include <sys/stat.h>
 #include <errno.h>
 #include <limits.h>
+#include <unistd.h>
 #if !defined(_ALLBSD_SOURCE)
 #include <alloca.h>
 #endif
@@ -41,6 +42,37 @@
 /* Note: The comments in this file use the terminology
          defined in the java.io.File class */
 
+
+// BEGIN Android-added: Remove consecutive duplicate path separators "//". b/267617531
+// and the trailing path separator `/` if it's not root fs.
+char* removeDupSeparator(char *path)
+{
+    if (path == NULL || *path == '\0') {
+        return NULL;
+    }
+
+    char *in = path;
+    char *out = path;
+    char prevChar = 0;
+    int n = 0;
+    for (; *in != '\0'; in++) {
+        // Remove duplicate path separators
+        if (!(*in == '/' && prevChar == '/')) {
+            *(out++) = *in;
+            n++;
+        }
+        prevChar = *in;
+    }
+    *out = '\0';
+
+    // Remove the trailing path separator, except when path equals `/`
+    if (prevChar == '/' && n > 1) {
+        *(--out) = '\0';
+    }
+
+    return path;
+}
+// END Android-added: Remove consecutive duplicate path separators "//". b/267617531
 
 /* Check the given name sequence to see if it can be further collapsed.
    Return zero if not, otherwise return the number of names in the sequence. */
@@ -61,7 +93,11 @@ collapsible(char *names)
         n++;
         while (*p) {
             if (*p == '/') {
-                p++;
+                // Android-changed: Remove consecutive duplicate path separators "//". b/267617531
+                // p++
+                while (*p == '/') {
+                    p++;
+                }
                 break;
             }
             p++;
@@ -84,7 +120,11 @@ splitNames(char *names, char **ix)
         ix[i++] = p++;
         while (*p) {
             if (*p == '/') {
-                *p++ = '\0';
+                // Android-changed: Remove consecutive duplicate path separators "//". b/267617531
+                //  *p++ = '\0';
+                while (*p == '/') {
+                    *p++ = '\0';
+                }
                 break;
             }
             p++;
@@ -127,11 +167,15 @@ joinNames(char *names, int nc, char **ix)
 static void
 collapse(char *path)
 {
+    // Android-changed: Remove consecutive duplicate path separators "//". b/267617531
+    removeDupSeparator(path);
+
     char *names = (path[0] == '/') ? path + 1 : path; /* Preserve first '/' */
     int nc;
     char **ix;
     int i, j;
-    char *p, *q;
+    // Android-removed: unused variables.
+    // char *p, *q;
 
     nc = collapsible(names);
     if (nc < 2) return;         /* Nothing to do */
@@ -144,7 +188,9 @@ collapse(char *path)
         /* Find next occurrence of "." or ".." */
         do {
             char *p = ix[i];
-            if (p[0] == '.') {
+            // Android-changed: null pointer check.
+            // if (p[0] == '.') {
+            if (p != NULL && p[0] == '.') {
                 if (p[1] == '\0') {
                     dots = 1;
                     break;
@@ -196,7 +242,9 @@ canonicalize(char *original, char *resolved, int len)
         return -1;
     }
 
-    if (strlen(original) > PATH_MAX) {
+    // Android-changed: Avoid crash in getCanonicalPath() due to a long path. b/266432364
+    // if (strlen(original) > PATH_MAX) {
+    if (strlen(original) >= PATH_MAX) {
         errno = ENAMETOOLONG;
         return -1;
     }
@@ -208,13 +256,20 @@ canonicalize(char *original, char *resolved, int len)
         return 0;
     }
     else {
+        // Android-changed: Avoid crash in getCanonicalPath(). b/266432364
+        if (errno == EINVAL || errno == ELOOP || errno == ENAMETOOLONG || errno == ENOMEM) {
+            return -1;
+        }
+
         /* Something's bogus in the original path, so remove names from the end
            until either some subpath works or we run out of names */
         char *p, *end, *r = NULL;
-        char path[PATH_MAX + 1];
+        // Android-changed: Avoid crash in getCanonicalPath() due to a long path. b/266432364
+        char path[PATH_MAX];
 
         strncpy(path, original, sizeof(path));
-        if (path[PATH_MAX] != '\0') {
+        // Android-changed: Avoid crash in getCanonicalPath() due to a long path. b/266432364
+        if (path[PATH_MAX - 1] != '\0') {
             errno = ENAMETOOLONG;
             return -1;
         }
@@ -253,6 +308,7 @@ canonicalize(char *original, char *resolved, int len)
             }
         }
 
+        size_t nameMax;
         if (r != NULL) {
             /* Append unresolved subpath to resolved subpath */
             int rn = strlen(r);
@@ -261,20 +317,52 @@ canonicalize(char *original, char *resolved, int len)
                 errno = ENAMETOOLONG;
                 return -1;
             }
+
+            // Android-changed: Avoid crash in getCanonicalPath() due to a long path. b/266432364
+            nameMax = pathconf(r, _PC_NAME_MAX);
+
             if ((rn > 0) && (r[rn - 1] == '/') && (*p == '/')) {
                 /* Avoid duplicate slashes */
                 p++;
             }
             strcpy(r + rn, p);
             collapse(r);
-            return 0;
         }
         else {
             /* Nothing resolved, so just return the original path */
+            // Android-changed: Avoid crash in getCanonicalPath() due to a long path. b/266432364
+            nameMax = pathconf("/", _PC_NAME_MAX);
             strcpy(resolved, path);
             collapse(resolved);
-            return 0;
         }
+
+        // BEGIN Android-added: Avoid crash in getCanonicalPath() due to a long path. b/266432364
+        // Ensure resolve path length is "< PATH_MAX" and collapse() did not overwrite
+        // terminating null byte
+        char resolvedPath[PATH_MAX];
+        strncpy(resolvedPath, resolved, sizeof(resolvedPath));
+        if (resolvedPath[PATH_MAX - 1] != '\0') {
+            errno = ENAMETOOLONG;
+            return -1;
+        }
+
+        // Ensure resolve path does not contain any components who length is "> NAME_MAX"
+        // If pathconf call failed with -1 or returned 0 in case of permission denial
+        if (nameMax < 1) {
+            nameMax = NAME_MAX;
+        }
+
+        char *component;
+        char *rest = resolvedPath;
+        while ((component = strtok_r(rest, "/", &rest))) {
+            if (strlen(component) > nameMax) {
+                errno = ENAMETOOLONG;
+                return -1;
+            }
+        }
+
+        return 0;
+        // END Android-added: Avoid crash in getCanonicalPath() due to a long path. b/266432364
     }
 
 }

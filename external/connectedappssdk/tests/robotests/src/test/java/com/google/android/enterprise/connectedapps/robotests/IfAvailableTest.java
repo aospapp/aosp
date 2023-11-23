@@ -77,36 +77,20 @@ public class IfAvailableTest {
     testUtilities.grantPermissions(INTERACT_ACROSS_USERS);
   }
 
-  @Test
-  public void synchronous_notConnected_returnsDefaultValue() {
-    testUtilities.disconnect();
-
-    assertThat(
-            profileTestCrossProfileType
-                .other()
-                .ifAvailable()
-                .identityStringMethod(STRING1, /* defaultValue= */ STRING2))
-        .isEqualTo(STRING2);
-  }
+  // We cannot test synchronous calls when not connected as robolectric automatically connects
+  // if we add a connection holder
 
   @Test
   public void synchronous_connected_makesCall() throws Exception {
-    testUtilities.startConnectingAndWait();
+    testUtilities.addDefaultConnectionHolderAndWait();
 
     assertThat(profileTestCrossProfileType.other().identityStringMethod(STRING1))
         .isEqualTo(STRING1);
   }
 
   @Test
-  public void synchronousVoid_notConnected_doesNotThrowException() {
-    testUtilities.disconnect();
-
-    profileTestCrossProfileType.other().ifAvailable().voidMethod();
-  }
-
-  @Test
   public void synchronousVoid_connected_doesNotThrowException() {
-    testUtilities.startConnectingAndWait();
+    testUtilities.addDefaultConnectionHolderAndWait();
 
     profileTestCrossProfileType.other().ifAvailable().voidMethod();
   }

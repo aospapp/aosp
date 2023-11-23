@@ -29,7 +29,9 @@
 #include "unistd.h"
 
 static const int INVALID_FD = -1;
+#ifndef NO_THREAD_PRIORITY
 static const int BT_RT_PRIORITY = 1;
+#endif
 
 namespace android {
 namespace hardware {
@@ -117,7 +119,7 @@ int AsyncFdWatcher::notifyThread() {
 }
 
 void AsyncFdWatcher::ThreadRoutine() {
-
+#ifndef NO_THREAD_PRIORITY
   // Make watching thread RT.
   struct sched_param rt_params;
   rt_params.sched_priority = BT_RT_PRIORITY;
@@ -125,6 +127,7 @@ void AsyncFdWatcher::ThreadRoutine() {
     ALOGE("%s unable to set SCHED_FIFO for pid %d, tid %d, error %s", __func__,
           getpid(), gettid(), strerror(errno));
   }
+#endif
 
   while (running_) {
     fd_set read_fds;

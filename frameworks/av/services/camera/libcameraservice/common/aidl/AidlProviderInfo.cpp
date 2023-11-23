@@ -293,7 +293,7 @@ const std::shared_ptr<ICameraProvider> AidlProviderInfo::startProviderInterface(
             if (link != STATUS_OK) {
                 ALOGW("%s: Unable to link to provider '%s' death notifications",
                         __FUNCTION__, mProviderName.c_str());
-                mManager->removeProvider(mProviderName);
+                mManager->removeProvider(mProviderInstance);
                 return nullptr;
             }
 
@@ -483,6 +483,9 @@ AidlProviderInfo::AidlDeviceInfo3::AidlDeviceInfo3(
         }
     }
 
+    mCompositeJpegRDisabled = mCameraCharacteristics.exists(
+            ANDROID_JPEGR_AVAILABLE_JPEG_R_STREAM_CONFIGURATIONS);
+
     mSystemCameraKind = getSystemCameraKind();
 
     status_t res = fixupMonochromeTags();
@@ -501,8 +504,13 @@ AidlProviderInfo::AidlDeviceInfo3::AidlDeviceInfo3(
         ALOGE("%s: Unable to derive HEIC tags based on camera and media capabilities: %s (%d)",
                 __FUNCTION__, strerror(-res), res);
     }
-
-    if (camera3::SessionConfigurationUtils::isUltraHighResolutionSensor(mCameraCharacteristics)) {
+    res = deriveJpegRTags();
+    if (OK != res) {
+        ALOGE("%s: Unable to derive Jpeg/R tags based on camera and media capabilities: %s (%d)",
+                __FUNCTION__, strerror(-res), res);
+    }
+    using camera3::SessionConfigurationUtils::supportsUltraHighResolutionCapture;
+    if (supportsUltraHighResolutionCapture(mCameraCharacteristics)) {
         status_t status = addDynamicDepthTags(/*maxResolution*/true);
         if (OK != status) {
             ALOGE("%s: Failed appending dynamic depth tags for maximum resolution mode: %s (%d)",
@@ -514,11 +522,22 @@ AidlProviderInfo::AidlDeviceInfo3::AidlDeviceInfo3(
             ALOGE("%s: Unable to derive HEIC tags based on camera and media capabilities for"
                     "maximum resolution mode: %s (%d)", __FUNCTION__, strerror(-status), status);
         }
+
+        status = deriveJpegRTags(/*maxResolution*/true);
+        if (OK != status) {
+            ALOGE("%s: Unable to derive Jpeg/R tags based on camera and media capabilities for"
+                    "maximum resolution mode: %s (%d)", __FUNCTION__, strerror(-status), status);
+        }
     }
 
     res = addRotateCropTags();
     if (OK != res) {
         ALOGE("%s: Unable to add default SCALER_ROTATE_AND_CROP tags: %s (%d)", __FUNCTION__,
+                strerror(-res), res);
+    }
+    res = addAutoframingTags();
+    if (OK != res) {
+        ALOGE("%s: Unable to add default AUTOFRAMING tags: %s (%d)", __FUNCTION__,
                 strerror(-res), res);
     }
     res = addPreCorrectionActiveArraySize();
@@ -530,6 +549,11 @@ AidlProviderInfo::AidlDeviceInfo3::AidlDeviceInfo3(
             &mCameraCharacteristics, &mSupportNativeZoomRatio);
     if (OK != res) {
         ALOGE("%s: Unable to override zoomRatio related tags: %s (%d)",
+                __FUNCTION__, strerror(-res), res);
+    }
+    res = addReadoutTimestampTag();
+    if (OK != res) {
+        ALOGE("%s: Unable to add sensorReadoutTimestamp tag: %s (%d)",
                 __FUNCTION__, strerror(-res), res);
     }
 
@@ -545,6 +569,11 @@ AidlProviderInfo::AidlDeviceInfo3::AidlDeviceInfo3(
                     "ANDROID_FLASH_INFO_STRENGTH_MAXIMUM_LEVEL tags: %s (%d)", __FUNCTION__,
                     strerror(-res), res);
         }
+
+        // b/247038031: In case of system_server crash, camera_server is
+        // restarted as well. If flashlight is turned on before the crash, it
+        // may be stuck to be on. As a workaround, set torch mode to be OFF.
+        interface->setTorchMode(false);
     } else {
         mHasFlashUnit = false;
     }
@@ -706,8 +735,8 @@ status_t AidlProviderInfo::AidlDeviceInfo3::isSessionConfigurationSupported(
     camera::device::StreamConfiguration streamConfiguration;
     bool earlyExit = false;
     auto bRes = SessionConfigurationUtils::convertToHALStreamCombination(configuration,
-            String8(mId.c_str()), mCameraCharacteristics, getMetadata, mPhysicalIds,
-            streamConfiguration, overrideForPerfClass, &earlyExit);
+            String8(mId.c_str()), mCameraCharacteristics, mCompositeJpegRDisabled, getMetadata,
+            mPhysicalIds, streamConfiguration, overrideForPerfClass, &earlyExit);
 
     if (!bRes.isOk()) {
         return UNKNOWN_ERROR;
@@ -754,7 +783,8 @@ status_t AidlProviderInfo::convertToAidlHALStreamCombinationAndCameraIdsLocked(
         bool overrideForPerfClass =
                 SessionConfigurationUtils::targetPerfClassPrimaryCamera(
                         perfClassPrimaryCameraIds, cameraId, targetSdkVersion);
-        res = mManager->getCameraCharacteristicsLocked(cameraId, overrideForPerfClass, &deviceInfo);
+        res = mManager->getCameraCharacteristicsLocked(cameraId, overrideForPerfClass, &deviceInfo,
+                /*overrideToPortrait*/false);
         if (res != OK) {
             return res;
         }
@@ -762,7 +792,8 @@ status_t AidlProviderInfo::convertToAidlHALStreamCombinationAndCameraIdsLocked(
                 [this](const String8 &id, bool overrideForPerfClass) {
                     CameraMetadata physicalDeviceInfo;
                     mManager->getCameraCharacteristicsLocked(id.string(), overrideForPerfClass,
-                                                   &physicalDeviceInfo);
+                                                   &physicalDeviceInfo,
+                                                   /*overrideToPortrait*/false);
                     return physicalDeviceInfo;
                 };
         std::vector<std::string> physicalCameraIds;
@@ -770,7 +801,8 @@ status_t AidlProviderInfo::convertToAidlHALStreamCombinationAndCameraIdsLocked(
         bStatus =
             SessionConfigurationUtils::convertToHALStreamCombination(
                     cameraIdAndSessionConfig.mSessionConfiguration,
-                    String8(cameraId.c_str()), deviceInfo, getMetadata,
+                    String8(cameraId.c_str()), deviceInfo,
+                    mManager->isCompositeJpegRDisabledLocked(cameraId), getMetadata,
                     physicalCameraIds, streamConfiguration,
                     overrideForPerfClass, &shouldExit);
         if (!bStatus.isOk()) {

@@ -74,6 +74,7 @@ static_library("bta") {
     "hh/bta_hh_le.cc",
     "hh/bta_hh_main.cc",
     "hh/bta_hh_utils.cc",
+    "hfp/bta_hfp_api.cc",
     "hd/bta_hd_act.cc",
     "hd/bta_hd_api.cc",
     "hd/bta_hd_main.cc",
@@ -107,12 +108,12 @@ static_library("bta") {
     "//bt/system/",
     "//bt/system/linux_include",
     "//bt/system/bta",
+    "//bt/system/gd",
     "//bt/system/internal_include",
     "//bt/system/internal_include",
     "//bt/system/stack/include",
     "//bt/system/stack/btm",
     "//bt/system/udrv/include",
-    "//bt/system/utils/include",
     "//bt/system/vnd/include",
     "//bt/system/btif/include",
     "//bt/system/btif/avrcp",
@@ -128,9 +129,7 @@ static_library("bta") {
 
   deps = [
     "//bt/system:libbt-platform-protos-lite",
-    "//bt/system/gd/rust/shim:shim_bridge_header",
     "//bt/system/gd/rust/shim:init_flags_bridge_header",
-    "//bt/system/gd/rust/shim:message_loop_thread_bridge_header",
   ]
 }
 

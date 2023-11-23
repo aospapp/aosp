@@ -100,8 +100,9 @@ class ThreadTree {
   }
   virtual ~ThreadTree() {}
 
+  void DisableThreadExitRecords() { disable_thread_exit_records_ = true; }
   void SetThreadName(int pid, int tid, const std::string& comm);
-  void ForkThread(int pid, int tid, int ppid, int ptid);
+  bool ForkThread(int pid, int tid, int ppid, int ptid);
   virtual ThreadEntry* FindThread(int tid) const;
   ThreadEntry* FindThreadOrNew(int pid, int tid);
   void ExitThread(int pid, int tid);
@@ -131,7 +132,7 @@ class ThreadTree {
   // Clear thread and map information, but keep loaded dso information. It saves
   // the time to reload dso information.
   void ClearThreadAndMap();
-  void AddDsoInfo(FileFeature& file);
+  bool AddDsoInfo(FileFeature& file);
   void AddDexFileOffset(const std::string& file_path, uint64_t dex_file_offset);
 
   // Update thread tree with information provided by record.
@@ -167,6 +168,7 @@ class ThreadTree {
   bool show_ip_for_unknown_symbol_;
   bool show_mark_for_unknown_symbol_;
   Symbol unknown_symbol_;
+  bool disable_thread_exit_records_ = false;
 };
 
 }  // namespace simpleperf

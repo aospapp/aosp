@@ -1,0 +1,1 @@
+allow dumpstate sysfs_scsi_devices_0000:file r_file_perms;

@@ -248,11 +248,23 @@ struct JsonPrinter {
   template<typename T>
   bool GenField(const FieldDef &fd, const Table *table, bool fixed,
                 int indent) {
-    return PrintScalar(
-        fixed ? reinterpret_cast<const Struct *>(table)->GetField<T>(
-                    fd.value.offset)
-              : table->GetField<T>(fd.value.offset, GetFieldDefault<T>(fd)),
-        fd.value.type, indent);
+    if (fixed) {
+      return PrintScalar(
+          reinterpret_cast<const Struct *>(table)->GetField<T>(fd.value.offset),
+          fd.value.type, indent);
+    } else if (fd.IsOptional()) {
+      auto opt = table->GetOptional<T, T>(fd.value.offset);
+      if (opt) {
+        return PrintScalar(*opt, fd.value.type, indent);
+      } else {
+        text += "null";
+        return true;
+      }
+    } else {
+      return PrintScalar(
+          table->GetField<T>(fd.value.offset, GetFieldDefault<T>(fd)),
+          fd.value.type, indent);
+    }
   }
 
   // Generate text for non-scalar field.
@@ -264,12 +276,18 @@ struct JsonPrinter {
       FLATBUFFERS_ASSERT(IsStruct(fd.value.type) || IsArray(fd.value.type));
       val = reinterpret_cast<const Struct *>(table)->GetStruct<const void *>(
           fd.value.offset);
-    } else if (fd.flexbuffer) {
+    } else if (fd.flexbuffer && opts.json_nested_flexbuffers) {
+      // We could verify this FlexBuffer before access, but since this sits
+      // inside a FlatBuffer that we don't know wether it has been verified or
+      // not, there is little point making this part safer than the parent..
+      // The caller should really be verifying the whole.
+      // If the whole buffer is corrupt, we likely crash before we even get
+      // here.
       auto vec = table->GetPointer<const Vector<uint8_t> *>(fd.value.offset);
       auto root = flexbuffers::GetRoot(vec->data(), vec->size());
       root.ToString(true, opts.strict_json, text);
       return true;
-    } else if (fd.nested_flatbuffer) {
+    } else if (fd.nested_flatbuffer && opts.json_nested_flatbuffers) {
       auto vec = table->GetPointer<const Vector<uint8_t> *>(fd.value.offset);
       auto root = GetRoot<Table>(vec->data());
       return GenStruct(*fd.nested_flatbuffer, root, indent);
@@ -292,7 +310,7 @@ struct JsonPrinter {
          it != struct_def.fields.vec.end(); ++it) {
       FieldDef &fd = **it;
       auto is_present = struct_def.fixed || table->CheckField(fd.value.offset);
-      auto output_anyway = opts.output_default_scalars_in_json &&
+      auto output_anyway = (opts.output_default_scalars_in_json || fd.key) &&
                            IsScalar(fd.value.type.base_type) && !fd.deprecated;
       if (is_present || output_anyway) {
         if (fieldout++) { AddComma(); }

@@ -236,6 +236,7 @@ class AcloudConfig():
         self.launch_args = usr_cfg.launch_args
         self.oxygen_client = usr_cfg.oxygen_client
         self.oxygen_lease_args = usr_cfg.oxygen_lease_args
+        self.connect_hostname = usr_cfg.connect_hostname
         self.instance_name_pattern = (
             usr_cfg.instance_name_pattern or
             internal_cfg.default_usr_cfg.instance_name_pattern)

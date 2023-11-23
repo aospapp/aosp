@@ -25,13 +25,15 @@
   Then open gecko-profile.json.gz in https://profiler.firefox.com/
 """
 
-import json
-import sys
-
+from collections import Counter
 from dataclasses import dataclass, field
+import json
+import logging
+import sys
+from typing import List, Dict, Optional, NamedTuple, Tuple
+
 from simpleperf_report_lib import ReportLib
-from simpleperf_utils import BaseArgumentParser, flatten_arg_list, ReportLibOptions
-from typing import List, Dict, Optional, NamedTuple, Set, Tuple
+from simpleperf_utils import BaseArgumentParser, ReportLibOptions
 
 
 StringID = int
@@ -67,6 +69,10 @@ class Sample(NamedTuple):
     stack_id: Optional[StackID]
     time_ms: Milliseconds
     responsiveness: int
+    complete_stack: bool
+
+    def to_json(self):
+        return [self.stack_id, self.time_ms, self.responsiveness]
 
 
 # Schema: https://github.com/firefox-devtools/profiler/blob/53970305b51b9b472e26d7457fee1d66cd4e2737/src/types/profile.js#L425
@@ -108,6 +114,13 @@ CATEGORIES = [
         "color": 'green',
         "subcategories": ['Other']
     },
+    {
+        "name": 'Off-CPU',
+        # Follow Brendan Gregg's Flamegraph convention: blue for off-CPU
+        # https://github.com/brendangregg/FlameGraph/blob/810687f180f3c4929b5d965f54817a5218c9d89b/flamegraph.pl#L470
+        "color": 'blue',
+        "subcategories": ['Other']
+    },
     # Not used by this exporter yet, but some Firefox Profiler code assumes
     # there is an 'Other' category by searching for a category with
     # color=grey, so include this.
@@ -117,6 +130,14 @@ CATEGORIES = [
         "subcategories": ['Other']
     },
 ]
+
+
+def is_complete_stack(stack: List[str]) -> bool:
+    """ Check if the callstack is complete. The stack starts from root. """
+    for entry in stack:
+        if ('__libc_init' in entry) or ('__start_thread' in entry):
+            return True
+    return False
 
 
 @dataclass
@@ -183,12 +204,19 @@ class Thread:
         # Heuristic: kernel code contains "kallsyms" as the library name.
         if "kallsyms" in frame_str or ".ko" in frame_str:
             category = 1
+            if frame_str.startswith("__schedule "):
+                category = 5
         elif ".so" in frame_str:
             category = 2
         elif ".vdex" in frame_str:
             category = 3
         elif ".oat" in frame_str:
             category = 4
+        # Heuristic: empirically, off-CPU profiles mostly measure off-CPU time
+        # accounted to the linux kernel __schedule function, which handles
+        # blocking. This only works if we have kernel symbol (kallsyms)
+        # access though.
+        # https://cs.android.com/android/kernel/superproject/+/common-android-mainline:common/kernel/sched/core.c;l=6593;drc=0c99414a07ddaa18d8eb4be90b551d2687cbde2f
 
         self.frameTable.append(Frame(
             string_id=string_id,
@@ -203,7 +231,7 @@ class Thread:
         ))
         return frame_id
 
-    def _add_sample(self, comm: str, stack: List[str], time_ms: Milliseconds) -> None:
+    def add_sample(self, comm: str, stack: List[str], time_ms: Milliseconds) -> None:
         """Add a timestamped stack trace sample to the thread builder.
 
         Args:
@@ -223,12 +251,42 @@ class Thread:
 
         self.samples.append(Sample(stack_id=prefix_stack_id,
                                    time_ms=time_ms,
-                                   responsiveness=0))
+                                   responsiveness=0,
+                                   complete_stack=is_complete_stack(stack)))
 
-    def _to_json_dict(self) -> Dict:
-        """Converts this Thread to GeckoThread JSON format."""
-        # The samples aren't guaranteed to be in order. Sort them by time.
+    def sort_samples(self) -> None:
+        """ The samples aren't guaranteed to be in order. Sort them by time. """
         self.samples.sort(key=lambda s: s.time_ms)
+
+    def remove_stack_gaps(self, max_remove_gap_length: int, gap_distr: Dict[int, int]) -> None:
+        """ Ideally all callstacks are complete. But some may be broken for different reasons.
+            To create a smooth view in "Stack Chart", remove small gaps of broken callstacks.
+
+        Args:
+            max_remove_gap_length: the max length of continuous broken-stack samples to remove
+        """
+        if max_remove_gap_length == 0:
+            return
+        i = 0
+        remove_flags = [False] * len(self.samples)
+        while i < len(self.samples):
+            if self.samples[i].complete_stack:
+                i += 1
+                continue
+            n = 1
+            while (i + n < len(self.samples)) and (not self.samples[i + n].complete_stack):
+                n += 1
+            gap_distr[n] += 1
+            if n <= max_remove_gap_length:
+                for j in range(i, i + n):
+                    remove_flags[j] = True
+            i += n
+        if True in remove_flags:
+            old_samples = self.samples
+            self.samples = [s for s, remove in zip(old_samples, remove_flags) if not remove]
+
+    def to_json_dict(self) -> Dict:
+        """Converts this Thread to GeckoThread JSON format."""
 
         # Gecko profile format is row-oriented data as List[List],
         # And a schema for interpreting each index.
@@ -258,7 +316,7 @@ class Thread:
                     "time": 1,
                     "responsiveness": 2,
                 },
-                "data": self.samples
+                "data": [s.to_json() for s in self.samples],
             },
             # https://github.com/firefox-devtools/profiler/blob/53970305b51b9b472e26d7457fee1d66cd4e2737/src/types/gecko-profile.js#L156
             "frameTable": {
@@ -291,11 +349,37 @@ class Thread:
         }
 
 
+def remove_stack_gaps(max_remove_gap_length: int, thread_map: Dict[int, Thread]) -> None:
+    """ Remove stack gaps for each thread, and print status. """
+    if max_remove_gap_length == 0:
+        return
+    total_sample_count = 0
+    remove_sample_count = 0
+    gap_distr = Counter()
+    for tid in list(thread_map.keys()):
+        thread = thread_map[tid]
+        old_n = len(thread.samples)
+        thread.remove_stack_gaps(max_remove_gap_length, gap_distr)
+        new_n = len(thread.samples)
+        total_sample_count += old_n
+        remove_sample_count += old_n - new_n
+        if new_n == 0:
+            del thread_map[tid]
+    if total_sample_count != 0:
+        logging.info('Remove stack gaps with length <= %d. %d (%.2f%%) samples are removed.',
+                     max_remove_gap_length, remove_sample_count,
+                     remove_sample_count / total_sample_count * 100
+                     )
+        logging.debug('Stack gap length distribution among samples (gap_length: count): %s',
+                      gap_distr)
+
+
 def _gecko_profile(
         record_file: str,
         symfs_dir: Optional[str],
         kallsyms_file: Optional[str],
-        report_lib_options: ReportLibOptions) -> GeckoProfile:
+        report_lib_options: ReportLibOptions,
+        max_remove_gap_length: int) -> GeckoProfile:
     """convert a simpleperf profile to gecko format"""
     lib = ReportLib()
 
@@ -319,7 +403,6 @@ def _gecko_profile(
         if sample is None:
             lib.Close()
             break
-        event = lib.GetEventOfCurrentSample()
         symbol = lib.GetSymbolOfCurrentSample()
         callchain = lib.GetCallChainOfCurrentSample()
         sample_time_ms = sample.time / 1000000
@@ -336,7 +419,7 @@ def _gecko_profile(
         if thread is None:
             thread = Thread(comm=sample.thread_comm, pid=sample.pid, tid=sample.tid)
             threadMap[sample.tid] = thread
-        thread._add_sample(
+        thread.add_sample(
             comm=sample.thread_comm,
             stack=stack,
             # We are being a bit fast and loose here with time here.  simpleperf
@@ -347,7 +430,12 @@ def _gecko_profile(
             # setting `simpleperf record --clockid realtime`.
             time_ms=sample_time_ms)
 
-    threads = [thread._to_json_dict() for thread in threadMap.values()]
+    for thread in threadMap.values():
+        thread.sort_samples()
+
+    remove_stack_gaps(max_remove_gap_length, threadMap)
+
+    threads = [thread.to_json_dict() for thread in threadMap.values()]
 
     profile_timestamp = meta_info.get('timestamp')
     end_time_ms = (int(profile_timestamp) * 1000) if profile_timestamp else 0
@@ -397,13 +485,22 @@ def main() -> None:
     parser.add_argument('--kallsyms', help='Set the path to find kernel symbols.')
     parser.add_argument('-i', '--record_file', nargs='?', default='perf.data',
                         help='Default is perf.data.')
+    parser.add_argument('--remove-gaps', metavar='MAX_GAP_LENGTH', dest='max_remove_gap_length',
+                        type=int, default=3, help="""
+                        Ideally all callstacks are complete. But some may be broken for different
+                        reasons. To create a smooth view in "Stack Chart", remove small gaps of
+                        broken callstacks. MAX_GAP_LENGTH is the max length of continuous
+                        broken-stack samples we want to remove.
+                        """
+                        )
     parser.add_report_lib_options()
     args = parser.parse_args()
     profile = _gecko_profile(
         record_file=args.record_file,
         symfs_dir=args.symfs,
         kallsyms_file=args.kallsyms,
-        report_lib_options=args.report_lib_options)
+        report_lib_options=args.report_lib_options,
+        max_remove_gap_length=args.max_remove_gap_length)
 
     json.dump(profile, sys.stdout, sort_keys=True)
 

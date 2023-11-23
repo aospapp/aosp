@@ -1,4 +1,5 @@
 # buildifier: disable=module-docstring
+# buildifier: disable=provider-params
 MyPoorlyDocumentedInfo = provider()
 
 MyFooInfo = provider(
@@ -6,6 +7,7 @@ MyFooInfo = provider(
     fields = ["bar", "baz"],
 )
 
+# buildifier: disable=unsorted-dict-items
 MyVeryDocumentedInfo = provider(
     doc = """
 A provider with some really neat documentation.

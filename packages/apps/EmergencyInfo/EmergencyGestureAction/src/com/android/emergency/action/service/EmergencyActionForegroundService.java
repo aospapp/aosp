@@ -16,6 +16,7 @@
 
 package com.android.emergency.action.service;
 
+import static android.app.Notification.FOREGROUND_SERVICE_IMMEDIATE;
 import static android.app.NotificationManager.IMPORTANCE_HIGH;
 
 import android.app.AlarmManager;
@@ -93,7 +94,8 @@ public class EmergencyActionForegroundService extends Service {
             return START_NOT_STICKY;
         }
         mNotificationManager.createNotificationChannel(buildNotificationChannel(this));
-        Notification notification = intent.getParcelableExtra(SERVICE_EXTRA_NOTIFICATION);
+        Notification notification = intent.getParcelableExtra(SERVICE_EXTRA_NOTIFICATION,
+                Notification.class);
 
         // Immediately show notification And now put the service in foreground mode
         startForeground(COUNT_DOWN_NOTIFICATION_ID, notification);
@@ -136,6 +138,11 @@ public class EmergencyActionForegroundService extends Service {
 
     /** End all work in this service and remove the foreground notification. */
     public static void stopService(Context context) {
+        // Cancel previously scheduled eCall broadcast
+        AlarmManager alarmManager = context.getSystemService(AlarmManager.class);
+        alarmManager.cancel(
+                EmergencyActionBroadcastReceiver.newCallEmergencyPendingIntent(context));
+        // Stop service
         context.stopService(new Intent(context, EmergencyActionForegroundService.class));
     }
 
@@ -154,7 +161,6 @@ public class EmergencyActionForegroundService extends Service {
         NotificationChannel channel = buildNotificationChannel(context);
         EmergencyNumberUtils emergencyNumberUtils = new EmergencyNumberUtils(context);
         long targetTimeMs = SystemClock.elapsedRealtime() + remainingTimeMs;
-        // TODO(b/172075832): Make UI prettier
         RemoteViews contentView =
                 new RemoteViews(context.getPackageName(),
                         R.layout.emergency_action_count_down_notification);
@@ -178,6 +184,7 @@ public class EmergencyActionForegroundService extends Service {
                 .setOnlyAlertOnce(true)
                 .setCategory(Notification.CATEGORY_ALARM)
                 .setCustomContentView(contentView)
+                .setForegroundServiceBehavior(FOREGROUND_SERVICE_IMMEDIATE)
                 .addAction(new Notification.Action.Builder(null, context.getText(R.string.cancel),
                         EmergencyActionBroadcastReceiver.newCancelCountdownPendingIntent(
                                 context)).build())

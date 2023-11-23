@@ -11,24 +11,22 @@ cc_library_static {
     name: "libbt-common",
     defaults: [
         "fluoride_basic_defaults",
-        "clang_file_coverage",
     ],
     host_supported: true,
     include_dirs: [
         "packages/modules/Bluetooth/system",
         "packages/modules/Bluetooth/system/gd",
-        "packages/modules/Bluetooth/system/stack/include",
         "packages/modules/Bluetooth/system/gd/rust/shim",
+        "packages/modules/Bluetooth/system/stack/include",
     ],
     srcs: [
         "address_obfuscator.cc",
         "message_loop_thread.cc",
         "metric_id_allocator.cc",
-        "once_timer.cc",
         "os_utils.cc",
         "repeating_timer.cc",
-        "time_util.cc",
         "stop_watch_legacy.cc",
+        "time_util.cc",
     ],
     target: {
         android: {
@@ -38,15 +36,15 @@ cc_library_static {
             srcs: ["metrics_linux.cc"],
         },
     },
-    min_sdk_version: "Tiramisu"
+    min_sdk_version: "Tiramisu",
 }
 
 cc_test {
     name: "bluetooth_test_common",
     test_suites: ["device-tests"],
     defaults: [
+        "bluetooth_gtest_x86_asan_workaround",
         "fluoride_defaults",
-        "clang_coverage_bin",
         "mts_defaults",
     ],
     host_supported: true,
@@ -56,21 +54,20 @@ cc_test {
     include_dirs: [
         "packages/modules/Bluetooth/system",
         "packages/modules/Bluetooth/system/gd",
-        "packages/modules/Bluetooth/system/stack/include",
         "packages/modules/Bluetooth/system/gd/rust/shim",
+        "packages/modules/Bluetooth/system/stack/include",
     ],
     srcs: [
         "address_obfuscator_unittest.cc",
         "base_bind_unittest.cc",
+        "id_generator_unittest.cc",
         "leaky_bonded_queue_unittest.cc",
         "lru_unittest.cc",
         "message_loop_thread_unittest.cc",
         "metric_id_allocator_unittest.cc",
-        "once_timer_unittest.cc",
         "repeating_timer_unittest.cc",
         "state_machine_unittest.cc",
         "time_util_unittest.cc",
-        "id_generator_unittest.cc",
     ],
     target: {
         android: {
@@ -78,13 +75,15 @@ cc_test {
         },
     },
     shared_libs: [
-        "libprotobuf-cpp-lite",
         "libcrypto",
     ],
     static_libs: [
-        "libgmock",
         "libbt-common",
         "libbt-protos-lite",
+        "libchrome",
+        "libevent",
+        "libgmock",
+        "libprotobuf-cpp-lite",
     ],
     sanitize: {
         cfi: false,
@@ -94,6 +93,7 @@ cc_test {
 cc_test {
     name: "net_test_performance",
     defaults: [
+        "bluetooth_gtest_x86_asan_workaround",
         "fluoride_defaults",
         "mts_defaults",
     ],
@@ -104,14 +104,14 @@ cc_test {
         "test/thread_performance_test.cc",
     ],
     shared_libs: [
-        "android.hardware.bluetooth@1.0",
-        "android.hardware.bluetooth@1.1",
         "liblog",
     ],
     static_libs: [
+        "libbt-common",
+        "libchrome",
+        "libevent",
         "libgmock",
         "libosi",
-        "libbt-common",
     ],
 }
 
@@ -130,31 +130,9 @@ cc_benchmark {
         "liblog",
     ],
     static_libs: [
-        "libosi",
         "libbt-common",
-    ],
-}
-
-cc_benchmark {
-    name: "bluetooth_benchmark_timer_performance",
-    defaults: [
-        "fluoride_defaults",
-    ],
-    host_supported: false,
-    include_dirs: ["packages/modules/Bluetooth/system"],
-    srcs: [
-        "benchmark/timer_performance_benchmark.cc",
-    ],
-    shared_libs: [
-        "liblog",
-        "libcrypto",
-        "libprotobuf-cpp-lite",
-        "libcrypto",
-        "libcutils",
-    ],
-    static_libs: [
+        "libchrome",
+        "libevent",
         "libosi",
-        "libbt-common",
-        "libbt-protos-lite",
     ],
 }

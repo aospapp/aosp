@@ -22,8 +22,6 @@
 #include <aidl/android/hardware/automotive/evs/DisplayState.h>
 #include <android/hardware/automotive/evs/1.1/IEvsDisplay.h>
 
-#include <limits>
-
 namespace aidl::android::automotive::evs::implementation {
 
 namespace aidlevs = ::aidl::android::hardware::automotive::evs;

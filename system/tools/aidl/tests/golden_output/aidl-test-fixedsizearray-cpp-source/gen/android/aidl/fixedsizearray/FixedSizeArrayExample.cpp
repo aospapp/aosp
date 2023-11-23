@@ -13,7 +13,7 @@ namespace fixedsizearray {
   }
   if (_aidl_parcelable_raw_size < 4) return ::android::BAD_VALUE;
   size_t _aidl_parcelable_size = static_cast<size_t>(_aidl_parcelable_raw_size);
-  if (_aidl_start_pos > SIZE_MAX - _aidl_parcelable_size) return ::android::BAD_VALUE;
+  if (_aidl_start_pos > INT32_MAX - _aidl_parcelable_size) return ::android::BAD_VALUE;
   if (_aidl_parcel->dataPosition() - _aidl_start_pos >= _aidl_parcelable_size) {
     _aidl_parcel->setDataPosition(_aidl_start_pos + _aidl_parcelable_size);
     return _aidl_ret_status;
@@ -718,6 +718,7 @@ FixedSizeArrayExample::BpRepeatFixedSizeArray::BpRepeatFixedSizeArray(const ::an
   ::android::Parcel _aidl_reply;
   ::android::status_t _aidl_ret_status = ::android::OK;
   ::android::binder::Status _aidl_status;
+  ::android::binder::ScopedTrace _aidl_trace(ATRACE_TAG_AIDL, "AIDL::cpp::IRepeatFixedSizeArray::RepeatBytes::cppClient");
   _aidl_ret_status = _aidl_data.writeInterfaceToken(getInterfaceDescriptor());
   if (((_aidl_ret_status) != (::android::OK))) {
     goto _aidl_error;
@@ -759,6 +760,7 @@ FixedSizeArrayExample::BpRepeatFixedSizeArray::BpRepeatFixedSizeArray(const ::an
   ::android::Parcel _aidl_reply;
   ::android::status_t _aidl_ret_status = ::android::OK;
   ::android::binder::Status _aidl_status;
+  ::android::binder::ScopedTrace _aidl_trace(ATRACE_TAG_AIDL, "AIDL::cpp::IRepeatFixedSizeArray::RepeatInts::cppClient");
   _aidl_ret_status = _aidl_data.writeInterfaceToken(getInterfaceDescriptor());
   if (((_aidl_ret_status) != (::android::OK))) {
     goto _aidl_error;
@@ -800,6 +802,7 @@ FixedSizeArrayExample::BpRepeatFixedSizeArray::BpRepeatFixedSizeArray(const ::an
   ::android::Parcel _aidl_reply;
   ::android::status_t _aidl_ret_status = ::android::OK;
   ::android::binder::Status _aidl_status;
+  ::android::binder::ScopedTrace _aidl_trace(ATRACE_TAG_AIDL, "AIDL::cpp::IRepeatFixedSizeArray::RepeatBinders::cppClient");
   _aidl_ret_status = _aidl_data.writeInterfaceToken(getInterfaceDescriptor());
   if (((_aidl_ret_status) != (::android::OK))) {
     goto _aidl_error;
@@ -841,6 +844,7 @@ FixedSizeArrayExample::BpRepeatFixedSizeArray::BpRepeatFixedSizeArray(const ::an
   ::android::Parcel _aidl_reply;
   ::android::status_t _aidl_ret_status = ::android::OK;
   ::android::binder::Status _aidl_status;
+  ::android::binder::ScopedTrace _aidl_trace(ATRACE_TAG_AIDL, "AIDL::cpp::IRepeatFixedSizeArray::RepeatParcelables::cppClient");
   _aidl_ret_status = _aidl_data.writeInterfaceToken(getInterfaceDescriptor());
   if (((_aidl_ret_status) != (::android::OK))) {
     goto _aidl_error;
@@ -882,6 +886,7 @@ FixedSizeArrayExample::BpRepeatFixedSizeArray::BpRepeatFixedSizeArray(const ::an
   ::android::Parcel _aidl_reply;
   ::android::status_t _aidl_ret_status = ::android::OK;
   ::android::binder::Status _aidl_status;
+  ::android::binder::ScopedTrace _aidl_trace(ATRACE_TAG_AIDL, "AIDL::cpp::IRepeatFixedSizeArray::Repeat2dBytes::cppClient");
   _aidl_ret_status = _aidl_data.writeInterfaceToken(getInterfaceDescriptor());
   if (((_aidl_ret_status) != (::android::OK))) {
     goto _aidl_error;
@@ -923,6 +928,7 @@ FixedSizeArrayExample::BpRepeatFixedSizeArray::BpRepeatFixedSizeArray(const ::an
   ::android::Parcel _aidl_reply;
   ::android::status_t _aidl_ret_status = ::android::OK;
   ::android::binder::Status _aidl_status;
+  ::android::binder::ScopedTrace _aidl_trace(ATRACE_TAG_AIDL, "AIDL::cpp::IRepeatFixedSizeArray::Repeat2dInts::cppClient");
   _aidl_ret_status = _aidl_data.writeInterfaceToken(getInterfaceDescriptor());
   if (((_aidl_ret_status) != (::android::OK))) {
     goto _aidl_error;
@@ -964,6 +970,7 @@ FixedSizeArrayExample::BpRepeatFixedSizeArray::BpRepeatFixedSizeArray(const ::an
   ::android::Parcel _aidl_reply;
   ::android::status_t _aidl_ret_status = ::android::OK;
   ::android::binder::Status _aidl_status;
+  ::android::binder::ScopedTrace _aidl_trace(ATRACE_TAG_AIDL, "AIDL::cpp::IRepeatFixedSizeArray::Repeat2dBinders::cppClient");
   _aidl_ret_status = _aidl_data.writeInterfaceToken(getInterfaceDescriptor());
   if (((_aidl_ret_status) != (::android::OK))) {
     goto _aidl_error;
@@ -1005,6 +1012,7 @@ FixedSizeArrayExample::BpRepeatFixedSizeArray::BpRepeatFixedSizeArray(const ::an
   ::android::Parcel _aidl_reply;
   ::android::status_t _aidl_ret_status = ::android::OK;
   ::android::binder::Status _aidl_status;
+  ::android::binder::ScopedTrace _aidl_trace(ATRACE_TAG_AIDL, "AIDL::cpp::IRepeatFixedSizeArray::Repeat2dParcelables::cppClient");
   _aidl_ret_status = _aidl_data.writeInterfaceToken(getInterfaceDescriptor());
   if (((_aidl_ret_status) != (::android::OK))) {
     goto _aidl_error;
@@ -1068,6 +1076,7 @@ FixedSizeArrayExample::BnRepeatFixedSizeArray::BnRepeatFixedSizeArray()
       _aidl_ret_status = ::android::BAD_TYPE;
       break;
     }
+    ::android::binder::ScopedTrace _aidl_trace(ATRACE_TAG_AIDL, "AIDL::cpp::IRepeatFixedSizeArray::RepeatBytes::cppServer");
     _aidl_ret_status = _aidl_data.readFixedArray(&in_input);
     if (((_aidl_ret_status) != (::android::OK))) {
       break;
@@ -1103,6 +1112,7 @@ FixedSizeArrayExample::BnRepeatFixedSizeArray::BnRepeatFixedSizeArray()
       _aidl_ret_status = ::android::BAD_TYPE;
       break;
     }
+    ::android::binder::ScopedTrace _aidl_trace(ATRACE_TAG_AIDL, "AIDL::cpp::IRepeatFixedSizeArray::RepeatInts::cppServer");
     _aidl_ret_status = _aidl_data.readFixedArray(&in_input);
     if (((_aidl_ret_status) != (::android::OK))) {
       break;
@@ -1138,6 +1148,7 @@ FixedSizeArrayExample::BnRepeatFixedSizeArray::BnRepeatFixedSizeArray()
       _aidl_ret_status = ::android::BAD_TYPE;
       break;
     }
+    ::android::binder::ScopedTrace _aidl_trace(ATRACE_TAG_AIDL, "AIDL::cpp::IRepeatFixedSizeArray::RepeatBinders::cppServer");
     _aidl_ret_status = _aidl_data.readFixedArray(&in_input);
     if (((_aidl_ret_status) != (::android::OK))) {
       break;
@@ -1173,6 +1184,7 @@ FixedSizeArrayExample::BnRepeatFixedSizeArray::BnRepeatFixedSizeArray()
       _aidl_ret_status = ::android::BAD_TYPE;
       break;
     }
+    ::android::binder::ScopedTrace _aidl_trace(ATRACE_TAG_AIDL, "AIDL::cpp::IRepeatFixedSizeArray::RepeatParcelables::cppServer");
     _aidl_ret_status = _aidl_data.readFixedArray(&in_input);
     if (((_aidl_ret_status) != (::android::OK))) {
       break;
@@ -1208,6 +1220,7 @@ FixedSizeArrayExample::BnRepeatFixedSizeArray::BnRepeatFixedSizeArray()
       _aidl_ret_status = ::android::BAD_TYPE;
       break;
     }
+    ::android::binder::ScopedTrace _aidl_trace(ATRACE_TAG_AIDL, "AIDL::cpp::IRepeatFixedSizeArray::Repeat2dBytes::cppServer");
     _aidl_ret_status = _aidl_data.readFixedArray(&in_input);
     if (((_aidl_ret_status) != (::android::OK))) {
       break;
@@ -1243,6 +1256,7 @@ FixedSizeArrayExample::BnRepeatFixedSizeArray::BnRepeatFixedSizeArray()
       _aidl_ret_status = ::android::BAD_TYPE;
       break;
     }
+    ::android::binder::ScopedTrace _aidl_trace(ATRACE_TAG_AIDL, "AIDL::cpp::IRepeatFixedSizeArray::Repeat2dInts::cppServer");
     _aidl_ret_status = _aidl_data.readFixedArray(&in_input);
     if (((_aidl_ret_status) != (::android::OK))) {
       break;
@@ -1278,6 +1292,7 @@ FixedSizeArrayExample::BnRepeatFixedSizeArray::BnRepeatFixedSizeArray()
       _aidl_ret_status = ::android::BAD_TYPE;
       break;
     }
+    ::android::binder::ScopedTrace _aidl_trace(ATRACE_TAG_AIDL, "AIDL::cpp::IRepeatFixedSizeArray::Repeat2dBinders::cppServer");
     _aidl_ret_status = _aidl_data.readFixedArray(&in_input);
     if (((_aidl_ret_status) != (::android::OK))) {
       break;
@@ -1313,6 +1328,7 @@ FixedSizeArrayExample::BnRepeatFixedSizeArray::BnRepeatFixedSizeArray()
       _aidl_ret_status = ::android::BAD_TYPE;
       break;
     }
+    ::android::binder::ScopedTrace _aidl_trace(ATRACE_TAG_AIDL, "AIDL::cpp::IRepeatFixedSizeArray::Repeat2dParcelables::cppServer");
     _aidl_ret_status = _aidl_data.readFixedArray(&in_input);
     if (((_aidl_ret_status) != (::android::OK))) {
       break;
@@ -1369,7 +1385,7 @@ namespace fixedsizearray {
   }
   if (_aidl_parcelable_raw_size < 4) return ::android::BAD_VALUE;
   size_t _aidl_parcelable_size = static_cast<size_t>(_aidl_parcelable_raw_size);
-  if (_aidl_start_pos > SIZE_MAX - _aidl_parcelable_size) return ::android::BAD_VALUE;
+  if (_aidl_start_pos > INT32_MAX - _aidl_parcelable_size) return ::android::BAD_VALUE;
   if (_aidl_parcel->dataPosition() - _aidl_start_pos >= _aidl_parcelable_size) {
     _aidl_parcel->setDataPosition(_aidl_start_pos + _aidl_parcelable_size);
     return _aidl_ret_status;

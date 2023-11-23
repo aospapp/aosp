@@ -16,6 +16,8 @@
 
 package android.server.wm;
 
+import static android.server.wm.ShellCommandHelper.executeShellCommand;
+
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.fail;
@@ -28,11 +30,12 @@ import android.provider.Settings;
 import android.server.wm.annotation.Group3;
 import android.server.wm.app.Components;
 import android.server.wm.settings.SettingsSession;
-import android.support.test.uiautomator.By;
-import android.support.test.uiautomator.UiDevice;
-import android.support.test.uiautomator.UiObject2;
-import android.support.test.uiautomator.Until;
 import android.view.KeyEvent;
+
+import androidx.test.uiautomator.By;
+import androidx.test.uiautomator.UiDevice;
+import androidx.test.uiautomator.UiObject2;
+import androidx.test.uiautomator.Until;
 
 import com.android.compatibility.common.util.SystemUtil;
 
@@ -60,7 +63,7 @@ public class UnsupportedErrorDialogTests extends ActivityManagerTestBase {
         resetAppErrors();
     }
 
-    /** Make sure the developer options apply correctly leading to the dialog being shown. */
+    /** Make sure the developer option applies correctly leading to the dialog being shown. */
     @Test
     public void testDevSettingOverride() {
         try (SettingsSession<Integer> devDialogShow =
@@ -71,16 +74,6 @@ public class UnsupportedErrorDialogTests extends ActivityManagerTestBase {
                      secureIntSession(Settings.Secure.SHOW_FIRST_CRASH_DIALOG_DEV_OPTION)) {
             // set developer setting to show dialogs anyway
             devDialogShow.set(1);
-
-            // enable only the regular option for showing the crash dialog after the first crash
-            showOnFirstCrash.set(1);
-            showOnFirstCrashDev.set(0);
-            launchActivityNoWait(Components.CRASHING_ACTIVITY);
-            findCrashDialogAndCloseApp();
-            ensureActivityNotFocused(Components.CRASHING_ACTIVITY);
-
-            resetAppErrors();
-
             // enable only the dev option for showing the crash dialog after the first crash
             showOnFirstCrash.set(0);
             showOnFirstCrashDev.set(1);

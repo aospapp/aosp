@@ -18,10 +18,9 @@ from acts.controllers.fuchsia_lib.base_lib import BaseLib
 
 
 class FuchsiaRegulatoryRegionLib(BaseLib):
-    def __init__(self, addr, tc, client_id):
-        self.address = addr
-        self.test_counter = tc
-        self.client_id = client_id
+
+    def __init__(self, addr: str) -> None:
+        super().__init__(addr, "location_regulatory_region")
 
     # TODO(fxb/46727): Provide an analagous call to check the region
     # configured into the driver.
@@ -36,7 +35,5 @@ class FuchsiaRegulatoryRegionLib(BaseLib):
         """
         test_cmd = "location_regulatory_region_facade.set_region"
         test_args = {"region": region_code}
-        test_id = self.build_id(self.test_counter)
-        self.test_counter += 1
 
-        return self.send_command(test_id, test_cmd, test_args)
+        return self.send_command(test_cmd, test_args)

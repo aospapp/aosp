@@ -30,6 +30,9 @@
     <ctl name="PCM Stream Wait Time in MSec" value="100"/>
     <ctl name="Voice PCM Stream Wait Time in MSec" value="500"/>
 
+    <!-- Enable it when AOC is ready to trim delay and padding -->
+    <ctl name="Gapless Offload Enable" value="1"/>
+
     <!-- TDM 0 setting -->
     <ctl name="TDM_0_RX Chan" value="Four"/>
     <ctl name="TDM_0_RX Format" value="S32_LE"/>
@@ -110,6 +113,7 @@
     <ctl name="TDM_0_RX Mixer NoHost1" value="0"/>
     <ctl name="TDM_0_RX Mixer VOIP" value="0"/>
     <ctl name="TDM_0_RX Mixer RAW" value="0"/>
+    <ctl name="TDM_0_RX Mixer IMSV" value="0"/>
 
     <ctl name="TDM_1_RX Mixer EP1" value="0"/>
     <ctl name="TDM_1_RX Mixer EP2" value="0"/>
@@ -132,6 +136,7 @@
     <ctl name="USB_RX Mixer VOIP" value="0"/>
     <ctl name="USB_RX Mixer HIFI" value="0"/>
     <ctl name="USB_RX Mixer RAW" value="0"/>
+    <ctl name="USB_RX Mixer IMSV" value="0"/>
 
     <ctl name="BT_RX Mixer EP1" value="0"/>
     <ctl name="BT_RX Mixer EP2" value="0"/>
@@ -142,6 +147,8 @@
     <ctl name="BT_RX Mixer EP7" value="0"/>
     <ctl name="BT_RX Mixer NoHost1" value="0"/>
     <ctl name="BT_RX Mixer VOIP" value="0"/>
+    <ctl name="BT_RX Mixer IMSV" value="0"/>
+    <ctl name="BT_RX Mixer RAW" value="0"/>
 
     <ctl name="INCALL_RX Mixer EP1" value="0"/>
     <ctl name="INCALL_RX Mixer EP2" value="0"/>
@@ -376,6 +383,10 @@
         <ctl name="USB_RX Mixer RAW" value="1"/>
     </path>
 
+    <path name="raw-playbackP bt">
+        <ctl name="BT_RX Mixer RAW" value="1"/>
+    </path>
+
     <path name="raw-playbackP hearing-aid">
     </path>
 
@@ -388,6 +399,10 @@
 
     <path name="mmap-playbackP usb-headphone">
         <ctl name="USB_RX Mixer EP1" value="1"/>
+    </path>
+
+    <path name="mmap-playbackP bt">
+        <ctl name="BT_RX Mixer EP1" value="1"/>
     </path>
 
     <path name="mmap-playbackP usb-tty-full">
@@ -427,6 +442,18 @@
 
     <path name="compress-offload-playbackP hearing-aid">
         <path name="compress-offload-playback" />
+    </path>
+
+    <path name="immersive-playbackP">
+        <ctl name="TDM_0_RX Mixer IMSV" value="1"/>
+    </path>
+
+    <path name="immersive-playbackP bt">
+        <ctl name="BT_RX Mixer IMSV" value="1"/>
+    </path>
+
+    <path name="immersive-playbackP usb-headphone">
+        <ctl name="USB_RX Mixer IMSV" value="1"/>
     </path>
 
     <path name="voip-playbackP">
@@ -584,12 +611,20 @@
         <ctl name="EP3 TX Mixer USB_TX" value="1"/>
     </path>
 
+    <path name="low-latency-recordC bt-mic">
+        <ctl name="EP3 TX Mixer BT_TX" value="1"/>
+    </path>
+
     <path name="mmap-recordC">
         <ctl name="EP2 TX Mixer INTERNAL_MIC_TX" value="1"/>
     </path>
 
     <path name="mmap-recordC usb-headset-mic">
         <ctl name="EP2 TX Mixer USB_TX" value="1"/>
+    </path>
+
+    <path name="mmap-recordC bt-mic">
+        <ctl name="EP2 TX Mixer BT_TX" value="1"/>
     </path>
 
     <!-- codec setting -->>

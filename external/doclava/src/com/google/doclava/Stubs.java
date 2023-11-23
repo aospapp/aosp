@@ -53,7 +53,7 @@ public class Stubs {
       boolean keepStubComments) {
     // figure out which classes we need
     final HashSet<ClassInfo> notStrippable = new HashSet<ClassInfo>();
-    Collection<ClassInfo> all = Converter.allClasses();
+    Collection<ClassInfo> all = List.copyOf(Converter.allClasses());
     Map<PackageInfo, List<ClassInfo>> allClassesByPackage = null;
     PrintStream apiWriter = null;
     PrintStream dexApiWriter = null;

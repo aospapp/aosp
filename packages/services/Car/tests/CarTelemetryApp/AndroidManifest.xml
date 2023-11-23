@@ -17,6 +17,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
           package="com.android.car.cartelemetryapp">
     <uses-permission android:name="android.car.permission.USE_CAR_TELEMETRY_SERVICE"/>
+    <uses-permission android:name="android.permission.INTERACT_ACROSS_USERS_FULL"/>
 
     <application
         android:icon="@drawable/ic_launcher"
@@ -37,6 +38,7 @@
         </activity>
         <service
             android:name=".CarMetricsCollectorService"
-            android:exported="true"/>
+            android:exported="true"
+            android:singleUser="true" />
     </application>
 </manifest>

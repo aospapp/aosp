@@ -33,8 +33,7 @@ namespace android::vintf::testing {
 //    // FCM version >= 11
 //    Y = 11,
 //    Z = 11
-static const std::map<uint64_t /* Shipping API Level */,
-                      Level /* FCM Version */>
+static const std::map<uint64_t /* Vendor API Level */, Level /* FCM Version */>
     kApiLevel2FcmMap{{
         // N. The test runs on devices that launch with N and
         // become a Treble device when upgrading to O.
@@ -46,41 +45,58 @@ static const std::map<uint64_t /* Shipping API Level */,
         {29, Level::Q},
         {30, Level::R},
         {31, Level::S},
-        {32, Level::S},  // subject to change, placeholder value
-        {33, Level::T},  // subject to change, placeholder value
+        {32, Level::S},
+        {33, Level::T},
+        {34, Level::U},  // subject to change, placeholder value
     }};
 
-android::base::Result<void> TestTargetFcmVersion(Level shipping_fcm_version,
-                                                 uint64_t shipping_api_level) {
-  if (shipping_api_level == 0u) {
+android::base::Result<Level> GetFcmVersionFromApiLevel(uint64_t api_level) {
+  auto it = android::vintf::testing::kApiLevel2FcmMap.find(api_level);
+  if (it == android::vintf::testing::kApiLevel2FcmMap.end()) {
     return android::base::Error()
-           << "Device's shipping API level cannot be determined.";
+           << "Can't find corresponding VINTF level for API level " << api_level
+           << ". Is the test updated?";
+  }
+  return it->second;
+}
+
+android::base::Result<void> TestTargetFcmVersion(Level target_fcm_version,
+                                                 uint64_t vendor_api_level) {
+  if (vendor_api_level == 0u) {
+    return android::base::Error()
+           << "Device's vendor API level cannot be determined.";
   }
 
-  if (shipping_fcm_version == Level::UNSPECIFIED) {
-    // O / O-MR1 vendor image doesn't have shipping FCM version declared and
-    // shipping FCM version is inferred from Shipping API level, hence it always
+  if (target_fcm_version == Level::UNSPECIFIED) {
+    // O / O-MR1 vendor image doesn't have target FCM version declared and
+    // target FCM version is inferred from vendor API level, hence it always
     // meets the requirement.
-    return {};
+    if (vendor_api_level <= 27) {  // O-MR1
+      return {};
+    }
+    return android::base::Error() << "Target FCM version (device manifest "
+                                     "target-level) must be set for "
+                                     "device with vendor api level "
+                                  << vendor_api_level;
   }
 
-  if (shipping_api_level < kApiLevel2FcmMap.begin()->first /* 25 */) {
+  if (vendor_api_level < kApiLevel2FcmMap.begin()->first /* 25 */) {
     return android::base::Error() << "Pre-N devices should not run this test.";
   }
 
-  auto it = kApiLevel2FcmMap.find(shipping_api_level);
+  auto it = kApiLevel2FcmMap.find(vendor_api_level);
   if (it == kApiLevel2FcmMap.end()) {
     return android::base::Error()
-           << "No launch requirement is set yet for Shipping API level "
-           << shipping_api_level << ". Please update the test.";
+           << "No launch requirement is set yet for vendor API level "
+           << vendor_api_level << ". Please update the test.";
   }
 
   Level required_fcm_version = it->second;
-  if (shipping_fcm_version < required_fcm_version) {
+  if (target_fcm_version < required_fcm_version) {
     return android::base::Error()
-           << "Shipping API level == " << shipping_api_level
-           << " requires Shipping FCM Version >= " << required_fcm_version
-           << " (but is " << shipping_fcm_version << ")";
+           << "Vendor API level == " << vendor_api_level
+           << " requires Target FCM Version >= " << required_fcm_version
+           << " (but is " << target_fcm_version << ")";
   }
 
   return {};

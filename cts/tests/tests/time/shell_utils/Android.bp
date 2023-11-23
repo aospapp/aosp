@@ -21,7 +21,7 @@ package {
 // A library for interacting with time-related shell "cmd" commands from host
 // tests.
 java_library_host {
-    name: "host_time_shell_utils",
+    name: "host-time-shell-utils",
     defaults: ["cts_defaults"],
     libs: [
         "androidx.annotation_annotation",
@@ -39,7 +39,7 @@ java_library_host {
 // A library for interacting with time-related shell "cmd" commands from
 // instrumentation/device tests.
 java_library {
-    name: "device_time_shell_utils",
+    name: "device-time-shell-utils",
     defaults: ["cts_defaults"],
     libs: [
         "androidx.annotation_annotation",

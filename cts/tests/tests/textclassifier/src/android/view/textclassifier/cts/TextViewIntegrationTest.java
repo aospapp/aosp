@@ -20,15 +20,7 @@ import static android.content.pm.PackageManager.FEATURE_TOUCHSCREEN;
 import static android.provider.Settings.Global.ANIMATOR_DURATION_SCALE;
 import static android.provider.Settings.Global.TRANSITION_ANIMATION_SCALE;
 
-import static androidx.test.espresso.Espresso.onView;
-import static androidx.test.espresso.assertion.ViewAssertions.matches;
-import static androidx.test.espresso.matcher.ViewMatchers.isDisplayed;
-import static androidx.test.espresso.matcher.ViewMatchers.withId;
-import static androidx.test.espresso.matcher.ViewMatchers.withText;
-
 import static com.google.common.truth.Truth.assertThat;
-
-import static org.hamcrest.CoreMatchers.allOf;
 
 import android.app.PendingIntent;
 import android.app.RemoteAction;
@@ -36,12 +28,12 @@ import android.content.ContentResolver;
 import android.content.Intent;
 import android.graphics.drawable.Icon;
 import android.net.Uri;
+import android.os.Build;
 import android.provider.Settings;
 import android.text.Spannable;
 import android.text.SpannableString;
 import android.text.TextUtils;
 import android.text.method.LinkMovementMethod;
-import android.util.Log;
 import android.view.textclassifier.TextClassification;
 import android.view.textclassifier.TextClassifier;
 import android.view.textclassifier.TextLinks;
@@ -54,10 +46,14 @@ import androidx.test.core.app.ApplicationProvider;
 import androidx.test.ext.junit.rules.ActivityScenarioRule;
 import androidx.test.platform.app.InstrumentationRegistry;
 import androidx.test.uiautomator.By;
+import androidx.test.uiautomator.BySelector;
 import androidx.test.uiautomator.UiDevice;
+import androidx.test.uiautomator.UiObject2;
 
+import com.android.compatibility.common.util.ApiTest;
 import com.android.compatibility.common.util.ShellUtils;
 import com.android.compatibility.common.util.SystemUtil;
+import com.android.compatibility.common.util.Timeout;
 
 import org.junit.AfterClass;
 import org.junit.Assume;
@@ -68,11 +64,12 @@ import org.junit.Rule;
 import org.junit.Test;
 
 import java.util.Collections;
-import java.util.concurrent.atomic.AtomicInteger;
 
 public class TextViewIntegrationTest {
     private static final String LOG_TAG = "TextViewIntegrationTest";
     private static final String TOOLBAR_ITEM_LABEL = "TB@#%!";
+
+    private static final Timeout UI_TIMEOUT = new Timeout("UI_TIMEOUT", 2_000, 2F, 10_000);
 
     private SimpleTextClassifier mSimpleTextClassifier;
 
@@ -91,22 +88,10 @@ public class TextViewIntegrationTest {
         Assume.assumeTrue(
                 ApplicationProvider.getApplicationContext().getPackageManager()
                         .hasSystemFeature(FEATURE_TOUCHSCREEN));
-        workAroundNotificationShadeWindowIssue();
         mSimpleTextClassifier = new SimpleTextClassifier();
         sDevice.wakeUp();
         dismissKeyguard();
         closeSystemDialog();
-    }
-
-    // Somehow there is a stale "NotificationShade" window from SysUI stealing the inputs.
-    // The window is in the "exiting" state and seems never finish exiting.
-    // The workaround here is to (hopefully) reset its state by expanding the notification panel
-    // and collapsing it again.
-    private void workAroundNotificationShadeWindowIssue() throws InterruptedException {
-        ShellUtils.runShellCommand("cmd statusbar expand-notifications");
-        Thread.sleep(1000);
-        ShellUtils.runShellCommand("cmd statusbar collapse");
-        Thread.sleep(1000);
     }
 
     private void dismissKeyguard() {
@@ -115,6 +100,15 @@ public class TextViewIntegrationTest {
 
     private static void closeSystemDialog() {
         ShellUtils.runShellCommand("am broadcast -a android.intent.action.CLOSE_SYSTEM_DIALOGS");
+    }
+
+    private static void dumpScreenInformation(String testName) {
+        // Dump window layer state
+        String result = ShellUtils.runShellCommand("dumpsys window windows");
+        Helper.dumpsysAndSave(result, testName, Helper.LOCAL_TEST_FILES_DIR);
+        // Take screenshot
+        Helper.takeScreenshotAndSave(ApplicationProvider.getApplicationContext(),
+                testName, Helper.LOCAL_TEST_FILES_DIR);
     }
 
     @BeforeClass
@@ -150,7 +144,6 @@ public class TextViewIntegrationTest {
         ActivityScenario<TextViewActivity> scenario = rule.getScenario();
         // Linkify the text.
         final String TEXT = "Link: https://www.android.com";
-        AtomicInteger clickIndex = new AtomicInteger();
         Spannable linkifiedText = createLinkifiedText(TEXT);
         scenario.onActivity(activity -> {
             TextView textView = activity.findViewById(R.id.textview);
@@ -160,34 +153,34 @@ public class TextViewIntegrationTest {
             TextLinks.TextLinkSpan[] spans = linkifiedText.getSpans(0, TEXT.length(),
                     TextLinks.TextLinkSpan.class);
             assertThat(spans).hasLength(1);
-            TextLinks.TextLinkSpan span = spans[0];
-            clickIndex.set(
-                    (span.getTextLink().getStart() + span.getTextLink().getEnd()) / 2);
         });
         // To wait for the rendering of the activity to be completed, so that the upcoming click
         // action will work.
         Thread.sleep(2000);
-        onView(allOf(withId(R.id.textview), withText(TEXT))).check(matches(isDisplayed()));
-        // Click on the span.
-        Log.d(LOG_TAG, "clickIndex = " + clickIndex.get());
-        onView(withId(R.id.textview)).perform(TextViewActions.tapOnTextAtIndex(clickIndex.get()));
+        try {
+            UiObject2 textview = waitForObject(By.text(linkifiedText.toString()));
+            textview.click();
 
-        assertFloatingToolbarIsDisplayed();
+            assertFloatingToolbarIsDisplayed();
+        } catch (Throwable t) {
+            dumpScreenInformation("smartLinkify");
+            throw t;
+        }
     }
 
     @Test
     public void smartSelection_suggestSelectionNotIncludeTextClassification() throws Exception {
         Assume.assumeTrue(BuildCompat.isAtLeastS());
-        smartSelectionInternal();
+        smartSelectionInternal("smartSelection_suggestSelectionNotIncludeTextClassification");
 
         assertThat(mSimpleTextClassifier.getClassifyTextInvocationCount()).isEqualTo(1);
     }
 
     @Test
     public void smartSelection_suggestSelectionIncludeTextClassification() throws Exception {
-        Assume.assumeTrue(BuildCompat.isAtLeastS());
+        Assume.assumeTrue(isAtLeastS());
         mSimpleTextClassifier.setIncludeTextClassification(true);
-        smartSelectionInternal();
+        smartSelectionInternal("smartSelection_suggestSelectionIncludeTextClassification");
 
         assertThat(mSimpleTextClassifier.getClassifyTextInvocationCount()).isEqualTo(0);
     }
@@ -195,34 +188,52 @@ public class TextViewIntegrationTest {
     @Test
     @Ignore  // Enable the test once b/187862341 is fixed.
     public void smartSelection_cancelSelectionDoesNotInvokeClassifyText() throws Exception {
-        Assume.assumeTrue(BuildCompat.isAtLeastS());
-        smartSelectionInternal();
-        onView(withId(R.id.textview)).perform(TextViewActions.tapOnTextAtIndex(0));
+        Assume.assumeTrue(isAtLeastS());
+        smartSelectionInternal("smartSelection_cancelSelectionDoesNotInvokeClassifyText");
+        final String text = "Link: https://www.android.com";
+        UiObject2 textview = waitForObject(By.text(text));
+        textview.click();
+
         Thread.sleep(1000);
 
         assertThat(mSimpleTextClassifier.getClassifyTextInvocationCount()).isEqualTo(1);
     }
 
-    private void smartSelectionInternal() {
+    // TODO: re-use now. Refactor to have a folder/test class for toolbar
+    @Test
+    @ApiTest(apis = "android.view.View#startActionMode")
+    public void smartSelection_toolbarContainerNoContentDescription() throws Exception {
+        smartSelectionInternal("smartSelection_toolbarContainerNoContentDescription");
+
+        UiObject2 toolbarContainer =
+                sDevice.findObject(By.res("android", "floating_popup_container"));
+        assertThat(toolbarContainer).isNotNull();
+        assertThat(toolbarContainer.getContentDescription()).isNull();
+    }
+
+    private void smartSelectionInternal(String testName) throws Exception {
         ActivityScenario<TextViewActivity> scenario = rule.getScenario();
-        AtomicInteger clickIndex = new AtomicInteger();
-        //                   0123456789
         final String TEXT = "Link: https://www.android.com";
         scenario.onActivity(activity -> {
             TextView textView = activity.findViewById(R.id.textview);
             textView.setTextIsSelectable(true);
             textView.setText(TEXT);
             textView.setTextClassifier(mSimpleTextClassifier);
-            clickIndex.set(9);
         });
-        onView(allOf(withId(R.id.textview), withText(TEXT))).check(matches(isDisplayed()));
-
         // Long press the url to perform smart selection.
-        Log.d(LOG_TAG, "clickIndex = " + clickIndex.get());
-        onView(withId(R.id.textview)).perform(
-                TextViewActions.longTapOnTextAtIndex(clickIndex.get()));
+        try {
+            UiObject2 textview = waitForObject(By.text(TEXT));
+            textview.click(3_000);
 
-        assertFloatingToolbarIsDisplayed();
+            assertFloatingToolbarIsDisplayed();
+        } catch (Throwable t) {
+            dumpScreenInformation(testName);
+            throw t;
+        }
+    }
+
+    private boolean isAtLeastS() {
+        return Build.VERSION.SDK_INT >= 31;
     }
 
     private Spannable createLinkifiedText(CharSequence text) {
@@ -242,9 +253,15 @@ public class TextViewIntegrationTest {
         return linkifiedText;
     }
 
-    private static void assertFloatingToolbarIsDisplayed() {
+    private static void assertFloatingToolbarIsDisplayed() throws Exception {
         // Simply check that the toolbar item is visible.
-        assertThat(sDevice.hasObject(By.text(TOOLBAR_ITEM_LABEL))).isTrue();
+        UiObject2 toolbarObject = waitForObject(By.text(TOOLBAR_ITEM_LABEL));
+        assertThat(toolbarObject).isNotNull();
+    }
+
+    private static UiObject2 waitForObject(BySelector selector) throws Exception {
+        return UI_TIMEOUT.run("waitForObject(" + selector + ")",
+                () -> sDevice.findObject(selector));
     }
 
     /**

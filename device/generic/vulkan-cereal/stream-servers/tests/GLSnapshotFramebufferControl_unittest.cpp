@@ -16,7 +16,9 @@
 
 #include <gtest/gtest.h>
 
-namespace emugl {
+namespace gfxstream {
+namespace gl {
+namespace {
 
 class SnapshotGlColorMaskTest
     : public SnapshotSetValueTest<std::vector<GLboolean>> {
@@ -106,4 +108,6 @@ TEST_F(SnapshotGlStencilClearValueTest, SetClearStencil) {
     doCheckedSnapshot();
 }
 
-}  // namespace emugl
+}  // namespace
+}  // namespace gl
+}  // namespace gfxstream

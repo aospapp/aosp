@@ -23,9 +23,6 @@ import static android.Manifest.permission.NETWORK_STACK;
 import static android.Manifest.permission.UPDATE_DEVICE_STATS;
 import static android.content.pm.PackageInfo.REQUESTED_PERMISSION_GRANTED;
 import static android.content.pm.PackageManager.GET_PERMISSIONS;
-import static android.net.ConnectivityManager.FIREWALL_CHAIN_LOCKDOWN_VPN;
-import static android.net.ConnectivityManager.FIREWALL_RULE_ALLOW;
-import static android.net.ConnectivityManager.FIREWALL_RULE_DENY;
 import static android.net.ConnectivitySettingsManager.UIDS_ALLOWED_ON_RESTRICTED_NETWORKS;
 import static android.net.INetd.PERMISSION_INTERNET;
 import static android.net.INetd.PERMISSION_NETWORK;
@@ -54,8 +51,9 @@ import android.net.ConnectivitySettingsManager;
 import android.net.INetd;
 import android.net.UidRange;
 import android.net.Uri;
-import android.net.util.SharedLog;
 import android.os.Build;
+import android.os.Handler;
+import android.os.HandlerThread;
 import android.os.Process;
 import android.os.RemoteException;
 import android.os.ServiceSpecificException;
@@ -73,6 +71,7 @@ import com.android.internal.annotations.VisibleForTesting;
 import com.android.internal.util.IndentingPrintWriter;
 import com.android.modules.utils.build.SdkLevel;
 import com.android.net.module.util.CollectionUtils;
+import com.android.net.module.util.SharedLog;
 import com.android.networkstack.apishim.ProcessShimImpl;
 import com.android.networkstack.apishim.common.ProcessShim;
 import com.android.server.BpfNetMaps;
@@ -101,6 +100,7 @@ public class PermissionMonitor {
     private final Dependencies mDeps;
     private final Context mContext;
     private final BpfNetMaps mBpfNetMaps;
+    private final HandlerThread mThread;
 
     private static final ProcessShim sProcessShim = ProcessShimImpl.newInstance();
 
@@ -178,6 +178,22 @@ public class PermissionMonitor {
                 final String[] pkgList =
                         intent.getStringArrayExtra(Intent.EXTRA_CHANGED_PACKAGE_LIST);
                 onExternalApplicationsAvailable(pkgList);
+            } else if (Intent.ACTION_USER_ADDED.equals(action)) {
+                final UserHandle user = intent.getParcelableExtra(Intent.EXTRA_USER);
+                // User should be filled for below intents, check the existence.
+                if (user == null) {
+                    Log.wtf(TAG, action + " broadcast without EXTRA_USER");
+                    return;
+                }
+                onUserAdded(user);
+            } else if (Intent.ACTION_USER_REMOVED.equals(action)) {
+                final UserHandle user = intent.getParcelableExtra(Intent.EXTRA_USER);
+                // User should be filled for below intents, check the existence.
+                if (user == null) {
+                    Log.wtf(TAG, action + " broadcast without EXTRA_USER");
+                    return;
+                }
+                onUserRemoved(user);
             } else {
                 Log.wtf(TAG, "received unexpected intent: " + action);
             }
@@ -246,14 +262,15 @@ public class PermissionMonitor {
     }
 
     public PermissionMonitor(@NonNull final Context context, @NonNull final INetd netd,
-            @NonNull final BpfNetMaps bpfNetMaps) {
-        this(context, netd, bpfNetMaps, new Dependencies());
+            @NonNull final BpfNetMaps bpfNetMaps, @NonNull final HandlerThread thread) {
+        this(context, netd, bpfNetMaps, new Dependencies(), thread);
     }
 
     @VisibleForTesting
     PermissionMonitor(@NonNull final Context context, @NonNull final INetd netd,
             @NonNull final BpfNetMaps bpfNetMaps,
-            @NonNull final Dependencies deps) {
+            @NonNull final Dependencies deps,
+            @NonNull final HandlerThread thread) {
         mPackageManager = context.getPackageManager();
         mUserManager = (UserManager) context.getSystemService(Context.USER_SERVICE);
         mSystemConfigManager = context.getSystemService(SystemConfigManager.class);
@@ -261,6 +278,14 @@ public class PermissionMonitor {
         mDeps = deps;
         mContext = context;
         mBpfNetMaps = bpfNetMaps;
+        mThread = thread;
+    }
+
+    private void ensureRunningOnHandlerThread() {
+        if (mThread.getLooper().getThread() != Thread.currentThread()) {
+            throw new IllegalStateException(
+                    "Not running on Handler thread: " + Thread.currentThread().getName());
+        }
     }
 
     private int getPackageNetdNetworkPermission(@NonNull final PackageInfo app) {
@@ -392,14 +417,14 @@ public class PermissionMonitor {
     public synchronized void startMonitoring() {
         log("Monitoring");
 
+        final Handler handler = new Handler(mThread.getLooper());
         final Context userAllContext = mContext.createContextAsUser(UserHandle.ALL, 0 /* flags */);
         final IntentFilter intentFilter = new IntentFilter();
         intentFilter.addAction(Intent.ACTION_PACKAGE_ADDED);
         intentFilter.addAction(Intent.ACTION_PACKAGE_REMOVED);
         intentFilter.addDataScheme("package");
         userAllContext.registerReceiver(
-                mIntentReceiver, intentFilter, null /* broadcastPermission */,
-                null /* scheduler */);
+                mIntentReceiver, intentFilter, null /* broadcastPermission */, handler);
 
         // Listen to EXTERNAL_APPLICATIONS_AVAILABLE is that an app becoming available means it may
         // need to gain a permission. But an app that becomes unavailable can neither gain nor lose
@@ -408,15 +433,21 @@ public class PermissionMonitor {
         final IntentFilter externalIntentFilter =
                 new IntentFilter(Intent.ACTION_EXTERNAL_APPLICATIONS_AVAILABLE);
         userAllContext.registerReceiver(
-                mIntentReceiver, externalIntentFilter, null /* broadcastPermission */,
-                null /* scheduler */);
+                mIntentReceiver, externalIntentFilter, null /* broadcastPermission */, handler);
+
+        // Listen for user add/remove.
+        final IntentFilter userIntentFilter = new IntentFilter();
+        userIntentFilter.addAction(Intent.ACTION_USER_ADDED);
+        userIntentFilter.addAction(Intent.ACTION_USER_REMOVED);
+        userAllContext.registerReceiver(
+                mIntentReceiver, userIntentFilter, null /* broadcastPermission */, handler);
 
         // Register UIDS_ALLOWED_ON_RESTRICTED_NETWORKS setting observer
         mDeps.registerContentObserver(
                 userAllContext,
                 Settings.Global.getUriFor(UIDS_ALLOWED_ON_RESTRICTED_NETWORKS),
                 false /* notifyForDescendants */,
-                new ContentObserver(null) {
+                new ContentObserver(handler) {
                     @Override
                     public void onChange(boolean selfChange) {
                         onSettingChanged();
@@ -520,6 +551,7 @@ public class PermissionMonitor {
     }
 
     private void sendUidsNetworkPermission(SparseIntArray uids, boolean add) {
+        ensureRunningOnHandlerThread();
         List<Integer> network = new ArrayList<>();
         List<Integer> system = new ArrayList<>();
         for (int i = 0; i < uids.size(); i++) {
@@ -550,7 +582,8 @@ public class PermissionMonitor {
      *
      * @hide
      */
-    public synchronized void onUserAdded(@NonNull UserHandle user) {
+    @VisibleForTesting
+    synchronized void onUserAdded(@NonNull UserHandle user) {
         mUsers.add(user);
 
         final List<PackageInfo> apps = getInstalledPackagesAsUser(user);
@@ -581,7 +614,8 @@ public class PermissionMonitor {
      *
      * @hide
      */
-    public synchronized void onUserRemoved(@NonNull UserHandle user) {
+    @VisibleForTesting
+    synchronized void onUserRemoved(@NonNull UserHandle user) {
         mUsers.remove(user);
 
         // Remove uids network permissions that belongs to the user.
@@ -684,8 +718,12 @@ public class PermissionMonitor {
     }
 
     private synchronized void updateLockdownUid(int uid, boolean add) {
-        if (UidRange.containsUid(mVpnLockdownUidRanges.getSet(), uid)
-                && !hasRestrictedNetworksPermission(uid)) {
+        // Apps that can use restricted networks can always bypass VPNs.
+        if (hasRestrictedNetworksPermission(uid)) {
+            return;
+        }
+
+        if (UidRange.containsUid(mVpnLockdownUidRanges.getSet(), uid)) {
             updateLockdownUidRule(uid, add);
         }
     }
@@ -757,7 +795,8 @@ public class PermissionMonitor {
      *
      * @hide
      */
-    public synchronized void onPackageAdded(@NonNull final String packageName, final int uid) {
+    @VisibleForTesting
+    synchronized void onPackageAdded(@NonNull final String packageName, final int uid) {
         // Update uid permission.
         updateAppIdTrafficPermission(uid);
         // Get the appId permission from all users then send the latest permission to netd.
@@ -790,7 +829,7 @@ public class PermissionMonitor {
         mAllApps.add(appId);
 
         // Log package added.
-        mPermissionUpdateLogs.log("Package add: name=" + packageName + ", uid=" + uid
+        mPermissionUpdateLogs.log("Package add: uid=" + uid
                 + ", nPerm=(" + permissionToString(permission) + "/"
                 + permissionToString(currentPermission) + ")"
                 + ", tPerm=" + permissionToString(appIdTrafficPerm));
@@ -820,7 +859,8 @@ public class PermissionMonitor {
      *
      * @hide
      */
-    public synchronized void onPackageRemoved(@NonNull final String packageName, final int uid) {
+    @VisibleForTesting
+    synchronized void onPackageRemoved(@NonNull final String packageName, final int uid) {
         // Update uid permission.
         updateAppIdTrafficPermission(uid);
         // Get the appId permission from all users then send the latest permission to netd.
@@ -843,7 +883,7 @@ public class PermissionMonitor {
         final int permission = highestUidNetworkPermission(uid);
 
         // Log package removed.
-        mPermissionUpdateLogs.log("Package remove: name=" + packageName + ", uid=" + uid
+        mPermissionUpdateLogs.log("Package remove: uid=" + uid
                 + ", nPerm=(" + permissionToString(permission) + "/"
                 + permissionToString(currentPermission) + ")"
                 + ", tPerm=" + permissionToString(appIdTrafficPerm));
@@ -1079,11 +1119,7 @@ public class PermissionMonitor {
 
     private void updateLockdownUidRule(int uid, boolean add) {
         try {
-            if (add) {
-                mBpfNetMaps.setUidRule(FIREWALL_CHAIN_LOCKDOWN_VPN, uid, FIREWALL_RULE_DENY);
-            } else {
-                mBpfNetMaps.setUidRule(FIREWALL_CHAIN_LOCKDOWN_VPN, uid, FIREWALL_RULE_ALLOW);
-            }
+            mBpfNetMaps.updateUidLockdownRule(uid, add);
         } catch (ServiceSpecificException e) {
             loge("Failed to " + (add ? "add" : "remove") + " Lockdown rule: " + e);
         }
@@ -1118,6 +1154,7 @@ public class PermissionMonitor {
      */
     @VisibleForTesting
     void sendAppIdsTrafficPermission(SparseIntArray netdPermissionsAppIds) {
+        ensureRunningOnHandlerThread();
         final ArrayList<Integer> allPermissionAppIds = new ArrayList<>();
         final ArrayList<Integer> internetPermissionAppIds = new ArrayList<>();
         final ArrayList<Integer> updateStatsPermissionAppIds = new ArrayList<>();
@@ -1172,18 +1209,6 @@ public class PermissionMonitor {
         } catch (RemoteException | ServiceSpecificException e) {
             Log.e(TAG, "Pass appId list of special permission failed." + e);
         }
-    }
-
-    /** Should only be used by unit tests */
-    @VisibleForTesting
-    public Set<UidRange> getVpnInterfaceUidRanges(String iface) {
-        return mVpnInterfaceUidRanges.get(iface);
-    }
-
-    /** Should only be used by unit tests */
-    @VisibleForTesting
-    public Set<UidRange> getVpnLockdownUidRanges() {
-        return mVpnLockdownUidRanges.getSet();
     }
 
     private synchronized void onSettingChanged() {
@@ -1258,8 +1283,10 @@ public class PermissionMonitor {
         pw.println();
         pw.println("Lockdown filtering rules:");
         pw.increaseIndent();
-        for (final UidRange range : mVpnLockdownUidRanges.getSet()) {
-            pw.println("UIDs: " + range.toString());
+        synchronized (this) {
+            for (final UidRange range : mVpnLockdownUidRanges.getSet()) {
+                pw.println("UIDs: " + range);
+            }
         }
         pw.decreaseIndent();
 

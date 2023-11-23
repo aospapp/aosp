@@ -73,10 +73,13 @@ android_app {
 
     privileged: false,
 
-    // TODO(b/196053524): Enable optimization.
     optimize: {
         enabled: false,
     },
+
+    libs: [
+        "android.car",
+    ],
 
     jni_libs: [
         "libscriptexecutorjni",
@@ -97,6 +100,10 @@ java_test_helper_library {
     srcs: [
         ":iscriptexecutor_aidl",
         "src/**/*.java",
+    ],
+
+    libs: [
+        "android.car",
     ],
 
     sdk_version: "test_current",

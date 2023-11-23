@@ -97,6 +97,8 @@ public final class NetworkStackConstants {
     public static final int IPV4_SRC_ADDR_OFFSET = 12;
     public static final int IPV4_DST_ADDR_OFFSET = 16;
     public static final int IPV4_ADDR_LEN = 4;
+    public static final int IPV4_FLAG_MF = 0x2000;
+    public static final int IPV4_FLAG_DF = 0x4000;
     public static final Inet4Address IPV4_ADDR_ALL = makeInet4Address(
             (byte) 0xff, (byte) 0xff, (byte) 0xff, (byte) 0xff);
     public static final Inet4Address IPV4_ADDR_ANY = makeInet4Address(
@@ -126,6 +128,14 @@ public final class NetworkStackConstants {
     public static final Inet6Address IPV6_ADDR_ALL_HOSTS_MULTICAST =
             (Inet6Address) InetAddresses.parseNumericAddress("ff02::3");
 
+    /**
+     * ICMP constants.
+     *
+     * See also:
+     *     - https://tools.ietf.org/html/rfc792
+     */
+    public static final int ICMP_CHECKSUM_OFFSET = 2;
+    public static final int ICMP_HEADER_LEN = 8;
     /**
      * ICMPv6 constants.
      *
@@ -198,6 +208,23 @@ public final class NetworkStackConstants {
      */
     public static final int INFINITE_LEASE = 0xffffffff;
     public static final int DHCP4_CLIENT_PORT = 68;
+    // The maximum length of a DHCP packet that can be constructed.
+    public static final int DHCP_MAX_LENGTH = 1500;
+    public static final int DHCP_MAX_OPTION_LEN = 255;
+
+    /**
+     * DHCPv6 constants.
+     *
+     * See also:
+     *     - https://datatracker.ietf.org/doc/html/rfc8415
+     *     - https://www.iana.org/assignments/dhcpv6-parameters/dhcpv6-parameters.xhtml
+     */
+    public static final int DHCP6_CLIENT_PORT = 546;
+    public static final int DHCP6_SERVER_PORT = 547;
+    public static final Inet6Address ALL_DHCP_RELAY_AGENTS_AND_SERVERS =
+            (Inet6Address) InetAddresses.parseNumericAddress("ff02::1:2");
+    public static final int DHCP6_OPTION_IA_PD = 25;
+    public static final int DHCP6_OPTION_IAPREFIX = 26;
 
     /**
      * IEEE802.11 standard constants.
@@ -227,6 +254,35 @@ public final class NetworkStackConstants {
     // {@link android.net.TrafficStats#TAG_NETWORK_STACK_IMPERSONATION_RANGE_END}.
     public static final int TAG_SYSTEM_PROBE = 0xFFFFFF81;
     public static final int TAG_SYSTEM_DNS = 0xFFFFFF82;
+
+    /**
+     * A test URL used to override configuration settings and overlays for the network validation
+     * HTTPS URL, when set in {@link android.provider.DeviceConfig} configuration.
+     *
+     * <p>This URL will be ignored if the host is not "localhost" (it can only be used to test with
+     * a local test server), and must not be set in production scenarios (as enforced by CTS tests).
+     *
+     * <p>{@link #TEST_URL_EXPIRATION_TIME} must also be set to use this setting.
+     */
+    public static final String TEST_CAPTIVE_PORTAL_HTTPS_URL = "test_captive_portal_https_url";
+    /**
+     * A test URL used to override configuration settings and overlays for the network validation
+     * HTTP URL, when set in {@link android.provider.DeviceConfig} configuration.
+     *
+     * <p>This URL will be ignored if the host is not "localhost" (it can only be used to test with
+     * a local test server), and must not be set in production scenarios (as enforced by CTS tests).
+     *
+     * <p>{@link #TEST_URL_EXPIRATION_TIME} must also be set to use this setting.
+     */
+    public static final String TEST_CAPTIVE_PORTAL_HTTP_URL = "test_captive_portal_http_url";
+    /**
+     * Expiration time of the test URL, in ms, relative to {@link System#currentTimeMillis()}.
+     *
+     * <p>After this expiration time, test URLs will be ignored. They will also be ignored if
+     * the expiration time is more than 10 minutes in the future, to avoid misconfiguration
+     * following test runs.
+     */
+    public static final String TEST_URL_EXPIRATION_TIME = "test_url_expiration_time";
 
     // TODO: Move to Inet4AddressUtils
     // See aosp/1455936: NetworkStackConstants can't depend on it as it causes jarjar-related issues

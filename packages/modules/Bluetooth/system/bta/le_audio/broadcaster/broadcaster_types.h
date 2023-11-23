@@ -19,7 +19,7 @@
 
 #include <variant>
 
-#include "bta/le_audio/client_audio.h"
+#include "bta/le_audio/audio_hal_client/audio_hal_client.h"
 #include "bta/le_audio/le_audio_types.h"
 #include "bta_le_audio_api.h"
 #include "bta_le_audio_broadcaster_api.h"
@@ -32,14 +32,19 @@ namespace le_audio {
 namespace broadcaster {
 static const uint16_t kBroadcastAudioAnnouncementServiceUuid = 0x1852;
 static const uint16_t kBasicAudioAnnouncementServiceUuid = 0x1851;
+static const uint16_t kPublicBroadcastAnnouncementServiceUuid = 0x1856;
 
 static const uint8_t kBisIndexInvalid = 0;
 
 bool ToRawPacket(bluetooth::le_audio::BasicAudioAnnouncementData const&,
                  std::vector<uint8_t>&);
 
-void PrepareAdvertisingData(bluetooth::le_audio::BroadcastId& broadcast_id,
-                            std::vector<uint8_t>& periodic_data);
+void PrepareAdvertisingData(
+    bool is_public, const std::string& broadcast_name,
+    bluetooth::le_audio::BroadcastId& broadcast_id,
+    const bluetooth::le_audio::PublicBroadcastAnnouncementData&
+        public_announcement,
+    std::vector<uint8_t>& adv_data);
 void PreparePeriodicData(
     const bluetooth::le_audio::BasicAudioAnnouncementData& announcement,
     std::vector<uint8_t>& periodic_data);
@@ -71,9 +76,6 @@ struct BroadcastCodecWrapper {
     return *this;
   };
 
-  static const BroadcastCodecWrapper& getCodecConfigForProfile(
-      LeAudioBroadcaster::AudioProfile profile);
-
   types::LeAudioLtvMap GetSubgroupCodecSpecData() const;
   types::LeAudioLtvMap GetBisCodecSpecData(uint8_t bis_idx) const;
 
@@ -90,7 +92,7 @@ struct BroadcastCodecWrapper {
   }
 
   uint16_t GetMaxSduSize() const {
-    return GetNumChannels() * GetMaxSduSizePerChannel();
+    return GetNumChannelsPerBis() * GetMaxSduSizePerChannel();
   }
 
   const LeAudioCodecConfiguration& GetLeAudioCodecConfiguration() const {
@@ -115,6 +117,11 @@ struct BroadcastCodecWrapper {
     return source_codec_config.data_interval_us;
   }
 
+  uint8_t GetNumChannelsPerBis() const {
+    // TODO: Need to handle each BIS has more than one channel case
+    return 1;
+  }
+
  private:
   types::LeAudioCodecId codec_id;
   LeAudioCodecConfiguration source_codec_config;
@@ -127,6 +134,38 @@ std::ostream& operator<<(
     std::ostream& os,
     const le_audio::broadcaster::BroadcastCodecWrapper& config);
 
+struct BroadcastQosConfig {
+  BroadcastQosConfig(uint8_t retransmission_number,
+                     uint16_t max_transport_latency)
+      : retransmission_number(retransmission_number),
+        max_transport_latency(max_transport_latency) {}
+
+  BroadcastQosConfig& operator=(const BroadcastQosConfig& other) {
+    retransmission_number = other.retransmission_number;
+    max_transport_latency = other.max_transport_latency;
+    return *this;
+  };
+
+  uint8_t getRetransmissionNumber() const { return retransmission_number; }
+  uint16_t getMaxTransportLatency() const { return max_transport_latency; }
+
+ private:
+  uint8_t retransmission_number;
+  uint16_t max_transport_latency;
+};
+
+static const BroadcastQosConfig qos_config_2_10 = BroadcastQosConfig(2, 10);
+static const BroadcastQosConfig qos_config_4_45 = BroadcastQosConfig(4, 45);
+static const BroadcastQosConfig qos_config_4_50 = BroadcastQosConfig(4, 50);
+static const BroadcastQosConfig qos_config_4_60 = BroadcastQosConfig(4, 60);
+static const BroadcastQosConfig qos_config_4_65 = BroadcastQosConfig(4, 65);
+
+std::ostream& operator<<(
+    std::ostream& os, const le_audio::broadcaster::BroadcastQosConfig& config);
+
+std::pair<const BroadcastCodecWrapper&, const BroadcastQosConfig&>
+getStreamConfigForContext(types::AudioContexts context);
+
 }  // namespace broadcaster
 }  // namespace le_audio
 
@@ -135,5 +174,7 @@ namespace bluetooth {
 namespace le_audio {
 bool operator==(const BasicAudioAnnouncementData& lhs,
                 const BasicAudioAnnouncementData& rhs);
+bool operator==(const PublicBroadcastAnnouncementData& lhs,
+                const PublicBroadcastAnnouncementData& rhs);
 }  // namespace le_audio
 }  // namespace bluetooth

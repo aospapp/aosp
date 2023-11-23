@@ -1,5 +1,5 @@
 /*
- * Copyright 2010-2021 NXP
+ * Copyright 2010-2022 NXP
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -118,6 +118,10 @@ typedef enum {
   phTmlNfc_e_EnableVen, /* Enable Ven for PN557 chip*/
   phTmlNfc_e_PowerReset = 5,
   phTmlNfc_e_setFragmentSize,
+  phTmlNfc_e_SetNfcState,
+  phTmlNfc_e_ResetNfcState,
+  phTmlNfc_e_PullVenLow,
+  phTmlNfc_e_PullVenHigh,
 } phTmlNfc_ControlCode_t; /* Control code for IOCTL call */
 
 /*

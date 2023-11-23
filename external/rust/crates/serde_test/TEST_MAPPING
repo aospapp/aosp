@@ -5,6 +5,12 @@
       "path": "external/rust/crates/bytes"
     },
     {
+      "path": "external/rust/crates/hashbrown"
+    },
+    {
+      "path": "external/rust/crates/hashlink"
+    },
+    {
       "path": "external/rust/crates/slab"
     },
     {

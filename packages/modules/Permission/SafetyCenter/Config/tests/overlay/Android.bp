@@ -20,7 +20,9 @@ package {
 
 android_test_helper_app {
     name: "SafetyCenterConfigTestsOverlay",
+    defaults: ["mts-target-sdk-version-current"],
     sdk_version: "current",
+    min_sdk_version: "30",
     test_suites: [
         "general-tests",
         "mts-permission",

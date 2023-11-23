@@ -40,13 +40,16 @@ public class CccStartRangingParams extends CccParams {
 
     private static final String KEY_SESSION_ID = "session_id";
     private static final String KEY_RAN_MULTIPLIER = "ran_multiplier";
+    private static final String KEY_INITIATION_TIME_MS = "initiation_time_ms";
 
     private final int mSessionId;
     private final int mRanMultiplier;
+    private final long mInitiationTimeMs;
 
     private CccStartRangingParams(Builder builder) {
         this.mSessionId = builder.mSessionId.get();
         this.mRanMultiplier = builder.mRanMultiplier.get();
+        this.mInitiationTimeMs = builder.mInitiationTimeMs;
     }
 
     @Override
@@ -59,6 +62,7 @@ public class CccStartRangingParams extends CccParams {
         PersistableBundle bundle = super.toBundle();
         bundle.putInt(KEY_SESSION_ID, mSessionId);
         bundle.putInt(KEY_RAN_MULTIPLIER, mRanMultiplier);
+        bundle.putLong(KEY_INITIATION_TIME_MS, mInitiationTimeMs);
         return bundle;
     }
 
@@ -84,10 +88,15 @@ public class CccStartRangingParams extends CccParams {
         return mRanMultiplier;
     }
 
+    public long getInitiationTimeMs() {
+        return mInitiationTimeMs;
+    }
+
     private static CccStartRangingParams parseVersion1(PersistableBundle bundle) {
         return new Builder()
             .setSessionId(bundle.getInt(KEY_SESSION_ID))
             .setRanMultiplier(bundle.getInt(KEY_RAN_MULTIPLIER))
+            .setInitiationTimeMs(bundle.getLong(KEY_INITIATION_TIME_MS))
             .build();
     }
 
@@ -95,6 +104,7 @@ public class CccStartRangingParams extends CccParams {
     public static class Builder {
         private RequiredParam<Integer> mSessionId = new RequiredParam<>();
         private RequiredParam<Integer> mRanMultiplier = new RequiredParam<>();
+        private long mInitiationTimeMs = 0;
 
         public Builder setSessionId(int sessionId) {
             mSessionId.set(sessionId);
@@ -103,6 +113,12 @@ public class CccStartRangingParams extends CccParams {
 
         public Builder setRanMultiplier(int ranMultiplier) {
             mRanMultiplier.set(ranMultiplier);
+            return this;
+        }
+
+        /** Set initiation time in ms */
+        public Builder setInitiationTimeMs(long initiationTimeMs) {
+            mInitiationTimeMs = initiationTimeMs;
             return this;
         }
 

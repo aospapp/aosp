@@ -18,7 +18,6 @@ package com.google.android.enterprise.connectedapps.processor.containers;
 import com.google.android.enterprise.connectedapps.annotations.CrossProfile;
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableCollection;
-import java.util.Optional;
 import javax.lang.model.element.TypeElement;
 
 /** Wrapper around information contained in an annotation of type {@link CrossProfile}. */
@@ -30,10 +29,6 @@ public abstract class CrossProfileAnnotationInfo {
 
   public abstract TypeElement connectorClass();
 
-  public abstract String profileClassName();
-
-  public abstract Optional<Long> timeoutMillis();
-
   public abstract ImmutableCollection<TypeElement> parcelableWrapperClasses();
 
   public abstract ImmutableCollection<TypeElement> futureWrapperClasses();
@@ -44,10 +39,6 @@ public abstract class CrossProfileAnnotationInfo {
     return connectorClass().asType().toString().equals(DEFAULT_CONNECTOR_NAME);
   }
 
-  public boolean isProfileClassNameDefault() {
-    return profileClassName().isEmpty();
-  }
-
   public static Builder builder() {
     return new AutoValue_CrossProfileAnnotationInfo.Builder();
   }
@@ -56,10 +47,6 @@ public abstract class CrossProfileAnnotationInfo {
   public abstract static class Builder {
 
     public abstract Builder setConnectorClass(TypeElement value);
-
-    public abstract Builder setProfileClassName(String value);
-
-    public abstract Builder setTimeoutMillis(Long value);
 
     public abstract Builder setParcelableWrapperClasses(ImmutableCollection<TypeElement> value);
 

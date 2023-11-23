@@ -4,7 +4,7 @@
 
 from autotest_lib.server import utils
 
-AUTHOR = "Chrome OS Team"
+AUTHOR = "ChromeOS Team"
 NAME = "platform_ExternalUsbPeripherals.detect.lid_close_open"
 PURPOSE = "Servo based USB boot stress test"
 CRITERIA = "This test will fail if any of the actions or checks fail."
@@ -15,6 +15,8 @@ TEST_TYPE = "server"
 ATTRIBUTES = "suite:usb_detect"
 DEPENDENCIES = "servo_state:WORKING"
 JOB_RETRIES = 1
+PY_VERSION = 3
+
 DOC = """
 This test uses servo to connect/disconnect servo USB hub before and
 after events like reboot, login, closelid, openlid etc.
@@ -48,7 +50,7 @@ def run(machine):
 
     action_sequence = str(args_dict.get("action_sequence", default_actions))
 
-    usb_list = ["\"Kingston Technology Company Inc.\"",
+    usb_list = ["\"Netac Technology Co., Ltd OnlyDisk\"",
                 "\"Alcor Micro Corp.|GEMBIRD\"",
                 "\"USB PnP Sound Device: USB Audio|C-Media Electronics, Inc.* Audio\"",
                ]
@@ -67,7 +69,7 @@ def run(machine):
             ["ExFAT", "Ext4", "FAT", "NTFS"],
         # USB Web camera
         "cat /sys/class/video4linux/video*/name | grep -iE " :
-            ["\"TeckNet|USB ?2.0 PC Camera\""],
+            ["\"TeckNet|USB ?2.0 PC Camera|Video Capture|Video Output|Metadata\""],
         }
 
     job.run_test("platform_ExternalUsbPeripherals", host=host,

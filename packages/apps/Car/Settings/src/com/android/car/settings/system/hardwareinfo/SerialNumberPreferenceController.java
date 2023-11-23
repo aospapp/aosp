@@ -44,7 +44,7 @@ public class SerialNumberPreferenceController extends PreferenceController<Prefe
     }
 
     @Override
-    protected int getAvailabilityStatus() {
+    protected int getDefaultAvailabilityStatus() {
         return AVAILABLE_FOR_VIEWING;
     }
 }

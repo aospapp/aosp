@@ -23,6 +23,7 @@
     <string name="bt_share_picker_label" msgid="7464438494743777696">"Bluetooth"</string>
     <string name="unknown_device" msgid="2317679521750821654">"Neznáme zariadenie"</string>
     <string name="unknownNumber" msgid="1245183329830158661">"Neznáme"</string>
+    <string name="not_provided" msgid="6938740494380012614">"Neposkytnuté"</string>
     <string name="airplane_error_title" msgid="2570111716678850860">"Režim v lietadle"</string>
     <string name="airplane_error_msg" msgid="4853111123699559578">"Technológiu Bluetooth nemôžete používať v režime V lietadle."</string>
     <string name="bt_enable_title" msgid="4484289159118416315"></string>
@@ -128,4 +129,10 @@
     <string name="a2dp_sink_mbs_label" msgid="6035366346569127155">"Bluetooth Audio"</string>
     <string name="bluetooth_opp_file_limit_exceeded" msgid="6612109860149473930">"Súbory väčšie ako 4 GB sa nedajú preniesť"</string>
     <string name="bluetooth_connect_action" msgid="2319449093046720209">"Pripojiť k zariadeniu Bluetooth"</string>
+    <string name="bluetooth_enabled_apm_title" msgid="6914461147844949044">"Rozhranie Bluetooth bude v režime v lietadle zapnuté"</string>
+    <string name="bluetooth_enabled_apm_message" msgid="6168686193308136881">"Ak ponecháte rozhranie Bluetooth zapnuté, vaše zariadenie si zapamätá, že ho má ponechať zapnuté pri ďalšom aktivovaní režimu v lietadle"</string>
+    <string name="bluetooth_stays_on_title" msgid="39720820955212918">"Rozhranie Bluetooth zostane zapnuté"</string>
+    <string name="bluetooth_stays_on_message" msgid="3669663452593157737">"Zariadenie si pamätá, aby v režime v lietadle nevypínalo rozhranie Bluetooth. Ak ho nechcete ponechať zapnuté, vypnite ho."</string>
+    <string name="bluetooth_and_wifi_stays_on_title" msgid="5821932798860821244">"Wi‑Fi a Bluetooth zostanú zapnuté"</string>
+    <string name="bluetooth_and_wifi_stays_on_message" msgid="7848565203843882558">"Zariadenie si pamätá, aby v režime v lietadle nevypínalo Wi‑Fi ani Bluetooth. Ak ich nechcete ponechať zapnuté, vypnite ich."</string>
 </resources>

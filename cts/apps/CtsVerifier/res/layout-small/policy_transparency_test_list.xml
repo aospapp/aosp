@@ -49,12 +49,6 @@
                     android:layout_weight="1"
 		    android:textSize="8dip"
                     android:text="@string/policy_transparency_short_support_msg_label" />
-            <Button android:id="@+id/long_msg_button"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-		    android:textSize="8dip"
-                    android:text="@string/policy_transparency_long_support_msg_label" />
         </LinearLayout>
         <include layout="@layout/pass_fail_buttons" />
 

@@ -15,6 +15,8 @@
  */
 package com.google.android.enterprise.connectedapps.processor;
 
+import static com.google.android.enterprise.connectedapps.processor.ClassNameUtilities.append;
+import static com.google.android.enterprise.connectedapps.processor.ClassNameUtilities.transformClassName;
 import static com.google.android.enterprise.connectedapps.processor.CommonClassNames.ASYNC_CALLBACK_PARAM_MULTIMERGER_CLASSNAME;
 import static com.google.android.enterprise.connectedapps.processor.CommonClassNames.CALLBACK_MERGER_EXCEPTION_CALLBACK_CLASSNAME;
 import static com.google.android.enterprise.connectedapps.processor.CommonClassNames.PROFILE_CLASSNAME;
@@ -24,11 +26,11 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static java.util.stream.Collectors.toList;
 
 import com.google.android.enterprise.connectedapps.processor.containers.CrossProfileCallbackInterfaceInfo;
+import com.google.android.enterprise.connectedapps.processor.containers.CrossProfileCallbackParameterInfo;
 import com.google.android.enterprise.connectedapps.processor.containers.CrossProfileMethodInfo;
 import com.google.android.enterprise.connectedapps.processor.containers.CrossProfileTypeInfo;
 import com.google.android.enterprise.connectedapps.processor.containers.FutureWrapper;
 import com.google.android.enterprise.connectedapps.processor.containers.GeneratorContext;
-import com.squareup.javapoet.AnnotationSpec;
 import com.squareup.javapoet.ClassName;
 import com.squareup.javapoet.CodeBlock;
 import com.squareup.javapoet.MethodSpec;
@@ -40,8 +42,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import javax.lang.model.element.Modifier;
-import javax.lang.model.element.TypeElement;
-import javax.lang.model.element.VariableElement;
 import javax.lang.model.type.PrimitiveType;
 import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
@@ -106,22 +106,6 @@ final class MultipleProfilesGenerator {
             .addModifiers(Modifier.PUBLIC)
             .addParameter(senderMapType, "senders")
             .addStatement("this.senders = senders")
-            .build());
-
-    classBuilder.addMethod(
-        MethodSpec.methodBuilder("timeout")
-            .addAnnotation(Override.class)
-            .addAnnotation(
-                AnnotationSpec.builder(SuppressWarnings.class)
-                    .addMember("value", "$S", "GoodTime")
-                    .build())
-            .addModifiers(Modifier.PUBLIC)
-            .returns(className)
-            .addParameter(long.class, "timeout")
-            .beginControlFlow("for ($T senderProfile : senders.keySet())", PROFILE_CLASSNAME)
-            .addStatement("senders.put(senderProfile, senders.get(senderProfile).timeout(timeout))")
-            .endControlFlow()
-            .addStatement("return this")
             .build());
 
     for (CrossProfileMethodInfo method : crossProfileType.crossProfileMethods()) {
@@ -225,11 +209,10 @@ final class MultipleProfilesGenerator {
 
     String methodName = method.simpleName();
 
-    VariableElement callbackParameter = method.getCrossProfileCallbackParam(generatorContext).get();
-    TypeElement callbackType =
-        generatorContext.elements().getTypeElement(callbackParameter.asType().toString());
+    CrossProfileCallbackParameterInfo callbackParameter =
+        method.getCrossProfileCallbackParam(generatorContext).get();
     CrossProfileCallbackInterfaceInfo callbackInterface =
-        CrossProfileCallbackInterfaceInfo.create(callbackType);
+        callbackParameter.crossProfileCallbackInterface();
 
     List<ParameterSpec> parameters =
         convertCallbackParametersIntoMulti(
@@ -237,8 +220,7 @@ final class MultipleProfilesGenerator {
                 crossProfileType.supportedTypes(),
                 method.methodElement(),
                 REMOVE_AUTOMATICALLY_RESOLVED_PARAMETERS),
-            callbackParameter,
-            callbackInterface);
+            callbackParameter);
 
     TypeMirror paramType =
         callbackInterface.methods().get(0).getParameters().isEmpty()
@@ -352,14 +334,12 @@ final class MultipleProfilesGenerator {
   }
 
   private List<ParameterSpec> convertCallbackParametersIntoMulti(
-      List<ParameterSpec> parameters,
-      VariableElement callbackParameter,
-      CrossProfileCallbackInterfaceInfo callbackInterface) {
+      List<ParameterSpec> parameters, CrossProfileCallbackParameterInfo callbackParam) {
     return parameters.stream()
         .map(
             e ->
-                e.name.equals(callbackParameter.getSimpleName().toString())
-                    ? convertCallbackToMulti(e, callbackInterface)
+                e.name.equals(callbackParam.getSimpleName().toString())
+                    ? convertCallbackToMulti(e, callbackParam.crossProfileCallbackInterface())
                     : e)
         .collect(toList());
   }
@@ -386,7 +366,6 @@ final class MultipleProfilesGenerator {
 
   static ClassName getMultipleProfilesClassName(
       GeneratorContext generatorContext, CrossProfileTypeInfo crossProfileType) {
-    return GeneratorUtilities.appendToClassName(
-        crossProfileType.profileClassName(), "_MultipleProfiles");
+    return transformClassName(crossProfileType.generatedClassName(), append("_MultipleProfiles"));
   }
 }

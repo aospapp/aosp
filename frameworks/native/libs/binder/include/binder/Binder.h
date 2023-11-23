@@ -59,6 +59,8 @@ public:
     virtual void*       findObject(const void* objectID) const final;
     virtual void* detachObject(const void* objectID) final;
     void withLock(const std::function<void()>& doWithLock);
+    sp<IBinder> lookupOrCreateWeak(const void* objectID, IBinder::object_make_func make,
+                                   const void* makeArgs);
 
     virtual BBinder*    localBinder();
 
@@ -103,6 +105,12 @@ public:
     [[nodiscard]] status_t setRpcClientDebug(android::base::unique_fd clientFd,
                                              const sp<IBinder>& keepAliveBinder);
 
+    // Start recording transactions to the unique_fd in data.
+    // See RecordedTransaction.h for more details.
+    [[nodiscard]] status_t startRecordingTransactions(const Parcel& data);
+    // Stop the current recording.
+    [[nodiscard]] status_t stopRecordingTransactions();
+
 protected:
     virtual             ~BBinder();
 
@@ -129,7 +137,7 @@ private:
     friend ::android::internal::Stability;
     int16_t mStability;
     bool mParceled;
-    uint8_t mReserved0;
+    bool mRecordingOn;
 
 #ifdef __LP64__
     int32_t mReserved1;

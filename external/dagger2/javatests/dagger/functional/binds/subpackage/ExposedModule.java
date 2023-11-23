@@ -19,8 +19,14 @@ package dagger.functional.binds.subpackage;
 import dagger.Binds;
 import dagger.Module;
 import dagger.Provides;
+import dagger.multibindings.ElementsIntoSet;
+import dagger.multibindings.IntoSet;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
 import java.util.List;
+import java.util.Set;
+import javax.inject.Provider;
 import javax.inject.Singleton;
 
 @Module
@@ -40,4 +46,24 @@ public abstract class ExposedModule {
   @Binds
   abstract ExposedInjectsMembers bindExposedInjectsMembers(
       NotExposedInjectsMembers notExposedInjectsMembers);
+
+  @Provides
+  static Collection<NotExposed> provideNotExposedCollection(NotExposed notExposed) {
+    return Arrays.<NotExposed>asList(notExposed);
+  }
+
+  @Provides
+  @IntoSet // This is needed to ensure a provider field gets created for providing the Collection.
+  static NotExposed provideNotExposed(Provider<Collection<NotExposed>> collectionProvider) {
+    return collectionProvider.get().iterator().next();
+  }
+
+  @Binds
+  @ElementsIntoSet
+  abstract Set<NotExposed> bindCollectionOfNotExposeds(Collection<NotExposed> collection);
+
+  @Provides
+  static String provideString(Set<NotExposed> setOfFoo) {
+    return "not exposed";
+  }
 }

@@ -163,13 +163,14 @@ function _build()
 
   SLOAD_F2FS_CMD="sload_f2fs $SLOAD_OPTS $OUTPUT_FILE"
   echo $SLOAD_F2FS_CMD
-  MB_SIZE=`$SLOAD_F2FS_CMD | grep "Max image size" | awk '{print $5}'`
+  SLOAD_LOG=`$SLOAD_F2FS_CMD`
   # allow 1: Filesystem errors corrected
   ret=$?
   if [ $ret -ne 0 ] && [ $ret -ne 1 ]; then
     rm -f $OUTPUT_FILE
     exit 4
   fi
+  MB_SIZE=`echo "$SLOAD_LOG" | grep "Max image size" | awk '{print $5}'`
   SIZE=$(((MB_SIZE + 6) * 1024 * 1024))
 }
 

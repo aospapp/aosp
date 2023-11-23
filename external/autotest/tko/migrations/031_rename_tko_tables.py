@@ -1,5 +1,10 @@
+# Lint as: python2, python3
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
 import common
 from autotest_lib.database import db_utils
+import six
 
 
 RECREATE_VIEWS_UP = """
@@ -362,7 +367,7 @@ VIEWS_TO_DROP_UP = (
         'perf_view_2',
         )
 
-RENAMES_DOWN = dict((value, key) for key, value in RENAMES_UP.iteritems())
+RENAMES_DOWN = dict((value, key) for key, value in six.iteritems(RENAMES_UP))
 VIEWS_TO_DROP_DOWN = ['tko_' + view for view in VIEWS_TO_DROP_UP]
 
 

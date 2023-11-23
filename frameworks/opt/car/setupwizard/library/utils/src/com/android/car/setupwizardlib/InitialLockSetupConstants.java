@@ -27,8 +27,12 @@ public interface InitialLockSetupConstants {
     /**
      * The library version. All relevant changes should bump this version number and ensure
      * all relevant parts of the interface handle backwards compatibility.
+     *
+     * Library version 1: Initial implementation
+     * Library version 2: Add API checkValidLockAndReturnError to allow complexity validation
+     * error to be retrieved from Settings.
      */
-    int LIBRARY_VERSION = 1;
+    int LIBRARY_VERSION = 2;
 
     /**
      * Lock types supported by the InitialLockSetupService.

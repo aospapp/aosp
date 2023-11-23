@@ -128,11 +128,11 @@ static struct tst_test test = {
 	.forks_child = 1,
 	.needs_tmpdir = 1,
 	.options = (struct tst_option[]) {
-		{"s:", &nr_opt, "-s num   Set the number of the been allocated hugepages"},
+		{"s:", &nr_opt, "Set the number of the been allocated hugepages"},
 		{}
 	},
 	.setup = setup,
 	.cleanup = cleanup,
 	.test_all = test_hugeshmctl,
-	.request_hugepages = 128,
+	.hugepages = {128, TST_REQUEST},
 };

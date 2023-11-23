@@ -1,2 +1,5 @@
 # Bug template url: https://b.corp.google.com/issues/new?component=100560&template=63204
 file:platform/frameworks/base:/core/java/android/app/admin/EnterprisePlatform_OWNERS
+
+# Bug component: 801321 = per-file Screenshot*.java
+per-file Screenshot*.java = mrenouf@google.com, mrcasey@google.com

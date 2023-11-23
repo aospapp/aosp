@@ -133,6 +133,7 @@
     <string name="cdma_call_waiting_in_ims_off" msgid="1099246114368636334">"IMS යටත් CDMA ඇමතුම රඳවා ගැනීම ක්‍රියාවිරහිතයි"</string>
     <string name="updating_title" msgid="6130548922615719689">"ඇමතුම් සැකසීම්"</string>
     <string name="call_settings_admin_user_only" msgid="7238947387649986286">"ඇමතුම් සැකසීම් වෙනස් කළ හැක්කේ පරිපාලක පරිශීලකයාට පමණි."</string>
+    <string name="phone_account_settings_user_restriction" msgid="9142685151087208396">"දුරකථන ගිණුම් සැකසීම් වෙනස් කළ හැක්කේ පරිපාලක හෝ කාර්යාල පරිශීලකයාට පමණි."</string>
     <string name="call_settings_with_label" msgid="8460230435361579511">"සැකසීම් (<xliff:g id="SUBSCRIPTIONLABEL">%s</xliff:g>)"</string>
     <string name="error_updating_title" msgid="2024290892676808965">"ඇමතුම් සැකසුම් දෝෂය"</string>
     <string name="reading_settings" msgid="1605904432450871183">"සැකසුම් කියවමින්…"</string>
@@ -556,6 +557,7 @@
     <string name="incall_error_supp_service_hold" msgid="8535056414643540997">"ඇමතුම් රඳවා තැබීමට නොහැකිය."</string>
     <string name="incall_error_wfc_only_no_wireless_network" msgid="5860742792811400109">"ඇමතුමක් ගැනීමට රැහැන් රහිත ජාලයක් වෙත සම්බන්ධ වෙන්න."</string>
     <string name="incall_error_promote_wfc" msgid="9164896813931363415">"ඇමතුමක් කිරීමට Wi-Fi ඇමතීම සබල කරන්න."</string>
+    <string name="incall_error_satellite_enabled" msgid="1936541518147323016">"ඇමතුමක් ගැනීමට චන්ද්‍රිකා ප්‍රකාරය ක්‍රියාවිරහිත කරන්න."</string>
     <string name="emergency_information_hint" msgid="9208897544917793012">"හදිසි අවස්ථා තොරතුරු"</string>
     <string name="emergency_information_owner_hint" msgid="6256909888049185316">"හිමිකරු"</string>
     <string name="emergency_information_confirm_hint" msgid="5109017615894918914">"තොරතුරු බැලීම සඳහා නැවත තට්ටු කරන්න"</string>
@@ -713,6 +715,7 @@
     <string name="clh_callFailed_powerOff_txt" msgid="8279934912560765361">"ගුවන් යානා ප්‍රකාරය ක්‍රියාත්මකයි"</string>
     <string name="clh_callFailed_simError_txt" msgid="5128538525762326413">"SIM කාඩ්පතට පිවිසිය නොහැකිය"</string>
     <string name="clh_incall_error_out_of_service_txt" msgid="2736010617446749869">"ජංගම ජාලය නොමැත"</string>
+    <string name="clh_callFailed_satelliteEnabled_txt" msgid="1675517238240377396">"චන්ද්‍රිකා ප්‍රකාරය ක්‍රියාත්මකයි"</string>
     <string name="clh_callFailed_unassigned_number_txt" msgid="141967660286695682">"ඔබ ඇමතීමට උත්සාහ කරන දුරකථන අංකය සමගින් වන දෝෂයකි. දෝෂ කේතය 1."</string>
     <string name="clh_callFailed_no_route_to_destination_txt" msgid="4805015149822352308">"ඇමතුම සම්පූර්ණ කළ නොහැකි විය. දෝෂ කේතය 3."</string>
     <string name="clh_callFailed_channel_unacceptable_txt" msgid="4062754579408613021">"ඇමතුම සම්පූර්ණ කළ නොහැකි විය. දෝෂ කේතය 6."</string>
@@ -837,6 +840,7 @@
     <string name="dsds_dialog_cancel" msgid="3245958947099586655">"අවලංගු කරන්න"</string>
     <string name="removable_esim_string" msgid="7931369811671787649">"ඉවත් කළ හැකි eSIM පෙරනිමිය ලෙස සකසන්න"</string>
     <string name="radio_info_radio_power" msgid="8805595022160471587">"ජංගම රේඩියෝ බලය"</string>
+    <string name="simulate_out_of_service_string" msgid="7787925611727597193">"සේවයෙන් බැහැරව අනුකරණය කරන්න (නිදොස් තැනුම පමණි)"</string>
     <string name="radioInfo_menu_viewADN" msgid="4533179730908559846">"SIM ලිපින පොත බලන්න"</string>
     <string name="radioInfo_menu_viewFDN" msgid="1847236480527032061">"ස්ථාවර ඇමතුම් අංක පෙන්වන්න"</string>
     <string name="radioInfo_menu_viewSDN" msgid="2613431584522392842">"සේවා ඩයල් කිරීමේ අංක පෙන්වන්න"</string>
@@ -861,6 +865,7 @@
     <string name="radioInfo_data_connected" msgid="7637335645634239508">"සම්බන්ධිතයි"</string>
     <string name="radioInfo_data_suspended" msgid="8695262782642002785">"අත්හිටුවා ඇත"</string>
     <string name="radioInfo_unknown" msgid="5401423738500672850">"නොදන්නා"</string>
+    <string name="radioInfo_imei_primary" msgid="5948747378637224400">"මූලික"</string>
     <string name="radioInfo_display_packets" msgid="6794302192441084157">"pkts"</string>
     <string name="radioInfo_display_bytes" msgid="7701006329222413797">"බයිට"</string>
     <string name="radioInfo_display_dbm" msgid="7491944975710865703">"dBm"</string>
@@ -887,10 +892,12 @@
     <string name="radio_info_ppp_sent_label" msgid="6542208429356199695">"යැවූ දත්ත:"</string>
     <string name="radio_info_message_waiting_label" msgid="1886549432566952078">"පණිවිඩය රැඳී සිටී:"</string>
     <string name="radio_info_phone_number_label" msgid="2533852539562512203">"දුරකථන අංකය:"</string>
-    <string name="radio_info_band_mode_label" msgid="23480556225515290">"රේඩියෝ කලාපය තෝරන්න"</string>
     <string name="radio_info_voice_network_type_label" msgid="2395347336419593265">"හඬ ජාල වර්ගය:"</string>
     <string name="radio_info_data_network_type_label" msgid="8886597029237501929">"දත්ත ජාල වර්ගය:"</string>
     <string name="radio_info_override_network_type_label" msgid="4176280017221092005">"ජාල වර්ගය ප්‍රතික්ෂේප කරන්න:"</string>
+    <string name="radio_info_voice_raw_registration_state_label" msgid="2822988327145825128">"Voice Raw ලියාපදිංචි තත්ත්වය:"</string>
+    <string name="radio_info_data_raw_registration_state_label" msgid="2895895513822604539">"Data Raw ලියාපදිංචි තත්ත්වය:"</string>
+    <string name="radio_info_wlan_data_raw_registration_state_label" msgid="6396894835757296612">"WLAN Data Raw ලියාපදිංචි තත්ත්වය:"</string>
     <string name="phone_index_label" msgid="6222406512768964268">"දුරකථන දර්ශකය තෝරන්න"</string>
     <string name="radio_info_set_perferred_label" msgid="7408131389363136210">"වඩා කැමති ජාල වර්ගය සකසන්න:"</string>
     <string name="radio_info_ping_hostname_v4" msgid="6951237885381284790">"සත්කාරක නම පිං කරන්න(www.google.com) IPv4:"</string>
@@ -919,4 +926,9 @@
     <string name="call_quality_notification_bluetooth_details" msgid="8348950331707346711">"ඔබේ බ්ලූටූත් සංඥාව දුර්වලයි. ස්පීකර් දුරකථනයට මාරු වීමට උත්සාහ කරන්න."</string>
     <string name="call_quality_notification_name" msgid="3476828289553948830">"ඇමතුම් ගුණත්ව දැනුම්දීම"</string>
     <string name="notification_channel_sip_account" msgid="1261816025156179637">"අතහැර දැමූ SIP ගිණුම්"</string>
+    <string name="send_from_work_profile_title" msgid="7044759579507604732">"පුද්ගලික යෙදුමකින් පණිවිඩය යැවිය නොහැක"</string>
+    <string name="send_from_work_profile_description" msgid="2174402508727161974">"ඔබේ සංවිධානය ඔබට කාර්යාල යෙදුම්වලින් පණිවිඩ යැවීමට පමණක් ඉඩ දෙයි"</string>
+    <string name="send_from_work_profile_cancel" msgid="177746511030381711">"අවලංගු කරන්න"</string>
+    <string name="send_from_work_profile_action_str" msgid="6892775562934243337">"කාර්යාල පැතිකඩ වෙත මාරු වන්න"</string>
+    <string name="install_messages_on_work_profile_action_str" msgid="3773440996395152903">"කාර්යාල පණිවිඩ යැවීමේ යෙදුමක් ස්ථාපනය කරන්න"</string>
 </resources>

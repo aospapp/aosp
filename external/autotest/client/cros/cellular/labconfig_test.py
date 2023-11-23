@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 # Copyright (c) 2011 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -6,8 +6,8 @@
 # pylint: disable-msg=C0111
 
 import unittest
-import cellular
-import labconfig
+from autotest_lib.client.cros.cellular import cellular
+from autotest_lib.client.cros.cellular import labconfig
 # Use the same import line to keep this global on the same key
 from autotest_lib.client.cros.cellular import labconfig_data
 
@@ -74,4 +74,4 @@ class TestLabConfig(unittest.TestCase):
                          c.get_rf_switch_port('one_two_three_four'))
 
 if __name__ == '__main__':
-  unittest.main()
+    unittest.main()

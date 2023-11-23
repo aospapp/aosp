@@ -26,7 +26,9 @@ import static org.mockito.Mockito.verify;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.media.AudioManager;
 import android.os.HandlerThread;
+import android.preference.PreferenceManager;
 
 import com.android.cellbroadcastreceiver.CellBroadcastAlertReminder;
 import com.android.cellbroadcastreceiver.CellBroadcastSettings;
@@ -140,6 +142,30 @@ public class CellBroadcastAlertReminderTest extends
 
         verify(mMockedVibrator, never()).vibrate(any());
         phoneStateListenerHandler.quit();
+    }
+
+    public void testStartServicePlayAlertReminderForWatch() {
+        setWatchFeatureEnabled(true);
+        doReturn("1").when(PreferenceManager.getDefaultSharedPreferences(mContext)).getString(
+                CellBroadcastSettings.KEY_ALERT_REMINDER_INTERVAL, null);
+        doReturn(1).when(mMockedAudioManager).getStreamVolume(anyInt());
+        doReturn(AudioManager.RINGER_MODE_NORMAL).when(
+                mMockedAudioManager).getRingerMode();
+        PhoneStateListenerHandler listenerHandler = new PhoneStateListenerHandler(
+                "testStartServicePlayAlertReminderForWatch",
+                () -> {
+                    Intent intent = new Intent(mContext, CellBroadcastAlertReminder.class);
+                    intent.setAction(CellBroadcastAlertReminder.ACTION_PLAY_ALERT_REMINDER);
+                    intent.putExtra(CellBroadcastAlertReminder.ALERT_REMINDER_VIBRATE_EXTRA,
+                            false);
+                    startService(intent);
+                });
+
+        listenerHandler.start();
+        waitUntilReady();
+
+        verify(mMockedAudioManager).getStreamVolume(AudioManager.STREAM_ALARM);
+        listenerHandler.quit();
     }
 
     public void testQueueAlertReminderReturnFalseIfIntervalNull() {

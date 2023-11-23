@@ -16,9 +16,13 @@
 
 package com.android.settings.intelligence.search.indexing;
 
+import static android.provider.Settings.EXTRA_SETTINGS_EMBEDDED_DEEP_LINK_HIGHLIGHT_MENU_KEY;
+import static android.provider.Settings.EXTRA_SETTINGS_EMBEDDED_DEEP_LINK_INTENT_URI;
+
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
+import android.net.Uri;
 import android.text.TextUtils;
 
 /**
@@ -44,16 +48,51 @@ public class DatabaseIndexingUtils {
     public static final String SEARCH_RESULT_TRAMPOLINE_ACTION =
             "com.android.settings.SEARCH_RESULT_TRAMPOLINE";
 
+    // Additional extra of Settings#ACTION_SETTINGS_LARGE_SCREEN_DEEP_LINK.
+    // Set & get Uri of the Intent separately to prevent failure of Intent#ParseUri.
+    private static final String EXTRA_SETTINGS_LARGE_SCREEN_DEEP_LINK_INTENT_DATA =
+            "settings_large_screen_deep_link_intent_data";
+
     /**
      * Builds intent that launches the search destination as a sub-setting.
      */
-    public static Intent buildSearchTrampolineIntent(Context context, String className, String key,
-            String screenTitle) {
+    public static Intent buildSearchTrampolineIntent(String className, String key,
+            String screenTitle, String highlightMenuKey) {
         final Intent intent = new Intent(SEARCH_RESULT_TRAMPOLINE_ACTION);
         intent.putExtra(EXTRA_SHOW_FRAGMENT, className)
                 .putExtra(EXTRA_SHOW_FRAGMENT_TITLE, screenTitle)
                 .putExtra(EXTRA_SOURCE_METRICS_CATEGORY, DASHBOARD_SEARCH_RESULTS)
-                .putExtra(EXTRA_FRAGMENT_ARG_KEY, key);
+                .putExtra(EXTRA_FRAGMENT_ARG_KEY, key)
+                .putExtra(EXTRA_SETTINGS_EMBEDDED_DEEP_LINK_HIGHLIGHT_MENU_KEY, highlightMenuKey);
+        return intent;
+    }
+
+    /**
+     *  Builds intent that launches the search destination as a deep link.
+     */
+    public static Intent buildSearchTrampolineIntent(String action, String targetPackage,
+            String targetClass, String key, String highlightMenuKey) {
+        final Intent intent = new Intent(SEARCH_RESULT_TRAMPOLINE_ACTION);
+        intent.putExtra(EXTRA_SETTINGS_EMBEDDED_DEEP_LINK_INTENT_URI,
+                        buildDirectSearchResultIntent(action, targetPackage, targetClass, key)
+                                .toUri(Intent.URI_INTENT_SCHEME))
+                .putExtra(EXTRA_SETTINGS_EMBEDDED_DEEP_LINK_HIGHLIGHT_MENU_KEY, highlightMenuKey);
+        return intent;
+    }
+
+    /**
+     *  Builds intent that launches the search destination as a deep link.
+     */
+    public static Intent buildSearchTrampolineIntent(Intent targetIntent, String highlightMenuKey) {
+        // Relay target intent data to prevent future failure of Intent#ParseUri.
+        final Uri data = targetIntent.getData();
+        targetIntent = new Intent(targetIntent);
+        targetIntent.setData(null);
+        final Intent intent = new Intent(SEARCH_RESULT_TRAMPOLINE_ACTION);
+        intent.putExtra(EXTRA_SETTINGS_EMBEDDED_DEEP_LINK_INTENT_URI,
+                        targetIntent.toUri(Intent.URI_INTENT_SCHEME))
+                .putExtra(EXTRA_SETTINGS_EMBEDDED_DEEP_LINK_HIGHLIGHT_MENU_KEY, highlightMenuKey)
+                .putExtra(EXTRA_SETTINGS_LARGE_SCREEN_DEEP_LINK_INTENT_DATA, data);
         return intent;
     }
 
@@ -64,6 +103,7 @@ public class DatabaseIndexingUtils {
             final ComponentName component = new ComponentName(targetPackage, targetClass);
             intent.setComponent(component);
         }
+        intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
         return intent;
     }
 

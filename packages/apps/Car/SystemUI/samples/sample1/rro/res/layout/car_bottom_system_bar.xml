@@ -35,54 +35,54 @@
 
         <com.android.systemui.car.systembar.CarSystemBarButton
             android:id="@+id/home"
+            android:contentDescription="@string/system_bar_home_label"
             style="@style/SystemBarButton"
             systemui:componentNames="com.android.car.carlauncher/.CarLauncher"
             systemui:icon="@drawable/car_ic_overview"
             systemui:intent="intent:#Intent;action=android.intent.action.MAIN;category=android.intent.category.HOME;launchFlags=0x14000000;end"
             systemui:selectedIcon="@drawable/car_ic_overview_selected"
-            systemui:highlightWhenSelected="true"
-        />
+            systemui:highlightWhenSelected="true"/>
 
         <com.android.systemui.car.systembar.CarSystemBarButton
             android:id="@+id/maps_nav"
+            android:contentDescription="@string/system_bar_maps_label"
             style="@style/SystemBarButton"
             systemui:categories="android.intent.category.APP_MAPS"
             systemui:icon="@drawable/car_ic_navigation"
             systemui:intent="intent:#Intent;action=android.intent.action.MAIN;category=android.intent.category.APP_MAPS;launchFlags=0x14000000;end"
             systemui:selectedIcon="@drawable/car_ic_navigation_selected"
-            systemui:highlightWhenSelected="true"
-        />
+            systemui:highlightWhenSelected="true"/>
 
         <com.android.systemui.car.systembar.CarSystemBarButton
             android:id="@+id/music_nav"
+            android:contentDescription="@string/system_bar_media_label"
             style="@style/SystemBarButton"
             systemui:categories="android.intent.category.APP_MUSIC"
             systemui:icon="@drawable/car_ic_music"
             systemui:intent="intent:#Intent;action=android.car.intent.action.MEDIA_TEMPLATE;launchFlags=0x10000000;end"
             systemui:packages="com.android.car.media"
             systemui:selectedIcon="@drawable/car_ic_music_selected"
-            systemui:highlightWhenSelected="true"
-        />
+            systemui:highlightWhenSelected="true"/>
 
         <com.android.systemui.car.systembar.CarSystemBarButton
             android:id="@+id/phone_nav"
+            android:contentDescription="@string/system_bar_phone_label"
             style="@style/SystemBarButton"
             systemui:icon="@drawable/car_ic_phone"
             systemui:intent="intent:#Intent;action=android.intent.action.MAIN;category=android.intent.category.LAUNCHER;package=com.android.car.dialer;launchFlags=0x10000000;end"
             systemui:packages="com.android.car.dialer"
             systemui:selectedIcon="@drawable/car_ic_phone_selected"
-            systemui:highlightWhenSelected="true"
-        />
+            systemui:highlightWhenSelected="true"/>
 
         <com.android.systemui.car.systembar.CarSystemBarButton
             android:id="@+id/grid_nav"
+            android:contentDescription="@string/system_bar_applications_label"
             style="@style/SystemBarButton"
             systemui:componentNames="@string/config_appGridComponentName"
             systemui:icon="@drawable/car_ic_apps"
             systemui:intent="intent:#Intent;action=com.android.car.carlauncher.ACTION_APP_GRID;package=com.android.car.carlauncher;launchFlags=0x24000000;end"
             systemui:selectedIcon="@drawable/car_ic_apps_selected"
-            systemui:highlightWhenSelected="true"
-        />
+            systemui:highlightWhenSelected="true"/>
 
     </LinearLayout>
 </com.android.systemui.car.systembar.CarSystemBarView>

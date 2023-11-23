@@ -25,6 +25,15 @@ namespace lib {
 inline constexpr std::string_view kAlNumAlphabet =
     "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
 
+// Average length of word in English is 4.7 characters.
+inline constexpr int kAvgTokenLen = 5;
+// Made up value. This results in a fairly reasonable language - the majority of
+// generated words are 3-9 characters, ~3% of words are >=20 chars, and the
+// longest ones are 27 chars, (roughly consistent with the longest,
+// non-contrived English words
+// https://en.wikipedia.org/wiki/Longest_word_in_English)
+inline constexpr int kTokenStdDev = 7;
+
 template <typename Gen>
 std::string RandomString(const std::string_view alphabet, size_t len,
                          Gen* gen) {
@@ -35,6 +44,22 @@ std::string RandomString(const std::string_view alphabet, size_t len,
       [&gen, &alphabet, &uniform]() { return alphabet[uniform(*gen)]; });
 
   return result;
+}
+
+// Creates a vector containing num_words randomly-generated words for use by
+// documents.
+template <typename Rand>
+std::vector<std::string> CreateLanguages(int num_words, Rand* r) {
+  std::vector<std::string> language;
+  std::normal_distribution<> norm_dist(kAvgTokenLen, kTokenStdDev);
+  while (--num_words >= 0) {
+    int word_length = 0;
+    while (word_length < 1) {
+      word_length = std::round(norm_dist(*r));
+    }
+    language.push_back(RandomString(kAlNumAlphabet, word_length, r));
+  }
+  return language;
 }
 
 // Returns a vector containing num_terms unique terms. Terms are created in

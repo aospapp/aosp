@@ -9,15 +9,16 @@
 #endif
 
 #if !defined(OPENSSL_NO_ASM)
-#include <GFp/arm_arch.h>
+#include "ring_core_generated/prefix_symbols_asm.h"
+#include <ring-core/arm_arch.h>
 
 .text
 
-.globl	_GFp_gcm_init_clmul
-.private_extern	_GFp_gcm_init_clmul
+.globl	_gcm_init_clmul
+.private_extern	_gcm_init_clmul
 
 .align	4
-_GFp_gcm_init_clmul:
+_gcm_init_clmul:
 	AARCH64_VALID_CALL_TARGET
 	ld1	{v17.2d},[x1]		//load input H
 	movi	v19.16b,#0xe1
@@ -65,11 +66,11 @@ _GFp_gcm_init_clmul:
 
 	ret
 
-.globl	_GFp_gcm_gmult_clmul
-.private_extern	_GFp_gcm_gmult_clmul
+.globl	_gcm_gmult_clmul
+.private_extern	_gcm_gmult_clmul
 
 .align	4
-_GFp_gcm_gmult_clmul:
+_gcm_gmult_clmul:
 	AARCH64_VALID_CALL_TARGET
 	ld1	{v17.2d},[x0]		//load Xi
 	movi	v19.16b,#0xe1
@@ -108,11 +109,11 @@ _GFp_gcm_gmult_clmul:
 
 	ret
 
-.globl	_GFp_gcm_ghash_clmul
-.private_extern	_GFp_gcm_ghash_clmul
+.globl	_gcm_ghash_clmul
+.private_extern	_gcm_ghash_clmul
 
 .align	4
-_GFp_gcm_ghash_clmul:
+_gcm_ghash_clmul:
 	AARCH64_VALID_CALL_TARGET
 	ld1	{v0.2d},[x0]		//load [rotated] Xi
 						//"[rotated]" means that

@@ -43,9 +43,14 @@ class FakeCowWriter : public android::snapshot::ICowWriter {
   using ICowWriter::ICowWriter;
   ~FakeCowWriter() = default;
 
-  bool EmitCopy(uint64_t new_block, uint64_t old_block) override {
-    operations_[new_block] = {.type = CowOp::COW_COPY,
-                              .source_block = static_cast<size_t>(old_block)};
+  bool EmitCopy(uint64_t new_block,
+                uint64_t old_block,
+                uint64_t num_blocks) override {
+    for (size_t i = 0; i < num_blocks; i++) {
+      operations_[new_block + i] = {
+          .type = CowOp::COW_COPY,
+          .source_block = static_cast<size_t>(old_block + i)};
+    }
     return true;
   }
   bool EmitRawBlocks(uint64_t new_block_start,

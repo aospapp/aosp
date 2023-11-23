@@ -53,7 +53,7 @@ public class ConnectedAppsUtilsTest {
     testUtilities.createWorkUser();
     testUtilities.turnOnWorkProfile();
     testUtilities.setRunningOnPersonalProfile();
-    testUtilities.startConnectingAndWait();
+    testUtilities.addDefaultConnectionHolderAndWait();
   }
 
   @Test

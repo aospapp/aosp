@@ -20,17 +20,20 @@ import android.graphics.BlendMode;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.ColorSpace;
+import android.graphics.LinearGradient;
 import android.graphics.Paint;
 import android.graphics.Path;
 import android.graphics.Picture;
 import android.graphics.PorterDuff;
 import android.graphics.Rect;
+import android.graphics.Shader;
 import android.graphics.drawable.NinePatchDrawable;
 import android.uirendering.cts.R;
 import android.uirendering.cts.bitmapcomparers.BitmapComparer;
 import android.uirendering.cts.bitmapcomparers.ExactComparer;
 import android.uirendering.cts.bitmapcomparers.MSSIMComparer;
 import android.uirendering.cts.bitmapverifiers.BitmapVerifier;
+import android.uirendering.cts.bitmapverifiers.ColorVerifier;
 import android.uirendering.cts.bitmapverifiers.GoldenImageVerifier;
 import android.uirendering.cts.bitmapverifiers.PerPixelBitmapVerifier;
 import android.uirendering.cts.bitmapverifiers.RectVerifier;
@@ -40,8 +43,13 @@ import android.uirendering.cts.util.CompareUtils;
 import androidx.test.filters.MediumTest;
 import androidx.test.runner.AndroidJUnit4;
 
+import com.android.compatibility.common.util.ApiTest;
+
 import org.junit.Test;
 import org.junit.runner.RunWith;
+
+import java.io.File;
+import java.util.Arrays;
 
 @MediumTest
 @RunWith(AndroidJUnit4.class)
@@ -163,6 +171,12 @@ public class ExactCanvasTests extends ActivityTestBase {
         Paint p = new Paint();
         p.setColor(Color.BLACK);
         p.setAntiAlias(true);
+
+        File file = TypefaceTestUtil.getFirstFont(testString, p);
+        if (!file.getName().startsWith("Roboto")) {
+            p.setTypeface(TypefaceTestUtil.getRobotoTypeface(400, false));
+        }
+
         canvas.drawTextOnPath(testString, path, 0f, 0f, p);
     }
 
@@ -348,6 +362,138 @@ public class ExactCanvasTests extends ActivityTestBase {
                             null, 0, colors, 0, null, 0, 0,
                             new Paint());
                 })
+                .runWithVerifier(verifier);
+    }
+
+    @Test
+    @ApiTest(apis = {"android.graphics.Canvas#drawVertices"})
+    public void testDrawVertices_doNotBlendColorsWithoutShader() {
+        BitmapVerifier verifier = new ColorVerifier(Color.BLUE);
+
+        createTest()
+                .addCanvasClient(
+                        (canvas, width, height) -> {
+                            float[] verts =
+                                    new float[] {
+                                        width, 0, width, height, 0, 0, 0, height,
+                                    };
+                            int[] vertColors =
+                                    new int[] {Color.BLUE, Color.BLUE, Color.BLUE, Color.BLUE};
+                            // Paint color should be ignored and not blend with vertex color.
+                            Paint paint = new Paint();
+                            paint.setColor(Color.RED);
+                            canvas.drawVertices(
+                                    Canvas.VertexMode.TRIANGLE_STRIP,
+                                    verts.length,
+                                    verts,
+                                    0,
+                                    null,
+                                    0,
+                                    vertColors,
+                                    0,
+                                    null,
+                                    0,
+                                    0,
+                                    paint);
+                        })
+                .runWithVerifier(verifier);
+    }
+
+    @Test
+    @ApiTest(apis = {"android.graphics.Canvas#drawVertices"})
+    public void testDrawVertices_blendVertexAndShaderColors() {
+        Color vertexColor = Color.valueOf(0.8f, 0.6f, 0.4f);
+        Color shaderColor = Color.valueOf(0.5f, 0.5f, 0.5f);
+        // drawVertices should blend vertex color and shader color with kModulate.
+        Color modulatedColor =
+                Color.valueOf(
+                        vertexColor.red() * shaderColor.red(),
+                        vertexColor.green() * shaderColor.green(),
+                        vertexColor.blue() * shaderColor.blue());
+        BitmapVerifier verifier = new ColorVerifier(modulatedColor.toArgb());
+
+        createTest()
+                .addCanvasClient(
+                        (canvas, width, height) -> {
+                            float[] verts =
+                                    new float[] {
+                                        width, 0, width, height, 0, 0, 0, height,
+                                    };
+                            int[] vertColors = new int[4];
+                            Arrays.fill(vertColors, vertexColor.toArgb());
+                            int[] shaderColors = new int[2];
+                            Arrays.fill(shaderColors, shaderColor.toArgb());
+
+                            Paint paint = new Paint();
+                            paint.setShader(
+                                    new LinearGradient(
+                                            0,
+                                            0,
+                                            width,
+                                            height,
+                                            shaderColors,
+                                            null,
+                                            Shader.TileMode.REPEAT));
+                            canvas.drawVertices(
+                                    Canvas.VertexMode.TRIANGLE_STRIP,
+                                    verts.length,
+                                    verts,
+                                    0,
+                                    verts,
+                                    0,
+                                    vertColors,
+                                    0,
+                                    null,
+                                    0,
+                                    0,
+                                    paint);
+                        })
+                .runWithVerifier(verifier);
+    }
+
+    @Test
+    @ApiTest(apis = {"android.graphics.Canvas#drawVertices"})
+    public void testDrawVertices_ignoreShaderIfTexsNotSet() {
+        Color vertexColor = Color.valueOf(0.8f, 0.6f, 0.4f);
+        Color shaderColor = Color.valueOf(0.5f, 0.5f, 0.5f); // Should be ignored.
+        BitmapVerifier verifier = new ColorVerifier(vertexColor.toArgb());
+
+        createTest()
+                .addCanvasClient(
+                        (canvas, width, height) -> {
+                            float[] verts =
+                                    new float[] {
+                                        width, 0, width, height, 0, 0, 0, height,
+                                    };
+                            int[] vertColors = new int[4];
+                            Arrays.fill(vertColors, vertexColor.toArgb());
+                            int[] shaderColors = new int[2];
+                            Arrays.fill(shaderColors, shaderColor.toArgb());
+
+                            Paint paint = new Paint();
+                            paint.setShader(
+                                    new LinearGradient(
+                                            0,
+                                            0,
+                                            width,
+                                            height,
+                                            shaderColors,
+                                            null,
+                                            Shader.TileMode.REPEAT));
+                            canvas.drawVertices(
+                                    Canvas.VertexMode.TRIANGLE_STRIP,
+                                    verts.length,
+                                    verts,
+                                    0,
+                                    null,
+                                    0,
+                                    vertColors,
+                                    0,
+                                    null,
+                                    0,
+                                    0,
+                                    paint);
+                        })
                 .runWithVerifier(verifier);
     }
 

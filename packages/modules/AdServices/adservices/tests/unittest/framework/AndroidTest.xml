@@ -22,8 +22,19 @@
         <option name="test-file-name" value="AdServicesFrameworkUnitTests.apk"/>
     </target_preparer>
 
+    <target_preparer class="com.android.tradefed.targetprep.RunCommandTargetPreparer">
+        <option name="run-command" value="setprop log.tag.adservices VERBOSE" />
+        <option name="run-command" value="setprop log.tag.adservices.topics VERBOSE" />
+    </target_preparer>
+
     <test class="com.android.tradefed.testtype.AndroidJUnitTest">
         <option name="hidden-api-checks" value="false" />
         <option name="package" value="android.adservices.tests"/>
     </test>
+
+    <object type="module_controller"
+            class="com.android.tradefed.testtype.suite.module.MainlineTestModuleController">
+        <option name="mainline-module-package-name" value="com.google.android.adservices"/>
+    </object>
+    <option name="config-descriptor:metadata" key="mainline-param" value="com.google.android.adservices.apex" />
 </configuration>

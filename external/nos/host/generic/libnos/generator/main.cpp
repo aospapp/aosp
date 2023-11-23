@@ -240,7 +240,7 @@ void GenerateClientSource(Printer& printer, const ServiceDescriptor& service) {
         methodVars.insert(vars.begin(), vars.end());
         printer.Print(methodVars, R"(
 uint32_t $class$::$method_name$(const $method_input_type$& request, $method_output_type$* response) {
-    const size_t request_size = request.ByteSize();
+    const size_t request_size = request.ByteSizeLong();
     if (request_size > $max_request_size$) {
         return APP_ERROR_TOO_MUCH;
     }

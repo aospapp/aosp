@@ -23,7 +23,7 @@
   "cameras" : [
     {
       "cameraId" : "/dev/video0",
-      "function" : "reverse,park",
+      "function" : "reverse",
       "x" : 0.0,
       "y" : 20.0,
       "z" : 48,
@@ -34,7 +34,7 @@
     },
     {
       "cameraId" : "1",
-      "function" : "front,park",
+      "function" : "front",
       "x" : 0.0,
       "y" : 100.0,
       "z" : 48,
@@ -45,7 +45,7 @@
     },
     {
       "cameraId" : "2",
-      "function" : "right,park",
+      "function" : "right",
       "x" : -25.0,
       "y" : 60.0,
       "z" : 88,
@@ -56,7 +56,7 @@
     },
     {
       "cameraId" : "3",
-      "function" : "left, park",
+      "function" : "left",
       "x" : 20.0,
       "y" : 60.0,
       "z" : 88,

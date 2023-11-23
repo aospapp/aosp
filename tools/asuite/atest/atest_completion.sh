@@ -14,54 +14,6 @@
 
 ATEST_REL_DIR="tools/asuite/atest"
 
-_fetch_testable_modules() {
-    [[ -z $ANDROID_BUILD_TOP ]] && return 0
-    export ATEST_DIR="$ANDROID_BUILD_TOP/$ATEST_REL_DIR"
-    /usr/bin/env python3 - << END
-import os
-import pickle
-import sys
-
-from pathlib import Path
-
-sys.path.append(os.getenv('ATEST_DIR'))
-import constants
-
-index_dir = Path(os.getenv(constants.ANDROID_HOST_OUT)).joinpath('indexes')
-module_index = index_dir.joinpath(constants.MODULE_INDEX)
-if os.path.isfile(module_index):
-    with open(module_index, 'rb') as cache:
-        try:
-            print("\n".join(pickle.load(cache, encoding="utf-8")))
-        except:
-            print("\n".join(pickle.load(cache)))
-else:
-    print("")
-END
-    unset ATEST_DIR
-}
-
-# This function invoke get_args() and return each item
-# of the list for tab completion candidates.
-_fetch_atest_args() {
-    [[ -z $ANDROID_BUILD_TOP ]] && return 0
-    export ATEST_DIR="$ANDROID_BUILD_TOP/$ATEST_REL_DIR"
-    /usr/bin/env python3 - << END
-import os
-import sys
-
-atest_dir = os.path.join(os.getenv('ATEST_DIR'))
-sys.path.append(atest_dir)
-
-import atest_arg_parser
-
-parser = atest_arg_parser.AtestArgParser()
-parser.add_atest_args()
-print("\n".join(parser.get_args()))
-END
-    unset ATEST_DIR
-}
-
 # This function returns devices recognised by adb.
 _fetch_adb_devices() {
     while read dev; do echo $dev | awk '{print $1}'; done < <(adb devices | egrep -v "^List|^$"||true)
@@ -73,23 +25,39 @@ _fetch_test_mapping_files() {
     find -maxdepth 5 -type f -name TEST_MAPPING |sed 's/^.\///g'| xargs dirname 2>/dev/null
 }
 
+function _pip_install() {
+    if ! which $1 >/dev/null; then
+        install_cmd="pip3 install --user $1"
+        echo "${FUNCNAME[1]} requires $1 but not found. Installing..."
+        eval $install_cmd >/dev/null
+    fi
+}
+
 # The main tab completion function.
 _atest() {
-    local cur prev
     COMPREPLY=()
-    cur="${COMP_WORDS[COMP_CWORD]}"
-    prev="${COMP_WORDS[COMP_CWORD-1]}"
+    local cmd=$(which $1)
+    local cur="${COMP_WORDS[COMP_CWORD]}"
+    local prev="${COMP_WORDS[COMP_CWORD-1]}"
     _get_comp_words_by_ref -n : cur prev || true
+
+    if [[ "$cmd" == *prebuilts/asuite/atest/linux-x86/atest ]]; then
+        # prebuilts/asuite/atest/linux-x86/atest is shell script wrapper around
+        # atest-py3, which is what we should actually use.
+        cmd=$ANDROID_BUILD_TOP/prebuilts/asuite/atest/linux-x86/atest-py3
+    fi
 
     case "$cur" in
         -*)
-            COMPREPLY=($(compgen -W "$(_fetch_atest_args)" -- $cur))
+            COMPREPLY=($(compgen -W "$(unzip -p $cmd atest/atest_flag_list_for_completion.txt)" -- $cur))
             ;;
         */*)
             ;;
         *)
-            local candidate_args=$(ls; _fetch_testable_modules)
-            COMPREPLY=($(compgen -W "$candidate_args" -- $cur))
+            # Use grep instead of compgen -W because compgen -W is very slow. It takes
+            # ~0.7 seconds for compgen to read the all_modules.txt file.
+            # TODO(b/256228056) This fails if $cur has special characters in it
+            COMPREPLY=($(ls | grep "^$cur"; grep "^$cur" $ANDROID_PRODUCT_OUT/all_modules.txt 2>/dev/null))
             ;;
     esac
 
@@ -136,25 +104,59 @@ function _atest_main() {
     # BASH version <= 4.3 doesn't have nosort option.
     # Note that nosort has no effect for zsh.
     local _atest_comp_options="-o default -o nosort"
-    local _atest_executables=(atest atest-dev atest-src atest-py3)
+    local _atest_executables=(atest atest-dev atest-py3)
     for exec in "${_atest_executables[*]}"; do
         complete -F _atest $_atest_comp_options $exec 2>/dev/null || \
         complete -F _atest -o default $exec
     done
 
-    # Install atest-src for the convenience of debugging.
-    local atest_src="$T/$ATEST_REL_DIR/atest.py"
-    [[ -f "$atest_src" ]] && alias atest-src="$atest_src"
+    function atest-src() {
+        echo "atest-src is deprecated, use m atest && atest-dev instead" >&2
+        return 1
+    }
 
     # Use prebuilt python3 for atest-dev
     function atest-dev() {
-        atest_dev="$ANDROID_BUILD_TOP/out/host/$(uname -s | tr '[:upper:]' '[:lower:]')-x86/bin/atest-dev"
+        atest_dev="$ANDROID_SOONG_HOST_OUT/bin/atest-dev"
         if [ ! -f $atest_dev ]; then
             echo "Cannot find atest-dev. Run 'm atest' to generate one."
             return 1
         fi
         PREBUILT_TOOLS_DIR="$ANDROID_BUILD_TOP/prebuilts/build-tools/path/linux-x86"
         PATH=$PREBUILT_TOOLS_DIR:$PATH $atest_dev "$@"
+    }
+
+    # pyinstrument profiler
+    function _atest_profile_cli() {
+        local T="$(gettop)"
+        profile="$HOME/.atest/$(date +'%FT%H-%M-%S').pyisession"
+        _pip_install pyinstrument
+        if [ "$?" -eq 0 ]; then
+            m atest && \
+                python3 $T/tools/asuite/atest/profiler.py pyinstrument $profile $ANDROID_SOONG_HOST_OUT/bin/atest-dev "$@" && \
+                python3 -m pyinstrument -t --show-all --load $profile && \
+                echo "$(tput setaf 3)$profile$(tput sgr0) saved."
+        fi
+    }
+
+    # cProfile profiler + snakeviz visualization
+    function _atest_profile_web() {
+        local T="$(gettop)"
+        profile="$HOME/.atest/$(date +'%F_%H-%M-%S').pstats"
+        m atest && \
+            python3 $T/tools/asuite/atest/profiler.py cProfile $profile $ANDROID_SOONG_HOST_OUT/bin/atest-dev "$@" && \
+            echo "$profile saved." || return 1
+
+        _pip_install snakeviz
+        if [ "$?" -eq 0 ]; then
+            run_cmd="snakeviz -H $HOSTNAME $profile >/dev/null 2>&1"
+            echo "$(tput bold)Use Ctrl-C to stop.$(tput sgr0)"
+            eval $run_cmd
+            echo
+            echo "To permanently start a web server, please run:"
+            echo $(tput setaf 3)"nohup $run_cmd &"$(tput sgr0)
+            echo "and share $(tput setaf 3)http://$HOSTNAME:8080/snakeviz/$profile$(tput sgr0)."
+        fi
     }
 }
 

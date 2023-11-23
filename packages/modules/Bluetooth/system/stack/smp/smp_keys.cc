@@ -21,14 +21,13 @@
  *  This file contains security manager protocol utility functions
  *
  ******************************************************************************/
-#include <base/bind.h>
-#include <base/callback.h>
+#include <base/functional/bind.h>
+#include <base/functional/callback.h>
 
 #include <algorithm>
 #include <cstring>
 
 #include "bt_target.h"
-#include "bt_utils.h"
 #include "btm_ble_api.h"
 #include "btm_ble_int.h"
 #include "device/include/controller.h"
@@ -809,7 +808,7 @@ Octet16 smp_calculate_peer_commitment(tSMP_CB* p_cb) {
   uint8_t ri;
 
   SMP_TRACE_DEBUG("%s", __func__);
-  Octet16 output;
+  Octet16 output{0};
   switch (p_cb->selected_association_model) {
     case SMP_MODEL_SEC_CONN_JUSTWORKS:
     case SMP_MODEL_SEC_CONN_NUM_COMP:

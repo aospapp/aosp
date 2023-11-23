@@ -24,11 +24,14 @@ import static dagger.internal.codegen.extension.DaggerStreams.toImmutableSet;
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.squareup.javapoet.ClassName;
 import dagger.hilt.processor.internal.AggregatedElements;
 import dagger.hilt.processor.internal.AnnotationValues;
 import dagger.hilt.processor.internal.ClassNames;
 import dagger.hilt.processor.internal.Processors;
+import dagger.hilt.processor.internal.root.ir.AggregatedDepsIr;
 import java.util.Optional;
+import java.util.stream.Collectors;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.AnnotationValue;
 import javax.lang.model.element.TypeElement;
@@ -39,7 +42,7 @@ import javax.lang.model.util.Elements;
  * dagger.hilt.processor.internal.aggregateddeps.AggregatedDeps} annotation.
  */
 @AutoValue
-abstract class AggregatedDepsMetadata {
+public abstract class AggregatedDepsMetadata {
   private static final String AGGREGATED_DEPS_PACKAGE = "hilt_aggregated_deps";
 
   enum DependencyType {
@@ -48,22 +51,59 @@ abstract class AggregatedDepsMetadata {
     COMPONENT_ENTRY_POINT
   }
 
-  abstract Optional<TypeElement> testElement();
+  /** Returns the aggregating element */
+  public abstract TypeElement aggregatingElement();
 
-  abstract ImmutableSet<TypeElement> componentElements();
+  public abstract Optional<TypeElement> testElement();
+
+  public abstract ImmutableSet<TypeElement> componentElements();
 
   abstract DependencyType dependencyType();
 
   abstract TypeElement dependency();
 
-  abstract ImmutableSet<TypeElement> replacedDependencies();
+  public abstract ImmutableSet<TypeElement> replacedDependencies();
 
-  /** Returns all aggregated deps in the aggregating package. */
+  public boolean isModule() {
+    return dependencyType() == DependencyType.MODULE;
+  }
+
+  /** Returns metadata for all aggregated elements in the aggregating package. */
   public static ImmutableSet<AggregatedDepsMetadata> from(Elements elements) {
-    return AggregatedElements.from(AGGREGATED_DEPS_PACKAGE, ClassNames.AGGREGATED_DEPS, elements)
-        .stream()
+    return from(
+        AggregatedElements.from(AGGREGATED_DEPS_PACKAGE, ClassNames.AGGREGATED_DEPS, elements),
+        elements);
+  }
+
+  /** Returns metadata for each aggregated element. */
+  public static ImmutableSet<AggregatedDepsMetadata> from(
+      ImmutableSet<TypeElement> aggregatedElements, Elements elements) {
+    return aggregatedElements.stream()
         .map(aggregatedElement -> create(aggregatedElement, elements))
         .collect(toImmutableSet());
+  }
+
+  public static AggregatedDepsIr toIr(AggregatedDepsMetadata metadata) {
+    return new AggregatedDepsIr(
+        ClassName.get(metadata.aggregatingElement()),
+        metadata.componentElements().stream()
+            .map(ClassName::get)
+            .collect(Collectors.toList()),
+        metadata.testElement()
+            .map(ClassName::get)
+            .orElse(null),
+        metadata.replacedDependencies().stream()
+            .map(ClassName::get)
+            .collect(Collectors.toList()),
+        metadata.dependencyType() == DependencyType.MODULE
+            ? ClassName.get(metadata.dependency())
+            : null,
+        metadata.dependencyType() == DependencyType.ENTRY_POINT
+            ? ClassName.get(metadata.dependency())
+            : null,
+        metadata.dependencyType() == DependencyType.COMPONENT_ENTRY_POINT
+            ? ClassName.get(metadata.dependency())
+            : null);
   }
 
   private static AggregatedDepsMetadata create(TypeElement element, Elements elements) {
@@ -74,12 +114,11 @@ abstract class AggregatedDepsMetadata {
         Processors.getAnnotationValues(elements, annotationMirror);
 
     return new AutoValue_AggregatedDepsMetadata(
+        element,
         getTestElement(values.get("test"), elements),
         getComponents(values.get("components"), elements),
         getDependencyType(
-            values.get("modules"),
-            values.get("entryPoints"),
-            values.get("componentEntryPoints")),
+            values.get("modules"), values.get("entryPoints"), values.get("componentEntryPoints")),
         getDependency(
             values.get("modules"),
             values.get("entryPoints"),

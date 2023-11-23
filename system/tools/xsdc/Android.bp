@@ -4,9 +4,23 @@ package {
 
 java_binary_host {
     name: "xsdc",
-    srcs: ["src/**/*.java"],
+    srcs: [
+        "src/main/java/**/*.java",
+    ],
     static_libs: [
         "commons-cli-1.2",
     ],
     manifest: "MANIFEST.MF"
+}
+
+java_test_host {
+    name: "xsdc-unittest",
+    srcs: [
+        "src/test/java/**/*.java",
+    ],
+    static_libs: [
+        "commons-cli-1.2",
+        "junit",
+        "xsdc",
+    ],
 }

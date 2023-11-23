@@ -24,6 +24,9 @@ import android.os.Parcel;
 import android.os.Parcelable;
 import android.telephony.Annotation.NetworkType;
 import android.util.Log;
+import android.util.SparseArray;
+
+import androidx.annotation.Nullable;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -42,7 +45,30 @@ import java.util.NoSuchElementException;
 public final class WifiUsabilityStatsEntry implements Parcelable {
     private static final String TAG = "WifiUsabilityStatsEntry";
 
-    /** {@hide} */
+    /** @hide */
+    @Retention(RetentionPolicy.SOURCE)
+    @IntDef(prefix = {"LINK_STATE_"}, value = {
+            LINK_STATE_UNKNOWN,
+            LINK_STATE_NOT_IN_USE,
+            LINK_STATE_IN_USE})
+    public @interface LinkState {}
+
+    /** Chip does not support reporting the state of the link. */
+    public static final int LINK_STATE_UNKNOWN = 0;
+    /**
+     * Link has not been in use since last report. It is placed in power save. All management,
+     * control and data frames for the MLO connection are carried over other links. In this state
+     * the link will not listen to beacons even in DTIM period and does not perform any
+     * GTK/IGTK/BIGTK updates but remains associated.
+     */
+    public static final int LINK_STATE_NOT_IN_USE = 1;
+    /**
+     * Link is in use. In presence of traffic, it is set to be power active. When the traffic
+     * stops, the link will go into power save mode and will listen for beacons every DTIM period.
+     */
+    public static final int LINK_STATE_IN_USE = 2;
+
+    /** @hide */
     @Retention(RetentionPolicy.SOURCE)
     @IntDef(prefix = {"PROBE_STATUS_"}, value = {
             PROBE_STATUS_UNKNOWN,
@@ -443,6 +469,11 @@ public final class WifiUsabilityStatsEntry implements Parcelable {
      * Wifi link layer radio stats.
      */
     public static final class RadioStats implements Parcelable {
+        /**
+         * Invalid radio id.
+         * @hide
+         */
+        public static final int INVALID_RADIO_ID = -1;
         private int mRadioId;
         private long mTotalRadioOnTimeMillis;
         private long mTotalRadioTxTimeMillis;
@@ -610,6 +641,160 @@ public final class WifiUsabilityStatsEntry implements Parcelable {
     private final int mCellularSignalStrengthDb;
     private final boolean mIsSameRegisteredCell;
 
+    /**
+     * Link specific statistics.
+     *
+     * @hide
+     */
+    public static final class LinkStats implements Parcelable {
+        /** Link identifier (0 to 14) */
+        private final int mLinkId;
+        /** Link state as listed {@link LinkState} */
+        private final @LinkState int mState;
+        /** Radio identifier */
+        private final int mRadioId;
+        /** The RSSI (in dBm) at the sample time */
+        private final int mRssi;
+        /** Tx Link speed at the sample time in Mbps */
+        private final int mTxLinkSpeedMbps;
+        /** Rx link speed at the sample time in Mbps */
+        private final int mRxLinkSpeedMbps;
+        /** The total number of tx success counted from the last radio chip reset */
+        private final long mTotalTxSuccess;
+        /** The total number of MPDU data packet retries counted from the last radio chip reset */
+        private final long mTotalTxRetries;
+        /** The total number of tx bad counted from the last radio chip reset */
+        private final long mTotalTxBad;
+        /** The total number of rx success counted from the last radio chip reset */
+        private final long mTotalRxSuccess;
+        /** The total number of beacons received from the last radio chip reset */
+        private final long mTotalBeaconRx;
+        /** @see #WifiUsabilityStatsEntry#getTimeSliceDutyCycleInPercent() */
+        private final int mTimeSliceDutyCycleInPercent;
+        /**
+         * The total time CCA is on busy status on the link frequency in ms counted from the last
+         * radio chip reset
+         */
+        private final long mTotalCcaBusyFreqTimeMillis;
+        /** The total radio on time on the link frequency in ms from the last radio chip reset */
+        private final long mTotalRadioOnFreqTimeMillis;
+        /** Data packet contention time statistics */
+        private final ContentionTimeStats[] mContentionTimeStats;
+        /** Rate information and statistics */
+        private final RateStats[] mRateStats;
+
+        /** @hide */
+        public LinkStats() {
+            mLinkId = MloLink.INVALID_MLO_LINK_ID;
+            mState = LINK_STATE_UNKNOWN;
+            mRssi = WifiInfo.INVALID_RSSI;
+            mRadioId = RadioStats.INVALID_RADIO_ID;
+            mTxLinkSpeedMbps = WifiInfo.LINK_SPEED_UNKNOWN;
+            mRxLinkSpeedMbps = WifiInfo.LINK_SPEED_UNKNOWN;
+            mTotalTxSuccess = 0;
+            mTotalTxRetries = 0;
+            mTotalTxBad = 0;
+            mTotalRxSuccess = 0;
+            mTotalBeaconRx = 0;
+            mTimeSliceDutyCycleInPercent = 0;
+            mTotalCcaBusyFreqTimeMillis = 0;
+            mTotalRadioOnFreqTimeMillis = 0;
+            mContentionTimeStats = null;
+            mRateStats = null;
+        }
+
+        /** @hide
+         * Constructor function
+         *
+         * @param linkId                      Identifier of the link.
+         * @param radioId                     Identifier of the radio on which the link is operating
+         *                                    currently.
+         * @param rssi                        Link Rssi (in dBm) at sample time.
+         * @param txLinkSpeedMpbs             Transmit link speed in Mpbs at sample time.
+         * @param rxLinkSpeedMpbs             Receive link speed in Mbps at sample time.
+         * @param totalTxSuccess              Total number of Tx success.
+         * @param totalTxRetries              Total packet retries.
+         * @param totalTxBad                  Total number of bad packets.
+         * @param totalRxSuccess              Total number of good receive packets.
+         * @param totalBeaconRx               Total number of beacon received.
+         * @param timeSliceDutyCycleInPercent Duty cycle of the connection.
+         * @param totalCcaBusyFreqTimeMillis  Total CCA is on busy status on the link frequency from
+         *                                    the last radio chip reset.
+         * @param totalRadioOnFreqTimeMillis  Total Radio on time on the link frequency from the
+         *                                    last radio chip reset.
+         * @param contentionTimeStats         Data packet contention time statistics.
+         * @param rateStats                   Rate information.
+         */
+        public LinkStats(int linkId, int state, int radioId, int rssi, int txLinkSpeedMpbs,
+                int rxLinkSpeedMpbs, long totalTxSuccess, long totalTxRetries, long totalTxBad,
+                long totalRxSuccess, long totalBeaconRx, int timeSliceDutyCycleInPercent,
+                long totalCcaBusyFreqTimeMillis, long  totalRadioOnFreqTimeMillis,
+                ContentionTimeStats[] contentionTimeStats, RateStats[] rateStats) {
+            this.mLinkId = linkId;
+            this.mState = state;
+            this.mRadioId = radioId;
+            this.mRssi = rssi;
+            this.mTxLinkSpeedMbps = txLinkSpeedMpbs;
+            this.mRxLinkSpeedMbps = rxLinkSpeedMpbs;
+            this.mTotalTxSuccess = totalTxSuccess;
+            this.mTotalTxRetries = totalTxRetries;
+            this.mTotalTxBad = totalTxBad;
+            this.mTotalRxSuccess = totalRxSuccess;
+            this.mTotalBeaconRx = totalBeaconRx;
+            this.mTimeSliceDutyCycleInPercent = timeSliceDutyCycleInPercent;
+            this.mTotalCcaBusyFreqTimeMillis = totalCcaBusyFreqTimeMillis;
+            this.mTotalRadioOnFreqTimeMillis = totalRadioOnFreqTimeMillis;
+            this.mContentionTimeStats = contentionTimeStats;
+            this.mRateStats = rateStats;
+        }
+
+        @Override
+        public int describeContents() {
+            return 0;
+        }
+
+        @Override
+        public void writeToParcel(@NonNull Parcel dest, int flags) {
+            dest.writeInt(mLinkId);
+            dest.writeInt(mState);
+            dest.writeInt(mRadioId);
+            dest.writeInt(mRssi);
+            dest.writeInt(mTxLinkSpeedMbps);
+            dest.writeInt(mRxLinkSpeedMbps);
+            dest.writeLong(mTotalTxSuccess);
+            dest.writeLong(mTotalTxRetries);
+            dest.writeLong(mTotalTxBad);
+            dest.writeLong(mTotalRxSuccess);
+            dest.writeLong(mTotalBeaconRx);
+            dest.writeInt(mTimeSliceDutyCycleInPercent);
+            dest.writeLong(mTotalCcaBusyFreqTimeMillis);
+            dest.writeLong(mTotalRadioOnFreqTimeMillis);
+            dest.writeTypedArray(mContentionTimeStats, flags);
+            dest.writeTypedArray(mRateStats, flags);
+        }
+
+        /** Implement the Parcelable interface */
+        @NonNull
+        public static final Creator<LinkStats> CREATOR =
+                new Creator<>() {
+                    public LinkStats createFromParcel(Parcel in) {
+                        return new LinkStats(in.readInt(), in.readInt(), in.readInt(), in.readInt(),
+                                in.readInt(), in.readInt(), in.readLong(), in.readLong(),
+                                in.readLong(), in.readLong(), in.readLong(), in.readInt(),
+                                in.readLong(), in.readLong(),
+                                in.createTypedArray(ContentionTimeStats.CREATOR),
+                                in.createTypedArray(RateStats.CREATOR));
+                    }
+
+                    public LinkStats[] newArray(int size) {
+                        return new LinkStats[size];
+                    }
+                };
+    }
+
+    /** Link stats per link */
+    private final SparseArray<LinkStats> mLinkStats;
+
     /** Constructor function {@hide} */
     public WifiUsabilityStatsEntry(long timeStampMillis, int rssi, int linkSpeedMbps,
             long totalTxSuccess, long totalTxRetries, long totalTxBad, long totalRxSuccess,
@@ -626,7 +811,7 @@ public final class WifiUsabilityStatsEntry implements Parcelable {
             boolean isThroughputSufficient, boolean isWifiScoringEnabled,
             boolean isCellularDataAvailable, @NetworkType int cellularDataNetworkType,
             int cellularSignalStrengthDbm, int cellularSignalStrengthDb,
-            boolean isSameRegisteredCell) {
+            boolean isSameRegisteredCell, SparseArray<LinkStats> linkStats) {
         mTimeStampMillis = timeStampMillis;
         mRssi = rssi;
         mLinkSpeedMbps = linkSpeedMbps;
@@ -662,6 +847,7 @@ public final class WifiUsabilityStatsEntry implements Parcelable {
         mCellularSignalStrengthDbm = cellularSignalStrengthDbm;
         mCellularSignalStrengthDb = cellularSignalStrengthDb;
         mIsSameRegisteredCell = isSameRegisteredCell;
+        mLinkStats = linkStats;
     }
 
     /** Implement the Parcelable interface */
@@ -706,6 +892,7 @@ public final class WifiUsabilityStatsEntry implements Parcelable {
         dest.writeInt(mCellularSignalStrengthDbm);
         dest.writeInt(mCellularSignalStrengthDb);
         dest.writeBoolean(mIsSameRegisteredCell);
+        dest.writeSparseArray(mLinkStats);
     }
 
     /** Implement the Parcelable interface */
@@ -726,7 +913,8 @@ public final class WifiUsabilityStatsEntry implements Parcelable {
                     in.createTypedArray(RadioStats.CREATOR),
                     in.readInt(), in.readBoolean(), in.readBoolean(),
                     in.readBoolean(), in.readInt(), in.readInt(),
-                    in.readInt(), in.readBoolean()
+                    in.readInt(), in.readBoolean(),
+                    in.readSparseArray(LinkStats.class.getClassLoader())
             );
         }
 
@@ -735,39 +923,184 @@ public final class WifiUsabilityStatsEntry implements Parcelable {
         }
     };
 
+    /** Get identifiers of the links if multi link configuration exists.
+     *
+     * @return An array of link identifiers if exists, otherwise null.
+     */
+    @Nullable
+    public int[] getLinkIds() {
+        if (mLinkStats == null) return null;
+        int[] result = new int[mLinkStats.size()];
+        for (int i = 0; i < mLinkStats.size(); i++) {
+            result[i] = mLinkStats.keyAt(i);
+        }
+        return result;
+    }
+
+    /**
+     * Get link state. Refer {@link LinkState}.
+     *
+     * @param linkId Identifier of the link.
+     * @return Link state.
+     * @throws NoSuchElementException if linkId is invalid.
+     */
+    public @LinkState int getLinkState(int linkId) {
+        if (mLinkStats.contains(linkId)) return mLinkStats.get(linkId).mState;
+        throw new NoSuchElementException("linkId is invalid - " + linkId);
+    }
+
     /** Absolute milliseconds from device boot when these stats were sampled */
     public long getTimeStampMillis() {
         return mTimeStampMillis;
     }
 
-    /** The RSSI (in dBm) at the sample time */
+    /**
+     * The RSSI (in dBm) at the sample time. In case of Multi Link Operation (MLO), returned RSSI is
+     * the highest of all associated links.
+     *
+     * @return the RSSI.
+     */
     public int getRssi() {
         return mRssi;
     }
 
-    /** Link speed at the sample time in Mbps */
+    /** The RSSI (in dBm) of the link at the sample time.
+     *
+     * @param linkId Identifier of the link.
+     * @return RSSI in dBm.
+     * @throws NoSuchElementException if linkId is invalid.
+     */
+    public int getRssi(int linkId) {
+        if (mLinkStats.contains(linkId)) return mLinkStats.get(linkId).mRssi;
+        throw new NoSuchElementException("linkId is invalid - " + linkId);
+    }
+
+    /**
+     * Get firmware/hardware implementation specific persistent value for this
+     * device, identifying the radio interface for which the stats are produced.
+     *
+     * @param linkId Identifier of the link.
+     * @return Radio identifier.
+     * @throws NoSuchElementException if linkId is invalid.
+     */
+    public long getRadioId(int linkId) {
+        if (mLinkStats.contains(linkId)) return mLinkStats.get(linkId).mRadioId;
+        throw new NoSuchElementException("linkId is invalid - " + linkId);
+    }
+
+    /** Link speed at the sample time in Mbps. In case of Multi Link Operation (MLO), returned value
+     *  is the current link speed of the associated link with the highest RSSI.
+     *
+     * @return Link speed in Mpbs or {@link WifiInfo#LINK_SPEED_UNKNOWN} if link speed is unknown.
+     */
     public int getLinkSpeedMbps() {
         return mLinkSpeedMbps;
     }
 
-    /** The total number of tx success counted from the last radio chip reset */
+    /**
+     * Tx Link speed of the link at the sample time in Mbps.
+     *
+     * @param linkId Identifier of the link.
+     * @return Transmit link speed in Mpbs or {@link WifiInfo#LINK_SPEED_UNKNOWN} if link speed
+     * is unknown.
+     * @throws NoSuchElementException if linkId is invalid.
+     */
+    public int getTxLinkSpeedMbps(int linkId) {
+        if (mLinkStats.contains(linkId)) return mLinkStats.get(linkId).mTxLinkSpeedMbps;
+        throw new NoSuchElementException("linkId is invalid - " + linkId);
+    }
+
+    /**
+     * The total number of tx success counted from the last radio chip reset.  In case of Multi
+     * Link Operation (MLO), the returned value is the sum of total number of tx success on all
+     * associated links.
+     *
+     * @return total tx success count.
+     */
     public long getTotalTxSuccess() {
         return mTotalTxSuccess;
     }
 
-    /** The total number of MPDU data packet retries counted from the last radio chip reset */
+    /**
+     * The total number of tx success on a link counted from the last radio chip reset.
+     *
+     * @param linkId Identifier of the link.
+     * @return total tx success count.
+     * @throws NoSuchElementException if linkId is invalid.
+     */
+    public long getTotalTxSuccess(int linkId) {
+        if (mLinkStats.contains(linkId)) return mLinkStats.get(linkId).mTotalTxSuccess;
+        throw new NoSuchElementException("linkId is invalid - " + linkId);
+    }
+
+    /**
+     * The total number of MPDU data packet retries counted from the last radio chip reset. In
+     * case of Multi Link Operation (MLO), the returned value is the sum of total number of MPDU
+     * data packet retries on all associated links.
+     *
+     * @return total tx retries count.
+     */
     public long getTotalTxRetries() {
         return mTotalTxRetries;
     }
 
-    /** The total number of tx bad counted from the last radio chip reset */
+    /**
+     * The total number of MPDU data packet retries on a link counted from the last radio chip
+     * reset.
+     *
+     * @param linkId Identifier of the link.
+     * @return total tx retries count.
+     * @throws NoSuchElementException if linkId is invalid.
+     */
+    public long getTotalTxRetries(int linkId) {
+        if (mLinkStats.contains(linkId)) return mLinkStats.get(linkId).mTotalTxRetries;
+        throw new NoSuchElementException("linkId is invalid - " + linkId);
+    }
+
+    /**
+     * The total number of tx bad counted from the last radio chip reset. In case of Multi Link
+     * Operation (MLO), the returned value is the sum of total number of tx bad on all associated
+     * links.
+     *
+     * @return total tx bad count.
+     */
     public long getTotalTxBad() {
         return mTotalTxBad;
     }
 
-    /** The total number of rx success counted from the last radio chip reset */
+    /**
+     * The total number of tx bad on a link counted from the last radio chip reset.
+     *
+     * @param linkId Identifier of the link.
+     * @return total tx bad count.
+     * @throws NoSuchElementException if linkId is invalid.
+     */
+    public long getTotalTxBad(int linkId) {
+        if (mLinkStats.contains(linkId)) return mLinkStats.get(linkId).mTotalTxBad;
+        throw new NoSuchElementException("linkId is invalid - " + linkId);
+    }
+
+    /**
+     * The total number of rx success counted from the last radio chip reset. In case of Multi
+     * Link Operation (MLO), the returned value is the sum of total number of rx success on all
+     * associated links.
+     *
+     * @return total rx success count.
+     */
     public long getTotalRxSuccess() {
         return mTotalRxSuccess;
+    }
+
+    /**
+     * The total number of rx success on a link counted from the last radio chip reset.
+     *
+     * @param linkId Identifier of the link.
+     * @return total rx success count.
+     * @throws NoSuchElementException if linkId is invalid.
+     */
+    public long getTotalRxSuccess(int linkId) {
+        if (mLinkStats.contains(linkId)) return mLinkStats.get(linkId).mTotalRxSuccess;
+        throw new NoSuchElementException("linkId is invalid - " + linkId);
     }
 
     /** The total time the wifi radio is on in ms counted from the last radio chip reset */
@@ -816,20 +1149,73 @@ public final class WifiUsabilityStatsEntry implements Parcelable {
         return mTotalHotspot2ScanTimeMillis;
     }
 
-    /** The total time CCA is on busy status on the current frequency in ms counted from the last
-     * radio chip reset */
+    /**
+     * The total time CCA is on busy status on the current frequency in ms counted from the last
+     * radio chip reset.In case of Multi Link Operation (MLO), returned value is the total time
+     * CCA is on busy status on the current frequency of the associated link with the highest
+     * RSSI.
+     */
     public long getTotalCcaBusyFreqTimeMillis() {
         return mTotalCcaBusyFreqTimeMillis;
     }
 
-    /** The total radio on time on the current frequency from the last radio chip reset */
+    /**
+     * The total time CCA is on busy status on the link frequency in ms counted from the last
+     * radio chip reset.
+     *
+     * @param linkId Identifier of the link.
+     * @return total time CCA is on busy status for the link in ms.
+     * @throws NoSuchElementException if linkId is invalid.
+     * @hide
+     */
+    public long getTotalCcaBusyFreqTimeMillis(int linkId) {
+        if (mLinkStats.contains(linkId)) return mLinkStats.get(linkId).mTotalCcaBusyFreqTimeMillis;
+        throw new NoSuchElementException("linkId is invalid - " + linkId);
+    }
+
+    /**
+     * The total radio on time on the current frequency from the last radio chip reset. In case of
+     * Multi Link Operation (MLO), returned value is the total time radio on time on the current
+     * frequency of the associated link with the highest RSSI.
+     */
     public long getTotalRadioOnFreqTimeMillis() {
         return mTotalRadioOnFreqTimeMillis;
     }
 
-    /** The total number of beacons received from the last radio chip reset */
+    /**
+     * The total radio on time on the link frequency from the last radio chip reset
+     *
+     * @param linkId Identifier of the link.
+     * @return The total radio on time for the link in ms.
+     * @throws NoSuchElementException if linkId is invalid.
+     * @hide
+     */
+    public long getTotalRadioOnFreqTimeMillis(int linkId) {
+        if (mLinkStats.contains(linkId)) return mLinkStats.get(linkId).mTotalRadioOnFreqTimeMillis;
+        throw new NoSuchElementException("linkId is invalid - " + linkId);
+    }
+
+    /**
+     * The total number of beacons received from the last radio chip reset. In case of Multi Link
+     * Operation (MLO), the returned value is the beacons received on the associated link with
+     * the highest RSSI.
+     *
+     * @return total beacons received.
+     */
     public long getTotalBeaconRx() {
         return mTotalBeaconRx;
+    }
+
+    /**
+     * The total number of beacons received from the last radio chip reset.
+     *
+     * @param linkId Identifier of the link.
+     * @return total beacons received.
+     * @throws NoSuchElementException if linkId is invalid.
+     */
+    public long getTotalBeaconRx(int linkId) {
+        if (mLinkStats.contains(linkId)) return mLinkStats.get(linkId).mTotalBeaconRx;
+        throw new NoSuchElementException("linkId is invalid - " + linkId);
     }
 
     /** The status of link probe since last stats update */
@@ -847,19 +1233,40 @@ public final class WifiUsabilityStatsEntry implements Parcelable {
         return mProbeMcsRateSinceLastUpdate;
     }
 
-    /** Rx link speed at the sample time in Mbps */
+    /**
+     * Rx link speed at the sample time in Mbps. In case of Multi Link Operation (MLO), returned
+     * value is the receive link speed of the associated link with the highest RSSI.
+     *
+     * @return Receive link speed in Mbps or {@link WifiInfo#LINK_SPEED_UNKNOWN} if link speed
+     * is unknown.
+     */
     public int getRxLinkSpeedMbps() {
         return mRxLinkSpeedMbps;
     }
 
     /**
+     * Rx Link speed of the link at the sample time in Mbps.
+     *
+     * @param linkId Identifier of the link.
+     * @return Receive link speed in Mbps or {@link WifiInfo#LINK_SPEED_UNKNOWN} if link speed
+     * is unknown.
+     * @throws NoSuchElementException if linkId is invalid.
+     */
+    public int getRxLinkSpeedMbps(int linkId) {
+        if (mLinkStats.contains(linkId)) return mLinkStats.get(linkId).mRxLinkSpeedMbps;
+        throw new NoSuchElementException("linkId is invalid - " + linkId);
+    }
+
+    /**
      * Duty cycle of the connection.
-     * if this connection is being served using time slicing on a radio with one or more interfaces
+     * If this connection is being served using time slicing on a radio with one or more interfaces
      * (i.e MCC), then this method returns the duty cycle assigned to this interface in percent.
      * If no concurrency or not using time slicing during concurrency (i.e SCC or DBS), set to 100.
+     * In case of Multi Link Operation (MLO), returned value is the duty cycle of the associated
+     * link with the highest RSSI.
      *
      * @return duty cycle in percent if known.
-     * @throws NoSuchElementException if the duty cylce is unknown (not provided by the HAL).
+     * @throws NoSuchElementException if the duty cycle is unknown (not provided by the HAL).
      */
     public @IntRange(from = 0, to = 100) int getTimeSliceDutyCycleInPercent() {
         if (mTimeSliceDutyCycleInPercent == -1) {
@@ -869,7 +1276,32 @@ public final class WifiUsabilityStatsEntry implements Parcelable {
     }
 
     /**
-     * Data packet contention time statistics for Access Category.
+     * Duty cycle of the connection for a link.
+     * If this connection is being served using time slicing on a radio with one or more interfaces
+     * (i.e MCC) and links, then this method returns the duty cycle assigned to this interface in
+     * percent for the link. If no concurrency or not using time slicing during concurrency (i.e SCC
+     * or DBS), set to 100.
+     *
+     * @param linkId Identifier of the link.
+     * @return duty cycle in percent if known.
+     * @throws NoSuchElementException if the duty cycle is unknown (not provided by the HAL) or
+     * linkId is invalid.
+     */
+    public @IntRange(from = 0, to = 100) int getTimeSliceDutyCycleInPercent(int linkId) {
+        if (!mLinkStats.contains(linkId)) {
+            throw new NoSuchElementException("linkId is invalid - " + linkId);
+        }
+        if (mLinkStats.get(linkId).mTimeSliceDutyCycleInPercent == -1) {
+            throw new NoSuchElementException("Unknown value");
+        }
+        return mLinkStats.get(linkId).mTimeSliceDutyCycleInPercent;
+    }
+
+    /**
+     * Data packet contention time statistics for Access Category. In case of Multi Link
+     * Operation (MLO), the returned value is the contention stats of the associated link with the
+     * highest RSSI.
+     *
      * @param ac The access category, see {@link WmeAccessCategory}.
      * @return The contention time statistics, see {@link ContentionTimeStats}
      */
@@ -879,13 +1311,40 @@ public final class WifiUsabilityStatsEntry implements Parcelable {
                 && mContentionTimeStats.length == NUM_WME_ACCESS_CATEGORIES) {
             return mContentionTimeStats[ac];
         }
-        Log.e(TAG, "The ContentionTimeStats is not filled out correctly: " + mContentionTimeStats);
+        Log.e(TAG, "The ContentionTimeStats is not filled out correctly: "
+                + Arrays.toString(mContentionTimeStats));
+        return new ContentionTimeStats();
+    }
+
+    /**
+     * Data packet contention time statistics of a link for Access Category.
+     *
+     * @param linkId Identifier of the link.
+     * @param ac The access category, see {@link WmeAccessCategory}.
+     * @return The contention time statistics, see {@link ContentionTimeStats}.
+     * @throws NoSuchElementException if linkId is invalid.
+     */
+    @NonNull
+    public ContentionTimeStats getContentionTimeStats(int linkId, @WmeAccessCategory int ac) {
+        if (!mLinkStats.contains(linkId)) {
+            throw new NoSuchElementException("linkId is invalid - " + linkId);
+        }
+        ContentionTimeStats[] linkContentionTimeStats = mLinkStats.get(
+                linkId).mContentionTimeStats;
+        if (linkContentionTimeStats != null
+                && linkContentionTimeStats.length == NUM_WME_ACCESS_CATEGORIES) {
+            return linkContentionTimeStats[ac];
+        }
+        Log.e(TAG, "The ContentionTimeStats is not filled out correctly: "
+                + Arrays.toString(mContentionTimeStats));
         return new ContentionTimeStats();
     }
 
     /**
      * Rate information and statistics, which are ordered by preamble, modulation and coding scheme
-     * (MCS), and number of spatial streams (NSS).
+     * (MCS), and number of spatial streams (NSS). In case of Multi Link Operation (MLO), the
+     * returned rate information is that of the associated link with the highest RSSI.
+     *
      * @return A list of rate statistics in the form of a list of {@link RateStats} objects.
      *         Depending on the link type, the list is created following the order of:
      *         - HT (IEEE Std 802.11-2020, Section 19): LEGACY rates (1Mbps, ..., 54Mbps),
@@ -903,6 +1362,33 @@ public final class WifiUsabilityStatsEntry implements Parcelable {
             return Arrays.asList(mRateStats);
         }
         return Collections.emptyList();
+    }
+
+    /**
+     * Rate information and statistics, which are ordered by preamble, modulation and coding scheme
+     * (MCS), and number of spatial streams (NSS) for link.
+     *
+     * @param linkId Identifier of the link.
+     * @return A list of rate statistics in the form of a list of {@link RateStats} objects.
+     *         Depending on the link type, the list is created following the order of:
+     *         - HT (IEEE Std 802.11-2020, Section 19): LEGACY rates (1Mbps, ..., 54Mbps),
+     *           HT MCS0, ..., MCS15;
+     *         - VHT (IEEE Std 802.11-2020, Section 21): LEGACY rates (1Mbps, ..., 54Mbps),
+     *           VHT MCS0/NSS1, ..., VHT MCS11/NSS1, VHT MCSO/NSS2, ..., VHT MCS11/NSS2;
+     *         - HE (IEEE Std 802.11ax-2020, Section 27): LEGACY rates (1Mbps, ..., 54Mbps),
+     *           HE MCS0/NSS1, ..., HE MCS11/NSS1, HE MCSO/NSS2, ..., HE MCS11/NSS2.
+     *         - EHT (IEEE std 802.11be-2021, Section 36): Legacy rates (1Mbps, ..., 54Mbps),
+     *           EHT MSC0/NSS1, ..., EHT MCS14/NSS1, EHT MCS0/NSS2, ..., EHT MCS14/NSS2.
+     * @throws NoSuchElementException if linkId is invalid.
+     */
+    @NonNull
+    public List<RateStats> getRateStats(int linkId) {
+        if (mLinkStats.contains(linkId)) {
+            RateStats[] rateStats = mLinkStats.get(linkId).mRateStats;
+            if (rateStats != null) return Arrays.asList(rateStats);
+            return Collections.emptyList();
+        }
+        throw new NoSuchElementException("linkId is invalid - " + linkId);
     }
 
     /**

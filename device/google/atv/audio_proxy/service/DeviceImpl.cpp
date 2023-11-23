@@ -22,6 +22,7 @@
 #include <optional>
 
 #include "AidlTypes.h"
+#include "AudioUtil.h"
 #include "BusOutputStream.h"
 #include "BusStreamProvider.h"
 #include "ServiceConfig.h"
@@ -54,7 +55,9 @@ std::optional<AidlAudioConfig> toAidlAudioConfig(
   AidlAudioConfig aidlConfig = {
       .format = static_cast<AidlAudioFormat>(format),
       .sampleRateHz = static_cast<int32_t>(hidl_config.sampleRateHz),
-      .channelMask = static_cast<AidlAudioChannelMask>(channelMask)};
+      .channelMask = static_cast<AidlAudioChannelMask>(channelMask),
+      .bufferSizeBytes = 0,
+      .latencyMs = 0};
 
   return aidlConfig;
 }
@@ -183,8 +186,9 @@ AidlAudioConfig toAidlAudioConfig(const AudioConfig& hidl_config) {
   AidlAudioConfig aidlConfig = {
       .format = static_cast<AidlAudioFormat>(hidl_config.format),
       .sampleRateHz = static_cast<int32_t>(hidl_config.sampleRateHz),
-      .channelMask =
-          static_cast<AidlAudioChannelMask>(hidl_config.channelMask)};
+      .channelMask = static_cast<AidlAudioChannelMask>(hidl_config.channelMask),
+      .bufferSizeBytes = 0,
+      .latencyMs = 0};
 
   return aidlConfig;
 }
@@ -278,11 +282,13 @@ Return<void> DeviceImpl::openOutputStreamImpl(
   }
 
   std::shared_ptr<BusOutputStream> busOutputStream =
-      mBusStreamProvider.openOutputStream(address, *aidlConfig, *outputFlags);
+      mBusStreamProvider.openOutputStream(
+          address, *aidlConfig, *outputFlags,
+          computeBufferSizeBytes(*aidlConfig, configIt->second.bufferSizeMs),
+          configIt->second.latencyMs);
   DCHECK(busOutputStream);
-  auto streamOut = sp<StreamOutImpl>::make(
-      std::move(busOutputStream), config.base, configIt->second.bufferSizeMs,
-      configIt->second.latencyMs);
+  auto streamOut =
+      sp<StreamOutImpl>::make(std::move(busOutputStream), config.base);
   mBusStreamProvider.onStreamOutCreated(streamOut);
   _hidl_cb(Result::OK, streamOut, config);
   return Void();
@@ -330,14 +336,14 @@ Return<void> DeviceImpl::openOutputStream(int32_t ioHandle,
     return Void();
   }
 
+  auto aidlConfig = toAidlAudioConfig(config);
   std::shared_ptr<BusOutputStream> busOutputStream =
-      mBusStreamProvider.openOutputStream(address,
-                                          toAidlAudioConfig(config),
-                                          static_cast<int32_t>(flags));
+      mBusStreamProvider.openOutputStream(
+          address, aidlConfig, static_cast<int32_t>(flags),
+          computeBufferSizeBytes(aidlConfig, configIt->second.bufferSizeMs),
+          configIt->second.latencyMs);
   DCHECK(busOutputStream);
-  auto streamOut = sp<StreamOutImpl>::make(std::move(busOutputStream), config,
-                                           configIt->second.bufferSizeMs,
-                                           configIt->second.latencyMs);
+  auto streamOut = sp<StreamOutImpl>::make(std::move(busOutputStream), config);
   mBusStreamProvider.onStreamOutCreated(streamOut);
   _hidl_cb(Result::OK, streamOut, config);
   return Void();

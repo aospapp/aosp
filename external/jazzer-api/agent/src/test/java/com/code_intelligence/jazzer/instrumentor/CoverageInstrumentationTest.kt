@@ -14,12 +14,37 @@
 
 package com.code_intelligence.jazzer.instrumentor
 
+import com.code_intelligence.jazzer.instrumentor.PatchTestUtils.bytecodeToClass
+import com.code_intelligence.jazzer.instrumentor.PatchTestUtils.classToBytecode
 import org.junit.Test
+import org.objectweb.asm.MethodVisitor
+import org.objectweb.asm.Opcodes
 import java.io.File
 import kotlin.test.assertEquals
 
+/**
+ * Amends the instrumentation performed by [strategy] to call the map's public static void method
+ * updated() after every update to coverage counters.
+ */
+private fun makeTestable(strategy: EdgeCoverageStrategy): EdgeCoverageStrategy =
+    object : EdgeCoverageStrategy by strategy {
+        override fun instrumentControlFlowEdge(
+            mv: MethodVisitor,
+            edgeId: Int,
+            variable: Int,
+            coverageMapInternalClassName: String
+        ) {
+            strategy.instrumentControlFlowEdge(mv, edgeId, variable, coverageMapInternalClassName)
+            mv.visitMethodInsn(Opcodes.INVOKESTATIC, coverageMapInternalClassName, "updated", "()V", false)
+        }
+    }
+
 private fun applyInstrumentation(bytecode: ByteArray): ByteArray {
-    return EdgeCoverageInstrumentor(0, MockCoverageMap::class.java).instrument(bytecode)
+    return EdgeCoverageInstrumentor(
+        makeTestable(ClassInstrumentor.defaultEdgeCoverageStrategy),
+        MockCoverageMap::class.java,
+        0
+    ).instrument(bytecode)
 }
 
 private fun getOriginalInstrumentationTargetInstance(): DynamicTestContract {
@@ -41,26 +66,34 @@ private fun assertControlFlow(expectedLocations: List<Int>) {
     assertEquals(expectedLocations, MockCoverageMap.locations.toList())
 }
 
+@Suppress("unused")
 class CoverageInstrumentationTest {
 
     private val constructorReturn = 0
-    private val ifFirstBranch = 1
-    @Suppress("unused")
-    private val ifSecondBranch = 2
-    private val ifEnd = 3
-    private val outerForCondition = 4
-    private val innerForBodyIfFirstRun = 6
-    private val innerForBodyIfSecondRun = 5
-    private val innerForIncrementCounter = 7
-    private val outerForIncrementCounter = 8
-    private val afterFooInvocation = 9
-    private val beforeReturn = 10
-    private val fooAfterBarInvocation = 11
-    private val fooBeforeReturn = 12
-    private val barAfterMapPutInvocation = 13
-    private val barBeforeReturn = 14
-    @Suppress("unused")
-    private val bazReturn = 15
+
+    private val mapConstructor = 1
+    private val addFor0 = 2
+    private val addFor1 = 3
+    private val addFor2 = 4
+    private val addFor3 = 5
+    private val addFor4 = 6
+    private val addFoobar = 7
+
+    private val ifTrueBranch = 8
+    private val addBlock1 = 9
+    private val ifFalseBranch = 10
+    private val ifEnd = 11
+
+    private val outerForCondition = 12
+    private val innerForCondition = 13
+    private val innerForBodyIfTrueBranch = 14
+    private val innerForBodyIfFalseBranch = 15
+    private val innerForBodyPutInvocation = 16
+    private val outerForIncrementCounter = 17
+
+    private val afterFooInvocation = 18
+    private val fooAfterBarInvocation = 19
+    private val barAfterPutInvocation = 20
 
     @Test
     fun testOriginal() {
@@ -72,31 +105,32 @@ class CoverageInstrumentationTest {
         MockCoverageMap.clear()
         assertSelfCheck(getInstrumentedInstrumentationTargetInstance())
 
-        val innerForFirstRunControlFlow = mutableListOf<Int>().apply {
+        val mapControlFlow = listOf(mapConstructor, addFor0, addFor1, addFor2, addFor3, addFor4, addFoobar)
+        val ifControlFlow = listOf(ifTrueBranch, addBlock1, ifEnd)
+        val forFirstRunControlFlow = mutableListOf<Int>().apply {
+            add(outerForCondition)
             repeat(5) {
-                addAll(listOf(innerForBodyIfFirstRun, innerForIncrementCounter))
+                addAll(listOf(innerForCondition, innerForBodyIfFalseBranch, innerForBodyPutInvocation))
             }
+            add(outerForIncrementCounter)
         }.toList()
-        val innerForSecondRunControlFlow = mutableListOf<Int>().apply {
+        val forSecondRunControlFlow = mutableListOf<Int>().apply {
+            add(outerForCondition)
             repeat(5) {
-                addAll(listOf(innerForBodyIfSecondRun, innerForIncrementCounter))
+                addAll(listOf(innerForCondition, innerForBodyIfTrueBranch, innerForBodyPutInvocation))
             }
+            add(outerForIncrementCounter)
         }.toList()
-        val outerForControlFlow =
-            listOf(outerForCondition) +
-                innerForFirstRunControlFlow +
-                listOf(outerForIncrementCounter, outerForCondition) +
-                innerForSecondRunControlFlow +
-                listOf(outerForIncrementCounter)
-
+        val forControlFlow = forFirstRunControlFlow + forSecondRunControlFlow
+        val fooCallControlFlow = listOf(
+            barAfterPutInvocation, fooAfterBarInvocation, afterFooInvocation
+        )
         assertControlFlow(
-            listOf(constructorReturn, ifFirstBranch, ifEnd) +
-                outerForControlFlow +
-                listOf(
-                    barAfterMapPutInvocation, barBeforeReturn,
-                    fooAfterBarInvocation, fooBeforeReturn,
-                    afterFooInvocation, beforeReturn
-                )
+            listOf(constructorReturn) +
+                mapControlFlow +
+                ifControlFlow +
+                forControlFlow +
+                fooCallControlFlow
         )
     }
 
@@ -109,17 +143,17 @@ class CoverageInstrumentationTest {
         // The constructor of the target is run only once.
         val takenOnceEdge = constructorReturn
         // Control flows through the first if branch once per run.
-        val takenOnEveryRunEdge = ifFirstBranch
+        val takenOnEveryRunEdge = ifTrueBranch
 
         var lastCounter = 0.toUByte()
         for (i in 1..600) {
             assertSelfCheck(target)
-            assertEquals(1, MockCoverageMap.mem[takenOnceEdge])
+            assertEquals(1, MockCoverageMap.counters[takenOnceEdge])
             // Verify that the counter increments, but is never zero.
             val expectedCounter = (lastCounter + 1U).toUByte().takeUnless { it == 0.toUByte() }
                 ?: (lastCounter + 2U).toUByte()
             lastCounter = expectedCounter
-            val actualCounter = MockCoverageMap.mem[takenOnEveryRunEdge].toUByte()
+            val actualCounter = MockCoverageMap.counters[takenOnEveryRunEdge].toUByte()
             assertEquals(expectedCounter, actualCounter, "After $i runs:")
         }
     }

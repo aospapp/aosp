@@ -55,7 +55,10 @@ static void __attribute__((target("sse"))) executeAESInstruction(void) {
     asm volatile("aesenc %%xmm1, %%xmm0" : : : "xmm0");
 }
 #else
-#warning "unknown architecture, assuming AES instructions are available"
+// For unknown architectures, we cannot confirm that AES instructions are
+// unsupported.  So, assume they are supported, i.e. don't raise SIGILL.  This
+// disallows Adiantum until code is explicitly added for the architecture.
+#warning "unknown architecture, assuming Adiantum is not allowed"
 static void executeAESInstruction(void) {}
 #endif
 
@@ -65,8 +68,8 @@ static void handleSIGILL(int __attribute__((unused)) signum) {
     longjmp(jump_buf, 1);
 }
 
-// This function checks for the presence of AES instructions, e.g. ARMv8 crypto
-// extensions for ARM, or AES-NI for x86.
+// Checks whether Adiantum encryption is allowed.  Adiantum encryption is
+// allowed only when the CPU does *not* support AES instructions.
 //
 // ARM processors don't have a standard way for user processes to determine CPU
 // features.  On Linux it's possible to read the AT_HWCAP and AT_HWCAP2 values
@@ -76,10 +79,10 @@ static void handleSIGILL(int __attribute__((unused)) signum) {
 //
 // To keep things consistent we use the same approach on x86 to detect AES-NI,
 // though in principle the 'cpuid' instruction could be used there.
-static bool cpuHasAESInstructions(void) {
+static bool isAdiantumEncryptionAllowed(void) {
     struct sigaction act;
     struct sigaction oldact;
-    bool result;
+    bool allowed;
 
     memset(&act, 0, sizeof(act));
     act.sa_handler = handleSIGILL;
@@ -87,21 +90,24 @@ static bool cpuHasAESInstructions(void) {
     EXPECT_EQ(0, sigaction(SIGILL, &act, &oldact));
 
     if (setjmp(jump_buf) != 0) {
-        // SIGILL was received when executing the AES instruction.
-        result = false;
+        // Trying to execute an AES instruction raised SIGILL, which shows that
+        // AES instructions are unsupported.  Thus, Adiantum is allowed.
+        allowed = true;
     } else {
         executeAESInstruction();
-        // Successfully executed the AES instruction.
-        result = true;
+        // Either an AES instruction was successfully executed, or the
+        // architecture is unknown.  So, it has *not* been shown that AES
+        // instructions are unsupported.  Thus, Adiantum is *not* allowed.
+        allowed = false;
     }
 
     EXPECT_EQ(0, sigaction(SIGILL, &oldact, NULL));
 
-    return result;
+    return allowed;
 }
 
 // CDD 9.9.3/C-1-5: must use AES-256-XTS or Adiantum contents encryption.
-// CDD 9.9.3/C-1-6: must use AES-256-CTS or Adiantum filenames encryption.
+// CDD 9.9.3/C-1-6: must use AES-256-CTS, AES-256-HCTR2, or Adiantum filenames encryption.
 // CDD 9.9.3/C-1-12: mustn't use Adiantum if the CPU has AES instructions.
 static void validateEncryptionModes(int contents_mode, int filenames_mode,
                                     bool allow_legacy_modes) {
@@ -129,6 +135,7 @@ static void validateEncryptionModes(int contents_mode, int filenames_mode,
     allowed = false;
     switch (filenames_mode) {
         case FSCRYPT_MODE_AES_256_CTS:
+        case FSCRYPT_MODE_AES_256_HCTR2:
         case FSCRYPT_MODE_ADIANTUM:
             allowed = true;
             break;
@@ -150,8 +157,7 @@ static void validateEncryptionModes(int contents_mode, int filenames_mode,
     }
 
     if (contents_mode == FSCRYPT_MODE_ADIANTUM || filenames_mode == FSCRYPT_MODE_ADIANTUM) {
-        // Adiantum encryption is only allowed if the CPU doesn't have AES instructions.
-        EXPECT_FALSE(cpuHasAESInstructions());
+        EXPECT_TRUE(isAdiantumEncryptionAllowed());
     }
 }
 
@@ -233,6 +239,8 @@ static void validateAdoptableStorageSettings(int first_api_level) {
 // fileencryption= option for the userdata partition and that the ro.crypto
 // system properties have been set to the correct values.  See
 // https://source.android.com/security/encryption/file-based.html
+//
+// @CddTest = 9.9.2/C-0-3|9.9.3/C-1-5,C-1-6,C-1-12,C-1-13,C-1-14,C-1-15
 TEST(FileBasedEncryptionPolicyTest, allowedPolicy) {
     int first_api_level = getFirstApiLevel();
     int vendor_api_level = getVendorApiLevel();

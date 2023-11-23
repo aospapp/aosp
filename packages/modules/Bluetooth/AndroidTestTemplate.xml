@@ -24,7 +24,8 @@
     </target_preparer>
   <target_preparer class="com.android.tradefed.targetprep.RunCommandTargetPreparer">
     <option name="run-command" value="settings put global ble_scan_always_enabled 0" />
-    <option name="run-command" value="svc bluetooth disable" />
+    <option name="run-command" value="cmd bluetooth_manager disable" />
+    <option name="run-command" value="cmd bluetooth_manager wait-for-state:STATE_OFF" />
   </target_preparer>
   <target_preparer class="com.android.tradefed.targetprep.FolderSaver">
     <option name="device-path" value="/data/vendor/ssrdump" />
@@ -38,6 +39,7 @@
   <!-- Only run tests in MTS if the Bluetooth Mainline module is installed. -->
   <object type="module_controller"
           class="com.android.tradefed.testtype.suite.module.MainlineTestModuleController">
-      <option name="mainline-module-package-name" value="com.google.android.bluetooth" />
+      <option name="mainline-module-package-name" value="com.android.btservices" />
+      <option name="mainline-module-package-name" value="com.google.android.btservices" />
   </object>
 </configuration>

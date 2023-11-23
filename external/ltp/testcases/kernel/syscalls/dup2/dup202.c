@@ -1,167 +1,119 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
- *
- *   Copyright (c) International Business Machines  Corp., 2001
- *
- *   This program is free software;  you can redistribute it and/or modify
- *   it under the terms of the GNU General Public License as published by
- *   the Free Software Foundation; either version 2 of the License, or
- *   (at your option) any later version.
- *
- *   This program is distributed in the hope that it will be useful,
- *   but WITHOUT ANY WARRANTY;  without even the implied warranty of
- *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See
- *   the GNU General Public License for more details.
- *
- *   You should have received a copy of the GNU General Public License
- *   along with this program;  if not, write to the Free Software
- *   Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
+ * Copyright (c) International Business Machines  Corp., 2001
+ * 07/2001 Ported by Wayne Boyer
  */
 
-/*
- * NAME
- *	dup202.c
+/*\
+ * [Description]
  *
- * DESCRIPTION
- *	Is the access mode the same for both file descriptors?
- *		0: read only ?	"0444"
- *		1: write only ? "0222"
- *		2: read/write ? "0666"
+ * Test whether the access mode are the same for both file descriptors.
  *
- * ALGORITHM
- *	Creat a file with each access mode; dup each file descriptor;
- *	stat each file descriptor and compare modes of each pair
+ * Create file with mode, dup2, [change mode], check mode
  *
- * USAGE:  <for command-line>
- *  dup202 [-c n] [-f] [-i n] [-I x] [-P x] [-t]
- *     where,  -c n : Run n copies concurrently.
- *             -f   : Turn off functionality Testing.
- *             -i n : Execute test n times.
- *             -I x : Execute test for x seconds.
- *             -P x : Pause for x seconds between iterations.
- *             -t   : Turn on syscall timing.
- *
- * HISTORY
- *	07/2001 Ported by Wayne Boyer
- *
- * RESTRICTIONS
- *	None
+ * - read only, dup2, read only ? "0444"
+ * - write only, dup2, write only ? "0222"
+ * - read/write, dup2 read/write ? "0666"
+ * - read/write/execute, dup2, set read only, read only ? "0444"
+ * - read/write/execute, dup2, set write only, write only ? "0222"
+ * - read/write/execute, dup2, set read/write, read/write ? "0666"
  */
 
-#include <sys/types.h>
-#include <sys/stat.h>
 #include <errno.h>
-#include <fcntl.h>
 #include <stdio.h>
-#include "test.h"
-#include "safe_macros.h"
+#include <unistd.h>
+#include "tst_test.h"
+#include "tst_safe_macros.h"
 
-char *TCID = "dup202";
-int TST_TOTAL = 3;
-
-void setup(void);
-void cleanup(void);
-
-char testfile[40];
-int fail;
-int newfd;
+static char testfile[40];
+static int ofd = -1, nfd = -1;
 
 /* set these to a known index into our local file descriptor table */
-int duprdo = 10, dupwro = 20, duprdwr = 30;
+static int duprdo, dupwro, duprdwr;
 
-struct test_case_t {
+static struct tcase {
 	int *nfd;
 	mode_t mode;
-} TC[] = {
-	/* The first test creat(es) a file with mode 0444 */
-	{
-	&duprdo, (S_IRUSR | S_IRGRP | S_IROTH)},
-	    /* The second test creat(es) a file with mode 0222 */
-	{
-	&dupwro, (S_IWUSR | S_IWGRP | S_IWOTH)},
-	    /* The third test creat(es) a file with mode 0666 */
-	{
-	&duprdwr,
-		    (S_IRUSR | S_IRGRP | S_IROTH | S_IWUSR | S_IWGRP | S_IWOTH)}
+	/* 0 - set mode before dup2, 1 - change mode after dup2 */
+	int flag;
+} tcases[] = {
+	{&duprdo, 0444, 0},
+	{&dupwro, 0222, 0},
+	{&duprdwr, 0666, 0},
+	{&duprdo, 0444, 1},
+	{&dupwro, 0222, 1},
+	{&duprdwr, 0666, 1},
 };
 
-int main(int ac, char **av)
+static void setup(void)
 {
-	int lc;
-	int i, ofd;
+	int nextfd;
+
+	umask(0);
+	sprintf(testfile, "dup202.%d", getpid());
+
+	/* Pick up fds that are known not to collide with creat */
+	nextfd = SAFE_CREAT(testfile, 0777);
+	duprdo = SAFE_DUP(nextfd);
+	dupwro = SAFE_DUP(nextfd);
+	duprdwr = SAFE_DUP(nextfd);
+	/* SAFE_CLOSE will set fd to -1 */
+	close(duprdwr);
+	close(dupwro);
+	close(duprdo);
+	SAFE_CLOSE(nextfd);
+	SAFE_UNLINK(testfile);
+
+}
+
+static void cleanup(void)
+{
+	close(ofd);
+	close(nfd);
+}
+
+static void run(unsigned int i)
+{
 	struct stat oldbuf, newbuf;
+	struct tcase *tc = tcases + i;
 
-	tst_parse_opts(ac, av, NULL, NULL);
+	if (tc->flag)
+		ofd = SAFE_CREAT(testfile, 0777);
+	else
+		ofd = SAFE_CREAT(testfile, tc->mode);
+	nfd = *tc->nfd;
 
-	setup();
-
-	for (lc = 0; TEST_LOOPING(lc); lc++) {
-
-		tst_count = 0;
-
-		/* loop through the test cases */
-		for (i = 0; i < TST_TOTAL; i++) {
-
-			if ((ofd = creat(testfile, TC[i].mode)) == -1)
-				tst_brkm(TBROK | TERRNO, cleanup,
-					 "creat failed");
-
-			TEST(dup2(ofd, *TC[i].nfd));
-
-			if (TEST_RETURN == -1) {
-				tst_resm(TFAIL | TTERRNO,
-					 "call failed unexpectedly");
-				continue;
-			}
-
-			/* stat the original file */
-			SAFE_FSTAT(cleanup, ofd, &oldbuf);
-
-			/* stat the duped file */
-			SAFE_FSTAT(cleanup, *TC[i].nfd, &newbuf);
-
-			if (oldbuf.st_mode != newbuf.st_mode)
-				tst_resm(TFAIL, "original and dup "
-					 "modes do not match");
-			else
-				tst_resm(TPASS, "fstat shows new and "
-					 "old modes are the same");
-
-			/* remove the file so that we can use it again */
-			if (close(*TC[i].nfd) == -1)
-				perror("close failed");
-			if (close(ofd) == -1)
-				perror("close failed");
-			if (unlink(testfile) == -1)
-				perror("unlink failed");
-		}
+	TEST(dup2(ofd, nfd));
+	if (TST_RET == -1) {
+		tst_res(TFAIL | TTERRNO, "call failed unexpectedly");
+		goto free;
+	}
+	if (tc->flag) {
+		SAFE_CHMOD(testfile, tc->mode);
+		tst_res(TINFO, "original mode 0777, new mode 0%o after chmod", tc->mode);
 	}
 
-	cleanup();
-	tst_exit();
+	SAFE_FSTAT(ofd, &oldbuf);
+
+	SAFE_FSTAT(nfd, &newbuf);
+
+	if (oldbuf.st_mode != newbuf.st_mode)
+		tst_res(TFAIL, "original(%o) and duped(%o) are not same mode",
+			oldbuf.st_mode, newbuf.st_mode);
+	else
+		tst_res(TPASS, "original(%o) and duped(%o) are the same mode",
+			oldbuf.st_mode, newbuf.st_mode);
+
+	SAFE_CLOSE(nfd);
+free:
+	SAFE_CLOSE(ofd);
+	SAFE_UNLINK(testfile);
 }
 
-/*
- * setup() - performs all ONE TIME setup for this test.
- */
-void setup(void)
-{
-
-	tst_sig(NOFORK, DEF_HANDLER, cleanup);
-
-	TEST_PAUSE;
-
-	tst_tmpdir();
-
-	(void)umask(0);
-
-	sprintf(testfile, "dup202.%d", getpid());
-}
-
-/*
- * cleanup() - performs all ONE TIME cleanup for this test at
- *	       completion or premature exit.
- */
-void cleanup(void)
-{
-	tst_rmdir();
-}
+static struct tst_test test = {
+	.needs_tmpdir = 1,
+	.tcnt = ARRAY_SIZE(tcases),
+	.test = run,
+	.setup = setup,
+	.cleanup = cleanup,
+};

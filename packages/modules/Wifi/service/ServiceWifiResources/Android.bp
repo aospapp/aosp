@@ -21,6 +21,7 @@ package {
 
 android_app {
     name: "ServiceWifiResources",
+    package_name: "com.android.wifi.resources",
     defaults: ["wifi-service-common"],
     resource_dirs: [
         "res",

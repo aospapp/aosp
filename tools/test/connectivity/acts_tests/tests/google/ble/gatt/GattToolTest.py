@@ -23,7 +23,6 @@ This script requires these custom parameters in the config file:
 "notifiable_char_uuid"
 """
 
-import pprint
 from queue import Empty
 import time
 
@@ -420,9 +419,11 @@ class GattToolTest(BluetoothBaseTest):
             self.NOTIFIABLE_CHAR_UUID, self.CCC_DESC_UUID,
             gatt_descriptor['enable_notification_value'])
 
-        self.cen_ad.droid.gattClientWriteDescriptor(
-            bluetooth_gatt, discovered_services_index, test_service_index,
-            self.NOTIFIABLE_CHAR_UUID, self.CCC_DESC_UUID)
+        self.cen_ad.droid.gattClientWriteDescriptor(bluetooth_gatt,
+                                                    discovered_services_index,
+                                                    test_service_index,
+                                                    self.NOTIFIABLE_CHAR_UUID,
+                                                    self.CCC_DESC_UUID)
 
         self.cen_ad.droid.gattClientSetCharacteristicNotification(
             bluetooth_gatt, discovered_services_index, test_service_index,

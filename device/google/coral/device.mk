@@ -27,6 +27,8 @@ PRODUCT_SOONG_NAMESPACES += \
     hardware/qcom/sm8150/display \
     hardware/qcom/sm8150/data/ipacfg-mgr \
     hardware/qcom/sm8150/gps \
+    hardware/qcom/wlan/legacy \
+    system/chre/host/hal_generic \
     vendor/google/airbrush/floral \
     vendor/google/biometrics/face/florence \
     vendor/google/camera \
@@ -198,7 +200,6 @@ PRODUCT_PACKAGES += \
     update_engine_sideload
 
 PRODUCT_PACKAGES_DEBUG += \
-    sg_write_buffer \
     f2fs_io \
     check_f2fs
 
@@ -448,7 +449,7 @@ PRODUCT_PACKAGES += \
     NfcNci \
     Tag \
     SecureElement \
-    android.hardware.nfc@1.2-service.st \
+    android.hardware.nfc-service.st \
     android.hardware.secure_element@1.0-service.st
 
 PRODUCT_COPY_FILES += \
@@ -599,7 +600,7 @@ endif
 
 # Wifi
 PRODUCT_PACKAGES += \
-    android.hardware.wifi@1.0-service \
+    android.hardware.wifi-service \
     wificond \
     libwpa_client \
     WifiOverlay
@@ -973,7 +974,7 @@ PRODUCT_PACKAGES += $(HIDL_WRAPPER)
 
 # Increment the SVN for any official public releases
 PRODUCT_PROPERTY_OVERRIDES += \
-	ro.vendor.build.svn=62
+	ro.vendor.build.svn=65
 
 PRODUCT_COPY_FILES += \
     $(LOCAL_PATH)/powerhint.json:$(TARGET_COPY_OUT_VENDOR)/etc/powerhint.json

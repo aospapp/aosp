@@ -16,6 +16,8 @@
 
 package android.server.wm;
 
+import static android.server.wm.ShellCommandHelper.executeShellCommand;
+import static android.server.wm.ShellCommandHelper.executeShellCommandAndGetStdout;
 import static android.server.wm.app.Components.TEST_ACTIVITY;
 import static android.server.wm.displaysize.Components.SMALLEST_WIDTH_ACTIVITY;
 
@@ -184,14 +186,15 @@ public class DisplaySizeTest extends ActivityManagerTestBase {
                 densityProp = DENSITY_PROP_DEVICE;
             }
 
-            return Integer.parseInt(executeShellCommand("getprop " + densityProp).trim());
+            return Integer.parseInt(
+                    executeShellCommandAndGetStdout("getprop " + densityProp).trim());
         }
 
         private void setDensity(int targetDensity) {
             executeShellCommand("wm density " + targetDensity);
 
             // Verify that the density is changed.
-            final String output = executeShellCommand("wm density");
+            final String output = executeShellCommandAndGetStdout("wm density");
             final boolean success = output.contains("Override density: " + targetDensity);
 
             assertTrue("Failed to set density to " + targetDensity, success);

@@ -1,0 +1,12 @@
+[package]
+name = "netsim-common"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["staticlib", "lib"]
+doctest = false
+
+[dependencies]
+chrono = { version = "0.4.19", default-features = false }
+rand = "0.8.5"

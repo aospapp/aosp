@@ -24,7 +24,7 @@
 #include "libANGLE/renderer/d3d/formatutilsD3D.h"
 #include "libANGLE/renderer/renderer_utils.h"
 #include "libANGLE/renderer/serial_utils.h"
-#include "platform/FeaturesD3D.h"
+#include "platform/FeaturesD3D_autogen.h"
 
 namespace egl
 {
@@ -73,6 +73,24 @@ enum RendererClass
 {
     RENDERER_D3D11,
     RENDERER_D3D9
+};
+
+struct BindFlags
+{
+    bool renderTarget    = false;
+    bool unorderedAccess = false;
+    static BindFlags RenderTarget()
+    {
+        BindFlags flags;
+        flags.renderTarget = true;
+        return flags;
+    }
+    static BindFlags UnorderedAccess()
+    {
+        BindFlags flags;
+        flags.unorderedAccess = true;
+        return flags;
+    }
 };
 
 // A d3d::Context wraps error handling.
@@ -310,32 +328,36 @@ class RendererD3D : public BufferFactoryD3D
     virtual TextureStorage *createTextureStorageEGLImage(EGLImageD3D *eglImage,
                                                          RenderTargetD3D *renderTargetD3D,
                                                          const std::string &label)     = 0;
+    virtual TextureStorage *createTextureStorageBuffer(
+        const gl::OffsetBindingPointer<gl::Buffer> &buffer,
+        GLenum internalFormat,
+        const std::string &label) = 0;
     virtual TextureStorage *createTextureStorageExternal(
         egl::Stream *stream,
         const egl::Stream::GLTextureDescription &desc,
         const std::string &label)                                                            = 0;
     virtual TextureStorage *createTextureStorage2D(GLenum internalformat,
-                                                   bool renderTarget,
+                                                   BindFlags bindFlags,
                                                    GLsizei width,
                                                    GLsizei height,
                                                    int levels,
                                                    const std::string &label,
                                                    bool hintLevelZeroOnly)                   = 0;
     virtual TextureStorage *createTextureStorageCube(GLenum internalformat,
-                                                     bool renderTarget,
+                                                     BindFlags bindFlags,
                                                      int size,
                                                      int levels,
                                                      bool hintLevelZeroOnly,
                                                      const std::string &label)               = 0;
     virtual TextureStorage *createTextureStorage3D(GLenum internalformat,
-                                                   bool renderTarget,
+                                                   BindFlags bindFlags,
                                                    GLsizei width,
                                                    GLsizei height,
                                                    GLsizei depth,
                                                    int levels,
                                                    const std::string &label)                 = 0;
     virtual TextureStorage *createTextureStorage2DArray(GLenum internalformat,
-                                                        bool renderTarget,
+                                                        BindFlags bindFlags,
                                                         GLsizei width,
                                                         GLsizei height,
                                                         GLsizei depth,
@@ -378,9 +400,6 @@ class RendererD3D : public BufferFactoryD3D
     virtual RendererClass getRendererClass() const = 0;
     virtual void *getD3DDevice()                   = 0;
 
-    void setGPUDisjoint();
-
-    GLint getGPUDisjoint();
     GLint64 getTimestamp();
 
     virtual angle::Result clearRenderTarget(const gl::Context *context,
@@ -402,6 +421,8 @@ class RendererD3D : public BufferFactoryD3D
     const gl::TextureCapsMap &getNativeTextureCaps() const;
     const gl::Extensions &getNativeExtensions() const;
     const gl::Limitations &getNativeLimitations() const;
+    const ShPixelLocalStorageOptions &getNativePixelLocalStorageOptions() const;
+    virtual void initializeFrontendFeatures(angle::FrontendFeatures *features) const = 0;
 
     // Necessary hack for default framebuffers in D3D.
     virtual FramebufferImpl *createDefaultFramebuffer(const gl::FramebufferState &state) = 0;
@@ -415,16 +436,19 @@ class RendererD3D : public BufferFactoryD3D
                                                gl::TextureType type,
                                                gl::Texture **textureOut) = 0;
 
-    Serial generateSerial();
+    UniqueSerial generateSerial();
 
     virtual bool canSelectViewInVertexShader() const = 0;
 
+    egl::Display *getDisplay() const { return mDisplay; }
+
   protected:
-    virtual bool getLUID(LUID *adapterLuid) const                    = 0;
+    virtual bool getLUID(LUID *adapterLuid) const                              = 0;
     virtual void generateCaps(gl::Caps *outCaps,
                               gl::TextureCapsMap *outTextureCaps,
                               gl::Extensions *outExtensions,
-                              gl::Limitations *outLimitations) const = 0;
+                              gl::Limitations *outLimitations,
+                              ShPixelLocalStorageOptions *outPLSOptions) const = 0;
 
     bool skipDraw(const gl::State &glState, gl::PrimitiveMode drawMode);
 
@@ -442,14 +466,14 @@ class RendererD3D : public BufferFactoryD3D
     mutable gl::TextureCapsMap mNativeTextureCaps;
     mutable gl::Extensions mNativeExtensions;
     mutable gl::Limitations mNativeLimitations;
+    mutable ShPixelLocalStorageOptions mNativePLSOptions;
 
     mutable bool mFeaturesInitialized;
     mutable angle::FeaturesD3D mFeatures;
 
-    bool mDisjoint;
     bool mDeviceLost;
 
-    SerialFactory mSerialFactory;
+    UniqueSerialFactory mSerialFactory;
 };
 
 unsigned int GetBlendSampleMask(const gl::State &glState, int samples);

@@ -25,24 +25,34 @@ import android.view.View;
  */
 public class DescriptiveTextWithControlsView extends CardContent {
 
-    private Drawable mImage;
+    private CardBackgroundImage mImage;
     private CharSequence mTitle;
     private CharSequence mSubtitle;
-
     private Control mLeftControl;
     private Control mCenterControl;
     private Control mRightControl;
     private long mStartTime;
+    private SeekBarViewModel mSeekBarViewModel;
 
-    public DescriptiveTextWithControlsView(Drawable image, CharSequence title,
+    //TODO(b/260002616): considering using builder
+    public DescriptiveTextWithControlsView(CardBackgroundImage image, CharSequence title,
             CharSequence subtitle) {
         mImage = image;
         mTitle = title;
         mSubtitle = subtitle;
     }
 
-    public DescriptiveTextWithControlsView(Drawable image, CharSequence title,
-            CharSequence subtitle,Control leftControl, Control centerControl, Control rightControl) {
+    public DescriptiveTextWithControlsView(CardBackgroundImage image, CharSequence title,
+            CharSequence subtitle, SeekBarViewModel seekBarViewModel) {
+        mImage = image;
+        mTitle = title;
+        mSubtitle = subtitle;
+        mSeekBarViewModel = seekBarViewModel;
+    }
+
+    public DescriptiveTextWithControlsView(CardBackgroundImage image, CharSequence title,
+            CharSequence subtitle, Control leftControl, Control centerControl,
+            Control rightControl) {
         mImage = image;
         mTitle = title;
         mSubtitle = subtitle;
@@ -51,7 +61,7 @@ public class DescriptiveTextWithControlsView extends CardContent {
         mRightControl = rightControl;
     }
 
-    public DescriptiveTextWithControlsView(Drawable image, CharSequence title,
+    public DescriptiveTextWithControlsView(CardBackgroundImage image, CharSequence title,
             CharSequence subtitle, long startTime, Control leftControl,
             Control centerControl, Control rightControl) {
         mImage = image;
@@ -68,7 +78,7 @@ public class DescriptiveTextWithControlsView extends CardContent {
         return HomeCardContentType.DESCRIPTIVE_TEXT_WITH_CONTROLS;
     }
 
-    public Drawable getImage() {
+    public CardBackgroundImage getImage() {
         return mImage;
     }
 
@@ -94,6 +104,10 @@ public class DescriptiveTextWithControlsView extends CardContent {
 
     public Control getRightControl() {
         return mRightControl;
+    }
+
+    public SeekBarViewModel getSeekBarViewModel() {
+        return mSeekBarViewModel;
     }
 
     /**

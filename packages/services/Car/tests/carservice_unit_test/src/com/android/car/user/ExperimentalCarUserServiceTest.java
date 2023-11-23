@@ -61,6 +61,7 @@ import org.junit.Test;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -98,7 +99,9 @@ public final class ExperimentalCarUserServiceTest extends BaseCarUserServiceTest
                 mExperimentalCarUserService.createDriver("testUser", true);
         waitForHandlerThreadToFinish();
 
-        assertThat(getCreateDriverResult(future).getUser().getIdentifier()).isEqualTo(100);
+        UserCreationResult result = getCreateDriverResult(future);
+        assertThat(result.getStatus()).isEqualTo(UserCreationResult.STATUS_SUCCESSFUL);
+        assertThat(result.getUser().getIdentifier()).isEqualTo(100);
     }
 
     @Test
@@ -121,8 +124,9 @@ public final class ExperimentalCarUserServiceTest extends BaseCarUserServiceTest
                 mExperimentalCarUserService.createDriver("testUser", false);
         waitForHandlerThreadToFinish();
 
-        UserHandle userHandle = getCreateDriverResult(future).getUser();
-        assertThat(userHandle.getIdentifier()).isEqualTo(100);
+        UserCreationResult result = getCreateDriverResult(future);
+        assertThat(result.getStatus()).isEqualTo(UserCreationResult.STATUS_SUCCESSFUL);
+        assertThat(result.getUser().getIdentifier()).isEqualTo(100);
     }
 
     @Test
@@ -139,7 +143,7 @@ public final class ExperimentalCarUserServiceTest extends BaseCarUserServiceTest
 
         mockCreateProfile(driverId, userName, passenger);
 
-        UserHandle driver = expectRegularUserExists(mMockedUserHandleHelper, driverId);
+        expectRegularUserExists(mMockedUserHandleHelper, driverId);
         assertThat(mExperimentalCarUserService.createPassenger(userName, driverId))
                 .isEqualTo(passenger);
     }
@@ -158,8 +162,7 @@ public final class ExperimentalCarUserServiceTest extends BaseCarUserServiceTest
     @Test
     public void testCreatePassenger_IfDriverIsGuest() {
         int driverId = 90;
-        UserHandle driver = expectGuestUserExists(mMockedUserHandleHelper, driverId,
-                /* isEphemeral= */ false);
+        expectGuestUserExists(mMockedUserHandleHelper, driverId, /* isEphemeral= */ false);
         String userName = "testUser";
         assertThat(mExperimentalCarUserService.createPassenger(userName, driverId)).isNull();
     }
@@ -323,7 +326,7 @@ public final class ExperimentalCarUserServiceTest extends BaseCarUserServiceTest
                     @NonNull
                     public List<OccupantZoneInfo> getOccupantZones(
                             @OccupantTypeEnum int occupantType) {
-                        return null;
+                        return Collections.emptyList();
                     }
 
                     @Override

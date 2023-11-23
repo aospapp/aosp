@@ -1,6 +1,6 @@
 @ This file was created from a .asm file
 @  using the ads2gas.pl script.
-	.syntax unified
+.syntax unified
 @
 @  Copyright (c) 2010 The WebM project authors. All Rights Reserved.
 @
@@ -12,31 +12,29 @@
 @
 
 
-    .global vpx_push_neon 
-	.type vpx_push_neon, function
-    .global vpx_pop_neon 
-	.type vpx_pop_neon, function
+    .global vpx_push_neon
+    .type vpx_push_neon, function
+    .global vpx_pop_neon
+    .type vpx_pop_neon, function
 
-   .arm
-   .eabi_attribute 24, 1 @Tag_ABI_align_needed
-   .eabi_attribute 25, 1 @Tag_ABI_align_preserved
+    .arm
+    .eabi_attribute 24, 1 @Tag_ABI_align_needed
+    .eabi_attribute 25, 1 @Tag_ABI_align_preserved
 
-.text
-.p2align 2
+    .text
+    .p2align 2
 
-_vpx_push_neon:
-	vpx_push_neon: @ PROC
+vpx_push_neon: @ PROC
     vstm            r0!, {d8-d15}
     bx              lr
 
-	.size vpx_push_neon, .-vpx_push_neon    @ ENDP
+.size vpx_push_neon, .-vpx_push_neon    @ ENDP
 
-_vpx_pop_neon:
-	vpx_pop_neon: @ PROC
+vpx_pop_neon: @ PROC
     vldm            r0!, {d8-d15}
     bx              lr
 
-	.size vpx_pop_neon, .-vpx_pop_neon    @ ENDP
+.size vpx_pop_neon, .-vpx_pop_neon    @ ENDP
 
 
-	.section	.note.GNU-stack,"",%progbits
+    .section .note.GNU-stack,"",%progbits

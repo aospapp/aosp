@@ -126,6 +126,9 @@ class Dimmer {
         boolean isVisible;
         SurfaceAnimator mSurfaceAnimator;
 
+        // TODO(b/64816140): Remove after confirming dimmer layer always matches its container.
+        final Rect mDimBounds = new Rect();
+
         /**
          * Determines whether the dim layer should animate before destroying.
          */
@@ -175,6 +178,10 @@ class Dimmer {
         mSurfaceAnimatorStarter = surfaceAnimatorStarter;
     }
 
+    WindowContainer<?> getHost() {
+        return mHost;
+    }
+
     private SurfaceControl makeDimLayer() {
         return mHost.makeChildSurface(null)
                 .setParent(mHost.getSurfaceControl())
@@ -208,22 +215,18 @@ class Dimmer {
         return mDimState;
     }
 
-    private void dim(SurfaceControl.Transaction t, WindowContainer container, int relativeLayer,
-            float alpha, int blurRadius) {
+    private void dim(WindowContainer container, int relativeLayer, float alpha, int blurRadius) {
         final DimState d = getDimState(container);
 
         if (d == null) {
             return;
         }
 
-        if (container != null) {
-            // The dim method is called from WindowState.prepareSurfaces(), which is always called
-            // in the correct Z from lowest Z to highest. This ensures that the dim layer is always
-            // relative to the highest Z layer with a dim.
-            t.setRelativeLayer(d.mDimLayer, container.getSurfaceControl(), relativeLayer);
-        } else {
-            t.setLayer(d.mDimLayer, Integer.MAX_VALUE);
-        }
+        // The dim method is called from WindowState.prepareSurfaces(), which is always called
+        // in the correct Z from lowest Z to highest. This ensures that the dim layer is always
+        // relative to the highest Z layer with a dim.
+        SurfaceControl.Transaction t = mHost.getPendingTransaction();
+        t.setRelativeLayer(d.mDimLayer, container.getSurfaceControl(), relativeLayer);
         t.setAlpha(d.mDimLayer, alpha);
         t.setBackgroundBlurRadius(d.mDimLayer, blurRadius);
 
@@ -231,56 +234,27 @@ class Dimmer {
     }
 
     /**
-     * Finish a dim started by dimAbove in the case there was no call to dimAbove.
-     *
-     * @param t A Transaction in which to finish the dim.
-     */
-    void stopDim(SurfaceControl.Transaction t) {
-        if (mDimState != null) {
-            t.hide(mDimState.mDimLayer);
-            mDimState.isVisible = false;
-            mDimState.mDontReset = false;
-        }
-    }
-
-    /**
-     * Place a Dim above the entire host container. The caller is responsible for calling stopDim to
-     * remove this effect. If the Dim can be assosciated with a particular child of the host
-     * consider using the other variant of dimAbove which ties the Dim lifetime to the child
-     * lifetime more explicitly.
-     *
-     * @param t     A transaction in which to apply the Dim.
-     * @param alpha The alpha at which to Dim.
-     */
-    void dimAbove(SurfaceControl.Transaction t, float alpha) {
-        dim(t, null, 1, alpha, 0);
-    }
-
-    /**
      * Place a dim above the given container, which should be a child of the host container.
      * for each call to {@link WindowContainer#prepareSurfaces} the Dim state will be reset
      * and the child should call dimAbove again to request the Dim to continue.
      *
-     * @param t         A transaction in which to apply the Dim.
      * @param container The container which to dim above. Should be a child of our host.
      * @param alpha     The alpha at which to Dim.
      */
-    void dimAbove(SurfaceControl.Transaction t, WindowContainer container, float alpha) {
-        dim(t, container, 1, alpha, 0);
+    void dimAbove(WindowContainer container, float alpha) {
+        dim(container, 1, alpha, 0);
     }
 
     /**
      * Like {@link #dimAbove} but places the dim below the given container.
      *
-     * @param t          A transaction in which to apply the Dim.
      * @param container  The container which to dim below. Should be a child of our host.
      * @param alpha      The alpha at which to Dim.
      * @param blurRadius The amount of blur added to the Dim.
      */
 
-    void dimBelow(SurfaceControl.Transaction t, WindowContainer container, float alpha,
-                  int blurRadius) {
-        dim(t, container, -1, alpha, blurRadius);
+    void dimBelow(WindowContainer container, float alpha, int blurRadius) {
+        dim(container, -1, alpha, blurRadius);
     }
 
     /**
@@ -292,9 +266,17 @@ class Dimmer {
      * a chance to request dims to continue.
      */
     void resetDimStates() {
-        if (mDimState != null && !mDimState.mDontReset) {
+        if (mDimState == null) {
+            return;
+        }
+        if (!mDimState.mDontReset) {
             mDimState.mDimming = false;
         }
+    }
+
+    /** Returns non-null bounds if the dimmer is showing. */
+    Rect getDimBounds() {
+        return mDimState != null ? mDimState.mDimBounds : null;
     }
 
     void dontAnimateExit() {
@@ -305,13 +287,13 @@ class Dimmer {
 
     /**
      * Call after invoking {@link WindowContainer#prepareSurfaces} on children as
-     * described in {@link #resetDimStates}.
+     * described in {@link #resetDimStates}. The dim bounds returned by {@link #resetDimStates}
+     * should be set before calling this method.
      *
      * @param t      A transaction in which to update the dims.
-     * @param bounds The bounds at which to dim.
      * @return true if any Dims were updated.
      */
-    boolean updateDims(SurfaceControl.Transaction t, Rect bounds) {
+    boolean updateDims(SurfaceControl.Transaction t) {
         if (mDimState == null) {
             return false;
         }
@@ -327,6 +309,7 @@ class Dimmer {
             mDimState = null;
             return false;
         } else {
+            final Rect bounds = mDimState.mDimBounds;
             // TODO: Once we use geometry from hierarchy this falls away.
             t.setPosition(mDimState.mDimLayer, bounds.left, bounds.top);
             t.setWindowCrop(mDimState.mDimLayer, bounds.width(), bounds.height());

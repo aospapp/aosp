@@ -44,6 +44,7 @@ import org.junit.runner.RunWith;
 @RunWith(AndroidJUnit4.class)
 public class ExpandableListViewWithHeadersTest {
     private Instrumentation mInstrumentation;
+    private CtsKeyEventUtil mCtsKeyEventUtil;
     private ExpandableListWithHeaders mActivity;
     private ExpandableListView mExpandableListView;
     private ListUtil mListUtil;
@@ -55,6 +56,7 @@ public class ExpandableListViewWithHeadersTest {
     @Before
     public void setup() {
         mInstrumentation = InstrumentationRegistry.getInstrumentation();
+        mCtsKeyEventUtil = new CtsKeyEventUtil(mInstrumentation.getTargetContext());
         mActivity = mActivityRule.getActivity();
         WindowUtil.waitForFocus(mActivity);
         mExpandableListView = mActivity.getExpandableListView();
@@ -72,7 +74,7 @@ public class ExpandableListViewWithHeadersTest {
         mListUtil.arrowScrollToSelectedPosition(0);
         WidgetTestUtils.runOnMainAndDrawSync(mActivityRule, mExpandableListView, null);
 
-        CtsKeyEventUtil.sendKeys(mInstrumentation, mExpandableListView,
+        mCtsKeyEventUtil.sendKeys(mInstrumentation, mExpandableListView,
                 KeyEvent.KEYCODE_DPAD_CENTER);
         WidgetTestUtils.runOnMainAndDrawSync(mActivityRule, mExpandableListView, null);
 
@@ -85,7 +87,7 @@ public class ExpandableListViewWithHeadersTest {
         mListUtil.arrowScrollToSelectedPosition(mActivity.getNumOfHeadersAndFooters());
         WidgetTestUtils.runOnMainAndDrawSync(mActivityRule, mExpandableListView, null);
 
-        CtsKeyEventUtil.sendKeys(mInstrumentation, mExpandableListView,
+        mCtsKeyEventUtil.sendKeys(mInstrumentation, mExpandableListView,
                 KeyEvent.KEYCODE_DPAD_CENTER);
         WidgetTestUtils.runOnMainAndDrawSync(mActivityRule, mExpandableListView, null);
 

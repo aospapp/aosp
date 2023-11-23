@@ -15,8 +15,6 @@
 #   limitations under the License.
 
 import itertools
-import pprint
-import queue
 import time
 
 import acts.base_test
@@ -33,15 +31,16 @@ WifiEnums = wutils.WifiEnums
 # Default timeout used for reboot, toggle WiFi and Airplane mode,
 # for the system to settle down after the operation.
 DEFAULT_TIMEOUT = 10
-GET_MAC_ADDRESS= ("ip addr show wlan0"
-                  "| grep 'link/ether'"
-                  "| cut -d ' ' -f6")
+GET_MAC_ADDRESS = ("ip addr show wlan0"
+                   "| grep 'link/ether'"
+                   "| cut -d ' ' -f6")
 MAC_SETTING = "wifi_connected_mac_randomization_enabled"
 GET_MAC_RANDOMIZATION_STATUS = "settings get global {}".format(MAC_SETTING)
 TURN_ON_MAC_RANDOMIZATION = "settings put global {} 1".format(MAC_SETTING)
 TURN_OFF_MAC_RANDOMIZATION = "settings put global {} 0".format(MAC_SETTING)
 LOG_CLEAR = "logcat -c"
 LOG_GREP = "logcat -d | grep {}"
+
 
 class WifiConnectedMacRandomizationTest(WifiBaseTest):
     """Tests for Connected MAC Randomization.
@@ -67,8 +66,8 @@ class WifiConnectedMacRandomizationTest(WifiBaseTest):
 
         req_params = ["reference_networks"]
         opt_param = []
-        self.unpack_userparams(
-            req_param_names=req_params, opt_param_names=opt_param)
+        self.unpack_userparams(req_param_names=req_params,
+                               opt_param_names=opt_param)
 
         if "AccessPoint" in self.user_params:
             self.legacy_configure_ap_and_start()
@@ -104,6 +103,7 @@ class WifiConnectedMacRandomizationTest(WifiBaseTest):
             del self.user_params["open_network"]
 
     """Helper Functions"""
+
     def get_current_mac_address(self, ad):
         """Get the device's wlan0 MAC address.
 
@@ -158,6 +158,7 @@ class WifiConnectedMacRandomizationTest(WifiBaseTest):
         return ssid_id_dict
 
     """Tests"""
+
     @test_tracker_info(uuid="")
     def test_wifi_connection_2G_with_mac_randomization(self):
         """Tests connection to 2G network with Connected MAC Randomization.
@@ -200,29 +201,25 @@ class WifiConnectedMacRandomizationTest(WifiBaseTest):
             "Randomized MAC addresses for 2G and 5G networks are equal.")
 
         reconnect_2g = wutils.connect_to_wifi_network_with_id(
-            self.dut,
-            connect_data_2g[WifiEnums.NETID_KEY],
+            self.dut, connect_data_2g[WifiEnums.NETID_KEY],
             connect_data_2g[WifiEnums.SSID_KEY])
         if not reconnect_2g:
             raise signals.TestFailure("Device did not connect to the correct"
                                       " 2GHz network.")
         new_mac_2g = self.get_current_mac_address(self.dut)
         asserts.assert_equal(
-            old_mac_2g,
-            new_mac_2g,
+            old_mac_2g, new_mac_2g,
             "Randomized MAC for 2G is not persistent between connections.")
 
         reconnect_5g = wutils.connect_to_wifi_network_with_id(
-            self.dut,
-            connect_data_5g[WifiEnums.NETID_KEY],
+            self.dut, connect_data_5g[WifiEnums.NETID_KEY],
             connect_data_5g[WifiEnums.SSID_KEY])
         if not reconnect_5g:
             raise signals.TestFailure("Device did not connect to the correct"
                                       " 5GHz network.")
         new_mac_5g = self.get_current_mac_address(self.dut)
         asserts.assert_equal(
-            old_mac_5g,
-            new_mac_5g,
+            old_mac_5g, new_mac_5g,
             "Randomized MAC for 5G is not persistent between connections.")
 
     @test_tracker_info(uuid="")

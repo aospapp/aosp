@@ -24,6 +24,8 @@
 
 #define LOG_TAG "bt_bta_gattc"
 
+#include <base/logging.h>
+
 #include <cstdint>
 
 #include "bt_target.h"  // Must be first to define build configuration
@@ -31,11 +33,10 @@
 #include "device/include/controller.h"
 #include "gd/common/init_flags.h"
 #include "osi/include/allocator.h"
+#include "osi/include/log.h"
 #include "types/bt_transport.h"
 #include "types/hci_role.h"
 #include "types/raw_address.h"
-
-#include <base/logging.h>
 
 static uint8_t ble_acceptlist_size() {
   const controller_t* controller = controller_get_interface();
@@ -146,6 +147,7 @@ tBTA_GATTC_CLCB* bta_gattc_clcb_alloc(tGATT_IF client_if,
       p_clcb->status = GATT_SUCCESS;
       p_clcb->transport = transport;
       p_clcb->bda = remote_bda;
+      p_clcb->p_q_cmd = NULL;
 
       p_clcb->p_rcb = bta_gattc_cl_get_regcb(client_if);
 
@@ -189,6 +191,26 @@ tBTA_GATTC_CLCB* bta_gattc_find_alloc_clcb(tGATT_IF client_if,
 
 /*******************************************************************************
  *
+ * Function         bta_gattc_server_disconnected
+ *
+ * Description      Set server cache disconnected
+ *
+ * Returns          pointer to the srcb
+ *
+ ******************************************************************************/
+void bta_gattc_server_disconnected(tBTA_GATTC_SERV* p_srcb) {
+  if (p_srcb && p_srcb->connected) {
+    p_srcb->connected = false;
+    p_srcb->state = BTA_GATTC_SERV_IDLE;
+    p_srcb->mtu = 0;
+
+    // clear reallocating
+    p_srcb->gatt_database.Clear();
+  }
+}
+
+/*******************************************************************************
+ *
  * Function         bta_gattc_clcb_dealloc
  *
  * Description      Deallocte a clcb
@@ -217,8 +239,29 @@ void bta_gattc_clcb_dealloc(tBTA_GATTC_CLCB* p_clcb) {
     p_srcb->gatt_database.Clear();
   }
 
-  osi_free_and_reset((void**)&p_clcb->p_q_cmd);
-  memset(p_clcb, 0, sizeof(tBTA_GATTC_CLCB));
+  while (!p_clcb->p_q_cmd_queue.empty()) {
+    auto p_q_cmd = p_clcb->p_q_cmd_queue.front();
+    p_clcb->p_q_cmd_queue.pop_front();
+    osi_free_and_reset((void**)&p_q_cmd);
+  }
+
+  if (p_clcb->p_q_cmd != NULL) {
+    osi_free_and_reset((void**)&p_clcb->p_q_cmd);
+  }
+
+  /* Clear p_clcb. Some of the fields are already reset e.g. p_q_cmd_queue and
+   * p_q_cmd. */
+  p_clcb->bta_conn_id = 0;
+  p_clcb->bda = {};
+  p_clcb->transport = 0;
+  p_clcb->p_rcb = NULL;
+  p_clcb->p_srcb = NULL;
+  p_clcb->request_during_discovery = 0;
+  p_clcb->auto_update = 0;
+  p_clcb->disc_active = 0;
+  p_clcb->in_use = 0;
+  p_clcb->state = BTA_GATTC_IDLE_ST;
+  p_clcb->status = GATT_SUCCESS;
 }
 
 /*******************************************************************************
@@ -315,24 +358,113 @@ tBTA_GATTC_SERV* bta_gattc_srcb_alloc(const RawAddress& bda) {
   }
   return p_tcb;
 }
+
+void bta_gattc_send_mtu_response(tBTA_GATTC_CLCB* p_clcb,
+                                 const tBTA_GATTC_DATA* p_data,
+                                 uint16_t current_mtu) {
+  GATT_CONFIGURE_MTU_OP_CB cb = p_data->api_mtu.mtu_cb;
+  if (cb) {
+    void* my_cb_data = p_data->api_mtu.mtu_cb_data;
+    cb(p_clcb->bta_conn_id, GATT_SUCCESS, my_cb_data);
+  }
+
+  tBTA_GATTC cb_data;
+  p_clcb->status = GATT_SUCCESS;
+  cb_data.cfg_mtu.conn_id = p_clcb->bta_conn_id;
+  cb_data.cfg_mtu.status = GATT_SUCCESS;
+
+  cb_data.cfg_mtu.mtu = current_mtu;
+
+  if (p_clcb->p_rcb) {
+    (*p_clcb->p_rcb->p_cback)(BTA_GATTC_CFG_MTU_EVT, &cb_data);
+  }
+}
+
+void bta_gattc_continue(tBTA_GATTC_CLCB* p_clcb) {
+  if (p_clcb->p_q_cmd != NULL) {
+    LOG_INFO("Already scheduled another request for conn_id = 0x%04x",
+             p_clcb->bta_conn_id);
+    return;
+  }
+
+  while (!p_clcb->p_q_cmd_queue.empty()) {
+    const tBTA_GATTC_DATA* p_q_cmd = p_clcb->p_q_cmd_queue.front();
+    if (p_q_cmd->hdr.event != BTA_GATTC_API_CFG_MTU_EVT) {
+      p_clcb->p_q_cmd_queue.pop_front();
+      bta_gattc_sm_execute(p_clcb, p_q_cmd->hdr.event, p_q_cmd);
+      return;
+    }
+
+    /* The p_q_cmd is the MTU Request event. */
+    uint16_t current_mtu = 0;
+    auto result = GATTC_TryMtuRequest(p_clcb->bda, p_clcb->transport,
+                                      p_clcb->bta_conn_id, &current_mtu);
+    switch (result) {
+      case MTU_EXCHANGE_DEVICE_DISCONNECTED:
+        bta_gattc_cmpl_sendmsg(p_clcb->bta_conn_id, GATTC_OPTYPE_CONFIG,
+                               GATT_NO_RESOURCES, NULL);
+        /* Handled, free command below and continue with a p_q_cmd_queue */
+        break;
+      case MTU_EXCHANGE_NOT_ALLOWED:
+        bta_gattc_cmpl_sendmsg(p_clcb->bta_conn_id, GATTC_OPTYPE_CONFIG,
+                               GATT_ERR_UNLIKELY, NULL);
+        /* Handled, free command below and continue with a p_q_cmd_queue */
+        break;
+      case MTU_EXCHANGE_ALREADY_DONE:
+        bta_gattc_send_mtu_response(p_clcb, p_q_cmd, current_mtu);
+        /* Handled, free command below and continue with a p_q_cmd_queue */
+        break;
+      case MTU_EXCHANGE_IN_PROGRESS:
+        LOG_WARN("Waiting p_clcb %p", p_clcb);
+        return;
+      case MTU_EXCHANGE_NOT_DONE_YET:
+        p_clcb->p_q_cmd_queue.pop_front();
+        bta_gattc_sm_execute(p_clcb, p_q_cmd->hdr.event, p_q_cmd);
+        return;
+    }
+
+    /* p_q_cmd was the MTU request and it was handled.
+     * If MTU request was handled without actually ATT request,
+     * it is ok to take another message from the queue and proceed.
+     */
+    p_clcb->p_q_cmd_queue.pop_front();
+    osi_free_and_reset((void**)&p_q_cmd);
+  }
+}
+
+bool bta_gattc_is_data_queued(tBTA_GATTC_CLCB* p_clcb,
+                              const tBTA_GATTC_DATA* p_data) {
+  if (p_clcb->p_q_cmd == p_data) {
+    return true;
+  }
+
+  auto it = std::find(p_clcb->p_q_cmd_queue.begin(),
+                      p_clcb->p_q_cmd_queue.end(), p_data);
+  return it != p_clcb->p_q_cmd_queue.end();
+}
 /*******************************************************************************
  *
  * Function         bta_gattc_enqueue
  *
  * Description      enqueue a client request in clcb.
  *
- * Returns          success or failure.
+ * Returns          BtaEnqueuedResult_t
  *
  ******************************************************************************/
-bool bta_gattc_enqueue(tBTA_GATTC_CLCB* p_clcb, const tBTA_GATTC_DATA* p_data) {
+BtaEnqueuedResult_t bta_gattc_enqueue(tBTA_GATTC_CLCB* p_clcb,
+                                      const tBTA_GATTC_DATA* p_data) {
   if (p_clcb->p_q_cmd == NULL) {
     p_clcb->p_q_cmd = p_data;
-    return true;
+    return ENQUEUED_READY_TO_SEND;
   }
 
-  LOG(ERROR) << __func__ << ": already has a pending command";
-  /* skip the callback now. ----- need to send callback ? */
-  return false;
+  LOG_INFO(
+      "Already has a pending command to executer. Queuing for later %s conn "
+      "id=0x%04x",
+      ADDRESS_TO_LOGGABLE_CSTR(p_clcb->bda), p_clcb->bta_conn_id);
+  p_clcb->p_q_cmd_queue.push_back(p_data);
+
+  return ENQUEUED_FOR_LATER;
 }
 
 /*******************************************************************************
@@ -443,7 +575,7 @@ bool bta_gattc_mark_bg_conn(tGATT_IF client_if,
   if (!add) {
     LOG(ERROR) << __func__
                << " unable to find the bg connection mask for bd_addr="
-               << remote_bda_ptr;
+               << ADDRESS_TO_LOGGABLE_STR(remote_bda_ptr);
     return false;
   } else /* adding a new device mask */
   {
@@ -455,7 +587,7 @@ bool bta_gattc_mark_bg_conn(tGATT_IF client_if,
 
         p_cif_mask = &p_bg_tck->cif_mask;
 
-        *p_cif_mask = (1 << (client_if - 1));
+        *p_cif_mask = ((tBTA_GATTC_CIF_MASK)1 << (client_if - 1));
         return true;
       }
     }
@@ -482,7 +614,7 @@ bool bta_gattc_check_bg_conn(tGATT_IF client_if, const RawAddress& remote_bda,
   for (i = 0; i < ble_acceptlist_size() && !is_bg_conn; i++, p_bg_tck++) {
     if (p_bg_tck->in_use && (p_bg_tck->remote_bda == remote_bda ||
                              p_bg_tck->remote_bda.IsEmpty())) {
-      if (((p_bg_tck->cif_mask & (1 << (client_if - 1))) != 0) &&
+      if (((p_bg_tck->cif_mask & ((tBTA_GATTC_CIF_MASK)1 << (client_if - 1))) != 0) &&
           role == HCI_ROLE_CENTRAL)
         is_bg_conn = true;
     }
@@ -677,5 +809,5 @@ tBTA_GATTC_CLCB* bta_gattc_find_int_disconn_clcb(tBTA_GATTC_DATA* p_msg) {
  *
  ******************************************************************************/
 bool bta_gattc_is_robust_caching_enabled() {
-  return bluetooth::common::init_flags::gatt_robust_caching_is_enabled();
+  return bluetooth::common::init_flags::gatt_robust_caching_client_is_enabled();
 }

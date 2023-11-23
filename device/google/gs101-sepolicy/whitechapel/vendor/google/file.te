@@ -22,10 +22,7 @@ type vendor_rpmbmock_data_file, file_type, data_file_type;
 
 # Exynos debugfs
 type vendor_ion_debugfs, fs_type, debugfs_type;
-type vendor_dmabuf_debugfs, fs_type, debugfs_type;
-type vendor_page_pinner_debugfs, fs_type, debugfs_type;
 type vendor_mali_debugfs, fs_type, debugfs_type;
-type vendor_dri_debugfs, fs_type, debugfs_type;
 type vendor_pm_genpd_debugfs, fs_type, debugfs_type;
 type vendor_regmap_debugfs, fs_type, debugfs_type;
 type vendor_usb_debugfs, fs_type, debugfs_type;
@@ -35,8 +32,6 @@ type vendor_votable_debugfs, fs_type, debugfs_type;
 type vendor_battery_debugfs, fs_type, debugfs_type;
 
 # Exynos sysfs
-type sysfs_exynos_bts, sysfs_type, fs_type;
-type sysfs_exynos_bts_stats, sysfs_type, fs_type;
 type sysfs_ota, sysfs_type, fs_type;
 
 # Exynos Firmware
@@ -46,8 +41,6 @@ type vendor_fw_file, vendor_file_type, file_type;
 type sysfs_acpm_stats, sysfs_type, fs_type;
 
 # Vendor tools
-type vendor_usf_stats, vendor_file_type, file_type;
-type vendor_usf_reg_edit, vendor_file_type, file_type;
 type vendor_dumpsys, vendor_file_type, file_type;
 
 # Sensors
@@ -78,31 +71,12 @@ type updated_wifi_firmware_data_file, file_type, data_file_type;
 type mediadrm_vendor_data_file, file_type, data_file_type;
 
 # Storage Health HAL
-type sysfs_scsi_devices_0000, sysfs_type, fs_type;
-type debugfs_f2fs, debugfs_type, fs_type;
 type proc_f2fs, proc_type, fs_type;
 
 type bootdevice_sysdev, dev_type;
 
 # ZRam
 type per_boot_file, file_type, data_file_type, core_data_file_type;
-
-# Touch
-type proc_touch, proc_type, fs_type, mlstrustedobject;
-type sysfs_touch, sysfs_type, fs_type;
-
-# AOC
-type sysfs_aoc_dumpstate, sysfs_type, fs_type;
-type sysfs_aoc_boottime, sysfs_type, fs_type;
-type sysfs_aoc_firmware, sysfs_type, fs_type;
-type sysfs_aoc, sysfs_type, fs_type;
-type sysfs_aoc_reset, sysfs_type, fs_type;
-
-# Audio
-type persist_audio_file, file_type, vendor_persist_type;
-type persist_aoc_file, file_type, vendor_persist_type;
-type audio_vendor_data_file, file_type, data_file_type;
-type aoc_audio_file, file_type, vendor_file_type;
 
 # RILD
 type rild_vendor_data_file, file_type, data_file_type;
@@ -118,19 +92,12 @@ type persist_modem_file, file_type, vendor_persist_type;
 type modem_img_file, contextmount_type, file_type, vendor_file_type;
 allow modem_img_file self:filesystem associate;
 
-# TCP logging
-type tcpdump_vendor_data_file, file_type, data_file_type, mlstrustedobject;
-
-# Wireless
-type sysfs_wlc, sysfs_type, fs_type;
-
 # Pca
 type sysfs_pca, sysfs_type, fs_type;
 
 # Camera
 type persist_camera_file, file_type;
 type vendor_camera_tuning_file, vendor_file_type, file_type;
-type vendor_camera_data_file, file_type, data_file_type;
 type sysfs_camera, sysfs_type, fs_type;
 
 # GPS
@@ -138,11 +105,6 @@ type vendor_gps_file, file_type, data_file_type;
 userdebug_or_eng(`
     typeattribute vendor_gps_file mlstrustedobject;
 ')
-type sysfs_gps, sysfs_type, fs_type;
-type sysfs_gps_assert, sysfs_type, fs_type;
-
-# Display
-type sysfs_display, sysfs_type, fs_type;
 
 # Backlight
 type sysfs_backlight, sysfs_type, fs_type;
@@ -160,14 +122,10 @@ type sysfs_bcl, sysfs_type, fs_type;
 # Chosen
 type sysfs_chosen, sysfs_type, fs_type;
 
-type sysfs_chip_id, sysfs_type, fs_type;
 type sysfs_spi, sysfs_type, fs_type;
 
 # Battery
 type persist_battery_file, file_type, vendor_persist_type;
-
-# CPU
-type sysfs_cpu, sysfs_type, fs_type;
 
 # Fabric
 type sysfs_fabric, sysfs_type, fs_type;
@@ -185,9 +143,6 @@ type sysfs_video, sysfs_type, fs_type;
 type uwb_vendor_data_file, file_type, data_file_type, app_data_file_type;
 type persist_uwb_file, file_type, vendor_persist_type;
 type uwb_data_vendor, file_type, data_file_type;
-
-# PixelStats_vendor
-type sysfs_pixelstats, fs_type, sysfs_type;
 
 # WLC FW
 type vendor_wlc_fwupdata_file, vendor_file_type, file_type;
@@ -212,3 +167,6 @@ type sysfs_trusty, sysfs_type, fs_type;
 
 # BootControl
 type sysfs_bootctl, sysfs_type, fs_type;
+
+# WLC
+type sysfs_wlc, sysfs_type, fs_type;

@@ -1,0 +1,11 @@
+allow insmod-sh sysfs_leds:dir r_dir_perms;
+
+allow insmod-sh self:capability sys_nice;
+allow insmod-sh kernel:process setsched;
+
+userdebug_or_eng(`
+  allow insmod-sh vendor_regmap_debugfs:dir search;
+')
+
+dontaudit insmod-sh proc_cmdline:file r_file_perms;
+dontaudit insmod-sh self:key write;

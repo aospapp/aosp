@@ -42,6 +42,7 @@ struct vrend_strbuf {
    /* size of string stored without terminating NULL */
    size_t size;
    bool error_state;
+   bool external_buffer;
 };
 
 static inline void strbuf_set_error(struct vrend_strbuf *sb)
@@ -59,9 +60,16 @@ static inline size_t strbuf_get_len(struct vrend_strbuf *sb)
    return sb->size;
 }
 
+static inline void strbuf_reset(struct vrend_strbuf *sb)
+{
+   sb->size = 0;
+}
+
+
 static inline void strbuf_free(struct vrend_strbuf *sb)
 {
-   free(sb->buf);
+   if (!sb->external_buffer)
+      free(sb->buf);
 }
 
 static inline bool strbuf_alloc(struct vrend_strbuf *sb, int initial_size)
@@ -72,9 +80,23 @@ static inline bool strbuf_alloc(struct vrend_strbuf *sb, int initial_size)
    sb->alloc_size = initial_size;
    sb->buf[0] = 0;
    sb->error_state = false;
+   sb->external_buffer = false;
    sb->size = 0;
    return true;
 }
+
+static inline bool strbuf_alloc_fixed(struct vrend_strbuf *sb, char *buf, int size)
+{
+   assert(buf);
+   sb->buf = buf;
+   sb->alloc_size = size;
+   sb->buf[0] = 0;
+   sb->error_state = false;
+   sb->external_buffer = true;
+   sb->size = 0;
+   return true;
+}
+
 
 /* this might need tuning */
 #define STRBUF_MIN_MALLOC 1024
@@ -82,6 +104,12 @@ static inline bool strbuf_alloc(struct vrend_strbuf *sb, int initial_size)
 static inline bool strbuf_grow(struct vrend_strbuf *sb, int len)
 {
    if (sb->size + len + 1 > sb->alloc_size) {
+
+      /* We can't grow an external buffer */
+      if (sb->external_buffer) {
+         strbuf_set_error(sb);
+         return false;
+      }
       /* Reallocate to the larger size of current alloc + min realloc,
        * or the resulting string size if larger.
        */
@@ -120,11 +148,14 @@ static inline void strbuf_vappendf(struct vrend_strbuf *sb, const char *fmt, va_
 
    int len = vsnprintf(sb->buf + sb->size, sb->alloc_size - sb->size, fmt, ap);
    if (len >= (int)(sb->alloc_size - sb->size)) {
-      if (!strbuf_grow(sb, len))
-        return;
+      if (!strbuf_grow(sb, len)) {
+         goto end;
+      }
       vsnprintf(sb->buf + sb->size, sb->alloc_size - sb->size, fmt, cp);
    }
    sb->size += len;
+end:
+   va_end(ap);
 }
 
 __attribute__((format(printf, 2, 3)))
@@ -144,10 +175,12 @@ static inline void strbuf_vfmt(struct vrend_strbuf *sb, const char *fmt, va_list
    int len = vsnprintf(sb->buf, sb->alloc_size, fmt, ap);
    if (len >= (int)(sb->alloc_size)) {
       if (!strbuf_grow(sb, len))
-        return;
+        goto end;
       vsnprintf(sb->buf, sb->alloc_size, fmt, cp);
    }
    sb->size = len;
+end:
+   va_end(ap);
 }
 
 __attribute__((format(printf, 2, 3)))

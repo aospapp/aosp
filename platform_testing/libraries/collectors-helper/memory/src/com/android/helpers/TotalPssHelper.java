@@ -24,7 +24,7 @@ import android.content.Context;
 import android.os.Debug.MemoryInfo;
 import android.util.Log;
 
-import androidx.test.InstrumentationRegistry;
+import androidx.test.platform.app.InstrumentationRegistry;
 
 import java.util.ArrayList;
 import java.util.HashMap;

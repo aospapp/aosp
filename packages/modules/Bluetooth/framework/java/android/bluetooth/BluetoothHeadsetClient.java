@@ -752,13 +752,13 @@ public final class BluetoothHeadsetClient implements BluetoothProfile, AutoClose
     }
 
     /**
-     * Close the connection to the backing service.
-     * Other public functions of BluetoothHeadsetClient will return default error
-     * results once close() has been called. Multiple invocations of close()
-     * are ok.
+     * Close the connection to the backing service. Other public functions of BluetoothHeadsetClient
+     * will return default error results once close() has been called. Multiple invocations of
+     * close() are ok.
      *
      * @hide
      */
+    @Override
     public void close() {
         if (VDBG) log("close()");
         mProfileConnector.disconnect();
@@ -892,8 +892,8 @@ public final class BluetoothHeadsetClient implements BluetoothProfile, AutoClose
             android.Manifest.permission.BLUETOOTH_CONNECT,
             android.Manifest.permission.BLUETOOTH_PRIVILEGED,
     })
-    public @NonNull List<BluetoothDevice> getDevicesMatchingConnectionStates(
-            @NonNull int[] states) {
+    @NonNull
+    public List<BluetoothDevice> getDevicesMatchingConnectionStates(@NonNull int[] states) {
         if (VDBG) log("getDevicesMatchingStates()");
         final IBluetoothHeadsetClient service = getService();
         final List<BluetoothDevice> defaultValue = new ArrayList<BluetoothDevice>();

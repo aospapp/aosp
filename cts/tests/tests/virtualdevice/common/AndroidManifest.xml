@@ -18,4 +18,5 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
           package="android.virtualdevice.cts.common">
     <application />
+    <uses-feature android:name="android.software.companion_device_setup" />
 </manifest>

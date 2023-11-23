@@ -36,9 +36,12 @@ import java.util.concurrent.TimeUnit;
  * </ul>
  */
 public class BlockingBroadcastReceiver extends BroadcastReceiver {
+    private static final String EXTRA_IME_ID = "input_method_id";
+
     private CountDownLatch mLatch = new CountDownLatch(1);
     private String mPackageName;
     private LocaleList mLocales;
+    private String mInputMethodId;
     private int mCalls;
 
     @Override
@@ -48,6 +51,9 @@ public class BlockingBroadcastReceiver extends BroadcastReceiver {
         }
         if (intent.hasExtra(Intent.EXTRA_LOCALE_LIST)) {
             mLocales = intent.getParcelableExtra(Intent.EXTRA_LOCALE_LIST);
+        }
+        if (intent.hasExtra(EXTRA_IME_ID)) {
+            mInputMethodId = intent.getStringExtra(EXTRA_IME_ID);
         }
         mCalls += 1;
         mLatch.countDown();
@@ -61,8 +67,12 @@ public class BlockingBroadcastReceiver extends BroadcastReceiver {
         return mLocales;
     }
 
-    public void await() throws Exception {
-        mLatch.await(5, TimeUnit.SECONDS);
+    public String getInputMethodId() {
+        return mInputMethodId;
+    }
+
+    public boolean await() throws Exception {
+        return mLatch.await(5, TimeUnit.SECONDS);
     }
 
     public void reset() {
@@ -70,6 +80,7 @@ public class BlockingBroadcastReceiver extends BroadcastReceiver {
         mCalls = 0;
         mPackageName = null;
         mLocales = null;
+        mInputMethodId = null;
     }
 
     /**

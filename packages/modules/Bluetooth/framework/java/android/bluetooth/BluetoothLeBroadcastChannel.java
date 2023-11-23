@@ -121,22 +121,21 @@ public final class BluetoothLeBroadcastChannel implements Parcelable {
      * @hide
      */
     @SystemApi
-    public static final @NonNull Parcelable.Creator<BluetoothLeBroadcastChannel> CREATOR =
-            new Parcelable.Creator<BluetoothLeBroadcastChannel>() {
-                public @NonNull BluetoothLeBroadcastChannel createFromParcel(@NonNull Parcel in) {
-                    BluetoothLeBroadcastChannel.Builder
-                            builder = new BluetoothLeBroadcastChannel.Builder();
-                    builder.setSelected(in.readBoolean());
-                    builder.setChannelIndex(in.readInt());
-                    builder.setCodecMetadata(
-                            in.readTypedObject(BluetoothLeAudioCodecConfigMetadata.CREATOR));
-                    return builder.build();
-                }
+    @NonNull
+    public static final Creator<BluetoothLeBroadcastChannel> CREATOR = new Creator<>() {
+        public @NonNull BluetoothLeBroadcastChannel createFromParcel(@NonNull Parcel in) {
+            BluetoothLeBroadcastChannel.Builder builder = new BluetoothLeBroadcastChannel.Builder();
+            builder.setSelected(in.readBoolean());
+            builder.setChannelIndex(in.readInt());
+            builder.setCodecMetadata(
+                    in.readTypedObject(BluetoothLeAudioCodecConfigMetadata.CREATOR));
+            return builder.build();
+        }
 
-                public @NonNull BluetoothLeBroadcastChannel[] newArray(int size) {
-                    return new BluetoothLeBroadcastChannel[size];
-                }
-            };
+        public @NonNull BluetoothLeBroadcastChannel[] newArray(int size) {
+            return new BluetoothLeBroadcastChannel[size];
+        }
+    };
 
     /**
      * Builder for {@link BluetoothLeBroadcastChannel}.
@@ -211,7 +210,8 @@ public final class BluetoothLeBroadcastChannel implements Parcelable {
          * @hide
          */
         @SystemApi
-        public @NonNull Builder setCodecMetadata(
+        @NonNull
+        public Builder setCodecMetadata(
                 @NonNull BluetoothLeAudioCodecConfigMetadata codecMetadata) {
             Objects.requireNonNull(codecMetadata, "codecMetadata cannot be null");
             mCodecMetadata = codecMetadata;

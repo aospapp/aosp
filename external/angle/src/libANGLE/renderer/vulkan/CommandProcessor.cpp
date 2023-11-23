@@ -8,8 +8,8 @@
 //
 
 #include "libANGLE/renderer/vulkan/CommandProcessor.h"
+#include "common/system_utils.h"
 #include "libANGLE/renderer/vulkan/RendererVk.h"
-#include "libANGLE/trace.h"
 
 namespace rx
 {
@@ -17,14 +17,16 @@ namespace vk
 {
 namespace
 {
-constexpr size_t kInFlightCommandsLimit = 50u;
-constexpr bool kOutputVmaStatsString    = false;
+constexpr bool kOutputVmaStatsString = false;
+// When suballocation garbages is more than this, we may wait for GPU to finish and free up some
+// memory for allocation.
+constexpr VkDeviceSize kMaxBufferSuballocationGarbageSize = 64 * 1024 * 1024;
 
 void InitializeSubmitInfo(VkSubmitInfo *submitInfo,
-                          const vk::PrimaryCommandBuffer &commandBuffer,
+                          const PrimaryCommandBuffer &commandBuffer,
                           const std::vector<VkSemaphore> &waitSemaphores,
                           const std::vector<VkPipelineStageFlags> &waitSemaphoreStageMasks,
-                          const vk::Semaphore *signalSemaphore)
+                          const VkSemaphore &signalSemaphore)
 {
     // Verify that the submitInfo has been zero'd out.
     ASSERT(submitInfo->signalSemaphoreCount == 0);
@@ -33,90 +35,172 @@ void InitializeSubmitInfo(VkSubmitInfo *submitInfo,
     submitInfo->commandBufferCount = commandBuffer.valid() ? 1 : 0;
     submitInfo->pCommandBuffers    = commandBuffer.ptr();
     submitInfo->waitSemaphoreCount = static_cast<uint32_t>(waitSemaphores.size());
-    submitInfo->pWaitSemaphores    = waitSemaphores.data();
+    submitInfo->pWaitSemaphores    = waitSemaphores.empty() ? nullptr : waitSemaphores.data();
     submitInfo->pWaitDstStageMask  = waitSemaphoreStageMasks.data();
 
-    if (signalSemaphore)
+    if (signalSemaphore != VK_NULL_HANDLE)
     {
         submitInfo->signalSemaphoreCount = 1;
-        submitInfo->pSignalSemaphores    = signalSemaphore->ptr();
+        submitInfo->pSignalSemaphores    = &signalSemaphore;
     }
-}
-
-bool CommandsHaveValidOrdering(const std::vector<vk::CommandBatch> &commands)
-{
-    Serial currentSerial;
-    for (const vk::CommandBatch &commandBatch : commands)
-    {
-        if (commandBatch.serial <= currentSerial)
-        {
-            return false;
-        }
-        currentSerial = commandBatch.serial;
-    }
-
-    return true;
-}
-
-template <typename SecondaryCommandBufferListT>
-void ResetSecondaryCommandBuffers(VkDevice device,
-                                  vk::CommandPool *commandPool,
-                                  SecondaryCommandBufferListT *commandBuffers)
-{
-    // Nothing to do when using ANGLE secondary command buffers.
-}
-
-template <>
-ANGLE_MAYBE_UNUSED void ResetSecondaryCommandBuffers<std::vector<VulkanSecondaryCommandBuffer>>(
-    VkDevice device,
-    vk::CommandPool *commandPool,
-    std::vector<VulkanSecondaryCommandBuffer> *commandBuffers)
-{
-    // Note: we currently free the command buffers individually, but we could potentially reset the
-    // entire command pool.  https://issuetracker.google.com/issues/166793850
-    for (VulkanSecondaryCommandBuffer &secondary : *commandBuffers)
-    {
-        commandPool->freeCommandBuffers(device, 1, secondary.ptr());
-        secondary.releaseHandle();
-    }
-    commandBuffers->clear();
 }
 }  // namespace
 
-angle::Result FenceRecycler::newSharedFence(vk::Context *context,
-                                            vk::Shared<vk::Fence> *sharedFenceOut)
+// SharedFence implementation
+SharedFence::SharedFence() : mRefCountedFence(nullptr), mRecycler(nullptr) {}
+SharedFence::SharedFence(const SharedFence &other)
+    : mRefCountedFence(other.mRefCountedFence), mRecycler(other.mRecycler)
 {
-    bool gotRecycledFence = false;
-    vk::Fence fence;
+    if (mRefCountedFence != nullptr)
     {
-        std::lock_guard<std::mutex> lock(mMutex);
-        if (!mRecyler.empty())
-        {
-            mRecyler.fetch(&fence);
-            gotRecycledFence = true;
-        }
+        mRefCountedFence->addRef();
     }
+}
+SharedFence::SharedFence(SharedFence &&other)
+    : mRefCountedFence(other.mRefCountedFence), mRecycler(other.mRecycler)
+{
+    other.mRecycler        = nullptr;
+    other.mRefCountedFence = nullptr;
+}
 
-    VkDevice device(context->getDevice());
-    if (gotRecycledFence)
-    {
-        ANGLE_VK_TRY(context, fence.reset(device));
-    }
-    else
+SharedFence::~SharedFence()
+{
+    release();
+}
+
+VkResult SharedFence::init(VkDevice device, FenceRecycler *recycler)
+{
+    ASSERT(mRecycler == nullptr && mRefCountedFence == nullptr);
+    Fence fence;
+
+    // First try to fetch from recycler. If that failed, try to create a new VkFence
+    recycler->fetch(device, &fence);
+    if (!fence.valid())
     {
         VkFenceCreateInfo fenceCreateInfo = {};
         fenceCreateInfo.sType             = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
         fenceCreateInfo.flags             = 0;
-        ANGLE_VK_TRY(context, fence.init(device, fenceCreateInfo));
+        VkResult result                   = fence.init(device, fenceCreateInfo);
+        if (result != VK_SUCCESS)
+        {
+            return result;
+        }
     }
-    sharedFenceOut->assign(device, std::move(fence));
-    return angle::Result::Continue;
+
+    // Create a new refcounted object to hold onto VkFence
+    mRefCountedFence = new RefCounted<Fence>(std::move(fence));
+    mRefCountedFence->addRef();
+    mRecycler = recycler;
+
+    return VK_SUCCESS;
 }
 
-void FenceRecycler::destroy(vk::Context *context)
+SharedFence &SharedFence::operator=(const SharedFence &other)
+{
+    release();
+
+    mRecycler = other.mRecycler;
+    if (other.mRefCountedFence != nullptr)
+    {
+        mRefCountedFence = other.mRefCountedFence;
+        mRefCountedFence->addRef();
+    }
+    return *this;
+}
+
+SharedFence &SharedFence::operator=(SharedFence &&other)
+{
+    release();
+    mRecycler              = other.mRecycler;
+    mRefCountedFence       = other.mRefCountedFence;
+    other.mRecycler        = nullptr;
+    other.mRefCountedFence = nullptr;
+    return *this;
+}
+
+void SharedFence::destroy(VkDevice device)
+{
+    if (mRefCountedFence != nullptr)
+    {
+        mRefCountedFence->releaseRef();
+        if (!mRefCountedFence->isReferenced())
+        {
+            mRefCountedFence->get().destroy(device);
+            SafeDelete(mRefCountedFence);
+        }
+        else
+        {
+            mRefCountedFence = nullptr;
+        }
+        mRecycler = nullptr;
+    }
+}
+
+void SharedFence::release()
+{
+    if (mRefCountedFence != nullptr)
+    {
+        mRefCountedFence->releaseRef();
+        if (!mRefCountedFence->isReferenced())
+        {
+            mRecycler->recycle(std::move(mRefCountedFence->get()));
+            ASSERT(!mRefCountedFence->get().valid());
+            SafeDelete(mRefCountedFence);
+        }
+        else
+        {
+            mRefCountedFence = nullptr;
+        }
+        mRecycler = nullptr;
+    }
+}
+
+SharedFence::operator bool() const
+{
+    ASSERT(mRefCountedFence == nullptr || mRefCountedFence->isReferenced());
+    return mRefCountedFence != nullptr;
+}
+
+VkResult SharedFence::getStatus(VkDevice device) const
+{
+    if (mRefCountedFence != nullptr)
+    {
+        return mRefCountedFence->get().getStatus(device);
+    }
+    return VK_SUCCESS;
+}
+
+VkResult SharedFence::wait(VkDevice device, uint64_t timeout) const
+{
+    if (mRefCountedFence != nullptr)
+    {
+        return mRefCountedFence->get().wait(device, timeout);
+    }
+    return VK_SUCCESS;
+}
+
+// FenceRecycler implementation
+void FenceRecycler::destroy(Context *context)
 {
     std::lock_guard<std::mutex> lock(mMutex);
     mRecyler.destroy(context->getDevice());
+}
+
+void FenceRecycler::fetch(VkDevice device, Fence *fenceOut)
+{
+    ASSERT(fenceOut != nullptr && !fenceOut->valid());
+    std::lock_guard<std::mutex> lock(mMutex);
+    if (!mRecyler.empty())
+    {
+        mRecyler.fetch(fenceOut);
+        fenceOut->reset(device);
+    }
+}
+
+void FenceRecycler::recycle(Fence &&fence)
+{
+    std::lock_guard<std::mutex> lock(mMutex);
+    mRecyler.recycle(std::move(fence));
 }
 
 // CommandProcessorTask implementation
@@ -126,40 +210,58 @@ void CommandProcessorTask::initTask()
     mOutsideRenderPassCommandBuffer = nullptr;
     mRenderPassCommandBuffer        = nullptr;
     mRenderPass                     = nullptr;
-    mSemaphore                      = nullptr;
-    mCommandPools                   = nullptr;
-    mOneOffWaitSemaphore            = nullptr;
+    mSemaphore                      = VK_NULL_HANDLE;
+    mOneOffWaitSemaphore            = VK_NULL_HANDLE;
     mOneOffWaitSemaphoreStageMask   = 0;
-    mOneOffFence                    = nullptr;
+    mOneOffFence                    = VK_NULL_HANDLE;
     mPresentInfo                    = {};
     mPresentInfo.pResults           = nullptr;
     mPresentInfo.pSwapchains        = nullptr;
     mPresentInfo.pImageIndices      = nullptr;
     mPresentInfo.pNext              = nullptr;
     mPresentInfo.pWaitSemaphores    = nullptr;
-    mOneOffCommandBufferVk          = VK_NULL_HANDLE;
+    mPresentFence                   = VK_NULL_HANDLE;
+    mSwapchainStatus                = nullptr;
+    mOneOffCommandBuffer            = VK_NULL_HANDLE;
     mPriority                       = egl::ContextPriority::Medium;
-    mHasProtectedContent            = false;
+    mProtectionType                 = ProtectionType::InvalidEnum;
+}
+
+void CommandProcessorTask::initFlushWaitSemaphores(
+    ProtectionType protectionType,
+    egl::ContextPriority priority,
+    std::vector<VkSemaphore> &&waitSemaphores,
+    std::vector<VkPipelineStageFlags> &&waitSemaphoreStageMasks)
+{
+    mTask                    = CustomTask::FlushWaitSemaphores;
+    mPriority                = priority;
+    mProtectionType          = protectionType;
+    mWaitSemaphores          = std::move(waitSemaphores);
+    mWaitSemaphoreStageMasks = std::move(waitSemaphoreStageMasks);
 }
 
 void CommandProcessorTask::initOutsideRenderPassProcessCommands(
-    bool hasProtectedContent,
+    ProtectionType protectionType,
+    egl::ContextPriority priority,
     OutsideRenderPassCommandBufferHelper *commandBuffer)
 {
     mTask                           = CustomTask::ProcessOutsideRenderPassCommands;
     mOutsideRenderPassCommandBuffer = commandBuffer;
-    mHasProtectedContent            = hasProtectedContent;
+    mPriority                       = priority;
+    mProtectionType                 = protectionType;
 }
 
 void CommandProcessorTask::initRenderPassProcessCommands(
-    bool hasProtectedContent,
+    ProtectionType protectionType,
+    egl::ContextPriority priority,
     RenderPassCommandBufferHelper *commandBuffer,
     const RenderPass *renderPass)
 {
     mTask                    = CustomTask::ProcessRenderPassCommands;
     mRenderPassCommandBuffer = commandBuffer;
     mRenderPass              = renderPass;
-    mHasProtectedContent     = hasProtectedContent;
+    mPriority                = priority;
+    mProtectionType          = protectionType;
 }
 
 void CommandProcessorTask::copyPresentInfo(const VkPresentInfoKHR &other)
@@ -170,7 +272,7 @@ void CommandProcessorTask::copyPresentInfo(const VkPresentInfoKHR &other)
     }
 
     mPresentInfo.sType = other.sType;
-    mPresentInfo.pNext = other.pNext;
+    mPresentInfo.pNext = nullptr;
 
     if (other.swapchainCount > 0)
     {
@@ -211,11 +313,41 @@ void CommandProcessorTask::copyPresentInfo(const VkPresentInfoKHR &other)
                 mPresentRegion.pRectangles = mRects.data();
 
                 mPresentRegions.sType          = VK_STRUCTURE_TYPE_PRESENT_REGIONS_KHR;
-                mPresentRegions.pNext          = presentRegions->pNext;
+                mPresentRegions.pNext          = nullptr;
                 mPresentRegions.swapchainCount = 1;
                 mPresentRegions.pRegions       = &mPresentRegion;
-                mPresentInfo.pNext             = &mPresentRegions;
-                pNext                          = const_cast<void *>(presentRegions->pNext);
+                AddToPNextChain(&mPresentInfo, &mPresentRegions);
+                pNext = const_cast<void *>(presentRegions->pNext);
+                break;
+            }
+            case VK_STRUCTURE_TYPE_SWAPCHAIN_PRESENT_FENCE_INFO_EXT:
+            {
+                const VkSwapchainPresentFenceInfoEXT *presentFenceInfo =
+                    reinterpret_cast<VkSwapchainPresentFenceInfoEXT *>(pNext);
+                ASSERT(presentFenceInfo->swapchainCount == 1);
+                mPresentFence = presentFenceInfo->pFences[0];
+
+                mPresentFenceInfo.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_PRESENT_FENCE_INFO_EXT;
+                mPresentFenceInfo.pNext = nullptr;
+                mPresentFenceInfo.swapchainCount = 1;
+                mPresentFenceInfo.pFences        = &mPresentFence;
+                AddToPNextChain(&mPresentInfo, &mPresentFenceInfo);
+                pNext = const_cast<void *>(presentFenceInfo->pNext);
+                break;
+            }
+            case VK_STRUCTURE_TYPE_SWAPCHAIN_PRESENT_MODE_INFO_EXT:
+            {
+                const VkSwapchainPresentModeInfoEXT *presentModeInfo =
+                    reinterpret_cast<VkSwapchainPresentModeInfoEXT *>(pNext);
+                ASSERT(presentModeInfo->swapchainCount == 1);
+                mPresentMode = presentModeInfo->pPresentModes[0];
+
+                mPresentModeInfo.sType          = VK_STRUCTURE_TYPE_SWAPCHAIN_PRESENT_MODE_INFO_EXT;
+                mPresentModeInfo.pNext          = nullptr;
+                mPresentModeInfo.swapchainCount = 1;
+                mPresentModeInfo.pPresentModes  = &mPresentMode;
+                AddToPNextChain(&mPresentInfo, &mPresentModeInfo);
+                pNext = const_cast<void *>(presentModeInfo->pNext);
                 break;
             }
             default:
@@ -227,65 +359,43 @@ void CommandProcessorTask::copyPresentInfo(const VkPresentInfoKHR &other)
 }
 
 void CommandProcessorTask::initPresent(egl::ContextPriority priority,
-                                       const VkPresentInfoKHR &presentInfo)
+                                       const VkPresentInfoKHR &presentInfo,
+                                       SwapchainStatus *swapchainStatus)
 {
-    mTask     = CustomTask::Present;
-    mPriority = priority;
+    mTask            = CustomTask::Present;
+    mPriority        = priority;
+    mSwapchainStatus = swapchainStatus;
     copyPresentInfo(presentInfo);
 }
 
-void CommandProcessorTask::initFinishToSerial(Serial serial)
+void CommandProcessorTask::initFlushAndQueueSubmit(VkSemaphore semaphore,
+                                                   ProtectionType protectionType,
+                                                   egl::ContextPriority priority,
+                                                   const QueueSerial &submitQueueSerial)
 {
-    // Note: sometimes the serial is not valid and that's okay, the finish will early exit in the
-    // TaskProcessor::finishToSerial
-    mTask   = CustomTask::FinishToSerial;
-    mSerial = serial;
-}
-
-void CommandProcessorTask::initWaitIdle()
-{
-    mTask = CustomTask::WaitIdle;
-}
-
-void CommandProcessorTask::initFlushAndQueueSubmit(
-    const std::vector<VkSemaphore> &waitSemaphores,
-    const std::vector<VkPipelineStageFlags> &waitSemaphoreStageMasks,
-    const Semaphore *semaphore,
-    bool hasProtectedContent,
-    egl::ContextPriority priority,
-    SecondaryCommandPools *commandPools,
-    GarbageList &&currentGarbage,
-    SecondaryCommandBufferList &&commandBuffersToReset,
-    Serial submitQueueSerial)
-{
-    mTask                    = CustomTask::FlushAndQueueSubmit;
-    mWaitSemaphores          = waitSemaphores;
-    mWaitSemaphoreStageMasks = waitSemaphoreStageMasks;
-    mSemaphore               = semaphore;
-    mCommandPools            = commandPools;
-    mGarbage                 = std::move(currentGarbage);
-    mCommandBuffersToReset   = std::move(commandBuffersToReset);
-    mPriority                = priority;
-    mHasProtectedContent     = hasProtectedContent;
-    mSerial                  = submitQueueSerial;
+    mTask              = CustomTask::FlushAndQueueSubmit;
+    mSemaphore         = semaphore;
+    mPriority          = priority;
+    mProtectionType    = protectionType;
+    mSubmitQueueSerial = submitQueueSerial;
 }
 
 void CommandProcessorTask::initOneOffQueueSubmit(VkCommandBuffer commandBufferHandle,
-                                                 bool hasProtectedContent,
+                                                 ProtectionType protectionType,
                                                  egl::ContextPriority priority,
-                                                 const Semaphore *waitSemaphore,
+                                                 VkSemaphore waitSemaphore,
                                                  VkPipelineStageFlags waitSemaphoreStageMask,
-                                                 const Fence *fence,
-                                                 Serial submitQueueSerial)
+                                                 VkFence fence,
+                                                 const QueueSerial &submitQueueSerial)
 {
     mTask                         = CustomTask::OneOffQueueSubmit;
-    mOneOffCommandBufferVk        = commandBufferHandle;
+    mOneOffCommandBuffer          = commandBufferHandle;
     mOneOffWaitSemaphore          = waitSemaphore;
     mOneOffWaitSemaphoreStageMask = waitSemaphoreStageMask;
     mOneOffFence                  = fence;
     mPriority                     = priority;
-    mHasProtectedContent          = hasProtectedContent;
-    mSerial                       = submitQueueSerial;
+    mProtectionType               = protectionType;
+    mSubmitQueueSerial            = submitQueueSerial;
 }
 
 CommandProcessorTask &CommandProcessorTask::operator=(CommandProcessorTask &&rhs)
@@ -305,15 +415,13 @@ CommandProcessorTask &CommandProcessorTask::operator=(CommandProcessorTask &&rhs
     std::swap(mOneOffWaitSemaphore, rhs.mOneOffWaitSemaphore);
     std::swap(mOneOffWaitSemaphoreStageMask, rhs.mOneOffWaitSemaphoreStageMask);
     std::swap(mOneOffFence, rhs.mOneOffFence);
-    std::swap(mCommandPools, rhs.mCommandPools);
-    std::swap(mGarbage, rhs.mGarbage);
-    std::swap(mCommandBuffersToReset, rhs.mCommandBuffersToReset);
-    std::swap(mSerial, rhs.mSerial);
+    std::swap(mSubmitQueueSerial, rhs.mSubmitQueueSerial);
     std::swap(mPriority, rhs.mPriority);
-    std::swap(mHasProtectedContent, rhs.mHasProtectedContent);
-    std::swap(mOneOffCommandBufferVk, rhs.mOneOffCommandBufferVk);
+    std::swap(mProtectionType, rhs.mProtectionType);
+    std::swap(mOneOffCommandBuffer, rhs.mOneOffCommandBuffer);
 
     copyPresentInfo(rhs.mPresentInfo);
+    std::swap(mSwapchainStatus, rhs.mSwapchainStatus);
 
     // clear rhs now that everything has moved.
     rhs.initTask();
@@ -322,7 +430,7 @@ CommandProcessorTask &CommandProcessorTask::operator=(CommandProcessorTask &&rhs
 }
 
 // CommandBatch implementation.
-CommandBatch::CommandBatch() : commandPools(nullptr), hasProtectedContent(false) {}
+CommandBatch::CommandBatch() : protectionType(ProtectionType::InvalidEnum) {}
 
 CommandBatch::~CommandBatch() = default;
 
@@ -334,27 +442,19 @@ CommandBatch::CommandBatch(CommandBatch &&other) : CommandBatch()
 CommandBatch &CommandBatch::operator=(CommandBatch &&other)
 {
     std::swap(primaryCommands, other.primaryCommands);
-    std::swap(commandPools, other.commandPools);
-    std::swap(commandBuffersToReset, other.commandBuffersToReset);
+    std::swap(secondaryCommands, other.secondaryCommands);
     std::swap(fence, other.fence);
-    std::swap(serial, other.serial);
-    std::swap(hasProtectedContent, other.hasProtectedContent);
+    std::swap(queueSerial, other.queueSerial);
+    std::swap(protectionType, other.protectionType);
     return *this;
 }
 
 void CommandBatch::destroy(VkDevice device)
 {
     primaryCommands.destroy(device);
-    fence.reset(device);
-    hasProtectedContent = false;
-}
-
-void CommandBatch::resetSecondaryCommandBuffers(VkDevice device)
-{
-    ResetSecondaryCommandBuffers(device, &commandPools->outsideRenderPassPool,
-                                 &commandBuffersToReset.outsideRenderPassCommandBuffers);
-    ResetSecondaryCommandBuffers(device, &commandPools->renderPassPool,
-                                 &commandBuffersToReset.renderPassCommandBuffers);
+    secondaryCommands.retireCommandBuffers();
+    fence.destroy(device);
+    protectionType = ProtectionType::InvalidEnum;
 }
 
 // CommandProcessor implementation.
@@ -380,8 +480,11 @@ void CommandProcessor::handleError(VkResult errorCode,
     mErrors.emplace(error);
 }
 
-CommandProcessor::CommandProcessor(RendererVk *renderer)
-    : Context(renderer), mWorkerThreadIdle(false)
+CommandProcessor::CommandProcessor(RendererVk *renderer, CommandQueue *commandQueue)
+    : Context(renderer),
+      mCommandQueue(commandQueue),
+      mTaskThreadShouldExit(false),
+      mNeedCommandsAndGarbageCleanup(false)
 {
     std::lock_guard<std::mutex> queueLock(mErrorMutex);
     while (!mErrors.empty())
@@ -399,24 +502,46 @@ angle::Result CommandProcessor::checkAndPopPendingError(Context *errorHandlingCo
     {
         return angle::Result::Continue;
     }
-    else
+
+    while (!mErrors.empty())
     {
         Error err = mErrors.front();
         mErrors.pop();
         errorHandlingContext->handleError(err.errorCode, err.file, err.function, err.line);
-        return angle::Result::Stop;
     }
+    return angle::Result::Stop;
 }
 
-void CommandProcessor::queueCommand(CommandProcessorTask &&task)
+angle::Result CommandProcessor::queueCommand(CommandProcessorTask &&task)
 {
     ANGLE_TRACE_EVENT0("gpu.angle", "CommandProcessor::queueCommand");
-    // Grab the worker mutex so that we put things on the queue in the same order as we give out
-    // serials.
-    std::lock_guard<std::mutex> queueLock(mWorkerMutex);
-
-    mTasks.emplace(std::move(task));
+    // Take mTaskEnqueueMutex lock. If task queue is full, try to drain one.
+    std::unique_lock<std::mutex> enqueueLock(mTaskEnqueueMutex);
+    if (mTaskQueue.full())
+    {
+        std::lock_guard<std::mutex> dequeueLock(mTaskDequeueMutex);
+        // Check mTasks again in case someone just drained the mTasks.
+        if (mTaskQueue.full())
+        {
+            CommandProcessorTask frontTask(std::move(mTaskQueue.front()));
+            mTaskQueue.pop();
+            ANGLE_TRY(processTask(&frontTask));
+        }
+    }
+    mTaskQueue.push(std::move(task));
     mWorkAvailableCondition.notify_one();
+
+    return angle::Result::Continue;
+}
+
+void CommandProcessor::requestCommandsAndGarbageCleanup()
+{
+    if (!mNeedCommandsAndGarbageCleanup.exchange(true))
+    {
+        // request clean up in async thread
+        std::unique_lock<std::mutex> enqueueLock(mTaskEnqueueMutex);
+        mWorkAvailableCondition.notify_one();
+    }
 }
 
 void CommandProcessor::processTasks()
@@ -445,93 +570,100 @@ angle::Result CommandProcessor::processTasksImpl(bool *exitThread)
 {
     while (true)
     {
-        std::unique_lock<std::mutex> lock(mWorkerMutex);
-        if (mTasks.empty())
+        std::unique_lock<std::mutex> enqueueLock(mTaskEnqueueMutex);
+        if (mTaskQueue.empty())
         {
-            mWorkerThreadIdle = true;
-            mWorkerIdleCondition.notify_all();
+            if (mTaskThreadShouldExit)
+            {
+                break;
+            }
+
             // Only wake if notified and command queue is not empty
-            mWorkAvailableCondition.wait(lock, [this] { return !mTasks.empty(); });
+            mWorkAvailableCondition.wait(enqueueLock, [this] {
+                return !mTaskQueue.empty() || mTaskThreadShouldExit ||
+                       mNeedCommandsAndGarbageCleanup;
+            });
         }
-        mWorkerThreadIdle = false;
-        CommandProcessorTask task(std::move(mTasks.front()));
-        mTasks.pop();
-        lock.unlock();
+        // Do submission with mTaskEnqueueMutex unlocked so that we still allow enqueue while we
+        // process work.
+        enqueueLock.unlock();
 
-        ANGLE_TRY(processTask(&task));
-        if (task.getTaskCommand() == CustomTask::Exit)
+        // Take submission lock to ensure the submission is in the same order as we received.
+        std::lock_guard<std::mutex> dequeueLock(mTaskDequeueMutex);
+        if (!mTaskQueue.empty())
         {
+            CommandProcessorTask task(std::move(mTaskQueue.front()));
+            mTaskQueue.pop();
 
-            *exitThread = true;
-            lock.lock();
-            mWorkerThreadIdle = true;
-            mWorkerIdleCondition.notify_one();
-            return angle::Result::Continue;
+            // Artificially make the task take longer to catch threading issues.
+            if (getFeatures().slowAsyncCommandQueueForTesting.enabled)
+            {
+                constexpr double kSlowdownTime = 0.005;
+
+                double startTime = angle::GetCurrentSystemTime();
+                while (angle::GetCurrentSystemTime() - startTime < kSlowdownTime)
+                {
+                    // Busy waiting
+                }
+            }
+
+            ANGLE_TRY(processTask(&task));
+        }
+
+        if (mNeedCommandsAndGarbageCleanup.exchange(false))
+        {
+            // Always check completed commands again in case anything new has been finished.
+            ANGLE_TRY(mCommandQueue->checkCompletedCommands(this));
+
+            // Reset command buffer and clean up garbage
+            if (mRenderer->isAsyncCommandBufferResetEnabled() &&
+                mCommandQueue->hasFinishedCommands())
+            {
+                ANGLE_TRY(mCommandQueue->retireFinishedCommands(this));
+            }
+            mRenderer->cleanupGarbage();
         }
     }
-
-    UNREACHABLE();
-    return angle::Result::Stop;
+    *exitThread = true;
+    return angle::Result::Continue;
 }
 
 angle::Result CommandProcessor::processTask(CommandProcessorTask *task)
 {
     switch (task->getTaskCommand())
     {
-        case CustomTask::Exit:
-        {
-            ANGLE_TRY(mCommandQueue.finishToSerial(this, Serial::Infinite(),
-                                                   mRenderer->getMaxFenceWaitTimeNs()));
-            // Shutting down so cleanup
-            mCommandQueue.destroy(this);
-            break;
-        }
         case CustomTask::FlushAndQueueSubmit:
         {
             ANGLE_TRACE_EVENT0("gpu.angle", "processTask::FlushAndQueueSubmit");
             // End command buffer
 
-            // Call submitFrame()
-            ANGLE_TRY(mCommandQueue.submitFrame(
-                this, task->hasProtectedContent(), task->getPriority(), task->getWaitSemaphores(),
-                task->getWaitSemaphoreStageMasks(), task->getSemaphore(),
-                std::move(task->getGarbage()), std::move(task->getCommandBuffersToReset()),
-                task->getCommandPools(), task->getQueueSerial()));
-
-            ASSERT(task->getGarbage().empty());
+            // Call submitCommands()
+            ANGLE_TRY(mCommandQueue->submitCommands(this, task->getProtectionType(),
+                                                    task->getPriority(), task->getSemaphore(),
+                                                    task->getSubmitQueueSerial()));
+            mNeedCommandsAndGarbageCleanup = true;
             break;
         }
         case CustomTask::OneOffQueueSubmit:
         {
             ANGLE_TRACE_EVENT0("gpu.angle", "processTask::OneOffQueueSubmit");
 
-            ANGLE_TRY(mCommandQueue.queueSubmitOneOff(
-                this, task->hasProtectedContent(), task->getPriority(),
-                task->getOneOffCommandBufferVk(), task->getOneOffWaitSemaphore(),
+            ANGLE_TRY(mCommandQueue->queueSubmitOneOff(
+                this, task->getProtectionType(), task->getPriority(),
+                task->getOneOffCommandBuffer(), task->getOneOffWaitSemaphore(),
                 task->getOneOffWaitSemaphoreStageMask(), task->getOneOffFence(),
-                SubmitPolicy::EnsureSubmitted, task->getQueueSerial()));
-            ANGLE_TRY(mCommandQueue.checkCompletedCommands(this));
-            break;
-        }
-        case CustomTask::FinishToSerial:
-        {
-            ANGLE_TRY(mCommandQueue.finishToSerial(this, task->getQueueSerial(),
-                                                   mRenderer->getMaxFenceWaitTimeNs()));
-            break;
-        }
-        case CustomTask::WaitIdle:
-        {
-            ANGLE_TRY(mCommandQueue.waitIdle(this, mRenderer->getMaxFenceWaitTimeNs()));
+                SubmitPolicy::EnsureSubmitted, task->getSubmitQueueSerial()));
+            mNeedCommandsAndGarbageCleanup = true;
             break;
         }
         case CustomTask::Present:
         {
-            VkResult result = present(task->getPriority(), task->getPresentInfo());
-            if (ANGLE_UNLIKELY(result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR))
-            {
-                // We get to ignore these as they are not fatal
-            }
-            else if (ANGLE_UNLIKELY(result != VK_SUCCESS))
+            present(task->getPriority(), task->getPresentInfo(), task->getSwapchainStatus());
+
+            VkResult result = task->getSwapchainStatus()->lastPresentResult;
+            // We get to ignore these as they are not fatal
+            if (result != VK_ERROR_OUT_OF_DATE_KHR && result != VK_SUBOPTIMAL_KHR &&
+                result != VK_SUCCESS)
             {
                 // Save the error so that we can handle it.
                 // Don't leave processing loop, don't consider errors from present to be fatal.
@@ -541,34 +673,35 @@ angle::Result CommandProcessor::processTask(CommandProcessorTask *task)
             }
             break;
         }
+        case CustomTask::FlushWaitSemaphores:
+        {
+            mCommandQueue->flushWaitSemaphores(task->getProtectionType(), task->getPriority(),
+                                               std::move(task->getWaitSemaphores()),
+                                               std::move(task->getWaitSemaphoreStageMasks()));
+            break;
+        }
         case CustomTask::ProcessOutsideRenderPassCommands:
         {
             OutsideRenderPassCommandBufferHelper *commandBuffer =
                 task->getOutsideRenderPassCommandBuffer();
-            ANGLE_TRY(mCommandQueue.flushOutsideRPCommands(this, task->hasProtectedContent(),
-                                                           &commandBuffer));
+            ANGLE_TRY(mCommandQueue->flushOutsideRPCommands(this, task->getProtectionType(),
+                                                            task->getPriority(), &commandBuffer));
 
             OutsideRenderPassCommandBufferHelper *originalCommandBuffer =
                 task->getOutsideRenderPassCommandBuffer();
-            mRenderer->recycleOutsideRenderPassCommandBufferHelper(mRenderer->getDevice(),
-                                                                   &originalCommandBuffer);
+            mRenderer->recycleOutsideRenderPassCommandBufferHelper(&originalCommandBuffer);
             break;
         }
         case CustomTask::ProcessRenderPassCommands:
         {
             RenderPassCommandBufferHelper *commandBuffer = task->getRenderPassCommandBuffer();
-            ANGLE_TRY(mCommandQueue.flushRenderPassCommands(
-                this, task->hasProtectedContent(), *task->getRenderPass(), &commandBuffer));
+            ANGLE_TRY(mCommandQueue->flushRenderPassCommands(
+                this, task->getProtectionType(), task->getPriority(), *task->getRenderPass(),
+                &commandBuffer));
 
             RenderPassCommandBufferHelper *originalCommandBuffer =
                 task->getRenderPassCommandBuffer();
-            mRenderer->recycleRenderPassCommandBufferHelper(mRenderer->getDevice(),
-                                                            &originalCommandBuffer);
-            break;
-        }
-        case CustomTask::CheckCompletedCommands:
-        {
-            ANGLE_TRY(mCommandQueue.checkCompletedCommands(this));
+            mRenderer->recycleRenderPassCommandBufferHelper(&originalCommandBuffer);
             break;
         }
         default:
@@ -579,37 +712,37 @@ angle::Result CommandProcessor::processTask(CommandProcessorTask *task)
     return angle::Result::Continue;
 }
 
-angle::Result CommandProcessor::checkCompletedCommands(Context *context)
+angle::Result CommandProcessor::waitForAllWorkToBeSubmitted(Context *context)
 {
+    ANGLE_TRACE_EVENT0("gpu.angle", "CommandProcessor::waitForAllWorkToBeSubmitted");
+    // Take mWorkerMutex lock so that no one is able to enqueue more work while we drain it
+    // and handle device lost.
+    std::lock_guard<std::mutex> enqueueLock(mTaskEnqueueMutex);
+    std::lock_guard<std::mutex> dequeueLock(mTaskDequeueMutex);
+    // Sync any errors to the context
+    // Do this inside the mutex to prevent new errors adding to the list.
     ANGLE_TRY(checkAndPopPendingError(context));
 
-    CommandProcessorTask checkCompletedTask;
-    checkCompletedTask.initTask(CustomTask::CheckCompletedCommands);
-    queueCommand(std::move(checkCompletedTask));
+    while (!mTaskQueue.empty())
+    {
+        CommandProcessorTask task(std::move(mTaskQueue.front()));
+        mTaskQueue.pop();
+        ANGLE_TRY(processTask(&task));
+    }
+
+    if (mRenderer->isAsyncCommandBufferResetEnabled())
+    {
+        ANGLE_TRY(mCommandQueue->retireFinishedCommands(context));
+    }
+    context->getRenderer()->cleanupGarbage();
+
+    mNeedCommandsAndGarbageCleanup = false;
 
     return angle::Result::Continue;
 }
 
-angle::Result CommandProcessor::waitForWorkComplete(Context *context)
+angle::Result CommandProcessor::init()
 {
-    ANGLE_TRACE_EVENT0("gpu.angle", "CommandProcessor::waitForWorkComplete");
-    std::unique_lock<std::mutex> lock(mWorkerMutex);
-    mWorkerIdleCondition.wait(lock, [this] { return (mTasks.empty() && mWorkerThreadIdle); });
-    // Worker thread is idle and command queue is empty so good to continue
-
-    // Sync any errors to the context
-    bool shouldStop = hasPendingError();
-    while (hasPendingError())
-    {
-        (void)checkAndPopPendingError(context);
-    }
-    return shouldStop ? angle::Result::Stop : angle::Result::Continue;
-}
-
-angle::Result CommandProcessor::init(Context *context, const DeviceQueueMap &queueMap)
-{
-    ANGLE_TRY(mCommandQueue.init(context, queueMap));
-
     mTaskThread = std::thread(&CommandProcessor::processTasks, this);
 
     return angle::Result::Continue;
@@ -617,223 +750,237 @@ angle::Result CommandProcessor::init(Context *context, const DeviceQueueMap &que
 
 void CommandProcessor::destroy(Context *context)
 {
-    CommandProcessorTask endTask;
-    endTask.initTask(CustomTask::Exit);
-    queueCommand(std::move(endTask));
-    (void)waitForWorkComplete(context);
+    {
+        // Request to terminate the worker thread
+        std::lock_guard<std::mutex> enqueueLock(mTaskEnqueueMutex);
+        mTaskThreadShouldExit = true;
+        mWorkAvailableCondition.notify_one();
+    }
+
+    (void)waitForAllWorkToBeSubmitted(context);
     if (mTaskThread.joinable())
     {
         mTaskThread.join();
     }
 }
 
-Serial CommandProcessor::getLastCompletedQueueSerial() const
-{
-    std::lock_guard<std::mutex> lock(mQueueSerialMutex);
-    return mCommandQueue.getLastCompletedQueueSerial();
-}
-
-bool CommandProcessor::isBusy() const
-{
-    std::lock_guard<std::mutex> serialLock(mQueueSerialMutex);
-    std::lock_guard<std::mutex> workerLock(mWorkerMutex);
-    return !mTasks.empty() || mCommandQueue.isBusy();
-}
-
-Serial CommandProcessor::reserveSubmitSerial()
-{
-    std::lock_guard<std::mutex> lock(mQueueSerialMutex);
-    return mCommandQueue.reserveSubmitSerial();
-}
-
-// Wait until all commands up to and including serial have been processed
-angle::Result CommandProcessor::finishToSerial(Context *context, Serial serial, uint64_t timeout)
-{
-    ANGLE_TRACE_EVENT0("gpu.angle", "CommandProcessor::finishToSerial");
-
-    ANGLE_TRY(checkAndPopPendingError(context));
-
-    CommandProcessorTask task;
-    task.initFinishToSerial(serial);
-    queueCommand(std::move(task));
-
-    // Wait until the worker is idle. At that point we know that the finishToSerial command has
-    // completed executing, including any associated state cleanup.
-    return waitForWorkComplete(context);
-}
-
-angle::Result CommandProcessor::waitIdle(Context *context, uint64_t timeout)
-{
-    ANGLE_TRACE_EVENT0("gpu.angle", "CommandProcessor::waitIdle");
-
-    CommandProcessorTask task;
-    task.initWaitIdle();
-    queueCommand(std::move(task));
-
-    return waitForWorkComplete(context);
-}
-
 void CommandProcessor::handleDeviceLost(RendererVk *renderer)
 {
     ANGLE_TRACE_EVENT0("gpu.angle", "CommandProcessor::handleDeviceLost");
-    std::unique_lock<std::mutex> lock(mWorkerMutex);
-    mWorkerIdleCondition.wait(lock, [this] { return (mTasks.empty() && mWorkerThreadIdle); });
-
+    // Take mTaskEnqueueMutex lock so that no one is able to add more work to the queue while we
+    // drain it and handle device lost.
+    std::lock_guard<std::mutex> enqueueLock(mTaskEnqueueMutex);
+    (void)waitForAllWorkToBeSubmitted(this);
     // Worker thread is idle and command queue is empty so good to continue
-    mCommandQueue.handleDeviceLost(renderer);
+    mCommandQueue->handleDeviceLost(renderer);
 }
 
-VkResult CommandProcessor::getLastAndClearPresentResult(VkSwapchainKHR swapchain)
+void CommandProcessor::present(egl::ContextPriority priority,
+                               const VkPresentInfoKHR &presentInfo,
+                               SwapchainStatus *swapchainStatus)
 {
-    std::unique_lock<std::mutex> lock(mSwapchainStatusMutex);
-    if (mSwapchainStatus.find(swapchain) == mSwapchainStatus.end())
-    {
-        // Wake when required swapchain status becomes available
-        mSwapchainStatusCondition.wait(lock, [this, swapchain] {
-            return mSwapchainStatus.find(swapchain) != mSwapchainStatus.end();
-        });
-    }
-    VkResult result = mSwapchainStatus[swapchain];
-    mSwapchainStatus.erase(swapchain);
-    return result;
-}
-
-VkResult CommandProcessor::present(egl::ContextPriority priority,
-                                   const VkPresentInfoKHR &presentInfo)
-{
-    std::lock_guard<std::mutex> lock(mSwapchainStatusMutex);
     ANGLE_TRACE_EVENT0("gpu.angle", "vkQueuePresentKHR");
-    VkResult result = mCommandQueue.queuePresent(priority, presentInfo);
-
     // Verify that we are presenting one and only one swapchain
     ASSERT(presentInfo.swapchainCount == 1);
     ASSERT(presentInfo.pResults == nullptr);
-    mSwapchainStatus[presentInfo.pSwapchains[0]] = result;
 
-    mSwapchainStatusCondition.notify_all();
-
-    return result;
+    mCommandQueue->queuePresent(priority, presentInfo, swapchainStatus);
+    ASSERT(swapchainStatus->isPending);
+    // Always make sure update isPending after status has been updated.
+    swapchainStatus->isPending = false;
 }
 
-angle::Result CommandProcessor::submitFrame(
-    Context *context,
-    bool hasProtectedContent,
-    egl::ContextPriority priority,
-    const std::vector<VkSemaphore> &waitSemaphores,
-    const std::vector<VkPipelineStageFlags> &waitSemaphoreStageMasks,
-    const Semaphore *signalSemaphore,
-    GarbageList &&currentGarbage,
-    SecondaryCommandBufferList &&commandBuffersToReset,
-    SecondaryCommandPools *commandPools,
-    Serial submitQueueSerial)
+angle::Result CommandProcessor::enqueueSubmitCommands(Context *context,
+                                                      ProtectionType protectionType,
+                                                      egl::ContextPriority priority,
+                                                      VkSemaphore signalSemaphore,
+                                                      const QueueSerial &submitQueueSerial)
 {
     ANGLE_TRY(checkAndPopPendingError(context));
 
     CommandProcessorTask task;
-    task.initFlushAndQueueSubmit(waitSemaphores, waitSemaphoreStageMasks, signalSemaphore,
-                                 hasProtectedContent, priority, commandPools,
-                                 std::move(currentGarbage), std::move(commandBuffersToReset),
-                                 submitQueueSerial);
+    task.initFlushAndQueueSubmit(signalSemaphore, protectionType, priority, submitQueueSerial);
 
-    queueCommand(std::move(task));
+    ANGLE_TRY(queueCommand(std::move(task)));
+
+    mLastEnqueuedSerials.setQueueSerial(submitQueueSerial);
 
     return angle::Result::Continue;
 }
 
-angle::Result CommandProcessor::queueSubmitOneOff(Context *context,
-                                                  bool hasProtectedContent,
-                                                  egl::ContextPriority contextPriority,
-                                                  VkCommandBuffer commandBufferHandle,
-                                                  const Semaphore *waitSemaphore,
-                                                  VkPipelineStageFlags waitSemaphoreStageMask,
-                                                  const Fence *fence,
-                                                  SubmitPolicy submitPolicy,
-                                                  Serial submitQueueSerial)
+angle::Result CommandProcessor::enqueueSubmitOneOffCommands(
+    Context *context,
+    ProtectionType protectionType,
+    egl::ContextPriority contextPriority,
+    VkCommandBuffer commandBufferHandle,
+    VkSemaphore waitSemaphore,
+    VkPipelineStageFlags waitSemaphoreStageMask,
+    VkFence fence,
+    SubmitPolicy submitPolicy,
+    const QueueSerial &submitQueueSerial)
 {
     ANGLE_TRY(checkAndPopPendingError(context));
 
     CommandProcessorTask task;
-    task.initOneOffQueueSubmit(commandBufferHandle, hasProtectedContent, contextPriority,
-                               waitSemaphore, waitSemaphoreStageMask, fence, submitQueueSerial);
-    queueCommand(std::move(task));
+    task.initOneOffQueueSubmit(commandBufferHandle, protectionType, contextPriority, waitSemaphore,
+                               waitSemaphoreStageMask, fence, submitQueueSerial);
+    ANGLE_TRY(queueCommand(std::move(task)));
+
+    mLastEnqueuedSerials.setQueueSerial(submitQueueSerial);
+
     if (submitPolicy == SubmitPolicy::EnsureSubmitted)
     {
         // Caller has synchronization requirement to have work in GPU pipe when returning from this
         // function.
-        ANGLE_TRY(waitForWorkComplete(context));
+        ANGLE_TRY(waitForQueueSerialToBeSubmitted(context, submitQueueSerial));
     }
 
     return angle::Result::Continue;
 }
 
-VkResult CommandProcessor::queuePresent(egl::ContextPriority contextPriority,
-                                        const VkPresentInfoKHR &presentInfo)
+void CommandProcessor::enqueuePresent(egl::ContextPriority contextPriority,
+                                      const VkPresentInfoKHR &presentInfo,
+                                      SwapchainStatus *swapchainStatus)
+{
+    ASSERT(!swapchainStatus->isPending);
+    swapchainStatus->isPending = true;
+    // Always return with VK_SUCCESS initially. When we call acquireNextImage we'll check the
+    // return code again. This allows the app to continue working until we really need to know
+    // the return code from present.
+    swapchainStatus->lastPresentResult = VK_SUCCESS;
+
+    CommandProcessorTask task;
+    task.initPresent(contextPriority, presentInfo, swapchainStatus);
+    (void)queueCommand(std::move(task));
+}
+
+angle::Result CommandProcessor::enqueueFlushWaitSemaphores(
+    ProtectionType protectionType,
+    egl::ContextPriority priority,
+    std::vector<VkSemaphore> &&waitSemaphores,
+    std::vector<VkPipelineStageFlags> &&waitSemaphoreStageMasks)
 {
     CommandProcessorTask task;
-    task.initPresent(contextPriority, presentInfo);
+    task.initFlushWaitSemaphores(protectionType, priority, std::move(waitSemaphores),
+                                 std::move(waitSemaphoreStageMasks));
+    ANGLE_TRY(queueCommand(std::move(task)));
 
-    ANGLE_TRACE_EVENT0("gpu.angle", "CommandProcessor::queuePresent");
-    queueCommand(std::move(task));
-
-    // Always return success, when we call acquireNextImage we'll check the return code. This
-    // allows the app to continue working until we really need to know the return code from
-    // present.
-    return VK_SUCCESS;
+    return angle::Result::Continue;
 }
 
-angle::Result CommandProcessor::waitForSerialWithUserTimeout(vk::Context *context,
-                                                             Serial serial,
-                                                             uint64_t timeout,
-                                                             VkResult *result)
-{
-    // If finishToSerial times out we generate an error. Therefore we a large timeout.
-    // TODO: https://issuetracker.google.com/170312581 - Wait with timeout.
-    return finishToSerial(context, serial, mRenderer->getMaxFenceWaitTimeNs());
-}
-
-angle::Result CommandProcessor::flushOutsideRPCommands(
+angle::Result CommandProcessor::enqueueFlushOutsideRPCommands(
     Context *context,
-    bool hasProtectedContent,
+    ProtectionType protectionType,
+    egl::ContextPriority priority,
     OutsideRenderPassCommandBufferHelper **outsideRPCommands)
 {
     ANGLE_TRY(checkAndPopPendingError(context));
 
     (*outsideRPCommands)->markClosed();
+
+    SecondaryCommandPool *commandPool = nullptr;
+    ANGLE_TRY((*outsideRPCommands)->detachCommandPool(context, &commandPool));
+
+    // Detach functions are only used for ring buffer allocators.
+    SecondaryCommandMemoryAllocator *allocator = (*outsideRPCommands)->detachAllocator();
+
     CommandProcessorTask task;
-    task.initOutsideRenderPassProcessCommands(hasProtectedContent, *outsideRPCommands);
-    queueCommand(std::move(task));
-    return mRenderer->getOutsideRenderPassCommandBufferHelper(
-        context, (*outsideRPCommands)->getCommandPool(), outsideRPCommands);
+    task.initOutsideRenderPassProcessCommands(protectionType, priority, *outsideRPCommands);
+    ANGLE_TRY(queueCommand(std::move(task)));
+
+    ANGLE_TRY(mRenderer->getOutsideRenderPassCommandBufferHelper(context, commandPool, allocator,
+                                                                 outsideRPCommands));
+
+    return angle::Result::Continue;
 }
 
-angle::Result CommandProcessor::flushRenderPassCommands(
+angle::Result CommandProcessor::enqueueFlushRenderPassCommands(
     Context *context,
-    bool hasProtectedContent,
+    ProtectionType protectionType,
+    egl::ContextPriority priority,
     const RenderPass &renderPass,
     RenderPassCommandBufferHelper **renderPassCommands)
 {
     ANGLE_TRY(checkAndPopPendingError(context));
 
     (*renderPassCommands)->markClosed();
+
+    SecondaryCommandPool *commandPool = nullptr;
+    (*renderPassCommands)->detachCommandPool(&commandPool);
+
+    // Detach functions are only used for ring buffer allocators.
+    SecondaryCommandMemoryAllocator *allocator = (*renderPassCommands)->detachAllocator();
+
     CommandProcessorTask task;
-    task.initRenderPassProcessCommands(hasProtectedContent, *renderPassCommands, &renderPass);
-    queueCommand(std::move(task));
-    return mRenderer->getRenderPassCommandBufferHelper(
-        context, (*renderPassCommands)->getCommandPool(), renderPassCommands);
+    task.initRenderPassProcessCommands(protectionType, priority, *renderPassCommands, &renderPass);
+    ANGLE_TRY(queueCommand(std::move(task)));
+
+    ANGLE_TRY(mRenderer->getRenderPassCommandBufferHelper(context, commandPool, allocator,
+                                                          renderPassCommands));
+
+    return angle::Result::Continue;
 }
 
-angle::Result CommandProcessor::ensureNoPendingWork(Context *context)
+angle::Result CommandProcessor::waitForResourceUseToBeSubmitted(Context *context,
+                                                                const ResourceUse &use)
 {
-    return waitForWorkComplete(context);
+    if (mCommandQueue->hasResourceUseSubmitted(use))
+    {
+        ANGLE_TRY(checkAndPopPendingError(context));
+    }
+    else
+    {
+        // We do not hold mTaskEnqueueMutex lock, so that we still allow other context to enqueue
+        // work while we are processing them.
+        std::lock_guard<std::mutex> dequeueLock(mTaskDequeueMutex);
+
+        // Do this inside the mutex to prevent new errors adding to the list.
+        ANGLE_TRY(checkAndPopPendingError(context));
+
+        size_t maxTaskCount = mTaskQueue.size();
+        size_t taskCount    = 0;
+        while (taskCount < maxTaskCount && !mCommandQueue->hasResourceUseSubmitted(use))
+        {
+            CommandProcessorTask task(std::move(mTaskQueue.front()));
+            mTaskQueue.pop();
+            ANGLE_TRY(processTask(&task));
+            taskCount++;
+        }
+    }
+    return angle::Result::Continue;
 }
 
-// CommandQueue implementation.
-CommandQueue::CommandQueue() : mCurrentQueueSerial(mQueueSerialFactory.generate()) {}
+angle::Result CommandProcessor::waitForPresentToBeSubmitted(SwapchainStatus *swapchainStatus)
+{
+    if (!swapchainStatus->isPending)
+    {
+        return angle::Result::Continue;
+    }
+
+    std::lock_guard<std::mutex> dequeueLock(mTaskDequeueMutex);
+    size_t maxTaskCount = mTaskQueue.size();
+    size_t taskCount    = 0;
+    while (taskCount < maxTaskCount && swapchainStatus->isPending)
+    {
+        CommandProcessorTask task(std::move(mTaskQueue.front()));
+        mTaskQueue.pop();
+        ANGLE_TRY(processTask(&task));
+        taskCount++;
+    }
+    ASSERT(!swapchainStatus->isPending);
+    return angle::Result::Continue;
+}
+
+// CommandQueue public API implementation. These must be thread safe and never called from
+// CommandQueue class itself.
+CommandQueue::CommandQueue() : mPerfCounters{} {}
 
 CommandQueue::~CommandQueue() = default;
 
 void CommandQueue::destroy(Context *context)
 {
+    std::lock_guard<std::mutex> lock(mMutex);
+    std::lock_guard<std::mutex> enqueuelock(mQueueSubmitMutex);
     // Force all commands to finish by flushing all queues.
     for (VkQueue queue : mQueueMap)
     {
@@ -845,396 +992,402 @@ void CommandQueue::destroy(Context *context)
 
     RendererVk *renderer = context->getRenderer();
 
-    mLastCompletedQueueSerial = Serial::Infinite();
-    (void)clearAllGarbage(renderer);
+    // Assigns an infinite "last completed" serial to force garbage to delete.
+    mLastCompletedSerials.fill(Serial::Infinite());
 
-    mPrimaryCommands.destroy(renderer->getDevice());
-    mPrimaryCommandPool.destroy(renderer->getDevice());
-
-    if (mProtectedPrimaryCommandPool.valid())
+    for (auto &protectionMap : mCommandsStateMap)
     {
-        mProtectedPrimaryCommands.destroy(renderer->getDevice());
-        mProtectedPrimaryCommandPool.destroy(renderer->getDevice());
+        for (CommandsState &state : protectionMap)
+        {
+            state.waitSemaphores.clear();
+            state.waitSemaphoreStageMasks.clear();
+            state.primaryCommands.destroy(renderer->getDevice());
+            state.secondaryCommands.retireCommandBuffers();
+        }
+    }
+
+    for (PersistentCommandPool &commandPool : mPrimaryCommandPoolMap)
+    {
+        commandPool.destroy(renderer->getDevice());
     }
 
     mFenceRecycler.destroy(context);
 
-    ASSERT(mInFlightCommands.empty() && mGarbageQueue.empty());
+    ASSERT(mInFlightCommands.empty());
+    ASSERT(mFinishedCommandBatches.empty());
 }
 
-angle::Result CommandQueue::init(Context *context, const vk::DeviceQueueMap &queueMap)
+angle::Result CommandQueue::init(Context *context, const DeviceQueueMap &queueMap)
 {
-    // Initialize the command pool now that we know the queue family index.
-    ANGLE_TRY(mPrimaryCommandPool.init(context, false, queueMap.getIndex()));
+    std::lock_guard<std::mutex> lock(mMutex);
+    // In case of RendererVk gets re-initialized, we can't rely on constructor to do initialization
+    // for us.
+    mLastSubmittedSerials.fill(kZeroSerial);
+    mLastCompletedSerials.fill(kZeroSerial);
+
+    // Assign before initializing the command pools in order to get the queue family index.
     mQueueMap = queueMap;
+
+    ANGLE_TRY(initCommandPool(context, ProtectionType::Unprotected));
 
     if (queueMap.isProtected())
     {
-        ANGLE_TRY(mProtectedPrimaryCommandPool.init(context, true, queueMap.getIndex()));
+        ANGLE_TRY(initCommandPool(context, ProtectionType::Protected));
     }
 
     return angle::Result::Continue;
-}
-
-angle::Result CommandQueue::checkCompletedCommands(Context *context)
-{
-    ANGLE_TRACE_EVENT0("gpu.angle", "CommandQueue::checkCompletedCommandsNoLock");
-    RendererVk *renderer = context->getRenderer();
-    VkDevice device      = renderer->getDevice();
-
-    int finishedCount = 0;
-
-    for (CommandBatch &batch : mInFlightCommands)
-    {
-        VkResult result = batch.fence.get().getStatus(device);
-        if (result == VK_NOT_READY)
-        {
-            break;
-        }
-        ANGLE_VK_TRY(context, result);
-        ++finishedCount;
-    }
-
-    if (finishedCount == 0)
-    {
-        return angle::Result::Continue;
-    }
-
-    return retireFinishedCommands(context, finishedCount);
-}
-
-angle::Result CommandQueue::retireFinishedCommands(Context *context, size_t finishedCount)
-{
-    ASSERT(finishedCount > 0);
-
-    RendererVk *renderer = context->getRenderer();
-    VkDevice device      = renderer->getDevice();
-
-    for (size_t commandIndex = 0; commandIndex < finishedCount; ++commandIndex)
-    {
-        CommandBatch &batch = mInFlightCommands[commandIndex];
-
-        mLastCompletedQueueSerial = batch.serial;
-        mFenceRecycler.resetSharedFence(&batch.fence);
-        ANGLE_TRACE_EVENT0("gpu.angle", "command buffer recycling");
-        batch.resetSecondaryCommandBuffers(device);
-        PersistentCommandPool &commandPool = getCommandPool(batch.hasProtectedContent);
-        ANGLE_TRY(commandPool.collect(context, std::move(batch.primaryCommands)));
-    }
-
-    if (finishedCount > 0)
-    {
-        auto beginIter = mInFlightCommands.begin();
-        mInFlightCommands.erase(beginIter, beginIter + finishedCount);
-    }
-
-    while (!mGarbageQueue.empty())
-    {
-        GarbageAndSerial &garbageList = mGarbageQueue.front();
-        if (garbageList.getSerial() < mLastCompletedQueueSerial)
-        {
-            for (GarbageObject &garbage : garbageList.get())
-            {
-                garbage.destroy(renderer);
-            }
-            mGarbageQueue.pop();
-        }
-        else
-        {
-            break;
-        }
-    }
-
-    return angle::Result::Continue;
-}
-
-void CommandQueue::releaseToCommandBatch(bool hasProtectedContent,
-                                         PrimaryCommandBuffer &&commandBuffer,
-                                         SecondaryCommandPools *commandPools,
-                                         CommandBatch *batch)
-{
-    ANGLE_TRACE_EVENT0("gpu.angle", "CommandQueue::releaseToCommandBatch");
-
-    batch->primaryCommands     = std::move(commandBuffer);
-    batch->commandPools        = commandPools;
-    batch->hasProtectedContent = hasProtectedContent;
-}
-
-void CommandQueue::clearAllGarbage(RendererVk *renderer)
-{
-    while (!mGarbageQueue.empty())
-    {
-        GarbageAndSerial &garbageList = mGarbageQueue.front();
-        for (GarbageObject &garbage : garbageList.get())
-        {
-            garbage.destroy(renderer);
-        }
-        mGarbageQueue.pop();
-    }
 }
 
 void CommandQueue::handleDeviceLost(RendererVk *renderer)
 {
     ANGLE_TRACE_EVENT0("gpu.angle", "CommandQueue::handleDeviceLost");
-
     VkDevice device = renderer->getDevice();
+    // Hold both locks while clean up mInFlightCommands.
+    std::lock_guard<std::mutex> dequeuelock(mMutex);
+    std::lock_guard<std::mutex> enqueuelock(mQueueSubmitMutex);
 
-    for (CommandBatch &batch : mInFlightCommands)
+    while (!mInFlightCommands.empty())
     {
+        CommandBatch &batch = mInFlightCommands.front();
         // On device loss we need to wait for fence to be signaled before destroying it
-        VkResult status = batch.fence.get().wait(device, renderer->getMaxFenceWaitTimeNs());
-        // If the wait times out, it is probably not possible to recover from lost device
-        ASSERT(status == VK_SUCCESS || status == VK_ERROR_DEVICE_LOST);
+        if (batch.fence)
+        {
+            VkResult status = batch.fence.wait(device, renderer->getMaxFenceWaitTimeNs());
+            // If the wait times out, it is probably not possible to recover from lost device
+            ASSERT(status == VK_SUCCESS || status == VK_ERROR_DEVICE_LOST);
+
+            batch.fence.destroy(device);
+        }
 
         // On device lost, here simply destroy the CommandBuffer, it will fully cleared later
         // by CommandPool::destroy
-        batch.primaryCommands.destroy(device);
+        if (batch.primaryCommands.valid())
+        {
+            batch.primaryCommands.destroy(device);
+        }
 
-        batch.resetSecondaryCommandBuffers(device);
-        batch.fence.reset(device);
+        batch.secondaryCommands.retireCommandBuffers();
+
+        mLastCompletedSerials.setQueueSerial(batch.queueSerial);
+        mInFlightCommands.pop();
     }
-    mInFlightCommands.clear();
 }
 
-bool CommandQueue::allInFlightCommandsAreAfterSerial(Serial serial)
+angle::Result CommandQueue::postSubmitCheck(Context *context)
 {
-    return mInFlightCommands.empty() || mInFlightCommands[0].serial > serial;
-}
+    RendererVk *renderer = context->getRenderer();
 
-angle::Result CommandQueue::finishToSerial(Context *context, Serial finishSerial, uint64_t timeout)
-{
-    if (mInFlightCommands.empty())
+    // Update mLastCompletedQueueSerial immediately in case any command has been finished.
+    ANGLE_TRY(checkAndCleanupCompletedCommands(context));
+
+    VkDeviceSize suballocationGarbageSize = renderer->getSuballocationGarbageSize();
+    if (suballocationGarbageSize > kMaxBufferSuballocationGarbageSize)
     {
-        return angle::Result::Continue;
+        // CPU should be throttled to avoid accumulating too much memory garbage waiting to be
+        // destroyed. This is important to keep peak memory usage at check when game launched and a
+        // lot of staging buffers used for textures upload and then gets released. But if there is
+        // only one command buffer in flight, we do not wait here to ensure we keep GPU busy.
+        std::unique_lock<std::mutex> lock(mMutex);
+        while (suballocationGarbageSize > kMaxBufferSuballocationGarbageSize &&
+               mInFlightCommands.size() > 1)
+        {
+            ANGLE_TRY(finishOneCommandBatchAndCleanup(context, renderer->getMaxFenceWaitTimeNs()));
+            suballocationGarbageSize = renderer->getSuballocationGarbageSize();
+        }
     }
 
-    ANGLE_TRACE_EVENT0("gpu.angle", "CommandQueue::finishToSerial");
-
-    // Find the serial in the the list. The serials should be in order.
-    ASSERT(CommandsHaveValidOrdering(mInFlightCommands));
-
-    size_t finishedCount = 0;
-    while (finishedCount < mInFlightCommands.size() &&
-           mInFlightCommands[finishedCount].serial <= finishSerial)
+    if (kOutputVmaStatsString)
     {
-        finishedCount++;
+        renderer->outputVmaStatString();
     }
-
-    if (finishedCount == 0)
-    {
-        return angle::Result::Continue;
-    }
-
-    const CommandBatch &batch = mInFlightCommands[finishedCount - 1];
-
-    // Wait for it finish
-    VkDevice device = context->getDevice();
-    VkResult status = batch.fence.get().wait(device, timeout);
-
-    ANGLE_VK_TRY(context, status);
-
-    // Clean up finished batches.
-    ANGLE_TRY(retireFinishedCommands(context, finishedCount));
-    ASSERT(allInFlightCommandsAreAfterSerial(finishSerial));
 
     return angle::Result::Continue;
+}
+
+angle::Result CommandQueue::finishResourceUse(Context *context,
+                                              const ResourceUse &use,
+                                              uint64_t timeout)
+{
+    VkDevice device = context->getDevice();
+
+    {
+        std::unique_lock<std::mutex> lock(mMutex);
+        while (!mInFlightCommands.empty() && !hasResourceUseFinished(use))
+        {
+            bool finished;
+            ANGLE_TRY(checkOneCommandBatch(context, &finished));
+            if (!finished)
+            {
+                // You can only use the local copy of the sharedFence without lock;
+                const SharedFence localSharedFenceToWaitOn = mInFlightCommands.front().fence;
+                lock.unlock();
+                VkResult status = localSharedFenceToWaitOn.wait(device, timeout);
+                lock.lock();
+
+                ANGLE_VK_TRY(context, status);
+            }
+        }
+        // Check the rest of the commands in case they are also finished.
+        ANGLE_TRY(checkCompletedCommandsLocked(context));
+    }
+    ASSERT(hasResourceUseFinished(use));
+
+    if (!mFinishedCommandBatches.empty())
+    {
+        ANGLE_TRY(retireFinishedCommandsAndCleanupGarbage(context));
+    }
+
+    return angle::Result::Continue;
+}
+
+angle::Result CommandQueue::finishQueueSerial(Context *context,
+                                              const QueueSerial &queueSerial,
+                                              uint64_t timeout)
+{
+    vk::ResourceUse use(queueSerial);
+    return finishResourceUse(context, use, timeout);
 }
 
 angle::Result CommandQueue::waitIdle(Context *context, uint64_t timeout)
 {
-    return finishToSerial(context, mLastSubmittedQueueSerial, timeout);
+    // Fill the local variable with lock
+    vk::ResourceUse use;
+    {
+        std::lock_guard<std::mutex> lock(mMutex);
+        if (mInFlightCommands.empty())
+        {
+            return angle::Result::Continue;
+        }
+        use.setQueueSerial(mInFlightCommands.back().queueSerial);
+    }
+
+    return finishResourceUse(context, use, timeout);
 }
 
-Serial CommandQueue::reserveSubmitSerial()
+angle::Result CommandQueue::waitForResourceUseToFinishWithUserTimeout(Context *context,
+                                                                      const ResourceUse &use,
+                                                                      uint64_t timeout,
+                                                                      VkResult *result)
 {
-    Serial returnSerial = mCurrentQueueSerial;
-    mCurrentQueueSerial = mQueueSerialFactory.generate();
-    return returnSerial;
-}
-
-angle::Result CommandQueue::submitFrame(
-    Context *context,
-    bool hasProtectedContent,
-    egl::ContextPriority priority,
-    const std::vector<VkSemaphore> &waitSemaphores,
-    const std::vector<VkPipelineStageFlags> &waitSemaphoreStageMasks,
-    const Semaphore *signalSemaphore,
-    GarbageList &&currentGarbage,
-    SecondaryCommandBufferList &&commandBuffersToReset,
-    SecondaryCommandPools *commandPools,
-    Serial submitQueueSerial)
-{
-    // Start an empty primary buffer if we have an empty submit.
-    PrimaryCommandBuffer &commandBuffer = getCommandBuffer(hasProtectedContent);
-    ANGLE_TRY(ensurePrimaryCommandBufferValid(context, hasProtectedContent));
-    ANGLE_VK_TRY(context, commandBuffer.end());
-
-    VkSubmitInfo submitInfo = {};
-    InitializeSubmitInfo(&submitInfo, commandBuffer, waitSemaphores, waitSemaphoreStageMasks,
-                         signalSemaphore);
-
-    VkProtectedSubmitInfo protectedSubmitInfo = {};
-    if (hasProtectedContent)
-    {
-        protectedSubmitInfo.sType           = VK_STRUCTURE_TYPE_PROTECTED_SUBMIT_INFO;
-        protectedSubmitInfo.pNext           = nullptr;
-        protectedSubmitInfo.protectedSubmit = true;
-        submitInfo.pNext                    = &protectedSubmitInfo;
-    }
-
-    ANGLE_TRACE_EVENT0("gpu.angle", "CommandQueue::submitFrame");
-
-    RendererVk *renderer = context->getRenderer();
-    VkDevice device      = renderer->getDevice();
-
-    DeviceScoped<CommandBatch> scopedBatch(device);
-    CommandBatch &batch = scopedBatch.get();
-
-    ANGLE_TRY(mFenceRecycler.newSharedFence(context, &batch.fence));
-    batch.serial                = submitQueueSerial;
-    batch.hasProtectedContent   = hasProtectedContent;
-    batch.commandBuffersToReset = std::move(commandBuffersToReset);
-
-    ANGLE_TRY(queueSubmit(context, priority, submitInfo, &batch.fence.get(), batch.serial));
-
-    if (!currentGarbage.empty())
-    {
-        mGarbageQueue.emplace(std::move(currentGarbage), batch.serial);
-    }
-
-    // Store the primary CommandBuffer and command pool used for secondary CommandBuffers
-    // in the in-flight list.
-    if (hasProtectedContent)
-    {
-        releaseToCommandBatch(hasProtectedContent, std::move(mProtectedPrimaryCommands),
-                              commandPools, &batch);
-    }
-    else
-    {
-        releaseToCommandBatch(hasProtectedContent, std::move(mPrimaryCommands), commandPools,
-                              &batch);
-    }
-    mInFlightCommands.emplace_back(scopedBatch.release());
-
-    ANGLE_TRY(checkCompletedCommands(context));
-
-    // CPU should be throttled to avoid mInFlightCommands from growing too fast. Important for
-    // off-screen scenarios.
-    if (mInFlightCommands.size() > kInFlightCommandsLimit)
-    {
-        size_t numCommandsToFinish = mInFlightCommands.size() - kInFlightCommandsLimit;
-        Serial finishSerial        = mInFlightCommands[numCommandsToFinish].serial;
-        ANGLE_TRY(finishToSerial(context, finishSerial, renderer->getMaxFenceWaitTimeNs()));
-    }
-
-    return angle::Result::Continue;
-}
-
-angle::Result CommandQueue::waitForSerialWithUserTimeout(vk::Context *context,
-                                                         Serial serial,
-                                                         uint64_t timeout,
-                                                         VkResult *result)
-{
-    // No in-flight work. This indicates the serial is already complete.
-    if (mInFlightCommands.empty())
-    {
-        *result = VK_SUCCESS;
-        return angle::Result::Continue;
-    }
-
-    // Serial is already complete.
-    if (serial < mInFlightCommands[0].serial)
-    {
-        *result = VK_SUCCESS;
-        return angle::Result::Continue;
-    }
-
-    size_t batchIndex = 0;
-    while (batchIndex != mInFlightCommands.size() && mInFlightCommands[batchIndex].serial < serial)
-    {
-        batchIndex++;
-    }
-
     // Serial is not yet submitted. This is undefined behaviour, so we can do anything.
-    if (batchIndex >= mInFlightCommands.size())
+    if (!hasResourceUseSubmitted(use))
     {
         WARN() << "Waiting on an unsubmitted serial.";
         *result = VK_TIMEOUT;
         return angle::Result::Continue;
     }
 
-    ASSERT(serial == mInFlightCommands[batchIndex].serial);
-
-    vk::Fence &fence = mInFlightCommands[batchIndex].fence.get();
-    ASSERT(fence.valid());
-    *result = fence.wait(context->getDevice(), timeout);
-
-    // Don't trigger an error on timeout.
-    if (*result != VK_TIMEOUT)
+    VkDevice device      = context->getDevice();
+    size_t finishedCount = 0;
     {
-        ANGLE_VK_TRY(context, *result);
+        std::unique_lock<std::mutex> lock(mMutex);
+        while (!mInFlightCommands.empty() && !hasResourceUseFinished(use))
+        {
+            bool finished;
+            ANGLE_TRY(checkOneCommandBatch(context, &finished));
+            if (!finished)
+            {
+                // You can only use the local copy of the sharedFence without lock;
+                const SharedFence localSharedFenceToWaitOn = mInFlightCommands.front().fence;
+                lock.unlock();
+                VkResult status = localSharedFenceToWaitOn.wait(device, timeout);
+                lock.lock();
+
+                *result = status;
+                // Don't trigger an error on timeout.
+                if (*result == VK_TIMEOUT)
+                {
+                    break;
+                }
+                else
+                {
+                    ANGLE_VK_TRY(context, *result);
+                }
+            }
+        }
+        // Do one more check in case more commands also finished.
+        ANGLE_TRY(checkCompletedCommandsLocked(context));
+        finishedCount = mFinishedCommandBatches.size();
+    }
+
+    if (finishedCount > 0)
+    {
+        ANGLE_TRY(retireFinishedCommandsAndCleanupGarbage(context));
     }
 
     return angle::Result::Continue;
 }
 
-angle::Result CommandQueue::ensurePrimaryCommandBufferValid(Context *context,
-                                                            bool hasProtectedContent)
+bool CommandQueue::isBusy(RendererVk *renderer) const
 {
-    PersistentCommandPool &commandPool  = getCommandPool(hasProtectedContent);
-    PrimaryCommandBuffer &commandBuffer = getCommandBuffer(hasProtectedContent);
-
-    if (commandBuffer.valid())
+    // No lock is needed here since we are accessing atomic variables only.
+    size_t maxIndex = renderer->getLargestQueueSerialIndexEverAllocated();
+    for (SerialIndex i = 0; i <= maxIndex; ++i)
     {
-        return angle::Result::Continue;
+        if (mLastSubmittedSerials[i] > mLastCompletedSerials[i])
+        {
+            return true;
+        }
     }
+    return false;
+}
 
-    ANGLE_TRY(commandPool.allocate(context, &commandBuffer));
-    VkCommandBufferBeginInfo beginInfo = {};
-    beginInfo.sType                    = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-    beginInfo.flags                    = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-    beginInfo.pInheritanceInfo         = nullptr;
-    ANGLE_VK_TRY(context, commandBuffer.begin(beginInfo));
+void CommandQueue::flushWaitSemaphores(ProtectionType protectionType,
+                                       egl::ContextPriority priority,
+                                       std::vector<VkSemaphore> &&waitSemaphores,
+                                       std::vector<VkPipelineStageFlags> &&waitSemaphoreStageMasks)
+{
+    ASSERT(!waitSemaphores.empty());
+    ASSERT(waitSemaphores.size() == waitSemaphoreStageMasks.size());
+    std::lock_guard<std::mutex> lock(mMutex);
 
-    return angle::Result::Continue;
+    CommandsState &state = mCommandsStateMap[priority][protectionType];
+
+    state.waitSemaphores.insert(state.waitSemaphores.end(), waitSemaphores.begin(),
+                                waitSemaphores.end());
+    state.waitSemaphoreStageMasks.insert(state.waitSemaphoreStageMasks.end(),
+                                         waitSemaphoreStageMasks.begin(),
+                                         waitSemaphoreStageMasks.end());
+
+    waitSemaphores.clear();
+    waitSemaphoreStageMasks.clear();
 }
 
 angle::Result CommandQueue::flushOutsideRPCommands(
     Context *context,
-    bool hasProtectedContent,
+    ProtectionType protectionType,
+    egl::ContextPriority priority,
     OutsideRenderPassCommandBufferHelper **outsideRPCommands)
 {
-    ANGLE_TRY(ensurePrimaryCommandBufferValid(context, hasProtectedContent));
-    PrimaryCommandBuffer &commandBuffer = getCommandBuffer(hasProtectedContent);
-    return (*outsideRPCommands)->flushToPrimary(context, &commandBuffer);
+    std::lock_guard<std::mutex> lock(mMutex);
+    ANGLE_TRY(ensurePrimaryCommandBufferValid(context, protectionType, priority));
+    CommandsState &state = mCommandsStateMap[priority][protectionType];
+    return (*outsideRPCommands)->flushToPrimary(context, &state);
 }
 
 angle::Result CommandQueue::flushRenderPassCommands(
     Context *context,
-    bool hasProtectedContent,
+    ProtectionType protectionType,
+    egl::ContextPriority priority,
     const RenderPass &renderPass,
     RenderPassCommandBufferHelper **renderPassCommands)
 {
-    ANGLE_TRY(ensurePrimaryCommandBufferValid(context, hasProtectedContent));
-    PrimaryCommandBuffer &commandBuffer = getCommandBuffer(hasProtectedContent);
-    return (*renderPassCommands)->flushToPrimary(context, &commandBuffer, &renderPass);
+    std::lock_guard<std::mutex> lock(mMutex);
+    ANGLE_TRY(ensurePrimaryCommandBufferValid(context, protectionType, priority));
+    CommandsState &state = mCommandsStateMap[priority][protectionType];
+    return (*renderPassCommands)->flushToPrimary(context, &state, &renderPass);
+}
+
+angle::Result CommandQueue::submitCommands(Context *context,
+                                           ProtectionType protectionType,
+                                           egl::ContextPriority priority,
+                                           VkSemaphore signalSemaphore,
+                                           const QueueSerial &submitQueueSerial)
+{
+    ANGLE_TRACE_EVENT0("gpu.angle", "CommandQueue::submitCommands");
+    std::unique_lock<std::mutex> lock(mMutex);
+    RendererVk *renderer = context->getRenderer();
+    VkDevice device      = renderer->getDevice();
+
+    ++mPerfCounters.commandQueueSubmitCallsTotal;
+    ++mPerfCounters.commandQueueSubmitCallsPerFrame;
+
+    DeviceScoped<CommandBatch> scopedBatch(device);
+    CommandBatch &batch = scopedBatch.get();
+
+    batch.queueSerial    = submitQueueSerial;
+    batch.protectionType = protectionType;
+
+    CommandsState &state = mCommandsStateMap[priority][protectionType];
+    // Store the primary CommandBuffer in the in-flight list.
+    batch.primaryCommands = std::move(state.primaryCommands);
+
+    // Store secondary Command Buffers.
+    batch.secondaryCommands = std::move(state.secondaryCommands);
+    ASSERT(batch.primaryCommands.valid() || batch.secondaryCommands.empty());
+
+    // Move to local copy of vectors since queueSubmit will release the lock.
+    std::vector<VkSemaphore> waitSemaphores = std::move(state.waitSemaphores);
+    std::vector<VkPipelineStageFlags> waitSemaphoreStageMasks =
+        std::move(state.waitSemaphoreStageMasks);
+
+    mPerfCounters.commandQueueWaitSemaphoresTotal += waitSemaphores.size();
+
+    // Don't make a submission if there is nothing to submit.
+    const bool needsQueueSubmit = batch.primaryCommands.valid() ||
+                                  signalSemaphore != VK_NULL_HANDLE || !waitSemaphores.empty();
+    VkSubmitInfo submitInfo                   = {};
+    VkProtectedSubmitInfo protectedSubmitInfo = {};
+    VkFence fence                             = VK_NULL_HANDLE;
+
+    if (needsQueueSubmit)
+    {
+        if (batch.primaryCommands.valid())
+        {
+            ANGLE_VK_TRY(context, batch.primaryCommands.end());
+        }
+
+        InitializeSubmitInfo(&submitInfo, batch.primaryCommands, waitSemaphores,
+                             waitSemaphoreStageMasks, signalSemaphore);
+
+        // No need protected submission if no commands to submit.
+        if (protectionType == ProtectionType::Protected && batch.primaryCommands.valid())
+        {
+            protectedSubmitInfo.sType           = VK_STRUCTURE_TYPE_PROTECTED_SUBMIT_INFO;
+            protectedSubmitInfo.pNext           = nullptr;
+            protectedSubmitInfo.protectedSubmit = true;
+            submitInfo.pNext                    = &protectedSubmitInfo;
+        }
+
+        ANGLE_VK_TRY(context, batch.fence.init(context->getDevice(), &mFenceRecycler));
+        fence = batch.fence.get().getHandle();
+
+        ++mPerfCounters.vkQueueSubmitCallsTotal;
+        ++mPerfCounters.vkQueueSubmitCallsPerFrame;
+    }
+
+    // Note queueSubmit will release the lock.
+    ANGLE_TRY(queueSubmit(context, std::move(lock), priority, submitInfo, fence, scopedBatch,
+                          submitQueueSerial));
+
+    // Clear local vector without lock.
+    waitSemaphores.clear();
+    waitSemaphoreStageMasks.clear();
+
+    return angle::Result::Continue;
 }
 
 angle::Result CommandQueue::queueSubmitOneOff(Context *context,
-                                              bool hasProtectedContent,
+                                              ProtectionType protectionType,
                                               egl::ContextPriority contextPriority,
                                               VkCommandBuffer commandBufferHandle,
-                                              const Semaphore *waitSemaphore,
+                                              VkSemaphore waitSemaphore,
                                               VkPipelineStageFlags waitSemaphoreStageMask,
-                                              const Fence *fence,
+                                              VkFence fence,
                                               SubmitPolicy submitPolicy,
-                                              Serial submitQueueSerial)
+                                              const QueueSerial &submitQueueSerial)
 {
+    std::unique_lock<std::mutex> lock(mMutex);
+    DeviceScoped<CommandBatch> scopedBatch(context->getDevice());
+    CommandBatch &batch  = scopedBatch.get();
+    batch.queueSerial    = submitQueueSerial;
+    batch.protectionType = protectionType;
+
+    // If caller passed in a fence, use it. Otherwise create an internal fence. That way if we can
+    // go through normal waitForQueueSerial code path to wait for it to finish.
+    if (fence == VK_NULL_HANDLE)
+    {
+        ANGLE_VK_TRY(context, batch.fence.init(context->getDevice(), &mFenceRecycler));
+        fence = batch.fence.get().getHandle();
+    }
+
     VkSubmitInfo submitInfo = {};
     submitInfo.sType        = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 
     VkProtectedSubmitInfo protectedSubmitInfo = {};
-    if (hasProtectedContent)
+    ASSERT(protectionType == ProtectionType::Unprotected ||
+           protectionType == ProtectionType::Protected);
+    if (protectionType == ProtectionType::Protected)
     {
         protectedSubmitInfo.sType           = VK_STRUCTURE_TYPE_PROTECTED_SUBMIT_INFO;
         protectedSubmitInfo.pNext           = nullptr;
@@ -1248,55 +1401,216 @@ angle::Result CommandQueue::queueSubmitOneOff(Context *context,
         submitInfo.pCommandBuffers    = &commandBufferHandle;
     }
 
-    if (waitSemaphore != nullptr)
+    if (waitSemaphore != VK_NULL_HANDLE)
     {
         submitInfo.waitSemaphoreCount = 1;
-        submitInfo.pWaitSemaphores    = waitSemaphore->ptr();
+        submitInfo.pWaitSemaphores    = &waitSemaphore;
         submitInfo.pWaitDstStageMask  = &waitSemaphoreStageMask;
     }
 
-    return queueSubmit(context, contextPriority, submitInfo, fence, submitQueueSerial);
+    ++mPerfCounters.vkQueueSubmitCallsTotal;
+    ++mPerfCounters.vkQueueSubmitCallsPerFrame;
+
+    // Note queueSubmit will release the lock.
+    return queueSubmit(context, std::move(lock), contextPriority, submitInfo, fence, scopedBatch,
+                       submitQueueSerial);
 }
 
 angle::Result CommandQueue::queueSubmit(Context *context,
+                                        std::unique_lock<std::mutex> &&dequeueLock,
                                         egl::ContextPriority contextPriority,
                                         const VkSubmitInfo &submitInfo,
-                                        const Fence *fence,
-                                        Serial submitQueueSerial)
+                                        VkFence fence,
+                                        DeviceScoped<CommandBatch> &commandBatch,
+                                        const QueueSerial &submitQueueSerial)
 {
     ANGLE_TRACE_EVENT0("gpu.angle", "CommandQueue::queueSubmit");
-
     RendererVk *renderer = context->getRenderer();
 
-    if (kOutputVmaStatsString)
+    // Lock relay to ensure the ordering of submission strictly follow the context's submission
+    // order. This lock relay (first take mMutex and then mQueueSubmitMutex, and then release
+    // mMutex) ensures we always have a lock covering the entire call which ensures the strict
+    // submission order.
+    std::lock_guard<std::mutex> queueSubmitLock(mQueueSubmitMutex);
+    // CPU should be throttled to avoid mInFlightCommands from growing too fast. Important for
+    // off-screen scenarios.
+    if (mInFlightCommands.full())
     {
-        renderer->outputVmaStatString();
+        ANGLE_TRY(finishOneCommandBatchAndCleanup(context, renderer->getMaxFenceWaitTimeNs()));
+    }
+    // Release the dequeue lock while doing potentially lengthy vkQueueSubmit call.
+    // Note: after this point, you can not reference anything that required mMutex lock.
+    dequeueLock.unlock();
+
+    if (submitInfo.sType == VK_STRUCTURE_TYPE_SUBMIT_INFO)
+    {
+        VkQueue queue = getQueue(contextPriority);
+        ANGLE_VK_TRY(context, vkQueueSubmit(queue, 1, &submitInfo, fence));
     }
 
-    VkFence fenceHandle = fence ? fence->getHandle() : VK_NULL_HANDLE;
-    VkQueue queue       = getQueue(contextPriority);
-    ANGLE_VK_TRY(context, vkQueueSubmit(queue, 1, &submitInfo, fenceHandle));
-    mLastSubmittedQueueSerial = submitQueueSerial;
+    mInFlightCommands.push(commandBatch.release());
 
-    // Now that we've submitted work, clean up RendererVk garbage
-    return renderer->cleanupGarbage(mLastCompletedQueueSerial);
+    // This must set last so that when this submission appears submitted, it actually already
+    // submitted and enqueued to mInFlightCommands.
+    mLastSubmittedSerials.setQueueSerial(submitQueueSerial);
+    return angle::Result::Continue;
 }
 
-VkResult CommandQueue::queuePresent(egl::ContextPriority contextPriority,
-                                    const VkPresentInfoKHR &presentInfo)
+void CommandQueue::queuePresent(egl::ContextPriority contextPriority,
+                                const VkPresentInfoKHR &presentInfo,
+                                SwapchainStatus *swapchainStatus)
 {
-    VkQueue queue = getQueue(contextPriority);
-    return vkQueuePresentKHR(queue, &presentInfo);
+    std::lock_guard<std::mutex> queueSubmitLock(mQueueSubmitMutex);
+    VkQueue queue                      = getQueue(contextPriority);
+    swapchainStatus->lastPresentResult = vkQueuePresentKHR(queue, &presentInfo);
 }
 
-Serial CommandQueue::getLastCompletedQueueSerial() const
+const angle::VulkanPerfCounters CommandQueue::getPerfCounters() const
 {
-    return mLastCompletedQueueSerial;
+    std::lock_guard<std::mutex> lock(mMutex);
+    return mPerfCounters;
 }
 
-bool CommandQueue::isBusy() const
+void CommandQueue::resetPerFramePerfCounters()
 {
-    return mLastSubmittedQueueSerial > mLastCompletedQueueSerial;
+    std::lock_guard<std::mutex> lock(mMutex);
+    mPerfCounters.commandQueueSubmitCallsPerFrame = 0;
+    mPerfCounters.vkQueueSubmitCallsPerFrame      = 0;
+}
+
+angle::Result CommandQueue::retireFinishedCommandsAndCleanupGarbage(Context *context)
+{
+    RendererVk *renderer = context->getRenderer();
+    if (!renderer->isAsyncCommandBufferResetEnabled())
+    {
+        // Do immediate command buffer reset
+        ANGLE_TRY(retireFinishedCommands(context));
+    }
+
+    renderer->requestAsyncCommandsAndGarbageCleanup(context);
+
+    return angle::Result::Continue;
+}
+
+// CommandQueue private API implementation. These are called by public API, so lock already held.
+angle::Result CommandQueue::checkOneCommandBatch(Context *context, bool *finished)
+{
+    VkDevice device = context->getDevice();
+    ASSERT(!mInFlightCommands.empty());
+
+    CommandBatch &batch = mInFlightCommands.front();
+    *finished           = false;
+    if (batch.fence)
+    {
+        VkResult status = batch.fence.getStatus(device);
+        if (status == VK_NOT_READY)
+        {
+            return angle::Result::Continue;
+        }
+        ANGLE_VK_TRY(context, status);
+    }
+
+    // Finished.
+    mLastCompletedSerials.setQueueSerial(batch.queueSerial);
+
+    // Move command batch to mFinishedCommandBatches.
+    if (mFinishedCommandBatches.full())
+    {
+        ANGLE_TRY(retireFinishedCommandsLocked(context));
+    }
+    mFinishedCommandBatches.push(std::move(batch));
+    mInFlightCommands.pop();
+    *finished = true;
+
+    return angle::Result::Continue;
+}
+
+angle::Result CommandQueue::finishOneCommandBatchAndCleanup(Context *context, uint64_t timeout)
+{
+    ASSERT(!mInFlightCommands.empty());
+    CommandBatch &batch = mInFlightCommands.front();
+    if (batch.fence)
+    {
+        VkResult status = batch.fence.wait(context->getDevice(), timeout);
+        ANGLE_VK_TRY(context, status);
+    }
+
+    mLastCompletedSerials.setQueueSerial(batch.queueSerial);
+    // Move command batch to mFinishedCommandBatches.
+    if (mFinishedCommandBatches.full())
+    {
+        ANGLE_TRY(retireFinishedCommandsLocked(context));
+    }
+    mFinishedCommandBatches.push(std::move(batch));
+    mInFlightCommands.pop();
+
+    // Immediately clean up finished batches.
+    ANGLE_TRY(retireFinishedCommandsLocked(context));
+    context->getRenderer()->cleanupGarbage();
+
+    return angle::Result::Continue;
+}
+
+angle::Result CommandQueue::retireFinishedCommandsLocked(Context *context)
+{
+    ANGLE_TRACE_EVENT0("gpu.angle", "retireFinishedCommandsLocked");
+
+    while (!mFinishedCommandBatches.empty())
+    {
+        CommandBatch &batch = mFinishedCommandBatches.front();
+        ASSERT(batch.queueSerial <= mLastCompletedSerials);
+
+        if (batch.fence)
+        {
+            batch.fence.release();
+        }
+        if (batch.primaryCommands.valid())
+        {
+            PersistentCommandPool &commandPool = mPrimaryCommandPoolMap[batch.protectionType];
+            ANGLE_TRY(commandPool.collect(context, std::move(batch.primaryCommands)));
+        }
+
+        batch.secondaryCommands.retireCommandBuffers();
+
+        mFinishedCommandBatches.pop();
+    }
+
+    return angle::Result::Continue;
+}
+
+angle::Result CommandQueue::checkCompletedCommandsLocked(Context *context)
+{
+    while (!mInFlightCommands.empty())
+    {
+        bool finished;
+        ANGLE_TRY(checkOneCommandBatch(context, &finished));
+        if (!finished)
+        {
+            break;
+        }
+    }
+    return angle::Result::Continue;
+}
+
+angle::Result CommandQueue::ensurePrimaryCommandBufferValid(Context *context,
+                                                            ProtectionType protectionType,
+                                                            egl::ContextPriority priority)
+{
+    CommandsState &state = mCommandsStateMap[priority][protectionType];
+
+    if (state.primaryCommands.valid())
+    {
+        return angle::Result::Continue;
+    }
+
+    ANGLE_TRY(mPrimaryCommandPoolMap[protectionType].allocate(context, &state.primaryCommands));
+    VkCommandBufferBeginInfo beginInfo = {};
+    beginInfo.sType                    = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+    beginInfo.flags                    = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+    beginInfo.pInheritanceInfo         = nullptr;
+    ANGLE_VK_TRY(context, state.primaryCommands.begin(beginInfo));
+
+    return angle::Result::Continue;
 }
 
 // QueuePriorities:
@@ -1428,18 +1742,6 @@ uint32_t QueueFamily::FindIndex(const std::vector<VkQueueFamilyProperties> &queu
     }
 
     return index;
-}
-
-// ScopedCommandQueueLock implementation
-ScopedCommandQueueLock::~ScopedCommandQueueLock()
-{
-    // Before unlocking the mutex, see if device loss has occured, and if so handle it.
-    if (mRenderer->isDeviceLost())
-    {
-        mRenderer->handleDeviceLostNoLock();
-    }
-
-    mLock.unlock();
 }
 
 }  // namespace vk

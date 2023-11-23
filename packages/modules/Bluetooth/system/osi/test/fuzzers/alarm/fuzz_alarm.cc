@@ -17,7 +17,6 @@
 #include <fcntl.h>
 #include <fuzzer/FuzzedDataProvider.h>
 #include "osi/include/alarm.h"
-#include "osi/include/semaphore.h"
 
 #include "common/message_loop_thread.h"
 
@@ -29,7 +28,37 @@ using bluetooth::common::MessageLoopThread;
 #define MAX_BUFFER_LEN 4096
 #define MAX_ALARM_DURATION 25
 
-static semaphore_t* semaphore;
+class btsemaphore {
+ public:
+  void post() {
+    std::lock_guard<std::mutex> lock(mMutex);
+    ++mCount;
+    mCondition.notify_one();
+  }
+
+  void wait() {
+    std::unique_lock<std::mutex> lock(mMutex);
+    while (!mCount) {
+      mCondition.wait(lock);
+    }
+    --mCount;
+  }
+
+  bool try_wait() {
+    std::lock_guard<std::mutex> lock(mMutex);
+    if (mCount) {
+      --mCount;
+      return true;
+    }
+    return false;
+  }
+
+ private:
+  std::mutex mMutex;
+  std::condition_variable mCondition;
+  unsigned long mCount = 0;
+};
+static btsemaphore semaphore;
 static int cb_counter;
 static MessageLoopThread* thread = new MessageLoopThread("fake main thread");
 
@@ -37,14 +66,13 @@ bluetooth::common::MessageLoopThread* get_main_thread() { return thread; }
 
 static void cb(void* data) {
   ++cb_counter;
-  semaphore_post(semaphore);
+  semaphore.post();
 }
 
 void setup() {
   cb_counter = 0;
-  semaphore = semaphore_new(0);
 }
-void teardown() { semaphore_free(semaphore); }
+void teardown() { }
 
 alarm_t* fuzz_init_alarm(FuzzedDataProvider* dataProvider) {
   size_t name_len =
@@ -130,7 +158,7 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* Data, size_t Size) {
 
     // Wait for them to complete
     for (int i = 1; i <= num_alarms; i++) {
-      semaphore_wait(semaphore);
+      semaphore.wait();
     }
   }
 

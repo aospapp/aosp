@@ -16,8 +16,13 @@ Project pages are located at: http://linux-test-project.github.io/
 The latest image is always available at:
 https://github.com/linux-test-project/ltp/releases
 
-The discussion about the project happens at ltp mailing list:
+The discussion about the project happens at LTP mailing list:
 http://lists.linux.it/listinfo/ltp
+
+LTP mailing list is archived at:
+https://lore.kernel.org/ltp/
+
+IRC #ltp at: [irc.libera.chat](https://libera.chat/)
 
 The git repository is located at GitHub at:
 https://github.com/linux-test-project/ltp
@@ -39,7 +44,7 @@ Quick guide to running the tests
 
 If you have git, autoconf, automake, m4, pkgconf / pkg-config, libc headers,
 linux kernel headers and other common development packages installed (see
-INSTALL and travis/*.sh), the chances are the following will work:
+INSTALL and ci/*.sh), the chances are the following will work:
 
 ```
 $ git clone https://github.com/linux-test-project/ltp.git
@@ -52,7 +57,7 @@ Now you can continue either with compiling and running a single test or with
 compiling and installing the whole testsuite.
 
 For optional library dependencies look into scripts for major distros in
-`travis/` directory. You can also build whole LTP with `./build.sh` script.
+`ci/` directory. You can also build whole LTP with `./build.sh` script.
 
 Shortcut to running a single test
 ---------------------------------
@@ -150,7 +155,7 @@ $ testcases/bin/abort01
 Some have arguments
 
 ```
-$ testcases/bin/fork13 -i 37
+$ testcases/bin/mesgq\_nstest -m none
 ```
 
 The vast majority of test cases accept the -h (help) switch
@@ -178,8 +183,7 @@ https://github.com/linux-test-project/ltp/wiki/User-Guidelines.
 Network tests
 -------------
 Network tests require certain setup, described in `testcases/network/README.md`
-(online at https://github.com/linux-test-project/ltp/tree/master/testcases/network)
-and `INSTALL`.
+(online at https://github.com/linux-test-project/ltp/tree/master/testcases/network).
 
 Developers corner
 =================
@@ -204,8 +208,7 @@ list. Also note that these documents are available online at:
 
 Although we accept GitHub pull requests, the preferred way is sending patches to our mailing list.
 
-It's a good idea to test patches on Travis CI before posting to mailing
-list. Our travis setup covers various architectures and distributions in
+It's a good idea to test patches on GitHub Actions before posting to mailing
+list. Our GitHub Actions setup covers various architectures and distributions in
 order to make sure LTP compiles cleanly on most common configurations.
-For testing you need to sign up to Travis CI, enable running builds on your LTP fork on
-https://travis-ci.org/account/repositories and push your branch.
+For testing you need to just push your changes to your own LTP fork on GitHub.

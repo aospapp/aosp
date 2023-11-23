@@ -30,7 +30,7 @@ public class MultiWindowEmptyActivity extends EmptyActivity {
 
     private static final String TAG = "MultiWindowEmptyActivity";
     private static MultiWindowEmptyActivity sLastInstance;
-    private static CountDownLatch sLastInstanceLatch;
+    private static CountDownLatch sLastInstanceLatch = new CountDownLatch(1);
     private static CountDownLatch sDestroyLastInstanceLatch;
 
     @Override
@@ -43,35 +43,24 @@ public class MultiWindowEmptyActivity extends EmptyActivity {
     }
 
     @Override
-    public void onWindowFocusChanged(boolean hasFocus) {
-        if (hasFocus) {
-            if (sLastInstanceLatch != null) {
-                sLastInstanceLatch.countDown();
-            }
-        }
-    }
-
-    public static void expectNewInstance(boolean waitWindowFocus) {
-        sLastInstanceLatch = new CountDownLatch(waitWindowFocus ? 2 : 1);
-    }
-
-    public static MultiWindowEmptyActivity waitNewInstance() throws InterruptedException {
-        if (!sLastInstanceLatch.await(Timeouts.ACTIVITY_RESURRECTION.getMaxValue(),
-                TimeUnit.MILLISECONDS)) {
-            throw new RetryableException("New MultiWindowEmptyActivity didn't start",
-                    Timeouts.ACTIVITY_RESURRECTION);
-        }
-        sLastInstanceLatch = null;
-        return sLastInstance;
-    }
-
-    @Override
     protected void onDestroy() {
         super.onDestroy();
+        sLastInstance = null;
+        sLastInstanceLatch = new CountDownLatch(1);
 
         if (sDestroyLastInstanceLatch != null) {
             sDestroyLastInstanceLatch.countDown();
         }
+    }
+
+    public static MultiWindowEmptyActivity getInstance() throws InterruptedException {
+        if (!sLastInstanceLatch.await(Timeouts.ACTIVITY_RESURRECTION.getMaxValue(),
+                TimeUnit.MILLISECONDS)) {
+            throw new RetryableException(
+                    "New MultiWindowEmptyActivity didn't start", Timeouts.ACTIVITY_RESURRECTION);
+        }
+        sLastInstanceLatch = null;
+        return sLastInstance;
     }
 
     public static void finishAndWaitDestroy() {

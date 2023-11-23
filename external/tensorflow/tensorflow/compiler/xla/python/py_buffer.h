@@ -17,12 +17,12 @@ limitations under the License.
 #define TENSORFLOW_COMPILER_XLA_PYTHON_PY_BUFFER_H_
 
 #include <memory>
+#include <optional>
 #include <stdexcept>
 #include <vector>
 
 #include "absl/strings/string_view.h"
 #include "absl/synchronization/notification.h"
-#include "absl/types/optional.h"
 #include "pybind11/numpy.h"
 #include "pybind11/pybind11.h"
 #include "tensorflow/compiler/xla/python/py_client.h"
@@ -37,7 +37,7 @@ namespace xla {
 // b) to add Python-specific functionality.
 //
 // A `PyBuffer` can be used from Python without being wrapped in a Python
-// `DeviceArray` object, at the condition there is no associated LazyExpr.
+// `DeviceArray` object.
 class PyBuffer {
  public:
   // pybind11::object typed subclass for PyBuffer objects.
@@ -80,6 +80,8 @@ class PyBuffer {
 
   StatusOr<pybind11::object> CopyToDevice(
       const ClientAndPtr<PjRtDevice>& dst_device) const;
+  std::pair<Status, bool> CopyToRemoteDevice(
+      absl::string_view serialized_descriptor) const;
 
   StatusOr<size_t> OnDeviceSizeInBytes() {
     return buffer_->GetOnDeviceSizeInBytes();
@@ -96,6 +98,21 @@ class PyBuffer {
   object Clone() const;
 
   // Returns xla::InvalidArgument if the buffer has been deleted.
+  // See `PjRtFuture` for the semantics of `IsReady` and `IsKnownReady`.
+  StatusOr<bool> IsReady() {
+    if (buffer_->IsDeleted()) {
+      return InvalidArgument("DeviceArray has been deleted.");
+    }
+    return buffer_->GetReadyFuture().IsReady();
+  }
+  StatusOr<bool> IsKnownReady() {
+    if (buffer_->IsDeleted()) {
+      return InvalidArgument("DeviceArray has been deleted.");
+    }
+    return buffer_->GetReadyFuture().IsKnownReady();
+  }
+
+  // Returns xla::InvalidArgument if the buffer has been deleted.
   Status BlockHostUntilReady();
   Status CopyToHostAsync();
 
@@ -110,7 +127,7 @@ class PyBuffer {
   const std::shared_ptr<Traceback>& traceback() const { return traceback_; }
 
   // Returns the size (i.e. number of elements) of the (host) numpy array.
-  StatusOr<int64> size();
+  StatusOr<int64_t> size();
 
   // Returns the number of dimensions of the (host) numpy array.
   int ndim() const { return buffer()->on_device_shape().dimensions_size(); }
@@ -125,12 +142,12 @@ class PyBuffer {
     TF_RET_CHECK(sticky_device == nullptr ||
                  sticky_device == buffer_->device());
     sticky_device_ = sticky_device;
-    return Status::OK();
+    return OkStatus();
   }
   PjRtDevice* sticky_device() const { return sticky_device_; }
 
-  void set_weak_type(absl::optional<bool> weak_type) { weak_type_ = weak_type; }
-  absl::optional<bool> weak_type() const { return weak_type_; }
+  void set_weak_type(std::optional<bool> weak_type) { weak_type_ = weak_type; }
+  std::optional<bool> weak_type() const { return weak_type_; }
 
   StatusOr<pybind11::object> AsNumPyArray(pybind11::handle this_obj);
 
@@ -175,9 +192,9 @@ class PyBuffer {
   // measure for older Python code that does not set weak_type explicitly.
   // TODO(phawkins): drop support for older jax Python versions and make
   // weak_type mandatory.
-  absl::optional<bool> weak_type_ = absl::nullopt;
+  std::optional<bool> weak_type_ = std::nullopt;
 
-  absl::optional<Shape> dynamic_shape_ = absl::nullopt;
+  std::optional<Shape> dynamic_shape_ = std::nullopt;
   // Doubly-linked list of all PyBuffers known to the client. Protected by the
   // GIL. Since multiple PyBuffers may share the same PjRtBuffer, there may be
   // duplicate PjRtBuffers in this list.

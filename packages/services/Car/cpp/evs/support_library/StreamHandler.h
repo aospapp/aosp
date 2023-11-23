@@ -17,30 +17,31 @@
 #ifndef EVS_VTS_STREAMHANDLER_H
 #define EVS_VTS_STREAMHANDLER_H
 
+#include "BaseAnalyzeCallback.h"
+#include "BaseRenderCallback.h"
+
+#include <android/hardware/automotive/evs/1.0/IEvsCamera.h>
+#include <android/hardware/automotive/evs/1.0/IEvsCameraStream.h>
+#include <android/hardware/automotive/evs/1.0/IEvsDisplay.h>
+#include <ui/GraphicBuffer.h>
+
 #include <condition_variable>
 #include <queue>
-#include <thread>
 #include <shared_mutex>
-#include <ui/GraphicBuffer.h>
-#include <android/hardware/automotive/evs/1.0/IEvsCameraStream.h>
-#include <android/hardware/automotive/evs/1.0/IEvsCamera.h>
-#include <android/hardware/automotive/evs/1.0/IEvsDisplay.h>
-
-#include "BaseRenderCallback.h"
-#include "BaseAnalyzeCallback.h"
+#include <thread>
 
 namespace android {
 namespace automotive {
 namespace evs {
 namespace support {
 
-using namespace ::android::hardware::automotive::evs::V1_0;
+using ::android::hardware::hidl_handle;
+using ::android::hardware::hidl_vec;
 using ::android::hardware::Return;
 using ::android::hardware::Void;
-using ::android::hardware::hidl_vec;
-using ::android::hardware::hidl_handle;
-using ::android::sp;
-
+using ::android::hardware::automotive::evs::V1_0::BufferDesc;
+using ::android::hardware::automotive::evs::V1_0::IEvsCamera;
+using ::android::hardware::automotive::evs::V1_0::IEvsCameraStream;
 
 /*
  * StreamHandler:
@@ -60,7 +61,7 @@ public:
         }
     };
 
-    StreamHandler(android::sp <IEvsCamera> pCamera);
+    StreamHandler(android::sp<IEvsCamera> pCamera);
     void shutdown();
 
     bool startStream();
@@ -129,34 +130,34 @@ public:
 
 private:
     // Implementation for ::android::hardware::automotive::evs::V1_0::ICarCameraStream
-    Return<void> deliverFrame(const BufferDesc& buffer)  override;
+    Return<void> deliverFrame(const BufferDesc& buffer) override;
 
     bool processFrame(const BufferDesc&, BufferDesc&);
     bool copyAndAnalyzeFrame(const BufferDesc&);
 
     // Values initialized as startup
-    android::sp <IEvsCamera>    mCamera;
+    android::sp<IEvsCamera> mCamera;
 
     // Since we get frames delivered to us asnchronously via the ICarCameraStream interface,
     // we need to protect all member variables that may be modified while we're streaming
     // (ie: those below)
-    std::mutex                  mLock;
-    std::condition_variable     mSignal;
+    std::mutex mLock;
+    std::condition_variable mSignal;
 
-    bool                        mRunning = false;
+    bool mRunning = false;
 
-    BufferDesc                  mOriginalBuffers[2];
-    int                         mHeldBuffer = -1;   // Index of the one currently held by the client
-    int                         mReadyBuffer = -1;  // Index of the newest available buffer
+    BufferDesc mOriginalBuffers[2];
+    int mHeldBuffer = -1;   // Index of the one currently held by the client
+    int mReadyBuffer = -1;  // Index of the newest available buffer
 
-    BufferDesc                  mProcessedBuffers[2];
-    BufferDesc                  mAnalyzeBuffer GUARDED_BY(mAnalyzerLock);
+    BufferDesc mProcessedBuffers[2];
+    BufferDesc mAnalyzeBuffer GUARDED_BY(mAnalyzerLock);
 
-    BaseRenderCallback*         mRenderCallback = nullptr;
+    BaseRenderCallback* mRenderCallback = nullptr;
 
-    BaseAnalyzeCallback*        mAnalyzeCallback GUARDED_BY(mAnalyzerLock);
-    std::atomic<bool>           mAnalyzerRunning;
-    std::shared_mutex           mAnalyzerLock;
+    BaseAnalyzeCallback* mAnalyzeCallback GUARDED_BY(mAnalyzerLock);
+    std::atomic<bool> mAnalyzerRunning;
+    std::shared_mutex mAnalyzerLock;
     std::condition_variable_any mAnalyzerSignal;
 };
 
@@ -165,5 +166,4 @@ private:
 }  // namespace automotive
 }  // namespace android
 
-#endif //EVS_VTS_STREAMHANDLER_H
-
+#endif  // EVS_VTS_STREAMHANDLER_H

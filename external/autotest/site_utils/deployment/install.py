@@ -1,4 +1,4 @@
-#!/usr/bin/env python2
+#!/usr/bin/env python3
 # Copyright 2015 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -159,7 +159,7 @@ def _get_omaha_build(board):
 
     @param board  The board to look up from GoldenEye.
 
-    @return Returns a Chrome OS version string in standard form
+    @return Returns a ChromeOS version string in standard form
             R##-####.#.#.  Will return `None` if no Beta channel
             entry is found.
     """
@@ -740,8 +740,8 @@ def _get_free_servo_port(servo_hostname, used_servo_ports, afe):
         # We'll choose first port available in descending order.
         for port in xrange(start_port, end_port - 1, -1):
             if port not in used_ports:
-              servo_port = port
-              break
+                servo_port = port
+                break
     used_ports.append(servo_port)
     used_servo_ports[servo_hostname] = used_ports
     return servo_port

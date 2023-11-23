@@ -60,6 +60,10 @@ class TestParamResolver : public ParamResolverInterface {
     done(errors::Internal("Unimplemented"));
   }
 
+  Status LookupGroup(int32_t group_key, CollGroupParams* group) override {
+    return errors::Internal("Unimplemented");
+  }
+
   void StartAbort(const Status& s) override {}
 };
 
@@ -124,7 +128,7 @@ class TestCollectiveExecutorMgr : public CollectiveExecutorMgrInterface {
     done(errors::Internal("unimplemented"));
   }
 
-  int64 NextStepId(int64_t graph_key) override {
+  int64_t NextStepId(int64_t graph_key) override {
     return CollectiveExecutor::kInvalidId;
   }
 
@@ -132,7 +136,7 @@ class TestCollectiveExecutorMgr : public CollectiveExecutorMgrInterface {
 
  protected:
   mutex mu_;
-  gtl::FlatMap<int64, CollectiveExecutor*> table_ TF_GUARDED_BY(mu_);
+  gtl::FlatMap<int64_t, CollectiveExecutor*> table_ TF_GUARDED_BY(mu_);
   ParamResolverInterface* param_resolver_;
   CollectiveRemoteAccess* rma_;
 };

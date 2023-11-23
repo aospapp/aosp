@@ -1,18 +1,18 @@
 /*
- *  Licensed to the Apache Software Foundation (ASF) under one or more
- *  contributor license agreements.  See the NOTICE file distributed with
- *  this work for additional information regarding copyright ownership.
- *  The ASF licenses this file to You under the Apache License, Version 2.0
- *  (the "License"); you may not use this file except in compliance with
- *  the License.  You may obtain a copy of the License at
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *   http://www.apache.org/licenses/LICENSE-2.0
  *
- *  Unless required by applicable law or agreed to in writing, software
- *  distributed under the License is distributed on an "AS IS" BASIS,
- *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- *  See the License for the specific language governing permissions and
- *  limitations under the License.
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 package org.apache.harmony.tests.java.util;
@@ -109,7 +109,7 @@ public class HashtableTest extends junit.framework.TestCase {
         // Test for method java.util.Hashtable(java.util.Map)
         Map map = new TreeMap();
         Object firstVal = "Gabba";
-        Object secondVal = new Integer(5);
+        Object secondVal = Integer.valueOf(5);
         map.put("Gah", firstVal);
         map.put("Ooga", secondVal);
         Hashtable ht = new Hashtable(map);
@@ -476,16 +476,16 @@ public class HashtableTest extends junit.framework.TestCase {
 // END Android-removed
 
         Map map = new Hashtable(101);
-        map.put(new Integer(1), "1");
-        map.put(new Integer(102), "102");
-        map.put(new Integer(203), "203");
+        map.put(Integer.valueOf(1), "1");
+        map.put(Integer.valueOf(102), "102");
+        map.put(Integer.valueOf(203), "203");
         Iterator it = map.keySet().iterator();
         Integer remove1 = (Integer) it.next();
         it.remove();
         Integer remove2 = (Integer) it.next();
         it.remove();
         ArrayList list = new ArrayList(Arrays.asList(new Integer[] {
-                new Integer(1), new Integer(102), new Integer(203) }));
+                Integer.valueOf(1), Integer.valueOf(102), Integer.valueOf(203) }));
         list.remove(remove1);
         list.remove(remove2);
         assertTrue("Wrong result", it.next().equals(list.get(0)));
@@ -494,15 +494,15 @@ public class HashtableTest extends junit.framework.TestCase {
                 list.get(0)));
 
         Map map2 = new Hashtable(101);
-        map2.put(new Integer(1), "1");
-        map2.put(new Integer(4), "4");
+        map2.put(Integer.valueOf(1), "1");
+        map2.put(Integer.valueOf(4), "4");
         Iterator it2 = map2.keySet().iterator();
         Integer remove3 = (Integer) it2.next();
         Integer next;
         if (remove3.intValue() == 1)
-            next = new Integer(4);
+            next = Integer.valueOf(4);
         else
-            next = new Integer(1);
+            next = Integer.valueOf(1);
         it2.hasNext();
         it2.remove();
         assertTrue("Wrong result 2", it2.next().equals(next));
@@ -601,7 +601,7 @@ public class HashtableTest extends junit.framework.TestCase {
         // Test for method java.lang.Object
         // java.util.Hashtable.put(java.lang.Object, java.lang.Object)
         Hashtable h = hashtableClone(ht100);
-        Integer key = new Integer(100);
+        Integer key = Integer.valueOf(100);
         h.put("Value 100", key);
         assertTrue("Key/Value not inserted", h.size() == 1 && (h.contains(key)));
 
@@ -759,15 +759,15 @@ public class HashtableTest extends junit.framework.TestCase {
 
         Hashtable myHashtable = new Hashtable();
         for (int i = 0; i < 100; i++)
-            myHashtable.put(new Integer(i), new Integer(i));
+            myHashtable.put(Integer.valueOf(i), Integer.valueOf(i));
         Collection values = myHashtable.values();
         new Support_UnmodifiableCollectionTest(
                 "Test Returned Collection From Hashtable.values()", values)
                 .runTest();
-        values.remove(new Integer(0));
+        values.remove(Integer.valueOf(0));
         assertTrue(
                 "Removing from the values collection should remove from the original map",
-                !myHashtable.containsValue(new Integer(0)));
+                !myHashtable.containsValue(Integer.valueOf(0)));
     }
 
     /**

@@ -56,4 +56,5 @@ cc_test {
         "test_data/*.raw",
     ],
     compile_multilib: "prefer32",
+    min_sdk_version: "30",
 }

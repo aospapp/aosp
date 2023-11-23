@@ -1,0 +1,27 @@
+From f69cbafc9461cb80c4604d672dde507d519fbcee Mon Sep 17 00:00:00 2001
+From: Dan Stahr <danstahr@google.com>
+Date: Tue, 3 Jan 2023 16:36:44 +0000
+Subject: [PATCH] Remove the deprecated UploadDataProviders class.
+
+Test: m
+
+Change-Id: If27cf2f7089f541a41f66c606a2db39bf8bc4673
+---
+ components/cronet/android/BUILD.gn | 1 -
+ 1 file changed, 1 deletion(-)
+
+diff --git a/components/cronet/android/BUILD.gn b/components/cronet/android/BUILD.gn
+index 6399852432dee..699ca663ae488 100644
+--- a/components/cronet/android/BUILD.gn
++++ b/components/cronet/android/BUILD.gn
+@@ -254,7 +254,6 @@ android_library("cronet_api_java") {
+     "api/src/org/chromium/net/QuicOptions.java",
+     "api/src/org/chromium/net/RequestFinishedInfo.java",
+     "api/src/org/chromium/net/UploadDataProvider.java",
+-    "api/src/org/chromium/net/UploadDataProviders.java",
+     "api/src/org/chromium/net/UploadDataSink.java",
+     "api/src/org/chromium/net/UrlRequest.java",
+     "api/src/org/chromium/net/UrlResponseInfo.java",
+-- 
+2.40.0.348.gf938b09366-goog
+

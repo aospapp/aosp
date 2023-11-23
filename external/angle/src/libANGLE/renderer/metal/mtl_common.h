@@ -26,50 +26,16 @@
 #include "libANGLE/Version.h"
 #include "libANGLE/angletypes.h"
 
-#if TARGET_OS_IPHONE
-#    if !defined(__IPHONE_11_0)
-#        define __IPHONE_11_0 110000
-#    endif
-#    if !defined(ANGLE_IOS_DEPLOY_TARGET)
-#        define ANGLE_IOS_DEPLOY_TARGET __IPHONE_11_0
-#    endif
-#    if !defined(__IPHONE_OS_VERSION_MAX_ALLOWED)
-#        define __IPHONE_OS_VERSION_MAX_ALLOWED __IPHONE_11_0
-#    endif
-#    if !defined(__TV_OS_VERSION_MAX_ALLOWED)
-#        define __TV_OS_VERSION_MAX_ALLOWED __IPHONE_11_0
-#    endif
-#endif
-
-#if !defined(TARGET_OS_MACCATALYST)
-#    define TARGET_OS_MACCATALYST 0
-#endif
-
-#if defined(__ARM_ARCH)
-#    define ANGLE_MTL_ARM (__ARM_ARCH != 0)
-#else
-#    define ANGLE_MTL_ARM 0
-#endif
-
-#define ANGLE_MTL_OBJC_SCOPE @autoreleasepool
-
-#if !__has_feature(objc_arc)
-#    define ANGLE_MTL_AUTORELEASE autorelease
-#    define ANGLE_MTL_RETAIN retain
-#    define ANGLE_MTL_RELEASE release
-#else
-#    define ANGLE_MTL_AUTORELEASE self
-#    define ANGLE_MTL_RETAIN self
-#    define ANGLE_MTL_RELEASE self
-#endif
-
-#define ANGLE_MTL_UNUSED __attribute__((unused))
-
 #if defined(ANGLE_MTL_ENABLE_TRACE)
 #    define ANGLE_MTL_LOG(...) NSLog(@__VA_ARGS__)
 #else
 #    define ANGLE_MTL_LOG(...) (void)0
 #endif
+
+#define ANGLE_MTL_OBJC_SCOPE ANGLE_APPLE_OBJC_SCOPE
+#define ANGLE_MTL_AUTORELEASE ANGLE_APPLE_AUTORELEASE
+#define ANGLE_MTL_RETAIN ANGLE_APPLE_RETAIN
+#define ANGLE_MTL_RELEASE ANGLE_APPLE_RELEASE
 
 namespace egl
 {
@@ -120,8 +86,17 @@ namespace mtl
 
 // NOTE(hqle): support variable max number of vertex attributes
 constexpr uint32_t kMaxVertexAttribs = gl::MAX_VERTEX_ATTRIBS;
-// NOTE(hqle): support variable max number of render targets
-constexpr uint32_t kMaxRenderTargets = 4;
+// Note: This is the max number of render targets the backend supports.
+// It is NOT how many the device supports which may be lower. If you
+// increase this number you will also need to edit the shaders in
+// metal/shaders/common.h.
+constexpr uint32_t kMaxRenderTargets = 8;
+// Metal Apple1 iOS devices only support 4 render targets
+constexpr uint32_t kMaxRenderTargetsOlderGPUFamilies = 4;
+
+constexpr uint32_t kMaxColorTargetBitsApple1To3      = 256;
+constexpr uint32_t kMaxColorTargetBitsApple4Plus     = 512;
+constexpr uint32_t kMaxColorTargetBitsMacAndCatalyst = std::numeric_limits<uint32_t>::max();
 
 constexpr uint32_t kMaxShaderUBOs = 12;
 constexpr uint32_t kMaxUBOSize    = 16384;
@@ -139,13 +114,19 @@ constexpr size_t kDefaultAttributeSize = 4 * sizeof(float);
 constexpr uint32_t kMaxShaderBuffers     = 31;
 constexpr uint32_t kMaxShaderSamplers    = 16;
 constexpr size_t kInlineConstDataMaxSize = 4 * 1024;
-constexpr size_t kDefaultUniformsMaxSize = 4 * 1024;
+constexpr size_t kDefaultUniformsMaxSize = 16 * 1024;
 constexpr uint32_t kMaxViewports         = 1;
+constexpr uint32_t kMaxShaderImages      = gl::IMPLEMENTATION_MAX_PIXEL_LOCAL_STORAGE_PLANES;
 
 // Restrict in-flight resource usage to 400 MB.
 // A render pass can use more than 400MB, but the command buffer
 // will be flushed next time
 constexpr const size_t kMaximumResidentMemorySizeInBytes = 400 * 1024 * 1024;
+
+// Restrict in-flight render passes per command buffer to 16.
+// The goal is to reduce the number of active render passes on the system at
+// any one time and this value was determined through experimentation.
+constexpr uint32_t kMaxRenderPassesPerCommandBuffer = 16;
 
 constexpr uint32_t kVertexAttribBufferStrideAlignment = 4;
 // Alignment requirement for offset passed to setVertex|FragmentBuffer
@@ -200,9 +181,16 @@ constexpr MTLBlitOption kBlitOptionRowLinearPVRTC = MTLBlitOptionNone;
 constexpr MTLBlitOption kBlitOptionRowLinearPVRTC          = MTLBlitOptionRowLinearPVRTC;
 #endif
 
+#if defined(__MAC_10_14) && (TARGET_OS_OSX || TARGET_OS_MACCATALYST)
+constexpr MTLBarrierScope kBarrierScopeRenderTargets = MTLBarrierScopeRenderTargets;
+#else
+constexpr MTLBarrierScope kBarrierScopeRenderTargets       = MTLBarrierScope(0);
+#endif
+
 #if defined(__IPHONE_13_0) || defined(__MAC_10_15)
 #    define ANGLE_MTL_SWIZZLE_AVAILABLE 1
 using TextureSwizzleChannels                   = MTLTextureSwizzleChannels;
+using BarrierScope                             = MTLBarrierScope;
 using RenderStages                             = MTLRenderStages;
 constexpr MTLRenderStages kRenderStageVertex   = MTLRenderStageVertex;
 constexpr MTLRenderStages kRenderStageFragment = MTLRenderStageFragment;
@@ -269,6 +257,7 @@ class WrappedObject
     bool valid() const { return (mMetalObject != nil); }
 
     T get() const { return mMetalObject; }
+    T leakObject() { return std::exchange(mMetalObject, nullptr); }
     inline void reset() { release(); }
 
     operator T() const { return get(); }
@@ -547,11 +536,13 @@ class ErrorHandler
     virtual ~ErrorHandler() {}
 
     virtual void handleError(GLenum error,
+                             const char *message,
                              const char *file,
                              const char *function,
                              unsigned int line) = 0;
 
     virtual void handleError(NSError *error,
+                             const char *message,
                              const char *file,
                              const char *function,
                              unsigned int line) = 0;
@@ -569,14 +560,21 @@ class Context : public ErrorHandler
     DisplayMtl *mDisplay;
 };
 
-#define ANGLE_MTL_CHECK(context, test, error)                                \
-    do                                                                       \
-    {                                                                        \
-        if (ANGLE_UNLIKELY(!(test)))                                         \
-        {                                                                    \
-            context->handleError(error, __FILE__, ANGLE_FUNCTION, __LINE__); \
-            return angle::Result::Stop;                                      \
-        }                                                                    \
+std::string FormatMetalErrorMessage(GLenum errorCode);
+std::string FormatMetalErrorMessage(NSError *error);
+
+#define ANGLE_MTL_HANDLE_ERROR(context, message, error) \
+    context->handleError(error, message, __FILE__, ANGLE_FUNCTION, __LINE__)
+
+#define ANGLE_MTL_CHECK(context, test, error)                                                  \
+    do                                                                                         \
+    {                                                                                          \
+        if (ANGLE_UNLIKELY(!(test)))                                                           \
+        {                                                                                      \
+            context->handleError(error, mtl::FormatMetalErrorMessage(error).c_str(), __FILE__, \
+                                 ANGLE_FUNCTION, __LINE__);                                    \
+            return angle::Result::Stop;                                                        \
+        }                                                                                      \
     } while (0)
 
 #define ANGLE_MTL_TRY(context, test) ANGLE_MTL_CHECK(context, test, GL_INVALID_OPERATION)

@@ -77,7 +77,7 @@
     <string name="medications" msgid="644428945685557183">"Traitements médicamenteux"</string>
     <string name="unknown_medications" msgid="2764171064510423734">"Inconnus"</string>
     <string name="medications_hint" msgid="3221620025945593723">"Par exemple, aspirine"</string>
-    <string name="medical_conditions" msgid="3555690011498283592">"Autres informations médicales"</string>
+    <string name="medical_conditions" msgid="3555690011498283592">"Maladies"</string>
     <string name="unknown_medical_conditions" msgid="8051364895172053770">"Inconnues"</string>
     <string name="medical_conditions_hint" msgid="6959152183029062882">"Par exemple, asthme"</string>
     <string name="organ_donor" msgid="5953509460007124827">"Donneur d\'organes"</string>

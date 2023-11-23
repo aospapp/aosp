@@ -16,6 +16,7 @@
 
 package android.wifibroadcasts.cts;
 
+import com.android.tradefed.util.RunUtil;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
@@ -139,7 +140,7 @@ public class WifiBroadcastsHostJUnit4Test implements IDeviceTest {
                 pingSucceeded = true;
                 break;
             }
-            Thread.sleep(1000);
+            RunUtil.getDefault().sleep(1000);
         }
         // Stop wifi
         device.executeShellCommand("svc wifi disable");

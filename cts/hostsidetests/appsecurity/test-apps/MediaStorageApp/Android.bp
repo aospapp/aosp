@@ -19,8 +19,10 @@ package {
 android_test_helper_app {
     name: "CtsMediaStorageApp",
     defaults: ["cts_support_defaults"],
+    min_sdk_version: "29",
     sdk_version: "test_current",
     static_libs: [
+        "cts-scopedstorage-lib",
         "compatibility-device-util-axt",
         "androidx.test.rules",
         "ub-uiautomator",
@@ -29,7 +31,6 @@ android_test_helper_app {
     srcs: ["src/**/*.java"],
     asset_dirs: ["assets"],
     test_suites: [
-        "cts",
         "general-tests",
     ],
 }
@@ -37,8 +38,10 @@ android_test_helper_app {
 android_test_helper_app {
     name: "CtsMediaStorageApp28",
     defaults: ["cts_support_defaults"],
+    min_sdk_version: "28",
     sdk_version: "test_current",
     static_libs: [
+        "cts-scopedstorage-lib",
         "compatibility-device-util-axt",
         "androidx.test.rules",
         "ub-uiautomator",
@@ -47,7 +50,6 @@ android_test_helper_app {
     srcs: ["src/**/*.java"],
     asset_dirs: ["assets"],
     test_suites: [
-        "cts",
         "general-tests",
     ],
     manifest: "AndroidManifest28.xml",
@@ -56,8 +58,10 @@ android_test_helper_app {
 android_test_helper_app {
     name: "CtsMediaStorageApp29",
     defaults: ["cts_support_defaults"],
+    min_sdk_version: "29",
     sdk_version: "test_current",
     static_libs: [
+        "cts-scopedstorage-lib",
         "compatibility-device-util-axt",
         "androidx.test.rules",
         "ub-uiautomator",
@@ -66,8 +70,27 @@ android_test_helper_app {
     srcs: ["src/**/*.java"],
     asset_dirs: ["assets"],
     test_suites: [
-        "cts",
         "general-tests",
     ],
     manifest: "AndroidManifest29.xml",
+}
+
+android_test_helper_app {
+    name: "CtsMediaStorageApp31",
+    defaults: ["cts_support_defaults"],
+    min_sdk_version: "31",
+    sdk_version: "test_current",
+    static_libs: [
+        "cts-scopedstorage-lib",
+        "compatibility-device-util-axt",
+        "androidx.test.rules",
+        "ub-uiautomator",
+    ],
+    libs: ["android.test.base"],
+    srcs: ["src/**/*.java"],
+    asset_dirs: ["assets"],
+    test_suites: [
+        "general-tests",
+    ],
+    manifest: "AndroidManifest31.xml",
 }

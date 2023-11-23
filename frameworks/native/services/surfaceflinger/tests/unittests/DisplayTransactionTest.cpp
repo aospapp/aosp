@@ -29,15 +29,12 @@ using testing::SetArgPointee;
 
 using android::hardware::graphics::composer::hal::HWDisplayId;
 
-using FakeDisplayDeviceInjector = TestableSurfaceFlinger::FakeDisplayDeviceInjector;
-
-DisplayTransactionTest::DisplayTransactionTest() {
+DisplayTransactionTest::DisplayTransactionTest(bool withMockScheduler) {
     const ::testing::TestInfo* const test_info =
             ::testing::UnitTest::GetInstance()->current_test_info();
     ALOGD("**** Setting up for %s.%s\n", test_info->test_case_name(), test_info->name());
 
-    // Default to no wide color display support configured
-    mFlinger.mutableHasWideColorDisplay() = false;
+    mFlinger.mutableSupportsWideColor() = false;
     mFlinger.mutableDisplayColorSetting() = DisplayColorSetting::kUnmanaged;
 
     mFlinger.setCreateBufferQueueFunction([](auto, auto, auto) {
@@ -49,9 +46,11 @@ DisplayTransactionTest::DisplayTransactionTest() {
         return nullptr;
     });
 
-    injectMockScheduler();
+    if (withMockScheduler) {
+        injectMockScheduler(PhysicalDisplayId::fromPort(0));
+    }
+
     mFlinger.setupRenderEngine(std::unique_ptr<renderengine::RenderEngine>(mRenderEngine));
-    mFlinger.mutableInterceptor() = mSurfaceInterceptor;
 
     injectMockComposer(0);
 }
@@ -63,21 +62,26 @@ DisplayTransactionTest::~DisplayTransactionTest() {
     mFlinger.resetScheduler(nullptr);
 }
 
-void DisplayTransactionTest::injectMockScheduler() {
+void DisplayTransactionTest::injectMockScheduler(PhysicalDisplayId displayId) {
+    LOG_ALWAYS_FATAL_IF(mFlinger.scheduler());
+
     EXPECT_CALL(*mEventThread, registerDisplayEventConnection(_));
     EXPECT_CALL(*mEventThread, createEventConnection(_, _))
-            .WillOnce(Return(
-                    new EventThreadConnection(mEventThread, /*callingUid=*/0, ResyncCallback())));
+            .WillOnce(Return(sp<EventThreadConnection>::make(mEventThread,
+                                                             mock::EventThread::kCallingUid,
+                                                             ResyncCallback())));
 
     EXPECT_CALL(*mSFEventThread, registerDisplayEventConnection(_));
     EXPECT_CALL(*mSFEventThread, createEventConnection(_, _))
-            .WillOnce(Return(
-                    new EventThreadConnection(mSFEventThread, /*callingUid=*/0, ResyncCallback())));
+            .WillOnce(Return(sp<EventThreadConnection>::make(mSFEventThread,
+                                                             mock::EventThread::kCallingUid,
+                                                             ResyncCallback())));
 
-    mFlinger.setupScheduler(std::unique_ptr<scheduler::VsyncController>(mVsyncController),
-                            std::unique_ptr<scheduler::VSyncTracker>(mVSyncTracker),
+    mFlinger.setupScheduler(std::make_unique<mock::VsyncController>(),
+                            std::make_shared<mock::VSyncTracker>(),
                             std::unique_ptr<EventThread>(mEventThread),
                             std::unique_ptr<EventThread>(mSFEventThread),
+                            TestableSurfaceFlinger::DefaultDisplayMode{displayId},
                             TestableSurfaceFlinger::SchedulerCallbackImpl::kMock);
 }
 
@@ -100,8 +104,8 @@ void DisplayTransactionTest::injectFakeBufferQueueFactory() {
     // This setup is only expected once per test.
     ASSERT_TRUE(mConsumer == nullptr && mProducer == nullptr);
 
-    mConsumer = new mock::GraphicBufferConsumer();
-    mProducer = new mock::GraphicBufferProducer();
+    mConsumer = sp<mock::GraphicBufferConsumer>::make();
+    mProducer = sp<mock::GraphicBufferProducer>::make();
 
     mFlinger.setCreateBufferQueueFunction([this](auto outProducer, auto outConsumer, bool) {
         *outProducer = mProducer;
@@ -120,53 +124,13 @@ void DisplayTransactionTest::injectFakeNativeWindowSurfaceFactory() {
     });
 }
 
-sp<DisplayDevice> DisplayTransactionTest::injectDefaultInternalDisplay(
-        std::function<void(FakeDisplayDeviceInjector&)> injectExtra) {
-    constexpr PhysicalDisplayId DEFAULT_DISPLAY_ID = PhysicalDisplayId::fromPort(255u);
-    constexpr int DEFAULT_DISPLAY_WIDTH = 1080;
-    constexpr int DEFAULT_DISPLAY_HEIGHT = 1920;
-    constexpr HWDisplayId DEFAULT_DISPLAY_HWC_DISPLAY_ID = 0;
-
-    // The DisplayDevice is required to have a framebuffer (behind the
-    // ANativeWindow interface) which uses the actual hardware display
-    // size.
-    EXPECT_CALL(*mNativeWindow, query(NATIVE_WINDOW_WIDTH, _))
-            .WillRepeatedly(DoAll(SetArgPointee<1>(DEFAULT_DISPLAY_WIDTH), Return(0)));
-    EXPECT_CALL(*mNativeWindow, query(NATIVE_WINDOW_HEIGHT, _))
-            .WillRepeatedly(DoAll(SetArgPointee<1>(DEFAULT_DISPLAY_HEIGHT), Return(0)));
-    EXPECT_CALL(*mNativeWindow, perform(NATIVE_WINDOW_SET_BUFFERS_FORMAT));
-    EXPECT_CALL(*mNativeWindow, perform(NATIVE_WINDOW_API_CONNECT));
-    EXPECT_CALL(*mNativeWindow, perform(NATIVE_WINDOW_SET_USAGE64));
-    EXPECT_CALL(*mNativeWindow, perform(NATIVE_WINDOW_API_DISCONNECT)).Times(AnyNumber());
-
-    auto compositionDisplay =
-            compositionengine::impl::createDisplay(mFlinger.getCompositionEngine(),
-                                                   compositionengine::DisplayCreationArgsBuilder()
-                                                           .setId(DEFAULT_DISPLAY_ID)
-                                                           .setPixels({DEFAULT_DISPLAY_WIDTH,
-                                                                       DEFAULT_DISPLAY_HEIGHT})
-                                                           .setPowerAdvisor(&mPowerAdvisor)
-                                                           .build());
-
-    constexpr bool kIsPrimary = true;
-    auto injector = FakeDisplayDeviceInjector(mFlinger, compositionDisplay,
-                                              ui::DisplayConnectionType::Internal,
-                                              DEFAULT_DISPLAY_HWC_DISPLAY_ID, kIsPrimary);
-
-    injector.setNativeWindow(mNativeWindow);
-    if (injectExtra) {
-        injectExtra(injector);
-    }
-
-    auto displayDevice = injector.inject();
-
-    Mock::VerifyAndClear(mNativeWindow.get());
-
-    return displayDevice;
-}
-
 bool DisplayTransactionTest::hasPhysicalHwcDisplay(HWDisplayId hwcDisplayId) const {
-    return mFlinger.hwcPhysicalDisplayIdMap().count(hwcDisplayId) == 1;
+    const auto& map = mFlinger.hwcPhysicalDisplayIdMap();
+
+    const auto it = map.find(hwcDisplayId);
+    if (it == map.end()) return false;
+
+    return mFlinger.hwcDisplayData().count(it->second) == 1;
 }
 
 bool DisplayTransactionTest::hasTransactionFlagSet(int32_t flag) const {

@@ -17,6 +17,9 @@ limitations under the License.
 
 #include <algorithm>
 #include <memory>
+#include <optional>
+#include <string>
+#include <utility>
 #include <vector>
 
 #include "absl/algorithm/container.h"
@@ -44,6 +47,8 @@ limitations under the License.
 namespace tensorflow {
 namespace profiler {
 namespace {
+
+constexpr uint64_t kRootSymbolId = 0;
 
 // Type of a TensorFlow Op activity, which is either beginning or ending an Op.
 enum TfActivityType { kTfOpBegin, kTfOpEnd };
@@ -128,7 +133,7 @@ void ProcessTfActivities(std::vector<TfActivity>* tf_activities,
 }
 
 void CollectTfActivities(const XLineVisitor& line,
-                         const absl::flat_hash_map<int64, TfOp>& tf_ops,
+                         const absl::flat_hash_map<int64_t, TfOp>& tf_ops,
                          std::vector<TfActivity>* tf_activities) {
   uint32 tf_op_id = 0;
   tf_activities->reserve(line.NumEvents() * 2);
@@ -151,11 +156,111 @@ void CollectTfActivities(const XLineVisitor& line,
   });
 }
 
+struct OpKey {
+  std::optional<uint64_t> program_id;
+  std::optional<uint64_t> symbol_id;
+};
+OpKey GetOpKeyFromHloEventMetadata(
+    const XEventMetadataVisitor& hlo_event_metadata) {
+  OpKey op_key;
+  hlo_event_metadata.ForEachStat([&](const XStatVisitor& stat) {
+    if (stat.Type().has_value()) {
+      switch (static_cast<StatType>(*stat.Type())) {
+        case StatType::kProgramId:
+          op_key.program_id = stat.IntOrUintValue();
+          break;
+        case StatType::kSymbolId:
+          op_key.symbol_id = stat.IntOrUintValue();
+          break;
+        default:
+          break;
+      }
+    }
+  });
+  return op_key;
+}
+
+void SetOpMetadataFromHloEventMetadata(
+    const XEventMetadataVisitor& hlo_event_metadata, OpMetrics* op_metrics) {
+  if (hlo_event_metadata.HasDisplayName()) {
+    op_metrics->set_name(std::string(hlo_event_metadata.DisplayName()));
+    op_metrics->set_long_name(std::string(hlo_event_metadata.Name()));
+  } else {
+    op_metrics->set_name(std::string(hlo_event_metadata.Name()));
+  }
+  hlo_event_metadata.ForEachStat([&](const XStatVisitor& stat) {
+    if (stat.Type().has_value()) {
+      switch (static_cast<StatType>(*stat.Type())) {
+        case StatType::kHloCategory:
+          op_metrics->set_category(std::string(stat.StrOrRefValue()));
+          break;
+        case StatType::kTfOpName:
+          op_metrics->set_provenance(std::string(stat.StrOrRefValue()));
+          break;
+        case StatType::kFlops:
+          op_metrics->set_flops(stat.IntOrUintValue());
+          break;
+        case StatType::kBytesAccessed:
+          op_metrics->set_bytes_accessed(stat.IntOrUintValue());
+          break;
+        default:
+          break;
+      }
+    }
+  });
+  hlo_event_metadata.ForEachChild(
+      [&](const XEventMetadataVisitor& child_hlo_event_metadata) {
+        OpMetrics* child = op_metrics->mutable_children()->add_metrics_db();
+        child->set_occurrences(1);
+        SetOpMetadataFromHloEventMetadata(child_hlo_event_metadata, child);
+      });
+}
+
+void SetOpMetricsFromHloEvent(const XEventVisitor& hlo_event,
+                              OpMetrics* op_metrics) {
+  uint64_t duration_ps = hlo_event.DurationPs();
+  uint64_t min_duration_ps = duration_ps;
+  uint64_t self_duration_ps = duration_ps;
+  uint64_t dma_stall_ps = 0;
+  hlo_event.ForEachStat([&](const XStatVisitor& stat) {
+    if (!stat.Type()) return;
+    switch (static_cast<StatType>(*stat.Type())) {
+      case StatType::kMinDurationPs:
+        min_duration_ps = stat.IntValue();
+        break;
+      case StatType::kSelfDurationPs:
+        self_duration_ps = stat.IntValue();
+        break;
+      case StatType::kDmaStallDurationPs:
+        dma_stall_ps = stat.IntValue();
+        break;
+      default:
+        break;
+    }
+  });
+  if (op_metrics->occurrences() == 0) {
+    SetOpMetadataFromHloEventMetadata(hlo_event.Metadata(), op_metrics);
+    op_metrics->set_occurrences(hlo_event.NumOccurrences());
+    op_metrics->set_time_ps(duration_ps);
+    op_metrics->set_min_time_ps(min_duration_ps);
+    op_metrics->set_self_time_ps(self_duration_ps);
+    op_metrics->set_dma_stall_ps(dma_stall_ps);
+  } else {
+    op_metrics->set_occurrences(op_metrics->occurrences() +
+                                hlo_event.NumOccurrences());
+    op_metrics->set_time_ps(op_metrics->time_ps() + duration_ps);
+    op_metrics->set_min_time_ps(
+        std::min<uint64_t>(op_metrics->min_time_ps(), min_duration_ps));
+    op_metrics->set_self_time_ps(op_metrics->self_time_ps() + self_duration_ps);
+    op_metrics->set_dma_stall_ps(op_metrics->dma_stall_ps() + dma_stall_ps);
+  }
+}
+
 }  // namespace
 
-absl::flat_hash_map<int64, TfOp> CollectTfOpsFromHostThreadsXPlane(
+absl::flat_hash_map<int64_t, TfOp> CollectTfOpsFromHostThreadsXPlane(
     const XPlane& host_trace) {
-  absl::flat_hash_map<int64, TfOp> tf_ops;
+  absl::flat_hash_map<int64_t, TfOp> tf_ops;
   for (const auto& id_metadata : host_trace.event_metadata()) {
     const XEventMetadata& metadata = id_metadata.second;
     // On the host, we have added some user-specified TraceMe's in addition to
@@ -171,7 +276,8 @@ absl::flat_hash_map<int64, TfOp> CollectTfOpsFromHostThreadsXPlane(
 }
 
 TfMetricsDbData ConvertHostThreadsXLineToTfMetricsDbData(
-    const XLineVisitor& line, const absl::flat_hash_map<int64, TfOp>& tf_ops) {
+    const XLineVisitor& line,
+    const absl::flat_hash_map<int64_t, TfOp>& tf_ops) {
   TfMetricsDbData tf_metrics_db_data;
   if (!tf_ops.empty()) {
     std::vector<TfActivity> tf_activities;
@@ -183,12 +289,14 @@ TfMetricsDbData ConvertHostThreadsXLineToTfMetricsDbData(
 
 void ConsumeTfMetricsDbData(TfMetricsDbData src, OpMetricsDbCombiner* dst) {
   AddIdleOp(src.tf_metrics_db);
-  dst->Combine(src.tf_metrics_db);
+  // Host OpMetricsDb does not need to update the number of cores a certain op
+  // occurs.
+  dst->Combine(src.tf_metrics_db, /*update_num_cores=*/false);
   src.tf_metrics_db.Clear();
 }
 
 OpMetricsDb ConvertHostThreadsXPlaneToOpMetricsDb(const XPlane& host_trace) {
-  absl::flat_hash_map<int64, TfOp> tf_ops =
+  absl::flat_hash_map<int64_t, TfOp> tf_ops =
       CollectTfOpsFromHostThreadsXPlane(host_trace);
   OpMetricsDb result;
   OpMetricsDbCombiner combiner(&result);
@@ -197,6 +305,34 @@ OpMetricsDb ConvertHostThreadsXPlaneToOpMetricsDb(const XPlane& host_trace) {
     ConsumeTfMetricsDbData(
         ConvertHostThreadsXLineToTfMetricsDbData(line, tf_ops), &combiner);
   });
+  return result;
+}
+
+OpMetricsDb ConvertTpuDeviceTraceXPlaneToOpMetricsDb(
+    const XPlane& device_trace) {
+  OpMetricsDb result;
+  XPlaneVisitor plane = CreateTfXPlaneVisitor(&device_trace);
+  using OpMetricBySymbol = absl::flat_hash_map<int64_t, OpMetrics>;
+  absl::flat_hash_map<int64_t, OpMetricBySymbol> flat_op_metric;
+  plane.ForEachLine([&](const XLineVisitor& line) {
+    line.ForEachEvent([&](const XEventVisitor& event) {
+      OpKey key = GetOpKeyFromHloEventMetadata(event.Metadata());
+      if (!key.program_id.has_value() || !key.symbol_id.has_value()) return;
+      OpMetricBySymbol& op_metric_by_symbol =
+          flat_op_metric[key.program_id.value()];
+      if (key.symbol_id != kRootSymbolId) {
+        OpMetrics& op_metrics = op_metric_by_symbol[key.symbol_id.value()];
+        SetOpMetricsFromHloEvent(event, &op_metrics);
+      }
+    });
+  });
+
+  for (auto& [program_id, op_metric_by_symbol] : flat_op_metric) {
+    for (auto& [symbol_id, op_metrics] : op_metric_by_symbol) {
+      result.add_metrics_db()->Swap(&op_metrics);
+    }
+  }
+  AddIdleOp(result);
   return result;
 }
 
@@ -216,10 +352,9 @@ OpMetricsDb ConvertDeviceTraceXPlaneToOpMetricsDb(const XPlane& device_trace) {
       last_op_offset_ps = std::max(last_op_offset_ps, event.EndOffsetPs());
 
       absl::string_view tf_op_full_name;
-      bool is_eager;
+      bool is_eager = false;
       event.ForEachStat([&](const XStatVisitor& stat) {
-        if (stat.Type() == StatType::kLevel0 ||  // old way to deliver tf_op.
-            stat.Type() == StatType::kTfOp) {
+        if (stat.Type() == StatType::kTfOp) {
           tf_op_full_name = stat.StrOrRefValue();
         } else if (stat.Type() == StatType::kIsEager) {
           is_eager = stat.IntValue();

@@ -16,17 +16,14 @@
 
 package android.media.audio.cts;
 
-import android.media.audio.cts.R;
-
 import android.content.pm.PackageManager;
 import android.media.AudioFormat;
 import android.media.AudioRecord;
+import android.media.MediaRecorder;
 import android.media.audiofx.AcousticEchoCanceler;
 import android.media.audiofx.AutomaticGainControl;
 import android.media.audiofx.NoiseSuppressor;
-import android.media.MediaRecorder;
 import android.test.AndroidTestCase;
-
 
 public class AudioPreProcessingTest extends AndroidTestCase {
 

@@ -20,7 +20,7 @@
 #include <memory>
 #include <vector>
 
-#include "drmhwcomposer.h"
+#include "LayerData.h"
 
 namespace android {
 
@@ -28,7 +28,7 @@ class DrmDevice;
 
 struct DrmKmsPlan {
   struct LayerToPlaneJoining {
-    DrmHwcLayer layer;
+    LayerData layer;
     std::shared_ptr<BindingOwner<DrmPlane>> plane;
     int z_pos;
   };
@@ -36,7 +36,7 @@ struct DrmKmsPlan {
   std::vector<LayerToPlaneJoining> plan;
 
   static auto CreateDrmKmsPlan(DrmDisplayPipeline &pipe,
-                               std::vector<DrmHwcLayer> composition)
+                               std::vector<LayerData> composition)
       -> std::unique_ptr<DrmKmsPlan>;
 };
 

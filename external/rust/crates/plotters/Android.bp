@@ -23,7 +23,7 @@ rust_library {
     host_supported: true,
     crate_name: "plotters",
     cargo_env_compat: true,
-    cargo_pkg_version: "0.3.1",
+    cargo_pkg_version: "0.3.4",
     srcs: ["src/lib.rs"],
     edition: "2018",
     features: [
@@ -37,4 +37,10 @@ rust_library {
         "libplotters_backend",
         "libplotters_svg",
     ],
+    apex_available: [
+        "//apex_available:platform",
+        "//apex_available:anyapex",
+    ],
+    product_available: true,
+    vendor_available: true,
 }

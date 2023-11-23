@@ -18,8 +18,17 @@
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="app_title" msgid="1995858460392177468">"ಕಾರ್ ಲಾಂಚರ್"</string>
+    <string name="reset_appgrid_title" msgid="814562055108028366">"ಆ್ಯಪ್ ಗ್ರಿಡ್ ಅನ್ನು A-Z ಆರ್ಡರ್‌ಗೆ ರೀಸೆಟ್ ಮಾಡಿ"</string>
+    <string name="reset_appgrid_dialogue_message" msgid="8275758912490987735">"ಈ ಕಾರ್ಯವು ಎಲ್ಲಾ ಕಸ್ಟಮ್ ಆರ್ಡರ್ ಮಾಡುವಿಕೆಯನ್ನು ತೆಗೆದುಹಾಕುತ್ತದೆ. ನೀವು ಮುಂದುವರಿಸಲು ಬಯಸುತ್ತೀರಾ?"</string>
     <string name="app_launcher_title_all_apps" msgid="3215107396036838217">"ಎಲ್ಲಾ ಆ್ಯಪ್‌ಗಳು"</string>
     <string name="app_launcher_title_media_only" msgid="4400886555907422816">"ಮಾಧ್ಯಮ ಆ್ಯಪ್‌ಗಳು"</string>
+    <string name="app_launcher_stop_app_action" msgid="1081680842410279692">"ಆ್ಯಪ್ ಅನ್ನು ನಿಲ್ಲಿಸಿ"</string>
+    <string name="app_launcher_app_info_action" msgid="6388181061002827660">"ಆ್ಯಪ್ ಮಾಹಿತಿ"</string>
+    <string name="app_launcher_stop_app_success_toast_text" msgid="2117271772351005349">"<xliff:g id="APP_NAME">%1$s</xliff:g> ಅನ್ನು ನಿಲ್ಲಿಸಲಾಗಿದೆ."</string>
+    <string name="app_launcher_stop_app_dialog_title" msgid="8276889322638001144">"ಆ್ಯಪ್ ಅನ್ನು ನಿಲ್ಲಿಸಬೇಕೆ?"</string>
+    <string name="app_launcher_stop_app_dialog_text" msgid="3264059639436254372">"ನೀವು ಆ್ಯಪ್ ಅನ್ನು ಬಲವಂತವಾಗಿ ನಿಲ್ಲಿಸಿದರೆ, ಅದು ಸರಿಯಾಗಿ ಕಾರ್ಯನಿರ್ವಹಿಸದಿರಬಹುದು."</string>
+    <string name="app_launcher_stop_app_cant_stop_text" msgid="4766841417948746773">"ಆ್ಯಪ್ ನಿಲ್ಲಿಸಲು ಸಾಧ್ಯವಿಲ್ಲ."</string>
+    <string name="default_media_song_title" msgid="2970305231647817808"></string>
     <string name="driving_toast_text" msgid="149483091947120092">"ಡ್ರೈವ್ ಮಾಡುವಾಗ <xliff:g id="APP_NAME">%1$s</xliff:g> ಬಳಸಲು ಸಾಧ್ಯವಾಗುವುದಿಲ್ಲ."</string>
     <string name="tap_for_more_info_text" msgid="2043549383814415585">"ಹೆಚ್ಚಿನ ಮಾಹಿತಿಗಾಗಿ ಕಾರ್ಡ್ ಅನ್ನು ಟ್ಯಾಪ್ ಮಾಡಿ"</string>
     <string name="tap_to_launch_text" msgid="6910695705119260847">"ಪ್ರಾರಂಭಿಸಲು ಕಾರ್ಡ್ ಅನ್ನು ಟ್ಯಾಪ್ ಮಾಡಿ"</string>
@@ -34,4 +43,8 @@
     <string name="fake_weather_footer_text" msgid="4570172025869749926">"ಮೌಂಟೇನ್ ವ್ಯೂ • H: --° L: --°"</string>
     <string name="hide_debug_apps" msgid="6128313544379622475">"ಡೀಬಗ್ ಆ್ಯಪ್‌ಗಳನ್ನು ಮರೆಮಾಡಿ"</string>
     <string name="show_debug_apps" msgid="4521073121286325786">"ಡೀಬಗ್ ಆ್ಯಪ್‌ಗಳನ್ನು ತೋರಿಸಿ"</string>
+    <string name="times_separator" msgid="6180368193321715816">"/"</string>
+    <string name="recents_empty_state_text" msgid="6703106170272215731">"ಯಾವುದೇ ಇತ್ತೀಚಿನ ಐಟಂಗಳಿಲ್ಲ"</string>
+    <string name="recents_clear_all_text" msgid="2088678071417053923">"ಎಲ್ಲವನ್ನೂ ಅಳಿಸಿ"</string>
+    <string name="failure_opening_recent_task_message" msgid="9097595793150874357">"ಆ್ಯಪ್ ಲಭ್ಯವಿಲ್ಲ"</string>
 </resources>

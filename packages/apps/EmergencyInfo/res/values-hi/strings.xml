@@ -77,7 +77,7 @@
     <string name="medications" msgid="644428945685557183">"दवाएं"</string>
     <string name="unknown_medications" msgid="2764171064510423734">"अज्ञात"</string>
     <string name="medications_hint" msgid="3221620025945593723">"उदाहरण के लिए, एस्पिरिन"</string>
-    <string name="medical_conditions" msgid="3555690011498283592">"इलाज से जुड़ी कुछ बातें"</string>
+    <string name="medical_conditions" msgid="3555690011498283592">"स्वास्थ्य से जुड़ी कुछ बातें"</string>
     <string name="unknown_medical_conditions" msgid="8051364895172053770">"अज्ञात"</string>
     <string name="medical_conditions_hint" msgid="6959152183029062882">"उदाहरण के लिए, दमा"</string>
     <string name="organ_donor" msgid="5953509460007124827">"अंग दान करने वाला"</string>

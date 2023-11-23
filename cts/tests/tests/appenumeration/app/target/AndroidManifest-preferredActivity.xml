@@ -24,7 +24,7 @@
         <activity android:name="android.appenumeration.testapp.DummyActivity"
                   android:exported="true">
             <intent-filter>
-                <action android:name="android.intent.action.APP_ENUMERATION_PREFERRED_ACTIVITY" />
+                <action android:name="android.appenumeration.cts.action.APP_ENUMERATION_PREFERRED_ACTIVITY" />
                 <category android:name="android.intent.category.DEFAULT" />
             </intent-filter>
         </activity>

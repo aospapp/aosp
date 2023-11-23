@@ -137,6 +137,8 @@ class LinuxSystem(object):
         self._ping_runner = ping_runner.PingRunner(host=self.host)
         self._bridge_interface = None
         self._virtual_ethernet_pair = None
+        self._firewall_rules = []
+        self._command_iptables = 'iptables -w 5'
 
         # TODO(crbug.com/839164): some routers fill their stateful partition
         # with uncollected metrics.
@@ -662,7 +664,7 @@ class LinuxSystem(object):
         """
         for net_dev in self._wlanifs_in_use:
             if net_dev.if_name == wlanif:
-                 self._wlanifs_in_use.remove(net_dev)
+                self._wlanifs_in_use.remove(net_dev)
 
 
     def get_bridge_interface(self):
@@ -781,6 +783,29 @@ class LinuxSystem(object):
         logging.info('Pinging from the %s.', self.role)
         return self._ping_runner.ping(ping_config)
 
+    def firewall_open(self, proto, src):
+        """Opens up firewall to run performance tests.
+
+        By default, we have a firewall rule for NFQUEUE (see crbug.com/220736).
+        In order to run netperf test, we need to add a new firewall rule BEFORE
+        this NFQUEUE rule in the INPUT chain.
+
+        @param proto a string, test traffic protocol, e.g. udp, tcp.
+        @param src a string, subnet/mask.
+
+        @return a string firewall rule added.
+
+        """
+        rule = 'INPUT -s %s/32 -p %s -m %s -j ACCEPT' % (src, proto, proto)
+        self.host.run('%s -I %s' % (self._command_iptables, rule))
+        self._firewall_rules.append(rule)
+        return rule
+
+    def firewall_cleanup(self):
+        """Cleans up firewall rules."""
+        for rule in self._firewall_rules:
+            self.host.run('%s -D %s' % (self._command_iptables, rule))
+        self._firewall_rules = []
 
     @property
     def logdir(self):

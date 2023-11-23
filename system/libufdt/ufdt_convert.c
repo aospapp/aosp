@@ -40,6 +40,8 @@ struct ufdt *ufdt_construct(void *fdtp, struct ufdt_node_pool *pool) {
   res_ufdt->mem_size_fdtps = DEFAULT_MEM_SIZE_FDTPS;
   res_ufdt->num_used_fdtps = (fdtp != NULL ? 1 : 0);
   res_ufdt->root = NULL;
+  res_ufdt->phandle_table.data = NULL;
+  res_ufdt->phandle_table.len = 0;
 
   return res_ufdt;
 
@@ -149,7 +151,13 @@ static struct ufdt_node *fdt_to_ufdt_tree(void *fdtp, int cur_fdt_tag_offset,
 
       do {
         cur_fdt_tag_offset = *next_fdt_tag_offset;
+
         tag = fdt_next_tag(fdtp, cur_fdt_tag_offset, next_fdt_tag_offset);
+        if (tag == FDT_END) {
+          dto_error("failed to get next tag\n");
+          break;
+        }
+
         child_node = fdt_to_ufdt_tree(fdtp, cur_fdt_tag_offset,
                                       next_fdt_tag_offset, tag, pool);
         ufdt_node_add_child(res, child_node);
@@ -196,13 +204,21 @@ struct ufdt_node *ufdt_get_node_by_path_len(struct ufdt *tree, const char *path,
     const char *alias_path =
         ufdt_node_get_fdt_prop_data(aliases_node, &path_len);
 
-    if (alias_path == NULL) {
-      dto_error("Failed to find alias %s\n", path);
+    if (alias_path == NULL || path_len == 0) {
+      dto_error("Failed to find valid alias %s\n", path);
+      return NULL;
+    }
+
+    /* property data must be a nul terminated string */
+    int alias_len = strnlen(alias_path, path_len);
+
+    if (alias_len != path_len - 1 || alias_len == 0) {
+      dto_error("Invalid alias for %s\n", path);
       return NULL;
     }
 
     struct ufdt_node *target_node =
-        ufdt_node_get_node_by_path_len(tree->root, alias_path, path_len);
+        ufdt_node_get_node_by_path_len(tree->root, alias_path, alias_len);
 
     return ufdt_node_get_node_by_path_len(target_node, next_slash,
                                           end - next_slash);
@@ -250,14 +266,14 @@ static void set_phandle_table_entry(struct ufdt_node *node,
                                     struct ufdt_phandle_table_entry *data,
                                     int *cur) {
   if (node == NULL || ufdt_node_tag(node) != FDT_BEGIN_NODE) return;
-  int ph = ufdt_node_get_phandle(node);
+  uint32_t ph = ufdt_node_get_phandle(node);
   if (ph > 0) {
     data[*cur].phandle = ph;
     data[*cur].node = node;
     (*cur)++;
   }
   struct ufdt_node **it;
-  for_each_node(it, node) set_phandle_table_entry(*it, data, cur);
+  for_each_child(it, node) set_phandle_table_entry(*it, data, cur);
   return;
 }
 
@@ -292,9 +308,16 @@ struct ufdt *ufdt_from_fdt(void *fdtp, size_t fdt_size,
     return ufdt_construct(NULL, pool);
   }
 
-  struct ufdt *res_tree = ufdt_construct(fdtp, pool);
   int end_offset;
   int start_tag = fdt_next_tag(fdtp, start_offset, &end_offset);
+
+  if (start_tag != FDT_BEGIN_NODE) {
+    return ufdt_construct(NULL, pool);
+  }
+
+  struct ufdt *res_tree = ufdt_construct(fdtp, pool);
+  if (res_tree == NULL) return NULL;
+
   res_tree->root =
       fdt_to_ufdt_tree(fdtp, start_offset, &end_offset, start_tag, pool);
 
@@ -329,10 +352,16 @@ static int _ufdt_output_property_to_fdt(
 
   int data_len = 0;
   void *data = ufdt_node_get_fdt_prop_data(&prop_node->parent, &data_len);
-  int aligned_data_len = (data_len + (FDT_TAGSIZE - 1)) & ~(FDT_TAGSIZE - 1);
+  if (!data) {
+    dto_error("Failed to get property data.\n");
+    return -1;
+  }
 
-  int new_propoff = fdt_size_dt_struct(fdtp);
-  int new_prop_size = sizeof(struct fdt_property) + aligned_data_len;
+  unsigned int aligned_data_len =
+      ((unsigned int)data_len + (FDT_TAGSIZE - 1u)) & ~(FDT_TAGSIZE - 1u);
+
+  unsigned int new_propoff = fdt_size_dt_struct(fdtp);
+  unsigned int new_prop_size = sizeof(struct fdt_property) + aligned_data_len;
   struct fdt_property *new_prop =
       (struct fdt_property *)((char *)fdtp + fdt_off_dt_struct(fdtp) +
                               new_propoff);
@@ -415,6 +444,7 @@ static int _ufdt_output_strtab_to_fdt(const struct ufdt *tree, void *fdt) {
 
 int ufdt_to_fdt(const struct ufdt *tree, void *buf, int buf_size) {
   if (tree->num_used_fdtps == 0) return -1;
+  if (tree->root == NULL) return -1;
 
   int err;
   err = fdt_create(buf, buf_size);
@@ -440,9 +470,11 @@ int ufdt_to_fdt(const struct ufdt *tree, void *buf, int buf_size) {
   if (err < 0) return -1;
 
   err = _ufdt_output_node_to_fdt(tree, buf, tree->root, &dict);
-  if (err < 0) return -1;
 
+  // Ensure property_dict is freed, even on error path.
   ufdt_prop_dict_destruct(&dict);
+
+  if (err < 0) return -1;
 
   err = fdt_finish(buf);
   if (err < 0) return -1;

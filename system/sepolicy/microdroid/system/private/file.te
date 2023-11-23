@@ -1,9 +1,9 @@
 allow fs_type self:filesystem associate;
 allow cgroup tmpfs:filesystem associate;
 allow cgroup_v2 tmpfs:filesystem associate;
-allow cgroup_rc_file tmpfs:filesystem associate;
 allow debugfs_type { debugfs debugfs_tracing debugfs_tracing_debug }:filesystem associate;
 allow dev_type tmpfs:filesystem associate;
+allow encryptedstore_file encryptedstore_fs:filesystem associate;
 allow extra_apk_file zipfusefs:filesystem associate;
 allow file_type labeledfs:filesystem associate;
 allow file_type tmpfs:filesystem associate;
@@ -17,3 +17,18 @@ type authfs_fuse, fs_type, contextmount_type;
 # /dev/selinux/test - used to verify that apex sepolicy is loaded and
 # property labeled.
 type sepolicy_test_file, file_type;
+
+# /system/bin/mke2fs - used to format encryptedstore block device
+type e2fs_exec, system_file_type, exec_type, file_type;
+
+type encryptedstore_file, file_type;
+type encryptedstore_fs, fs_type, contextmount_type;
+
+# Filesystem entry for for PRNG seeder socket.
+type prng_seeder_socket, file_type, coredomain_socket;
+
+# /data/misc/perfetto-traces for perfetto traces
+type perfetto_traces_data_file, file_type, data_file_type, core_data_file_type;
+
+# /data/misc/perfetto-configs for perfetto configs
+type perfetto_configs_data_file, file_type, data_file_type, core_data_file_type;

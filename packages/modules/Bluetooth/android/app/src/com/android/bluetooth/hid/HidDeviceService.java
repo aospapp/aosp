@@ -306,8 +306,11 @@ public class HidDeviceService extends ProfileService {
 
         @RequiresPermission(android.Manifest.permission.BLUETOOTH_CONNECT)
         private HidDeviceService getService(AttributionSource source) {
-            if (!Utils.checkCallerIsSystemOrActiveUser(TAG)
-                    || !Utils.checkServiceAvailable(mService, TAG)
+            if (Utils.isInstrumentationTestMode()) {
+                return mService;
+            }
+            if (!Utils.checkServiceAvailable(mService, TAG)
+                    || !Utils.checkCallerIsSystemOrActiveOrManagedUser(mService, TAG)
                     || !Utils.checkConnectPermissionForDataDelivery(mService, source, TAG)) {
                 return null;
             }
@@ -827,7 +830,8 @@ public class HidDeviceService extends ProfileService {
         return sHidDeviceService;
     }
 
-    private static synchronized void setHidDeviceService(HidDeviceService instance) {
+    @VisibleForTesting
+    static synchronized void setHidDeviceService(HidDeviceService instance) {
         if (DBG) {
             Log.d(TAG, "setHidDeviceService(): set to: " + instance);
         }
@@ -947,7 +951,7 @@ public class HidDeviceService extends ProfileService {
 
     private void setAndBroadcastConnectionState(BluetoothDevice device, int newState) {
         if (DBG) {
-            Log.d(TAG, "setAndBroadcastConnectionState(): device=" + device.getAddress()
+            Log.d(TAG, "setAndBroadcastConnectionState(): device=" + device
                     + " oldState=" + mHidDeviceState + " newState=" + newState);
         }
 
@@ -973,7 +977,8 @@ public class HidDeviceService extends ProfileService {
         intent.putExtra(BluetoothProfile.EXTRA_STATE, newState);
         intent.putExtra(BluetoothDevice.EXTRA_DEVICE, device);
         intent.addFlags(Intent.FLAG_RECEIVER_REGISTERED_ONLY_BEFORE_BOOT);
-        sendBroadcast(intent, BLUETOOTH_CONNECT, Utils.getTempAllowlistBroadcastOptions());
+        Utils.sendBroadcast(this, intent, BLUETOOTH_CONNECT,
+                Utils.getTempAllowlistBroadcastOptions());
     }
 
     private static int convertHalState(int halState) {

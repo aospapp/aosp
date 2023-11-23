@@ -159,8 +159,7 @@ libtextclassifier3::StatusOr<std::unique_ptr<JniCache>> JniCache::Create(
 
   // BreakIteratorBatcher
   ICING_GET_CLASS_OR_RETURN_NULL(
-      breakiterator,
-      "com/google/android/icing/BreakIteratorBatcher");
+      breakiterator, "com/google/android/icing/BreakIteratorBatcher");
   ICING_GET_METHOD(breakiterator, constructor, "<init>",
                    "(Ljava/util/Locale;)V");
   ICING_GET_METHOD(breakiterator, settext, "setText", "(Ljava/lang/String;)V");

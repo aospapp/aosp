@@ -18,7 +18,21 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 
 fn main() {
-    generate_packets();
+    let packets_prebuilt = match env::var("HCI_PACKETS_PREBUILT") {
+        Ok(dir) => PathBuf::from(dir),
+        Err(_) => PathBuf::from("hci_packets.rs"),
+    };
+    if Path::new(packets_prebuilt.as_os_str()).exists() {
+        let out_dir = PathBuf::from(env::var("OUT_DIR").unwrap());
+        let outputted = out_dir.join("../../hci/hci_packets.rs");
+        std::fs::copy(
+            packets_prebuilt.as_os_str().to_str().unwrap(),
+            out_dir.join(outputted.file_name().unwrap()).as_os_str().to_str().unwrap(),
+        )
+        .unwrap();
+    } else {
+        generate_packets();
+    }
 }
 
 fn generate_packets() {
@@ -40,10 +54,14 @@ fn generate_packets() {
     };
 
     if !Path::new(packetgen.as_os_str()).exists() {
-        panic!("Unable to locate bluetooth packet generator:{:?}", packetgen.as_os_str().to_str().unwrap());
+        panic!(
+            "Unable to locate bluetooth packet generator:{:?}",
+            packetgen.as_os_str().to_str().unwrap()
+        );
     }
 
     for i in 0..input_files.len() {
+        println!("cargo:rerun-if-changed={}", input_files[i].display());
         let output = Command::new(packetgen.as_os_str().to_str().unwrap())
             .arg("--source_root=".to_owned() + gd_root.as_os_str().to_str().unwrap())
             .arg("--out=".to_owned() + out_dir.as_os_str().to_str().unwrap())

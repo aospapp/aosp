@@ -16,6 +16,7 @@
 
 #include "gtest/gtest.h"
 #include "pw_bytes/span.h"
+#include "pw_containers/algorithm.h"
 #include "pw_log/levels.h"
 #include "pw_log/proto/log.pwpb.h"
 #include "pw_protobuf/bytes_utils.h"
@@ -31,16 +32,16 @@ void VerifyTokenizedLogEntry(pw::protobuf::Decoder& entry_decoder,
   ConstByteSpan tokenized_data;
   EXPECT_TRUE(entry_decoder.Next().ok());  // message [tokenized]
   EXPECT_EQ(entry_decoder.FieldNumber(),
-            static_cast<uint32_t>(log::LogEntry::Fields::MESSAGE));
+            static_cast<uint32_t>(log::pwpb::LogEntry::Fields::kMessage));
   EXPECT_TRUE(entry_decoder.ReadBytes(&tokenized_data).ok());
-  EXPECT_TRUE(std::memcmp(tokenized_data.begin(),
-                          expected_tokenized_data.begin(),
+  EXPECT_TRUE(std::memcmp(tokenized_data.data(),
+                          expected_tokenized_data.data(),
                           expected_tokenized_data.size()) == 0);
 
   uint32_t line_level;
   EXPECT_TRUE(entry_decoder.Next().ok());  // line_level
   EXPECT_EQ(entry_decoder.FieldNumber(),
-            static_cast<uint32_t>(log::LogEntry::Fields::LINE_LEVEL));
+            static_cast<uint32_t>(log::pwpb::LogEntry::Fields::kLineLevel));
   EXPECT_TRUE(entry_decoder.ReadUint32(&line_level).ok());
 
   uint32_t line_number;
@@ -53,7 +54,7 @@ void VerifyTokenizedLogEntry(pw::protobuf::Decoder& entry_decoder,
     uint32_t flags;
     EXPECT_TRUE(entry_decoder.Next().ok());  // flags
     EXPECT_EQ(entry_decoder.FieldNumber(),
-              static_cast<uint32_t>(log::LogEntry::Fields::FLAGS));
+              static_cast<uint32_t>(log::pwpb::LogEntry::Fields::kFlags));
     EXPECT_TRUE(entry_decoder.ReadUint32(&flags).ok());
     EXPECT_EQ(expected_metadata.flags(), flags);
   }
@@ -62,16 +63,17 @@ void VerifyTokenizedLogEntry(pw::protobuf::Decoder& entry_decoder,
   EXPECT_TRUE(entry_decoder.Next().ok());  // timestamp
   EXPECT_TRUE(
       entry_decoder.FieldNumber() ==
-          static_cast<uint32_t>(log::LogEntry::Fields::TIMESTAMP) ||
+          static_cast<uint32_t>(log::pwpb::LogEntry::Fields::kTimestamp) ||
       entry_decoder.FieldNumber() ==
-          static_cast<uint32_t>(log::LogEntry::Fields::TIME_SINCE_LAST_ENTRY));
+          static_cast<uint32_t>(
+              log::pwpb::LogEntry::Fields::kTimeSinceLastEntry));
   EXPECT_TRUE(entry_decoder.ReadInt64(&timestamp).ok());
   EXPECT_EQ(expected_timestamp, timestamp);
 
   if (expected_metadata.module() != 0) {
     EXPECT_TRUE(entry_decoder.Next().ok());  // module name
     EXPECT_EQ(entry_decoder.FieldNumber(),
-              static_cast<uint32_t>(log::LogEntry::Fields::MODULE));
+              static_cast<uint32_t>(log::pwpb::LogEntry::Fields::kModule));
     const Result<uint32_t> module =
         protobuf::DecodeBytesToUint32(entry_decoder);
     ASSERT_TRUE(module.ok());
@@ -82,10 +84,10 @@ void VerifyTokenizedLogEntry(pw::protobuf::Decoder& entry_decoder,
     ConstByteSpan tokenized_thread_name;
     EXPECT_TRUE(entry_decoder.Next().ok());  // thread [tokenized]
     EXPECT_EQ(entry_decoder.FieldNumber(),
-              static_cast<uint32_t>(log::LogEntry::Fields::THREAD));
+              static_cast<uint32_t>(log::pwpb::LogEntry::Fields::kThread));
     EXPECT_TRUE(entry_decoder.ReadBytes(&tokenized_thread_name).ok());
-    EXPECT_TRUE(std::memcmp(tokenized_thread_name.begin(),
-                            expected_thread_name.begin(),
+    EXPECT_TRUE(std::memcmp(tokenized_thread_name.data(),
+                            expected_thread_name.data(),
                             expected_thread_name.size()) == 0);
   }
 }
@@ -102,17 +104,14 @@ void VerifyLogEntry(pw::protobuf::Decoder& entry_decoder,
   std::string_view message;
   EXPECT_TRUE(entry_decoder.Next().ok());  // message
   EXPECT_EQ(entry_decoder.FieldNumber(),
-            static_cast<uint32_t>(log::LogEntry::Fields::MESSAGE));
+            static_cast<uint32_t>(log::pwpb::LogEntry::Fields::kMessage));
   EXPECT_TRUE(entry_decoder.ReadString(&message).ok());
-  EXPECT_TRUE(std::equal(message.begin(),
-                         message.end(),
-                         expected_message.begin(),
-                         expected_message.end()));
+  EXPECT_TRUE(pw::containers::Equal(message, expected_message));
 
   uint32_t line_level;
   EXPECT_TRUE(entry_decoder.Next().ok());  // line_level
   EXPECT_EQ(entry_decoder.FieldNumber(),
-            static_cast<uint32_t>(log::LogEntry::Fields::LINE_LEVEL));
+            static_cast<uint32_t>(log::pwpb::LogEntry::Fields::kLineLevel));
   EXPECT_TRUE(entry_decoder.ReadUint32(&line_level).ok());
   uint32_t line_number;
   uint8_t level;
@@ -124,7 +123,7 @@ void VerifyLogEntry(pw::protobuf::Decoder& entry_decoder,
     uint32_t flags;
     EXPECT_TRUE(entry_decoder.Next().ok());  // flags
     EXPECT_EQ(entry_decoder.FieldNumber(),
-              static_cast<uint32_t>(log::LogEntry::Fields::FLAGS));
+              static_cast<uint32_t>(log::pwpb::LogEntry::Fields::kFlags));
     EXPECT_TRUE(entry_decoder.ReadUint32(&flags).ok());
     EXPECT_EQ(expected_flags, flags);
   }
@@ -133,9 +132,10 @@ void VerifyLogEntry(pw::protobuf::Decoder& entry_decoder,
   EXPECT_TRUE(entry_decoder.Next().ok());  // timestamp
   EXPECT_TRUE(
       entry_decoder.FieldNumber() ==
-          static_cast<uint32_t>(log::LogEntry::Fields::TIMESTAMP) ||
+          static_cast<uint32_t>(log::pwpb::LogEntry::Fields::kTimestamp) ||
       entry_decoder.FieldNumber() ==
-          static_cast<uint32_t>(log::LogEntry::Fields::TIME_SINCE_LAST_ENTRY));
+          static_cast<uint32_t>(
+              log::pwpb::LogEntry::Fields::kTimeSinceLastEntry));
   EXPECT_TRUE(entry_decoder.ReadInt64(&timestamp).ok());
   EXPECT_EQ(expected_ticks_since_epoch, timestamp);
 
@@ -143,36 +143,27 @@ void VerifyLogEntry(pw::protobuf::Decoder& entry_decoder,
     std::string_view module_name;
     EXPECT_TRUE(entry_decoder.Next().ok());  // module
     EXPECT_EQ(entry_decoder.FieldNumber(),
-              static_cast<uint32_t>(log::LogEntry::Fields::MODULE));
+              static_cast<uint32_t>(log::pwpb::LogEntry::Fields::kModule));
     EXPECT_TRUE(entry_decoder.ReadString(&module_name).ok());
-    EXPECT_TRUE(std::equal(module_name.begin(),
-                           module_name.end(),
-                           expected_module.begin(),
-                           expected_module.end()));
+    EXPECT_TRUE(pw::containers::Equal(module_name, expected_module));
   }
 
   if (!expected_file_name.empty()) {
     std::string_view file_name;
     EXPECT_TRUE(entry_decoder.Next().ok());  // file
     EXPECT_EQ(entry_decoder.FieldNumber(),
-              static_cast<uint32_t>(log::LogEntry::Fields::FILE));
+              static_cast<uint32_t>(log::pwpb::LogEntry::Fields::kFile));
     EXPECT_TRUE(entry_decoder.ReadString(&file_name).ok());
-    EXPECT_TRUE(std::equal(file_name.begin(),
-                           file_name.end(),
-                           expected_file_name.begin(),
-                           expected_file_name.end()));
+    EXPECT_TRUE(pw::containers::Equal(file_name, expected_file_name));
   }
 
   if (!expected_thread_name.empty()) {
     std::string_view thread_name;
     EXPECT_TRUE(entry_decoder.Next().ok());  // file
     EXPECT_EQ(entry_decoder.FieldNumber(),
-              static_cast<uint32_t>(log::LogEntry::Fields::THREAD));
+              static_cast<uint32_t>(log::pwpb::LogEntry::Fields::kThread));
     EXPECT_TRUE(entry_decoder.ReadString(&thread_name).ok());
-    EXPECT_TRUE(std::equal(thread_name.begin(),
-                           thread_name.end(),
-                           expected_thread_name.begin(),
-                           expected_thread_name.end()));
+    EXPECT_TRUE(pw::containers::Equal(thread_name, expected_thread_name));
   }
 }
 

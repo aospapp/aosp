@@ -34,13 +34,15 @@ namespace perfmgr {
 // timeout for this action:
 struct NodeAction {
     NodeAction(std::size_t node_index, std::size_t value_index,
-               std::chrono::milliseconds timeout_ms)
+               std::chrono::milliseconds timeout_ms, const std::string &enable_property = "")
         : node_index(node_index),
           value_index(value_index),
-          timeout_ms(timeout_ms) {}
+          timeout_ms(timeout_ms),
+          enable_property(enable_property) {}
     std::size_t node_index;
     std::size_t value_index;
     std::chrono::milliseconds timeout_ms;  // 0ms for forever
+    std::string enable_property;           // boolean property to control action on/off.
 };
 
 // The NodeLooperThread is responsible for managing each of the sysfs nodes

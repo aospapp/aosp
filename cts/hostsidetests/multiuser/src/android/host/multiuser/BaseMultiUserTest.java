@@ -23,6 +23,7 @@ import com.android.ddmlib.Log;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.log.LogUtil.CLog;
 import com.android.tradefed.testtype.junit4.BaseHostJUnit4Test;
+import com.android.tradefed.util.RunUtil;
 
 import org.junit.After;
 import org.junit.AssumptionViolatedException;
@@ -35,8 +36,6 @@ import org.junit.runners.model.Statement;
 
 import java.util.ArrayList;
 import java.util.HashSet;
-import java.util.LinkedHashSet;
-import java.util.Scanner;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -56,8 +55,11 @@ public abstract class BaseMultiUserTest extends BaseHostJUnit4Test {
      */
     private static final String FEATURE_AUTOMOTIVE = "feature:android.hardware.type.automotive";
 
-    protected static final long LOGCAT_POLL_INTERVAL_MS = 1000;
-    protected static final long USER_SWITCH_COMPLETE_TIMEOUT_MS = 360_000;
+    protected static final String TEST_APP_PKG_NAME = "com.android.cts.multiuser";
+    protected static final String TEST_APP_PKG_APK = "CtsMultiuserApp.apk";
+
+    protected static final long LOGCAT_POLL_INTERVAL_MS = 1000; // 1 second
+    protected static final long USER_REMOVAL_COMPLETE_TIMEOUT_MS = 8 * 60 * 1000; // 8 minutes
 
     /** Whether multi-user is supported. */
     protected int mInitialUserId;
@@ -145,32 +147,14 @@ public abstract class BaseMultiUserTest extends BaseHostJUnit4Test {
                 getDevice().hasFeature(FEATURE_AUTOMOTIVE));
     }
 
-    protected void assertSwitchToNewUser(int toUserId) throws Exception {
-        final String exitString = "Finished processing BOOT_COMPLETED for u" + toUserId;
-        final Set<String> appErrors = new LinkedHashSet<>();
-        getDevice().executeAdbCommand("logcat", "-b", "all", "-c"); // Reset log
+    protected void assertSwitchToUser(int toUserId) throws Exception {
+        final boolean switchResult = getDevice().switchUser(toUserId);
         assertWithMessage("Couldn't switch to user %s", toUserId)
-                .that(getDevice().switchUser(toUserId)).isTrue();
-        final boolean result = waitForUserSwitchComplete(appErrors, toUserId, exitString);
-        assertWithMessage("Didn't receive BOOT_COMPLETED delivered notification. appErrors=%s",
-                appErrors).that(result).isTrue();
-        if (!appErrors.isEmpty()) {
-            throw new AppCrashOnBootError(appErrors);
-        }
-    }
+                .that(switchResult).isTrue();
 
-    protected void assertSwitchToUser(int fromUserId, int toUserId) throws Exception {
-        final String exitString = "uc_continue_user_switch: [" + fromUserId + "," + toUserId + "]";
-        final Set<String> appErrors = new LinkedHashSet<>();
-        getDevice().executeAdbCommand("logcat", "-b", "all", "-c"); // Reset log
-        assertWithMessage("Couldn't switch to user %s", toUserId)
-                .that(getDevice().switchUser(toUserId)).isTrue();
-        final boolean result = waitForUserSwitchComplete(appErrors, toUserId, exitString);
-        assertWithMessage("Didn't reach \"Continue user switch\" stage. appErrors=%s", appErrors)
-                .that(result).isTrue();
-        if (!appErrors.isEmpty()) {
-            throw new AppCrashOnBootError(appErrors);
-        }
+        final int currentUserId = getDevice().getCurrentUser();
+        assertWithMessage("Current user is %s, after switching to user %s", currentUserId, toUserId)
+                .that(currentUserId).isEqualTo(toUserId);
     }
 
     protected void assertUserNotPresent(int userId) throws Exception {
@@ -195,7 +179,7 @@ public abstract class BaseMultiUserTest extends BaseHostJUnit4Test {
         final String userSerialPatter = "(.*\\{)(\\d+)(.*\\})(.*=)(\\d+)(.*)";
         final Pattern pattern = Pattern.compile(userSerialPatter);
         long ti = System.currentTimeMillis();
-        while (System.currentTimeMillis() - ti < USER_SWITCH_COMPLETE_TIMEOUT_MS) {
+        while (System.currentTimeMillis() - ti < USER_REMOVAL_COMPLETE_TIMEOUT_MS) {
             if (!getDevice().listUsers().contains(userId)) {
                 return true;
             }
@@ -207,40 +191,7 @@ public abstract class BaseMultiUserTest extends BaseHostJUnit4Test {
                     return true;
                 }
             }
-            Thread.sleep(LOGCAT_POLL_INTERVAL_MS);
-        }
-        return false;
-    }
-
-    private boolean waitForUserSwitchComplete(Set<String> appErrors, int targetUserId,
-            String exitString) throws DeviceNotAvailableException, InterruptedException {
-        boolean mExitFound = false;
-        long ti = System.currentTimeMillis();
-        while (System.currentTimeMillis() - ti < USER_SWITCH_COMPLETE_TIMEOUT_MS) {
-            String logs = getDevice().executeAdbCommand("logcat", "-b", "all", "-d",
-                    "ActivityManager:D", "AndroidRuntime:E", "SystemServiceManager:E", "*:I");
-            Scanner in = new Scanner(logs);
-            while (in.hasNextLine()) {
-                String line = in.nextLine();
-                if (line.contains("Showing crash dialog for package")) {
-                    appErrors.add(line);
-                } else if (line.contains(exitString)) {
-                    // Parse all logs in case crashes occur as a result of onUserChange callbacks
-                    mExitFound = true;
-                } else if (line.contains("FATAL EXCEPTION IN SYSTEM PROCESS")) {
-                    throw new IllegalStateException("System process crashed - " + line);
-                } else if (line.contains("SystemService failure: Failure reporting")) {
-                    throw new IllegalStateException("A system service crashed:\n" + line);
-                }
-            }
-            in.close();
-            if (mExitFound) {
-                if (!appErrors.isEmpty()) {
-                    CLog.w("App crash dialogs found: %s", appErrors);
-                }
-                return true;
-            }
-            Thread.sleep(LOGCAT_POLL_INTERVAL_MS);
+            RunUtil.getDefault().sleep(LOGCAT_POLL_INTERVAL_MS);
         }
         return false;
     }

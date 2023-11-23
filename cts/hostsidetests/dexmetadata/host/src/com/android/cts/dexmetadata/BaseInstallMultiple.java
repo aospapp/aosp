@@ -15,7 +15,6 @@
  */
 package com.android.cts.dexmetadata;
 
-import com.android.compatibility.common.tradefed.build.CompatibilityBuildHelper;
 import com.android.tradefed.build.IBuildInfo;
 import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.device.ITestDevice;
@@ -23,7 +22,6 @@ import com.android.tradefed.device.ITestDevice;
 import junit.framework.TestCase;
 
 import java.io.File;
-import java.io.FileNotFoundException;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -34,9 +32,6 @@ import java.util.List;
  * InstallMultiple() { super(getDevice(), null); } } </code>
  */
 /*package*/ class BaseInstallMultiple<T extends BaseInstallMultiple<?>> {
-
-    private static final String FSV_SIG_SUFFIX = ".fsv_sig";
-
     private final ITestDevice mDevice;
     private final IBuildInfo mBuild;
 
@@ -61,17 +56,13 @@ import java.util.List;
         return (T) this;
     }
 
-    T addDm(File dm, File sig) {
-        return addDm(dm, sig, dm.getName());
+    T addDm(File dm) {
+        return addDm(dm, dm.getName());
     }
 
-    T addDm(File dm, File sig, String dm_name) {
+    T addDm(File dm, String dmName) {
         mFilesToInstall.add(dm);
-        mInstallNames.add(dm_name);
-        if (sig != null) {
-            mFilesToInstall.add(sig);
-            mInstallNames.add(dm_name + FSV_SIG_SUFFIX);
-        }
+        mInstallNames.add(dmName);
         return (T) this;
     }
 

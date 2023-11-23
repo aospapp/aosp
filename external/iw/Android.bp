@@ -89,6 +89,7 @@ cc_defaults {
     ],
 
     cflags: [
+        "-fno-strict-aliasing",
         "-D_GNU_SOURCE",
         "-DCONFIG_LIBNL20",
 

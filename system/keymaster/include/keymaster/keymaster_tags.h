@@ -108,7 +108,7 @@ template <keymaster_tag_type_t tag_type, keymaster_tag_t tag> class TypedTag {
     // NOLINTNEXTLINE(google-explicit-constructor)
     inline operator keymaster_tag_t() { return tag; }
     // NOLINTNEXTLINE(google-runtime-int)
-    inline long masked_tag() { return static_cast<long>(keymaster_tag_mask_type(tag)); }
+    inline int masked_tag() { return static_cast<int>(keymaster_tag_mask_type(tag)); }
 };
 
 template <keymaster_tag_type_t tag_type, keymaster_tag_t tag, typename KeymasterEnum>
@@ -126,7 +126,7 @@ class TypedEnumTag {
     // NOLINTNEXTLINE(google-explicit-constructor)
     inline operator keymaster_tag_t() { return tag; }
     // NOLINTNEXTLINE(google-runtime-int)
-    inline long masked_tag() { return static_cast<long>(keymaster_tag_mask_type(tag)); }
+    inline int masked_tag() { return static_cast<int>(keymaster_tag_mask_type(tag)); }
 };
 
 #ifdef KEYMASTER_NAME_TAGS
@@ -180,6 +180,7 @@ DECLARE_KEYMASTER_TAG(KM_BYTES, TAG_ATTESTATION_ID_DEVICE);
 DECLARE_KEYMASTER_TAG(KM_BYTES, TAG_ATTESTATION_ID_PRODUCT);
 DECLARE_KEYMASTER_TAG(KM_BYTES, TAG_ATTESTATION_ID_SERIAL);
 DECLARE_KEYMASTER_TAG(KM_BYTES, TAG_ATTESTATION_ID_IMEI);
+DECLARE_KEYMASTER_TAG(KM_BYTES, TAG_ATTESTATION_ID_SECOND_IMEI);
 DECLARE_KEYMASTER_TAG(KM_BYTES, TAG_ATTESTATION_ID_MEID);
 DECLARE_KEYMASTER_TAG(KM_BYTES, TAG_ATTESTATION_ID_MANUFACTURER);
 DECLARE_KEYMASTER_TAG(KM_BYTES, TAG_ATTESTATION_ID_MODEL);

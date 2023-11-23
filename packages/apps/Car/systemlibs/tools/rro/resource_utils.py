@@ -15,7 +15,11 @@
 
 import os
 import re
-import lxml.etree as etree
+try:
+    import lxml.etree as etree
+except ImportError:
+    print("Please install 'lxml' python package and retry.")
+    sys.exit(1)
 
 class ResourceLocation:
     def __init__(self, file, line=None):

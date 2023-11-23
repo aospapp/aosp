@@ -153,11 +153,19 @@ public class DiagnosticHalService extends HalServiceBase {
     }
 
     /**
-     * Returns a unique token to be used to map this property to a higher-level sensor
+     * Returns a unique token to be used to map this property to a higher-level sensor.
+     *
      * This token will be stored in {@link DiagnosticHalService#mSensorTypeToConfig} to allow
-     * callers to go from unique sensor identifiers to HalPropConfig objects
+     * callers to go from unique sensor identifiers to HalPropConfig objects.
+     *
+     * <p>Possible returned tokens are:
+     * <ul>
+     *   <li>{@link HalServiceBase.NOT_SUPPORTED_PROPERTY}
+     *   <li>{@link CarDiagnosticManager.FRAME_TYPE_LIVE}
+     *   <li>{@link CarDiagnosticManager.FRAME_TYPE_FREEZE}
+     *
      * @param propConfig The property config
-     * @return SENSOR_TYPE_INVALID or a locally unique token
+     * @return A unique token.
      */
     protected int getTokenForProperty(HalPropConfig propConfig) {
         int propId = propConfig.getPropId();
@@ -177,7 +185,11 @@ public class DiagnosticHalService extends HalServiceBase {
                     return CarDiagnosticManager.FRAME_TYPE_FREEZE;
                 case VehicleProperty.OBD2_FREEZE_FRAME_INFO:
                     mDiagnosticCapabilities.setSupported(propId);
-                    return propId;
+                    // We should not directly expose this to the client. This property is used
+                    // only by {@link DiagnosticHalService} internally. Caller should instead use
+                    // function like {@link DiagnosticHalService#getFreezeFrameTimestamps} to access
+                    // frame info.
+                    return NOT_SUPPORTED_PROPERTY;
                 case VehicleProperty.OBD2_FREEZE_FRAME_CLEAR:
                     mDiagnosticCapabilities.setSupported(propId);
                     int[] configArray = propConfig.getConfigArray();
@@ -192,7 +204,8 @@ public class DiagnosticHalService extends HalServiceBase {
                             mDiagnosticCapabilities.setSupported(OBD2_SELECTIVE_FRAME_CLEAR);
                         }
                     }
-                    return propId;
+                    // We should not directly expose this to the client.
+                    return NOT_SUPPORTED_PROPERTY;
                 default:
                     return NOT_SUPPORTED_PROPERTY;
             }
@@ -246,8 +259,23 @@ public class DiagnosticHalService extends HalServiceBase {
 
     /**
      * Start to request diagnostic information.
-     * @param sensorType
-     * @param rate
+     *
+     * <p>The supported sensorTypes are one of:
+     * <ul>
+     *   <li>{@link CarDiagnosticManager.FRAME_TYPE_LIVE}
+     *   <li>{@link CarDiagnosticManager.FRAME_TYPE_FREEZE}
+     *
+     * <p>The supported rate are one of:
+     * <ul>
+     *   <li>{@link CarSensorManager.SENSOR_RATE_ONCHANGE}
+     *   <li>{@link CarSensorManager.SENSOR_RATE_NORMAL}
+     *   <li>{@link CarSensorManager.SENSOR_RATE_FASTEST}
+     *   <li>{@link CarSensorManager.SENSOR_RATE_FAST}
+     *   <li>{@link CarSensorManager.SENSOR_RATE_UI}
+     *
+     * @param sensorType One of the supported sensor types.
+     * @param rate One of the supported rate.
+     *
      * @return true if request successfully. otherwise return false
      */
     public boolean requestDiagnosticStart(int sensorType, int rate) {
@@ -257,7 +285,7 @@ public class DiagnosticHalService extends HalServiceBase {
         }
         if (propConfig == null) {
             Slogf.e(CarLog.TAG_DIAGNOSTIC, new StringBuilder()
-                    .append("HalPropConfig not found, sensor type: 0x")
+                    .append("Unsupported sensor type: 0x")
                     .append(toHexString(sensorType))
                     .toString());
             return false;
@@ -287,7 +315,7 @@ public class DiagnosticHalService extends HalServiceBase {
         }
         if (propConfig == null) {
             Slogf.e(CarLog.TAG_DIAGNOSTIC, new StringBuilder()
-                    .append("HalPropConfig not found, sensor type: 0x")
+                    .append("Unsupported sensor type: 0x")
                     .append(toHexString(sensorType))
                     .toString());
             return;

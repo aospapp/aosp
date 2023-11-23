@@ -26,9 +26,7 @@
 #include "common/message_loop_thread.h"
 #include "osi/include/allocator.h"
 #include "stack/gatt/gatt_int.h"
-
-// TODO put this in common place
-extern std::map<std::string, int> mock_function_count_map;
+#include "test/common/mock_functions.h"
 
 namespace param {
 struct {
@@ -104,7 +102,7 @@ void bta_gattc_event_complete_callback(tBTA_GATTC_EVT event,
 class BtaGattTest : public ::testing::Test {
  protected:
   void SetUp() override {
-    mock_function_count_map.clear();
+    reset_mock_function_count_map();
     param::bta_gatt_read_complete_callback = {};
     param::bta_gatt_write_complete_callback = {};
     param::bta_gatt_configure_mtu_complete_callback = {};
@@ -168,7 +166,7 @@ TEST_F(BtaGattTest, bta_gattc_op_cmpl_read) {
   };
 
   bta_gattc_op_cmpl(&client_channel_control_block, &data);
-  ASSERT_EQ(1, mock_function_count_map["osi_free_and_reset"]);
+  ASSERT_EQ(1, get_func_call_count("osi_free_and_reset"));
   ASSERT_EQ(456, param::bta_gatt_read_complete_callback.conn_id);
   ASSERT_EQ(GATT_OUT_OF_RANGE, param::bta_gatt_read_complete_callback.status);
   ASSERT_EQ(123, param::bta_gatt_read_complete_callback.handle);
@@ -203,7 +201,7 @@ TEST_F(BtaGattTest, bta_gattc_op_cmpl_write) {
   };
 
   bta_gattc_op_cmpl(&client_channel_control_block, &data);
-  ASSERT_EQ(1, mock_function_count_map["osi_free_and_reset"]);
+  ASSERT_EQ(1, get_func_call_count("osi_free_and_reset"));
   ASSERT_EQ(456, param::bta_gatt_write_complete_callback.conn_id);
   ASSERT_EQ(2, param::bta_gatt_write_complete_callback.handle);
   ASSERT_EQ(GATT_OUT_OF_RANGE, param::bta_gatt_write_complete_callback.status);
@@ -234,7 +232,7 @@ TEST_F(BtaGattTest, bta_gattc_op_cmpl_config) {
   };
 
   bta_gattc_op_cmpl(&client_channel_control_block, &data);
-  ASSERT_EQ(1, mock_function_count_map["osi_free_and_reset"]);
+  ASSERT_EQ(1, get_func_call_count("osi_free_and_reset"));
   ASSERT_EQ(456, param::bta_gatt_configure_mtu_complete_callback.conn_id);
 
   ASSERT_EQ(GATT_PRC_IN_PROGRESS,
@@ -264,7 +262,7 @@ TEST_F(BtaGattTest, bta_gattc_op_cmpl_execute) {
 
   bta_gattc_op_cmpl(&client_channel_control_block, &data);
   ASSERT_EQ(BTA_GATTC_EXEC_EVT, param::bta_gattc_event_complete_callback.event);
-  ASSERT_EQ(1, mock_function_count_map["osi_free_and_reset"]);
+  ASSERT_EQ(1, get_func_call_count("osi_free_and_reset"));
 }
 
 TEST_F(BtaGattTest, bta_gattc_op_cmpl_read_interrupted) {

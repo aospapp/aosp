@@ -18,7 +18,6 @@ package android.net.util
 
 import android.content.Context
 import android.content.res.Resources
-import android.net.ConnectivityResources
 import android.net.NetworkCapabilities
 import android.net.NetworkCapabilities.MAX_TRANSPORT
 import android.net.NetworkCapabilities.TRANSPORT_CELLULAR
@@ -27,7 +26,9 @@ import android.net.NetworkCapabilities.TRANSPORT_VPN
 import android.net.NetworkCapabilities.TRANSPORT_WIFI
 import android.os.Build
 import androidx.test.filters.SmallTest
-import com.android.internal.R
+import com.android.connectivity.resources.R
+import com.android.server.connectivity.ConnectivityResources
+import com.android.server.connectivity.KeepaliveResourceUtil
 import com.android.testutils.DevSdkIgnoreRule
 import com.android.testutils.DevSdkIgnoreRunner
 import org.junit.After
@@ -37,7 +38,6 @@ import org.junit.Assert.fail
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.mockito.ArgumentMatchers.eq
-import org.mockito.Mockito.any
 import org.mockito.Mockito.doReturn
 import org.mockito.Mockito.mock
 
@@ -53,14 +53,9 @@ import org.mockito.Mockito.mock
 class KeepaliveUtilsTest {
 
     // Prepare mocked context with given resource strings.
-    private fun getMockedContextWithStringArrayRes(
-        id: Int,
-        name: String,
-        res: Array<out String?>?
-    ): Context {
+    private fun getMockedContextWithStringArrayRes(id: Int, res: Array<out String?>?): Context {
         val mockRes = mock(Resources::class.java)
         doReturn(res).`when`(mockRes).getStringArray(eq(id))
-        doReturn(id).`when`(mockRes).getIdentifier(eq(name), any(), any())
 
         return mock(Context::class.java).apply {
             doReturn(mockRes).`when`(this).getResources()
@@ -79,10 +74,10 @@ class KeepaliveUtilsTest {
             try {
                 val mockContext = getMockedContextWithStringArrayRes(
                         R.array.config_networkSupportedKeepaliveCount,
-                        "config_networkSupportedKeepaliveCount", res)
-                KeepaliveUtils.getSupportedKeepalives(mockContext)
+                        res)
+                KeepaliveResourceUtil.getSupportedKeepalives(mockContext)
                 fail("Expected KeepaliveDeviceConfigurationException")
-            } catch (expected: KeepaliveUtils.KeepaliveDeviceConfigurationException) {
+            } catch (expected: KeepaliveResourceUtil.KeepaliveDeviceConfigurationException) {
             }
         }
 
@@ -104,12 +99,12 @@ class KeepaliveUtilsTest {
 
         // Check valid customization generates expected array.
         val validRes = arrayOf("0,3", "1,0", "4,4")
-        val expectedValidRes = intArrayOf(3, 0, 0, 0, 4, 0, 0, 0, 0)
+        val expectedValidRes = intArrayOf(3, 0, 0, 0, 4, 0, 0, 0, 0, 0)
 
         val mockContext = getMockedContextWithStringArrayRes(
                 R.array.config_networkSupportedKeepaliveCount,
-                "config_networkSupportedKeepaliveCount", validRes)
-        val actual = KeepaliveUtils.getSupportedKeepalives(mockContext)
+                validRes)
+        val actual = KeepaliveResourceUtil.getSupportedKeepalives(mockContext)
         assertArrayEquals(expectedValidRes, actual)
     }
 

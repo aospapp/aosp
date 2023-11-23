@@ -40,8 +40,8 @@ public class FactoryResetEsimPreferenceController extends ResetEsimPreferenceCon
     }
 
     @Override
-    protected int getAvailabilityStatus() {
-        int status = super.getAvailabilityStatus();
+    protected int getDefaultAvailabilityStatus() {
+        int status = super.getDefaultAvailabilityStatus();
         if (status == AVAILABLE) {
             return SystemProperties.get(KEY_SHOW_ESIM_RESET_CHECKBOX,
                     Boolean.FALSE.toString()).equals(Boolean.TRUE.toString()) ? AVAILABLE

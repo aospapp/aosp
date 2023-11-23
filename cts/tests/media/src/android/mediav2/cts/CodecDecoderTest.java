@@ -16,20 +16,36 @@
 
 package android.mediav2.cts;
 
+import static android.media.MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420Flexible;
+import static android.media.MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420PackedPlanar;
+import static android.media.MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420Planar;
+import static android.media.MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420SemiPlanar;
+import static android.mediav2.common.cts.CodecTestBase.SupportClass.CODEC_ALL;
+import static android.mediav2.common.cts.CodecTestBase.SupportClass.CODEC_OPTIONAL;
+
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
+
 import android.media.AudioFormat;
 import android.media.MediaCodec;
 import android.media.MediaCodecInfo;
 import android.media.MediaExtractor;
 import android.media.MediaFormat;
+import android.mediav2.common.cts.CodecDecoderTestBase;
+import android.mediav2.common.cts.OutputManager;
 import android.util.Log;
 import android.view.Surface;
 
 import androidx.test.filters.LargeTest;
 import androidx.test.filters.SmallTest;
 
+import com.android.compatibility.common.util.ApiTest;
+import com.android.compatibility.common.util.CddTest;
+import com.android.compatibility.common.util.Preconditions;
+
 import org.junit.Assume;
 import org.junit.Before;
-import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
@@ -44,25 +60,41 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
-
-import static android.mediav2.cts.CodecTestBase.SupportClass.*;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
+import java.util.stream.IntStream;
 
 /**
- * Validate decode functionality of listed decoder components
- *
- * The test aims to test all decoders advertised in MediaCodecList. Hence we are not using
- * MediaCodecList#findDecoderForFormat to create codec. Further, it can so happen that the
- * test clip chosen is not supported by component (codecCapabilities.isFormatSupported()
- * fails), then it is better to replace the clip but not skip testing the component. The idea
- * of these tests are not to cover CDD requirements but to test components and their plugins
+ * Test mediacodec api, decoders and their interactions in byte buffer mode
+ * <p>
+ * The test decodes a compressed frame and stores the result in ByteBuffer. This allows
+ * validating the decoded output. Hence wherever possible we check if the decoded output is
+ * compliant.
+ * <ul>
+ *     <li>For Avc, Hevc, Vpx and Av1, the test expects the decoded output to be identical to
+ *     reference decoded output. The reference decoded output is represented by its CRC32
+ *     checksum and is sent to the test as a parameter along with the test clip.</li>
+ *     <li>For others codecs (mpeg2, mpeg4, h263, ...) the decoded output is checked for
+ *     consistency (doesn't change across runs). No crc32 verification is done because idct for
+ *     these standards are non-normative.</li>
+ *     <li>For lossless audio media types, the test verifies if the rms error between input and
+ *     output is 0.</li>
+ *     <li>For lossy audio media types, the test verifies if the rms error is within 5% of
+ *     reference rms error. The reference value is computed using reference decoder and is sent
+ *     to the test as a parameter along with the test clip.</li>
+ *     <li>For all video components, the test expects the output timestamp list to be identical to
+ *     input timestamp list.</li>
+ *     <li>For all audio components, the test expects the output timestamps to be strictly
+ *     increasing.</li>
+ *     <li>The test also verifies if the component reports a format change if the test clip does
+ *     not use the default format.</li>
+ * </ul>
+ * <p>
+ * The test runs mediacodec in synchronous and asynchronous mode.
  */
 @RunWith(Parameterized.class)
 public class CodecDecoderTest extends CodecDecoderTestBase {
     private static final String LOG_TAG = CodecDecoderTest.class.getSimpleName();
     private static final float RMS_ERROR_TOLERANCE = 1.05f;        // 5%
+    private static final String MEDIA_DIR = WorkDir.getMediaDirString();
 
     private final String mRefFile;
     private final String mReconfigFile;
@@ -70,17 +102,23 @@ public class CodecDecoderTest extends CodecDecoderTestBase {
     private final long mRefCRC;
     private final SupportClass mSupportRequirements;
 
-    public CodecDecoderTest(String decoder, String mime, String testFile, String refFile,
-            String reconfigFile, float rmsError, long refCRC, SupportClass supportRequirements) {
-        super(decoder, mime, testFile);
-        mRefFile = refFile;
-        mReconfigFile = reconfigFile;
+    static {
+        System.loadLibrary("ctsmediav2codecdec_jni");
+    }
+
+    public CodecDecoderTest(String decoder, String mediaType, String testFile, String refFile,
+            String reconfigFile, float rmsError, long refCRC, SupportClass supportRequirements,
+            String allTestParams) {
+        super(decoder, mediaType, MEDIA_DIR + testFile, allTestParams);
+        mRefFile = MEDIA_DIR + refFile;
+        mReconfigFile = MEDIA_DIR + reconfigFile;
         mRmsError = rmsError;
         mRefCRC = refCRC;
         mSupportRequirements = supportRequirements;
     }
 
     static ByteBuffer readAudioReferenceFile(String file) throws IOException {
+        Preconditions.assertTestFileExists(file);
         File refFile = new File(file);
         ByteBuffer refBuffer;
         try (FileInputStream refStream = new FileInputStream(refFile)) {
@@ -125,7 +163,7 @@ public class CodecDecoderTest extends CodecDecoderTestBase {
         return list;
     }
 
-    @Parameterized.Parameters(name = "{index}({0}_{1})")
+    @Parameterized.Parameters(name = "{index}_{0}_{1}")
     public static Collection<Object[]> input() {
         final boolean isEncoder = false;
         final boolean needAudio = true;
@@ -231,17 +269,15 @@ public class CodecDecoderTest extends CodecDecoderTestBase {
         return prepareParamList(exhaustiveArgsList, isEncoder, needAudio, needVideo, true);
     }
 
-    private native boolean nativeTestSimpleDecode(String decoder, Surface surface, String mime,
-            String testFile, String refFile, int colorFormat, float rmsError, long checksum);
-
     static void verify(OutputManager outBuff, String refFile, float rmsError, int audioFormat,
-            long refCRC) throws IOException {
+            long refCRC, String msg) throws IOException {
         if (rmsError >= 0) {
             int bytesPerSample = AudioFormat.getBytesPerSample(audioFormat);
-            ByteBuffer bb = readAudioReferenceFile(mInpPrefix + refFile);
+            ByteBuffer bb = readAudioReferenceFile(refFile);
             bb.position(0);
             int bufferSize = bb.limit();
-            assertEquals (0, bufferSize % bytesPerSample);
+            assertEquals("error, reference audio buffer contains partial samples\n" + msg, 0,
+                    bufferSize % bytesPerSample);
             Object refObject = null;
             int refObjectLen = bufferSize / bytesPerSample;
             switch (audioFormat) {
@@ -260,7 +296,7 @@ public class CodecDecoderTest extends CodecDecoderTestBase {
                         int byte1 = (bb.get() & 0xff);
                         int byte2 = (bb.get() & 0xff);
                         int byte3 = (bb.get() & 0xff);
-                        refArray[j] =  byte1 | (byte2 << 8) | (byte3 << 16);
+                        refArray[j] = byte1 | (byte2 << 8) | (byte3 << 16);
                     }
                     break;
                 case AudioFormat.ENCODING_PCM_32BIT:
@@ -272,15 +308,31 @@ public class CodecDecoderTest extends CodecDecoderTestBase {
                     bb.asFloatBuffer().get((float[]) refObject);
                     break;
                 default:
-                    fail("unrecognized audio encoding type " + audioFormat);
+                    fail("unrecognized audio encoding type :- " + audioFormat + "\n" + msg);
             }
             float currError = outBuff.getRmsError(refObject, audioFormat);
             float errMargin = rmsError * RMS_ERROR_TOLERANCE;
-            assertTrue(String.format("%s rms error too high ref/exp/got %f/%f/%f", refFile,
-                    rmsError, errMargin, currError), currError <= errMargin);
+            assertTrue(String.format("%s rms error too high ref/exp/got %f/%f/%f \n", refFile,
+                    rmsError, errMargin, currError) + msg, currError <= errMargin);
         } else if (refCRC >= 0) {
-            assertEquals("checksum mismatch", refCRC, outBuff.getCheckSumImage());
+            assertEquals("checksum mismatch \n" + msg, refCRC, outBuff.getCheckSumImage());
         }
+    }
+
+    void doOutputFormatChecks(MediaFormat defaultFormat, MediaFormat configuredFormat) {
+        String msg = String.format("Input test file format is not same as default format of"
+                        + " component, but test did not receive INFO_OUTPUT_FORMAT_CHANGED signal"
+                        + ".\nInput file format is :- %s \nDefault format is :- %s \n",
+                configuredFormat, defaultFormat);
+        assertTrue(msg + mTestConfig + mTestEnv,
+                mIsCodecInAsyncMode ? mAsyncHandle.hasOutputFormatChanged() :
+                        mSignalledOutFormatChanged);
+        MediaFormat outputFormat =
+                mIsCodecInAsyncMode ? mAsyncHandle.getOutputFormat() : mOutFormat;
+        msg = String.format("Configured input format and received output format are "
+                + "not similar. \nConfigured Input format is :- %s \nReceived Output "
+                + "format is :- %s \n", configuredFormat, outputFormat);
+        assertTrue(msg + mTestConfig + mTestEnv, isFormatSimilar(configuredFormat, outputFormat));
     }
 
     @Before
@@ -289,18 +341,30 @@ public class CodecDecoderTest extends CodecDecoderTestBase {
         mExtractor.release();
         ArrayList<MediaFormat> formatList = new ArrayList<>();
         formatList.add(format);
-        checkFormatSupport(mCodecName, mMime, false, formatList, null, mSupportRequirements);
+        checkFormatSupport(mCodecName, mMediaType, false, formatList, null, mSupportRequirements);
     }
 
+    private native boolean nativeTestSimpleDecode(String decoder, Surface surface, String mediaType,
+            String testFile, String refFile, int colorFormat, float rmsError, long checksum,
+            StringBuilder retMsg);
+
     /**
-     * Tests decoder for combinations:
-     * 1. Codec Sync Mode, Signal Eos with Last frame
-     * 2. Codec Sync Mode, Signal Eos Separately
-     * 3. Codec Async Mode, Signal Eos with Last frame
-     * 4. Codec Async Mode, Signal Eos Separately
-     * In all these scenarios, Timestamp ordering is verified, For audio the Rms of output has to be
-     * within the allowed tolerance. The output has to be consistent (not flaky) in all runs.
+     * Verifies if the component under test can decode the test file correctly. The decoding
+     * happens in synchronous, asynchronous mode, eos flag signalled with last compressed frame and
+     * eos flag signalled separately after sending all compressed frames. It expects consistent
+     * output in all these runs. That is, the ByteBuffer info and output timestamp list has to be
+     * same in all the runs. Further for audio, the output timestamp has to be strictly
+     * increasing, for lossless audio codec the rms error has to be 0 and for lossy audio codecs,
+     * the rms error has to be with in tolerance limit. For video the output timestamp list has
+     * to be same as input timestamp list (no frame drops) and for completely normative codecs,
+     * the output checksum has to be identical to reference checksum. For non-normative codecs,
+     * the output has to be consistent. The test also verifies if the component / framework
+     * behavior is consistent between SDK and NDK.
      */
+    @CddTest(requirements = {"2.2.2", "2.3.2", "2.5.2", "5.1.2"})
+    @ApiTest(apis = {"MediaCodecInfo.CodecCapabilities#COLOR_FormatYUV420Flexible",
+            "MediaCodecInfo.CodecCapabilities#COLOR_FormatYUVP010",
+            "android.media.AudioFormat#ENCODING_PCM_16BIT"})
     @LargeTest
     @Test(timeout = PER_TEST_TIMEOUT_LARGE_TEST_MS)
     public void testSimpleDecode() throws IOException, InterruptedException {
@@ -308,21 +372,18 @@ public class CodecDecoderTest extends CodecDecoderTestBase {
         boolean[] boolStates = {true, false};
         mSaveToMem = true;
         OutputManager ref = new OutputManager();
-        OutputManager test = new OutputManager();
+        OutputManager test = new OutputManager(ref.getSharedErrorLogs());
         {
             mCodec = MediaCodec.createByCodecName(mCodecName);
-            assertTrue("codec name act/got: " + mCodec.getName() + '/' + mCodecName,
-                    mCodec.getName().equals(mCodecName));
-            assertTrue("error! codec canonical name is null",
+            assertEquals("codec name act/got: " + mCodec.getName() + '/' + mCodecName,
+                    mCodecName, mCodec.getName());
+            assertTrue("error! codec canonical name is null or empty",
                     mCodec.getCanonicalName() != null && !mCodec.getCanonicalName().isEmpty());
             validateMetrics(mCodecName);
             int loopCounter = 0;
             for (boolean eosType : boolStates) {
                 for (boolean isAsync : boolStates) {
                     boolean validateFormat = true;
-                    String log = String.format("codec: %s, file: %s, mode: %s, eos type: %s:: ",
-                            mCodecName, mTestFile, (isAsync ? "async" : "sync"),
-                            (eosType ? "eos with last frame" : "eos separate"));
                     mOutputBuff = loopCounter == 0 ? ref : test;
                     mOutputBuff.reset();
                     mExtractor.seekTo(0, MediaExtractor.SEEK_TO_CLOSEST_SYNC);
@@ -339,38 +400,13 @@ public class CodecDecoderTest extends CodecDecoderTestBase {
                     queueEOS();
                     waitForAllOutputs();
                     validateMetrics(mCodecName, format);
-                    /* TODO(b/147348711) */
-                    if (false) mCodec.stop();
-                    else mCodec.reset();
-                    assertTrue(log + " unexpected error", !mAsyncHandle.hasSeenError());
-                    assertTrue(log + "no input sent", 0 != mInputCount);
-                    assertTrue(log + "output received", 0 != mOutputCount);
-                    if (loopCounter != 0) {
-                        assertTrue(log + "decoder output is flaky", ref.equals(test));
-                    } else {
-                        if (mIsAudio) {
-                            assertTrue(log + " pts is not strictly increasing",
-                                    ref.isPtsStrictlyIncreasing(mPrevOutputPts));
-                        } else {
-                            // TODO: Timestamps for deinterlaced content are under review.
-                            // (E.g. can decoders produce multiple progressive frames?)
-                            // For now, do not verify timestamps.
-                            if (!mIsInterlaced) {
-                                    assertTrue(
-                                        log +
-                                        " input pts list and output pts list are not identical",
-                                        ref.isOutPtsListIdenticalToInpPtsList(false));
-                            }
-                        }
+                    mCodec.stop();
+                    if (loopCounter != 0 && !ref.equals(test)) {
+                        fail("Decoder output is not consistent across runs \n" + mTestConfig
+                                + mTestEnv + test.getErrMsg());
                     }
                     if (validateFormat) {
-                        assertTrue(log + "not received format change",
-                                mIsCodecInAsyncMode ? mAsyncHandle.hasOutputFormatChanged() :
-                                        mSignalledOutFormatChanged);
-                        assertTrue(log + "configured format and output format are not similar",
-                                isFormatSimilar(format,
-                                        mIsCodecInAsyncMode ? mAsyncHandle.getOutputFormat() :
-                                                mOutFormat));
+                        doOutputFormatChecks(defFormat, format);
                     }
                     loopCounter++;
                 }
@@ -378,22 +414,42 @@ public class CodecDecoderTest extends CodecDecoderTestBase {
             mCodec.release();
             mExtractor.release();
             int colorFormat = mIsAudio ? 0 : format.getInteger(MediaFormat.KEY_COLOR_FORMAT);
-            assertTrue(nativeTestSimpleDecode(mCodecName, null, mMime, mInpPrefix + mTestFile,
-                    mInpPrefix + mRefFile, colorFormat, mRmsError, ref.getCheckSumBuffer()));
+            boolean isPass = nativeTestSimpleDecode(mCodecName, null, mMediaType, mTestFile,
+                    mRefFile, colorFormat, mRmsError, ref.getCheckSumBuffer(), mTestConfig);
+            assertTrue(mTestConfig.toString(), isPass);
             if (mSaveToMem) {
                 int audioEncoding = mIsAudio ? format.getInteger(MediaFormat.KEY_PCM_ENCODING,
                         AudioFormat.ENCODING_PCM_16BIT) : AudioFormat.ENCODING_INVALID;
                 Assume.assumeFalse("skip checksum due to tone mapping", mSkipChecksumVerification);
-                verify(mOutputBuff, mRefFile, mRmsError, audioEncoding, mRefCRC);
+                verify(mOutputBuff, mRefFile, mRmsError, audioEncoding, mRefCRC,
+                        mTestConfig.toString() + mTestEnv.toString());
             }
         }
     }
 
     /**
-     * Tests flush when codec is in sync and async mode. In these scenarios, Timestamp
-     * ordering is verified. The output has to be consistent (not flaky) in all runs
+     * Verifies component and framework behaviour to flush API when the codec is operating in
+     * byte buffer mode.
+     * <p>
+     * While the component is decoding the test clip, mediacodec flush() is called. The flush API
+     * is called at various points :-
+     * <ul>
+     *     <li>In running state but before queueing any input (might have to resubmit csd as they
+     *     may not have been processed).</li>
+     *     <li>In running state, after queueing 1 frame.</li>
+     *     <li>In running state, after queueing n frames.</li>
+     *     <li>In eos state.</li>
+     * </ul>
+     * <p>
+     * In all situations (pre-flush or post-flush), the test expects the output timestamps to be
+     * strictly increasing. The flush call makes the output received non-deterministic even for a
+     * given input. Hence, besides timestamp checks, no additional validation is done for outputs
+     * received before flush. Post flush, the decode begins from a sync frame. So the test
+     * expects consistent output and this needs to be identical to the reference.
+     * <p>
+     * The test runs mediacodec in synchronous and asynchronous mode.
      */
-    @Ignore("TODO(b/147576107)")
+    @ApiTest(apis = {"android.media.MediaCodec#flush"})
     @LargeTest
     @Test(timeout = PER_TEST_TIMEOUT_LARGE_TEST_MS)
     public void testFlush() throws IOException, InterruptedException {
@@ -409,27 +465,15 @@ public class CodecDecoderTest extends CodecDecoderTestBase {
         final long pts = 500000;
         final int mode = MediaExtractor.SEEK_TO_CLOSEST_SYNC;
         boolean[] boolStates = {true, false};
-        OutputManager test = new OutputManager();
         {
             decodeToMemory(mTestFile, mCodecName, pts, mode, Integer.MAX_VALUE);
             OutputManager ref = mOutputBuff;
-            if (mIsAudio) {
-                assertTrue("reference output pts is not strictly increasing",
-                        ref.isPtsStrictlyIncreasing(mPrevOutputPts));
-            } else {
-                // TODO: Timestamps for deinterlaced content are under review. (E.g. can decoders
-                // produce multiple progressive frames?) For now, do not verify timestamps.
-                if (!mIsInterlaced) {
-                    assertTrue("input pts list and output pts list are not identical",
-                            ref.isOutPtsListIdenticalToInpPtsList(false));
-                }
-            }
+            OutputManager test = new OutputManager(ref.getSharedErrorLogs());
             mOutputBuff = test;
             setUpSource(mTestFile);
             mCodec = MediaCodec.createByCodecName(mCodecName);
             for (boolean isAsync : boolStates) {
-                String log = String.format("decoder: %s, input file: %s, mode: %s:: ", mCodecName,
-                        mTestFile, (isAsync ? "async" : "sync"));
+                if (isAsync) continue;  // TODO(b/147576107)
                 mExtractor.seekTo(0, mode);
                 configureCodec(format, isAsync, true, false);
                 MediaFormat defFormat = mCodec.getOutputFormat();
@@ -455,9 +499,9 @@ public class CodecDecoderTest extends CodecDecoderTestBase {
                 mExtractor.seekTo(0, mode);
                 test.reset();
                 doWork(23);
-                if (!mIsInterlaced) {
-                    assertTrue(log + " pts is not strictly increasing",
-                                test.isPtsStrictlyIncreasing(mPrevOutputPts));
+                if (!test.isPtsStrictlyIncreasing(mPrevOutputPts)) {
+                    fail("Output timestamps are not strictly increasing \n" + mTestConfig + mTestEnv
+                            + test.getErrMsg());
                 }
 
                 boolean checkMetrics = (mOutputCount != 0);
@@ -472,10 +516,10 @@ public class CodecDecoderTest extends CodecDecoderTestBase {
                 doWork(Integer.MAX_VALUE);
                 queueEOS();
                 waitForAllOutputs();
-                assertTrue(log + " unexpected error", !mAsyncHandle.hasSeenError());
-                assertTrue(log + "no input sent", 0 != mInputCount);
-                assertTrue(log + "output received", 0 != mOutputCount);
-                assertTrue(log + "decoder output is flaky", ref.equals(test));
+                if (isMediaTypeOutputUnAffectedBySeek(mMediaType) && (!ref.equals(test))) {
+                    fail("Decoder output is not consistent across runs \n" + mTestConfig + mTestEnv
+                            + test.getErrMsg());
+                }
 
                 /* test flush in eos state */
                 flushCodec();
@@ -485,21 +529,13 @@ public class CodecDecoderTest extends CodecDecoderTestBase {
                 doWork(Integer.MAX_VALUE);
                 queueEOS();
                 waitForAllOutputs();
-                /* TODO(b/147348711) */
-                if (false) mCodec.stop();
-                else mCodec.reset();
-                assertTrue(log + " unexpected error", !mAsyncHandle.hasSeenError());
-                assertTrue(log + "no input sent", 0 != mInputCount);
-                assertTrue(log + "output received", 0 != mOutputCount);
-                assertTrue(log + "decoder output is flaky", ref.equals(test));
+                mCodec.stop();
+                if (isMediaTypeOutputUnAffectedBySeek(mMediaType) && (!ref.equals(test))) {
+                    fail("Decoder output is not consistent across runs \n" + mTestConfig + mTestEnv
+                            + test.getErrMsg());
+                }
                 if (validateFormat) {
-                    assertTrue(log + "not received format change",
-                            mIsCodecInAsyncMode ? mAsyncHandle.hasOutputFormatChanged() :
-                                    mSignalledOutFormatChanged);
-                    assertTrue(log + "configured format and output format are not similar",
-                            isFormatSimilar(format,
-                                    mIsCodecInAsyncMode ? mAsyncHandle.getOutputFormat() :
-                                            mOutFormat));
+                    doOutputFormatChecks(defFormat, format);
                 }
                 mSaveToMem = false;
             }
@@ -508,26 +544,58 @@ public class CodecDecoderTest extends CodecDecoderTestBase {
         }
     }
 
-    private native boolean nativeTestFlush(String decoder, Surface surface, String mime,
-            String testFile, int colorFormat);
+    private native boolean nativeTestFlush(String decoder, Surface surface, String mediaType,
+            String testFile, int colorFormat, StringBuilder retMsg);
 
-    @Ignore("TODO(b/147576107)")
+    /**
+     * Test is similar to {@link #testFlush()} but uses ndk api
+     */
+    @ApiTest(apis = {"android.media.MediaCodec#flush"})
     @LargeTest
     @Test(timeout = PER_TEST_TIMEOUT_LARGE_TEST_MS)
     public void testFlushNative() throws IOException {
         int colorFormat = 0;
-        if (!mIsAudio) {
+        if (mIsVideo) {
             MediaFormat format = setUpSource(mTestFile);
             mExtractor.release();
             colorFormat = format.getInteger(MediaFormat.KEY_COLOR_FORMAT);
         }
-        assertTrue(nativeTestFlush(mCodecName, null, mMime, mInpPrefix + mTestFile, colorFormat));
+        boolean isPass = nativeTestFlush(mCodecName, null, mMediaType, mTestFile,
+                colorFormat, mTestConfig);
+        assertTrue(mTestConfig.toString(), isPass);
     }
 
     /**
-     * Tests reconfigure when codec is in sync and async mode. In these scenarios, Timestamp
-     * ordering is verified. The output has to be consistent (not flaky) in all runs
+     * Verifies component and framework behaviour for resolution change in bytebuffer mode. The
+     * resolution change is not seamless (AdaptivePlayback) but done via reconfigure.
+     * <p>
+     * The reconfiguring of media codec component happens at various points :-
+     * <ul>
+     *     <li>After initial configuration (stopped state).</li>
+     *     <li>In running state, before queueing any input.</li>
+     *     <li>In running state, after queuing n frames.</li>
+     *     <li>In eos state.</li>
+     * </ul>
+     * In eos state,
+     * <ul>
+     *     <li>reconfigure with same clip.</li>
+     *     <li>reconfigure with different clip (different resolution).</li>
+     * </ul>
+     * <p>
+     * In all situations (pre-reconfigure or post-reconfigure), the test expects the output
+     * timestamps to be strictly increasing. The reconfigure call makes the output received
+     * non-deterministic even for a given input. Hence, besides timestamp checks, no additional
+     * validation is done for outputs received before reconfigure. Post reconfigure, the decode
+     * begins from a sync frame. So the test expects consistent output and this needs to be
+     * identical to the reference.
+     * <p>
+     * The test runs mediacodec in synchronous and asynchronous mode.
+     * <p>
+     * During reconfiguration, the mode of operation is toggled. That is, if first configure
+     * operates the codec in sync mode, then next configure operates the codec in async mode and
+     * so on.
      */
+    @ApiTest(apis = "android.media.MediaCodec#configure")
     @LargeTest
     @Test(timeout = PER_TEST_TIMEOUT_LARGE_TEST_MS)
     public void testReconfigure() throws IOException, InterruptedException {
@@ -539,38 +607,22 @@ public class CodecDecoderTest extends CodecDecoderTestBase {
         mExtractor.release();
         ArrayList<MediaFormat> formatList = new ArrayList<>();
         formatList.add(newFormat);
-        checkFormatSupport(mCodecName, mMime, false, formatList, null, mSupportRequirements);
+        checkFormatSupport(mCodecName, mMediaType, false, formatList, null, mSupportRequirements);
         final long startTs = 0;
         final long seekTs = 500000;
         final int mode = MediaExtractor.SEEK_TO_CLOSEST_SYNC;
         boolean[] boolStates = {true, false};
-        OutputManager test = new OutputManager();
         {
             decodeToMemory(mTestFile, mCodecName, startTs, mode, Integer.MAX_VALUE);
             OutputManager ref = mOutputBuff;
             decodeToMemory(mReconfigFile, mCodecName, seekTs, mode, Integer.MAX_VALUE);
             OutputManager configRef = mOutputBuff;
-            if (mIsAudio) {
-                assertTrue("reference output pts is not strictly increasing",
-                        ref.isPtsStrictlyIncreasing(mPrevOutputPts));
-                assertTrue("config reference output pts is not strictly increasing",
-                        configRef.isPtsStrictlyIncreasing(mPrevOutputPts));
-            } else {
-                // TODO: Timestamps for deinterlaced content are under review. (E.g. can decoders
-                // produce multiple progressive frames?) For now, do not verify timestamps.
-                if (!mIsInterlaced) {
-                    assertTrue("input pts list and reference pts list are not identical",
-                            ref.isOutPtsListIdenticalToInpPtsList(false));
-                    assertTrue("input pts list and reconfig ref output pts list are not identical",
-                            ref.isOutPtsListIdenticalToInpPtsList(false));
-                }
-            }
-            mOutputBuff = test;
+            OutputManager test = new OutputManager(ref.getSharedErrorLogs());
+            OutputManager configTest = new OutputManager(configRef.getSharedErrorLogs());
             mCodec = MediaCodec.createByCodecName(mCodecName);
             for (boolean isAsync : boolStates) {
+                mOutputBuff = test;
                 setUpSource(mTestFile);
-                String log = String.format("decoder: %s, input file: %s, mode: %s:: ", mCodecName,
-                        mTestFile, (isAsync ? "async" : "sync"));
                 mExtractor.seekTo(startTs, MediaExtractor.SEEK_TO_CLOSEST_SYNC);
                 configureCodec(format, isAsync, true, false);
                 MediaFormat defFormat = mCodec.getOutputFormat();
@@ -593,13 +645,7 @@ public class CodecDecoderTest extends CodecDecoderTestBase {
 
                 if (mOutputCount != 0) {
                     if (validateFormat) {
-                        assertTrue(log + "not received format change",
-                                mIsCodecInAsyncMode ? mAsyncHandle.hasOutputFormatChanged() :
-                                        mSignalledOutFormatChanged);
-                        assertTrue(log + "configured format and output format are not similar",
-                                isFormatSimilar(format,
-                                        mIsCodecInAsyncMode ? mAsyncHandle.getOutputFormat() :
-                                                mOutFormat));
+                        doOutputFormatChecks(defFormat, format);
                     }
                     validateMetrics(mCodecName, format);
                 }
@@ -613,21 +659,13 @@ public class CodecDecoderTest extends CodecDecoderTestBase {
                 doWork(Integer.MAX_VALUE);
                 queueEOS();
                 waitForAllOutputs();
-                /* TODO(b/147348711) */
-                if (false) mCodec.stop();
-                else mCodec.reset();
-                assertTrue(log + " unexpected error", !mAsyncHandle.hasSeenError());
-                assertTrue(log + "no input sent", 0 != mInputCount);
-                assertTrue(log + "output received", 0 != mOutputCount);
-                assertTrue(log + "decoder output is flaky", ref.equals(test));
+                mCodec.stop();
+                if (!ref.equals(test)) {
+                    fail("Decoder output is not consistent across runs \n" + mTestConfig + mTestEnv
+                            + test.getErrMsg());
+                }
                 if (validateFormat) {
-                    assertTrue(log + "not received format change",
-                            mIsCodecInAsyncMode ? mAsyncHandle.hasOutputFormatChanged() :
-                                    mSignalledOutFormatChanged);
-                    assertTrue(log + "configured format and output format are not similar",
-                            isFormatSimilar(format,
-                                    mIsCodecInAsyncMode ? mAsyncHandle.getOutputFormat() :
-                                            mOutFormat));
+                    doOutputFormatChecks(defFormat, format);
                 }
 
                 /* test reconfigure codec at eos state */
@@ -638,28 +676,19 @@ public class CodecDecoderTest extends CodecDecoderTestBase {
                 doWork(Integer.MAX_VALUE);
                 queueEOS();
                 waitForAllOutputs();
-                /* TODO(b/147348711) */
-                if (false) mCodec.stop();
-                else mCodec.reset();
-                assertTrue(log + " unexpected error", !mAsyncHandle.hasSeenError());
-                assertTrue(log + "no input sent", 0 != mInputCount);
-                assertTrue(log + "output received", 0 != mOutputCount);
-                assertTrue(log + "decoder output is flaky", ref.equals(test));
+                mCodec.stop();
+                if (!ref.equals(test)) {
+                    fail("Decoder output is not consistent across runs \n" + mTestConfig + mTestEnv
+                            + test.getErrMsg());
+                }
                 if (validateFormat) {
-                    assertTrue(log + "not received format change",
-                            mIsCodecInAsyncMode ? mAsyncHandle.hasOutputFormatChanged() :
-                                    mSignalledOutFormatChanged);
-                    assertTrue(log + "configured format and output format are not similar",
-                            isFormatSimilar(format,
-                                    mIsCodecInAsyncMode ? mAsyncHandle.getOutputFormat() :
-                                            mOutFormat));
+                    doOutputFormatChecks(defFormat, format);
                 }
                 mExtractor.release();
 
                 /* test reconfigure codec for new file */
+                mOutputBuff = configTest;
                 setUpSource(mReconfigFile);
-                log = String.format("decoder: %s, input file: %s, mode: %s:: ", mCodecName,
-                        mReconfigFile, (isAsync ? "async" : "sync"));
                 reConfigureCodec(newFormat, isAsync, false, false);
                 if (isFormatSimilar(newFormat, defFormat)) {
                     if (ENABLE_LOGS) {
@@ -668,27 +697,19 @@ public class CodecDecoderTest extends CodecDecoderTestBase {
                     validateFormat = false;
                 }
                 mCodec.start();
-                test.reset();
+                configTest.reset();
                 mExtractor.seekTo(seekTs, mode);
                 doWork(Integer.MAX_VALUE);
                 queueEOS();
                 waitForAllOutputs();
                 validateMetrics(mCodecName, newFormat);
-                /* TODO(b/147348711) */
-                if (false) mCodec.stop();
-                else mCodec.reset();
-                assertTrue(log + " unexpected error", !mAsyncHandle.hasSeenError());
-                assertTrue(log + "no input sent", 0 != mInputCount);
-                assertTrue(log + "output received", 0 != mOutputCount);
-                assertTrue(log + "decoder output is flaky", configRef.equals(test));
+                mCodec.stop();
+                if (!configRef.equals(configTest)) {
+                    fail("Decoder output is not consistent across runs \n" + mTestConfig + mTestEnv
+                            + configTest.getErrMsg());
+                }
                 if (validateFormat) {
-                    assertTrue(log + "not received format change",
-                            mIsCodecInAsyncMode ? mAsyncHandle.hasOutputFormatChanged() :
-                                    mSignalledOutFormatChanged);
-                    assertTrue(log + "configured format and output format are not similar",
-                            isFormatSimilar(newFormat,
-                                    mIsCodecInAsyncMode ? mAsyncHandle.getOutputFormat() :
-                                            mOutFormat));
+                    doOutputFormatChecks(defFormat, newFormat);
                 }
                 mSaveToMem = false;
                 mExtractor.release();
@@ -698,22 +719,23 @@ public class CodecDecoderTest extends CodecDecoderTestBase {
     }
 
     /**
-     * Tests decoder for only EOS frame
+     * Test decoder for EOS only input. As BUFFER_FLAG_END_OF_STREAM is queued with an input buffer
+     * of size 0, during dequeue the test expects to receive BUFFER_FLAG_END_OF_STREAM with an
+     * output buffer of size 0. No input is given, so no output shall be received.
      */
+    @ApiTest(apis = "android.media.MediaCodec#BUFFER_FLAG_END_OF_STREAM")
     @SmallTest
     @Test(timeout = PER_TEST_TIMEOUT_SMALL_TEST_MS)
     public void testOnlyEos() throws IOException, InterruptedException {
         MediaFormat format = setUpSource(mTestFile);
         boolean[] boolStates = {true, false};
         OutputManager ref = new OutputManager();
-        OutputManager test = new OutputManager();
+        OutputManager test = new OutputManager(ref.getSharedErrorLogs());
         mSaveToMem = true;
         {
             mCodec = MediaCodec.createByCodecName(mCodecName);
             int loopCounter = 0;
             for (boolean isAsync : boolStates) {
-                String log = String.format("decoder: %s, input file: %s, mode: %s:: ", mCodecName,
-                        mTestFile, (isAsync ? "async" : "sync"));
                 configureCodec(format, isAsync, false, false);
                 mOutputBuff = loopCounter == 0 ? ref : test;
                 mOutputBuff.reset();
@@ -721,23 +743,9 @@ public class CodecDecoderTest extends CodecDecoderTestBase {
                 queueEOS();
                 waitForAllOutputs();
                 mCodec.stop();
-                assertTrue(log + " unexpected error", !mAsyncHandle.hasSeenError());
-                if (loopCounter != 0) {
-                    assertTrue(log + "decoder output is flaky", ref.equals(test));
-                } else {
-                    if (mIsAudio) {
-                        assertTrue(log + " pts is not strictly increasing",
-                                ref.isPtsStrictlyIncreasing(mPrevOutputPts));
-                    } else {
-                        // TODO: Timestamps for deinterlaced content are under review.
-                        // (E.g. can decoders produce multiple progressive frames?)
-                        // For now, do not verify timestamps.
-                        if (!mIsInterlaced) {
-                            assertTrue(
-                                    log + " input pts list and output pts list are not identical",
-                                    ref.isOutPtsListIdenticalToInpPtsList(false));
-                        }
-                    }
+                if (loopCounter != 0 && !ref.equals(test)) {
+                    fail("Decoder output is not consistent across runs \n" + mTestConfig + mTestEnv
+                            + test.getErrMsg());
                 }
                 loopCounter++;
             }
@@ -746,24 +754,33 @@ public class CodecDecoderTest extends CodecDecoderTestBase {
         mExtractor.release();
     }
 
-    private native boolean nativeTestOnlyEos(String decoder, String mime, String testFile,
-            int colorFormat);
+    private native boolean nativeTestOnlyEos(String decoder, String mediaType, String testFile,
+            int colorFormat, StringBuilder retMsg);
 
+    /**
+     * Test is similar to {@link #testOnlyEos()} but uses ndk api
+     */
+    @ApiTest(apis = "android.media.MediaCodec#BUFFER_FLAG_END_OF_STREAM")
     @SmallTest
     @Test
     public void testOnlyEosNative() throws IOException {
         int colorFormat = 0;
-        if (!mIsAudio) {
+        if (mIsVideo) {
             MediaFormat format = setUpSource(mTestFile);
             mExtractor.release();
             colorFormat = format.getInteger(MediaFormat.KEY_COLOR_FORMAT);
         }
-        assertTrue(nativeTestOnlyEos(mCodecName, mMime, mInpPrefix + mTestFile, colorFormat));
+        boolean isPass = nativeTestOnlyEos(mCodecName, mMediaType, mTestFile, colorFormat,
+                mTestConfig);
+        assertTrue(mTestConfig.toString(), isPass);
     }
 
     /**
-     * Test Decoder by Queuing CSD separately
+     * CSD buffers can be queued at configuration or can be queued separately as the first buffer(s)
+     * sent to the codec. This test ensures that both mechanisms function and that they are
+     * semantically the same.
      */
+    @ApiTest(apis = "android.media.MediaCodec#BUFFER_FLAG_CODEC_CONFIG")
     @LargeTest
     @Test(timeout = PER_TEST_TIMEOUT_LARGE_TEST_MS)
     public void testSimpleDecodeQueueCSD() throws IOException, InterruptedException {
@@ -785,7 +802,7 @@ public class CodecDecoderTest extends CodecDecoderTestBase {
         boolean[] boolStates = {true, false};
         mSaveToMem = true;
         OutputManager ref = new OutputManager();
-        OutputManager test = new OutputManager();
+        OutputManager test = new OutputManager(ref.getSharedErrorLogs());
         {
             mCodec = MediaCodec.createByCodecName(mCodecName);
             int loopCounter = 0;
@@ -794,9 +811,6 @@ public class CodecDecoderTest extends CodecDecoderTestBase {
                 for (boolean eosMode : boolStates) {
                     for (boolean isAsync : boolStates) {
                         boolean validateFormat = true;
-                        String log = String.format("codec: %s, file: %s, mode: %s, eos type: %s:: ",
-                                mCodecName, mTestFile, (isAsync ? "async" : "sync"),
-                                (eosMode ? "eos with last frame" : "eos separate"));
                         mOutputBuff = loopCounter == 0 ? ref : test;
                         mOutputBuff.reset();
                         mExtractor.seekTo(0, MediaExtractor.SEEK_TO_CLOSEST_SYNC);
@@ -815,38 +829,13 @@ public class CodecDecoderTest extends CodecDecoderTestBase {
                         queueEOS();
                         waitForAllOutputs();
                         validateMetrics(mCodecName);
-                        /* TODO(b/147348711) */
-                        if (false) mCodec.stop();
-                        else mCodec.reset();
-                        assertTrue(log + " unexpected error", !mAsyncHandle.hasSeenError());
-                        assertTrue(log + "no input sent", 0 != mInputCount);
-                        assertTrue(log + "output received", 0 != mOutputCount);
-                        if (loopCounter != 0) {
-                            assertTrue(log + "decoder output is flaky", ref.equals(test));
-                        } else {
-                            if (mIsAudio) {
-                                assertTrue(log + " pts is not strictly increasing",
-                                        ref.isPtsStrictlyIncreasing(mPrevOutputPts));
-                            } else {
-                                // TODO: Timestamps for deinterlaced content are under review.
-                                // (E.g. can decoders produce multiple progressive frames?)
-                                // For now, do not verify timestamps.
-                                if (!mIsInterlaced) {
-                                    assertTrue(
-                                           log +
-                                           " input pts list and output pts list are not identical",
-                                           ref.isOutPtsListIdenticalToInpPtsList(false));
-                                }
-                            }
+                        mCodec.stop();
+                        if (loopCounter != 0 && !ref.equals(test)) {
+                            fail("Decoder output is not consistent across runs \n" + mTestConfig
+                                    + mTestEnv + test.getErrMsg());
                         }
                         if (validateFormat) {
-                            assertTrue(log + "not received format change",
-                                    mIsCodecInAsyncMode ? mAsyncHandle.hasOutputFormatChanged() :
-                                            mSignalledOutFormatChanged);
-                            assertTrue(log + "configured format and output format are not similar",
-                                    isFormatSimilar(format,
-                                            mIsCodecInAsyncMode ? mAsyncHandle.getOutputFormat() :
-                                                    mOutFormat));
+                            doOutputFormatChecks(defFormat, format);
                         }
                         loopCounter++;
                     }
@@ -857,9 +846,13 @@ public class CodecDecoderTest extends CodecDecoderTestBase {
         mExtractor.release();
     }
 
-    private native boolean nativeTestSimpleDecodeQueueCSD(String decoder, String mime,
-            String testFile, int colorFormat);
+    private native boolean nativeTestSimpleDecodeQueueCSD(String decoder, String mediaType,
+            String testFile, int colorFormat, StringBuilder retMsg);
 
+    /**
+     * Test is similar to {@link #testSimpleDecodeQueueCSD()} but uses ndk api
+     */
+    @ApiTest(apis = "android.media.MediaCodec#BUFFER_FLAG_CODEC_CONFIG")
     @LargeTest
     @Test(timeout = PER_TEST_TIMEOUT_LARGE_TEST_MS)
     public void testSimpleDecodeQueueCSDNative() throws IOException {
@@ -870,44 +863,37 @@ public class CodecDecoderTest extends CodecDecoderTestBase {
         }
         mExtractor.release();
         int colorFormat = mIsAudio ? 0 : format.getInteger(MediaFormat.KEY_COLOR_FORMAT);
-        assertTrue(nativeTestSimpleDecodeQueueCSD(mCodecName, mMime, mInpPrefix + mTestFile,
-                colorFormat));
+        boolean isPass = nativeTestSimpleDecodeQueueCSD(mCodecName, mMediaType, mTestFile,
+                colorFormat, mTestConfig);
+        assertTrue(mTestConfig.toString(), isPass);
     }
 
     /**
-     * Test decoder for partial frame
+     * Test decoder for partial frame inputs. The test expects decoder to give same output for a
+     * regular sequence and when any frames of that sequence are delivered in parts using the
+     * PARTIAL_FRAME flag.
      */
+    @ApiTest(apis = {"MediaCodecInfo.CodecCapabilities#FEATURE_PartialFrame",
+            "android.media.MediaCodec#BUFFER_FLAG_PARTIAL_FRAME"})
     @LargeTest
     @Test(timeout = PER_TEST_TIMEOUT_LARGE_TEST_MS)
     public void testDecodePartialFrame() throws IOException, InterruptedException {
-        Assume.assumeTrue(isFeatureSupported(mCodecName, mMime,
-                MediaCodecInfo.CodecCapabilities.FEATURE_PartialFrame));
+        Assume.assumeTrue("codec: " + mCodecName + " does not advertise FEATURE_PartialFrame",
+                isFeatureSupported(mCodecName, mMediaType,
+                        MediaCodecInfo.CodecCapabilities.FEATURE_PartialFrame));
         MediaFormat format = setUpSource(mTestFile);
         boolean[] boolStates = {true, false};
         int frameLimit = 10;
         ByteBuffer buffer = ByteBuffer.allocate(4 * 1024 * 1024);
-        OutputManager test = new OutputManager();
         {
             decodeToMemory(mTestFile, mCodecName, 0, MediaExtractor.SEEK_TO_CLOSEST_SYNC,
                     frameLimit);
             mCodec = MediaCodec.createByCodecName(mCodecName);
             OutputManager ref = mOutputBuff;
-            if (mIsAudio) {
-                assertTrue("reference output pts is not strictly increasing",
-                        ref.isPtsStrictlyIncreasing(mPrevOutputPts));
-            } else {
-                // TODO: Timestamps for deinterlaced content are under review. (E.g. can decoders
-                // produce multiple progressive frames?) For now, do not verify timestamps.
-                if (!mIsInterlaced) {
-                    assertTrue("input pts list and output pts list are not identical",
-                            ref.isOutPtsListIdenticalToInpPtsList(false));
-                }
-            }
             mSaveToMem = true;
+            OutputManager test = new OutputManager(ref.getSharedErrorLogs());
             mOutputBuff = test;
             for (boolean isAsync : boolStates) {
-                String log = String.format("decoder: %s, input file: %s, mode: %s:: ", mCodecName,
-                        mTestFile, (isAsync ? "async" : "sync"));
                 mExtractor.seekTo(0, MediaExtractor.SEEK_TO_CLOSEST_SYNC);
                 test.reset();
                 configureCodec(format, isAsync, true, false);
@@ -919,16 +905,58 @@ public class CodecDecoderTest extends CodecDecoderTestBase {
                 doWork(buffer, list);
                 queueEOS();
                 waitForAllOutputs();
-                /* TODO(b/147348711) */
-                if (false) mCodec.stop();
-                else mCodec.reset();
-                assertTrue(log + " unexpected error", !mAsyncHandle.hasSeenError());
-                assertTrue(log + "no input sent", 0 != mInputCount);
-                assertTrue(log + "output received", 0 != mOutputCount);
-                assertTrue(log + "decoder output is not consistent with ref", ref.equals(test));
+                mCodec.stop();
+                if (!ref.equals(test)) {
+                    fail("Decoder output of a compressed stream segmented at frame/access unit "
+                            + "boundaries is different from a compressed stream segmented at "
+                            + "arbitrary byte boundary \n"
+                            + mTestConfig + mTestEnv + test.getErrMsg());
+                }
             }
             mCodec.release();
         }
         mExtractor.release();
+    }
+
+    /**
+     * Test if decoder outputs 8-bit data for 8-bit as well as 10-bit content by default. The
+     * test removes the key "KEY_COLOR_FORMAT" from the input format to the decoder and verifies if
+     * the component decodes to an 8 bit color format by default.
+     * <p>
+     * The test is applicable for video components only.
+     */
+    @CddTest(requirements = {"5.1.7/C-4-2"})
+    @SmallTest
+    @Test(timeout = PER_TEST_TIMEOUT_SMALL_TEST_MS)
+    public void testDefaultOutputColorFormat() throws IOException, InterruptedException {
+        Assume.assumeTrue("Test needs Android 13", IS_AT_LEAST_T);
+        Assume.assumeTrue("Test is applicable for video decoders", mIsVideo);
+
+        MediaFormat format = setUpSource(mTestFile);
+        format.removeKey(MediaFormat.KEY_COLOR_FORMAT);
+
+        mOutputBuff = new OutputManager();
+        mCodec = MediaCodec.createByCodecName(mCodecName);
+        mExtractor.seekTo(0, MediaExtractor.SEEK_TO_CLOSEST_SYNC);
+        configureCodec(format, true, true, false);
+        mCodec.start();
+        doWork(1);
+        queueEOS();
+        waitForAllOutputs();
+        MediaFormat outputFormat = mCodec.getOutputFormat();
+        mCodec.stop();
+        mCodec.reset();
+        mCodec.release();
+
+        assertTrue("Output format from decoder does not contain KEY_COLOR_FORMAT \n" + mTestConfig
+                + mTestEnv, outputFormat.containsKey(MediaFormat.KEY_COLOR_FORMAT));
+        // 8-bit color formats
+        int[] defaultOutputColorFormatList =
+                new int[]{COLOR_FormatYUV420Flexible, COLOR_FormatYUV420Planar,
+                        COLOR_FormatYUV420PackedPlanar, COLOR_FormatYUV420SemiPlanar};
+        int outputColorFormat = outputFormat.getInteger(MediaFormat.KEY_COLOR_FORMAT);
+        assertTrue(String.format("Unexpected output color format %x \n", outputColorFormat)
+                        + mTestConfig + mTestEnv,
+                IntStream.of(defaultOutputColorFormatList).anyMatch(x -> x == outputColorFormat));
     }
 }

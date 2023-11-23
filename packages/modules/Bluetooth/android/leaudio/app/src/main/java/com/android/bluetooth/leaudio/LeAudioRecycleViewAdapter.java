@@ -26,8 +26,6 @@ import static android.bluetooth.BluetoothLeBroadcastReceiveState.PA_SYNC_STATE_I
 import static android.bluetooth.BluetoothLeBroadcastReceiveState.PA_SYNC_STATE_SYNCHRONIZED;
 import static android.bluetooth.BluetoothLeBroadcastReceiveState.PA_SYNC_STATE_SYNCINFO_REQUEST;
 
-import static com.android.bluetooth.leaudio.BroadcastScanActivity.EXTRA_BASS_RECEIVER_ID;
-
 import android.animation.ObjectAnimator;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothHapClient;
@@ -106,7 +104,7 @@ public class LeAudioRecycleViewAdapter
         if (leAudioDeviceStateWrapper != null) {
             holder.deviceName.setText(parent.getString(R.string.notes_icon) + " "
                     + leAudioDeviceStateWrapper.device.getName() + " ["
-                    + leAudioDeviceStateWrapper.device.getAddress() + "]");
+                    + leAudioDeviceStateWrapper.device + "]");
 
             if (leAudioDeviceStateWrapper.device.getUuids() != null) {
                 holder.itemView.findViewById(R.id.le_audio_switch)
@@ -890,6 +888,8 @@ public class LeAudioRecycleViewAdapter
 
         void onSetActivePresetClicked(BluetoothDevice device, int preset_index);
 
+        void onSetActivePresetForGroupClicked(BluetoothDevice device, int preset_index);
+
         void onNextDevicePresetClicked(BluetoothDevice device);
 
         void onPreviousDevicePresetClicked(BluetoothDevice device);
@@ -947,6 +947,7 @@ public class LeAudioRecycleViewAdapter
         private Spinner leAudioHapPresetsSpinner;
         private Button leAudioHapChangePresetNameButton;
         private Button leAudioHapSetActivePresetButton;
+        private Button leAudioHapSetActivePresetForGroupButton;
         private Button leAudioHapReadPresetInfoButton;
         private Button leAudioHapNextDevicePresetButton;
         private Button leAudioHapPreviousDevicePresetButton;
@@ -1041,6 +1042,8 @@ public class LeAudioRecycleViewAdapter
                     itemView.findViewById(R.id.hap_change_preset_name_button);
             leAudioHapSetActivePresetButton =
                     itemView.findViewById(R.id.hap_set_active_preset_button);
+            leAudioHapSetActivePresetForGroupButton =
+                    itemView.findViewById(R.id.hap_set_active_preset_for_group_button);
             leAudioHapReadPresetInfoButton =
                     itemView.findViewById(R.id.hap_read_preset_info_button);
             leAudioHapNextDevicePresetButton =
@@ -1106,6 +1109,21 @@ public class LeAudioRecycleViewAdapter
                     Integer index = Integer.valueOf(
                             leAudioHapPresetsSpinner.getSelectedItem().toString().split("\\s")[0]);
                     hapInteractionListener.onSetActivePresetClicked(
+                            devices.get(ViewHolder.this.getAdapterPosition()).device, index);
+                }
+            });
+
+            leAudioHapSetActivePresetForGroupButton.setOnClickListener(view -> {
+                if (hapInteractionListener != null) {
+                    if (leAudioHapPresetsSpinner.getSelectedItem() == null) {
+                        Toast.makeText(view.getContext(), "No known preset, please reconnect.",
+                                Toast.LENGTH_SHORT).show();
+                        return;
+                    }
+
+                    Integer index = Integer.valueOf(
+                            leAudioHapPresetsSpinner.getSelectedItem().toString().split("\\s")[0]);
+                    hapInteractionListener.onSetActivePresetForGroupClicked(
                             devices.get(ViewHolder.this.getAdapterPosition()).device, index);
                 }
             });
@@ -1262,19 +1280,43 @@ public class LeAudioRecycleViewAdapter
             });
 
             leAudioSetLockButton.setOnClickListener(view -> {
-                final Integer group_id =
-                        Integer.parseInt(ViewHolder.this.leAudioGroupIdText.getText().toString());
-                if (leAudioInteractionListener != null)
-                    leAudioInteractionListener.onGroupSetLockClicked(
+                AlertDialog.Builder alert = new AlertDialog.Builder(itemView.getContext());
+                alert.setTitle("Pick a group ID");
+                final EditText input = new EditText(itemView.getContext());
+                input.setInputType(InputType.TYPE_CLASS_NUMBER);
+                input.setRawInputType(Configuration.KEYBOARD_12KEY);
+                alert.setView(input);
+                alert.setPositiveButton("Ok", (dialog, whichButton) -> {
+                    final Integer group_id = Integer.valueOf(input.getText().toString());
+                    if (leAudioInteractionListener != null)
+                        leAudioInteractionListener.onGroupSetLockClicked(
                             devices.get(ViewHolder.this.getAdapterPosition()), group_id, true);
+
+                });
+                alert.setNegativeButton("Cancel", (dialog, whichButton) -> {
+                    // Do nothing
+                });
+                alert.show();
             });
 
             leAudioSetUnlockButton.setOnClickListener(view -> {
-                final Integer group_id =
-                        Integer.parseInt(ViewHolder.this.leAudioGroupIdText.getText().toString());
-                if (leAudioInteractionListener != null)
-                    leAudioInteractionListener.onGroupSetLockClicked(
+                AlertDialog.Builder alert = new AlertDialog.Builder(itemView.getContext());
+                alert.setTitle("Pick a group ID");
+                final EditText input = new EditText(itemView.getContext());
+                input.setInputType(InputType.TYPE_CLASS_NUMBER);
+                input.setRawInputType(Configuration.KEYBOARD_12KEY);
+                alert.setView(input);
+                alert.setPositiveButton("Ok", (dialog, whichButton) -> {
+                    final Integer group_id = Integer.valueOf(input.getText().toString());
+                    if (leAudioInteractionListener != null)
+                        leAudioInteractionListener.onGroupSetLockClicked(
                             devices.get(ViewHolder.this.getAdapterPosition()), group_id, false);
+
+                });
+                alert.setNegativeButton("Cancel", (dialog, whichButton) -> {
+                    // Do nothing
+                });
+                alert.show();
             });
 
             leAudioGroupMicrophoneSwitch.setOnCheckedChangeListener((compoundButton, b) -> {
@@ -1766,27 +1808,27 @@ public class LeAudioRecycleViewAdapter
                     alert.setTitle("Scan and add a source or remove the currently set one.");
 
                     BluetoothDevice device = devices.get(ViewHolder.this.getAdapterPosition()).device;
-                    if (bassReceiverIdSpinner.getSelectedItem() == null) {
-                        Toast.makeText(view.getContext(), "Not available",
-                                Toast.LENGTH_SHORT).show();
-                        return;
+                    int receiver_id = -1;
+                    if (bassReceiverIdSpinner.getSelectedItem() != null) {
+                        receiver_id = Integer.parseInt(bassReceiverIdSpinner.getSelectedItem().toString());
                     }
-                    int receiver_id = Integer.parseInt(bassReceiverIdSpinner.getSelectedItem().toString());
 
                     alert.setPositiveButton("Scan", (dialog, whichButton) -> {
                         // Scan for new announcements
                         Intent intent = new Intent(this.itemView.getContext(), BroadcastScanActivity.class);
                         intent.addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT);
-                        intent.putExtra(EXTRA_BASS_RECEIVER_ID, receiver_id);
                         intent.putExtra(BluetoothDevice.EXTRA_DEVICE, devices.get(ViewHolder.this.getAdapterPosition()).device);
                         parent.startActivityForResult(intent, 666);
                     });
                     alert.setNeutralButton("Cancel", (dialog, whichButton) -> {
                         // Do nothing
                     });
-                    alert.setNegativeButton("Remove", (dialog, whichButton) -> {
-                        bassInteractionListener.onRemoveSourceReq(device, receiver_id);
-                    });
+                    if (receiver_id != -1) {
+                        final int remove_receiver_id = receiver_id;
+                        alert.setNegativeButton("Remove", (dialog, whichButton) -> {
+                            bassInteractionListener.onRemoveSourceReq(device, remove_receiver_id);
+                        });
+                    }
                     alert.show();
 
                 } else if (bassReceiverStateText.getText().equals(res.getString(R.string.broadcast_state_code_required))) {
@@ -1843,16 +1885,9 @@ public class LeAudioRecycleViewAdapter
                     AlertDialog.Builder alert = new AlertDialog.Builder(itemView.getContext());
                     alert.setTitle("Retry broadcast audio announcement scan?");
 
-                    if (bassReceiverIdSpinner.getSelectedItem() == null) {
-                        Toast.makeText(view.getContext(), "Not available",
-                                Toast.LENGTH_SHORT).show();
-                        return;
-                    }
-                    int receiver_id = Integer.parseInt(bassReceiverIdSpinner.getSelectedItem().toString());
                     alert.setPositiveButton("Yes", (dialog, whichButton) -> {
                         // Scan for new announcements
                         Intent intent = new Intent(view.getContext(), BroadcastScanActivity.class);
-                        intent.putExtra(EXTRA_BASS_RECEIVER_ID, receiver_id);
                         intent.putExtra(BluetoothDevice.EXTRA_DEVICE, devices.get(ViewHolder.this.getAdapterPosition()).device);
                         parent.startActivityForResult(intent, 666);
                     });

@@ -33,7 +33,7 @@ android_test {
         "ctstestrunner-axt",
         "compatibility-device-util-axt",
         "androidx.annotation_annotation",
-        "androidx.test.uiautomator",
+        "androidx.test.uiautomator_uiautomator",
     ],
     srcs: [
         "src/**/*.java",

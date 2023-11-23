@@ -1,0 +1,35 @@
+import org.robolectric.gradle.AndroidProjectConfigPlugin
+
+apply plugin: 'com.android.library'
+apply plugin: AndroidProjectConfigPlugin
+
+android {
+    compileSdk 33
+    namespace 'org.robolectric.integrationtests.memoryleaks'
+
+    defaultConfig {
+        minSdk 16
+        targetSdk 33
+    }
+
+    compileOptions {
+        sourceCompatibility = '1.8'
+        targetCompatibility = '1.8'
+    }
+
+    testOptions {
+        unitTests {
+            includeAndroidResources = true
+        }
+    }
+
+}
+
+dependencies {
+    // Testing dependencies
+    testImplementation project(path: ':testapp')
+    testImplementation project(":robolectric")
+    testImplementation libs.junit4
+    testImplementation libs.guava.testlib
+    testImplementation libs.androidx.fragment
+}

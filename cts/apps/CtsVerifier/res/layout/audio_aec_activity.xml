@@ -31,31 +31,6 @@
             android:layout_height="wrap_content"
             android:orientation="vertical">
 
-            <TextView
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:scrollbars="vertical"
-                    android:gravity="bottom"
-                    android:id="@+id/audio_aec_mandatory_info"
-                    android:text="@string/audio_aec_mandatory_test" />
-
-            <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="horizontal" >
-
-                <Button
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:id="@+id/audio_aec_mandatory_no"
-                        android:text="@string/af_no" />
-                <Button
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:id="@+id/audio_aec_mandatory_yes"
-                        android:text="@string/af_yes" />
-            </LinearLayout>
-
             <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
@@ -72,7 +47,6 @@
                         android:layout_height="wrap_content"
                         android:scrollbars="vertical"
                         android:gravity="bottom"
-                        android:text="@string/audio_aec_instructions"
                         android:id="@+id/audio_aec_instructions" />
 
                 <Button

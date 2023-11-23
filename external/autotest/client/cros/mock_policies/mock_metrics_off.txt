@@ -1,5 +1,0 @@
-{
- "google/chromeos/device" : {
-   "metrics_enabled": false
- }
-}

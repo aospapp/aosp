@@ -11,6 +11,9 @@
       "path": "external/rust/crates/crossbeam-epoch"
     },
     {
+      "path": "external/rust/crates/hashbrown"
+    },
+    {
       "path": "external/rust/crates/tinytemplate"
     },
     {
@@ -21,26 +24,29 @@
     },
     {
       "path": "external/rust/crates/vulkano"
+    },
+    {
+      "path": "packages/modules/Virtualization/apkdmverity"
+    },
+    {
+      "path": "packages/modules/Virtualization/libs/capabilities"
+    },
+    {
+      "path": "packages/modules/Virtualization/libs/devicemapper"
+    },
+    {
+      "path": "packages/modules/Virtualization/microdroid_manager"
+    },
+    {
+      "path": "packages/modules/Virtualization/zipfuse"
     }
   ],
   "presubmit": [
-    {
-      "name": "ZipFuseTest"
-    },
-    {
-      "name": "apkdmverity.test"
-    },
     {
       "name": "scopeguard_test_src_lib"
     }
   ],
   "presubmit-rust": [
-    {
-      "name": "ZipFuseTest"
-    },
-    {
-      "name": "apkdmverity.test"
-    },
     {
       "name": "scopeguard_test_src_lib"
     }

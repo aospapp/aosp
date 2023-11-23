@@ -11,11 +11,11 @@
      limitations under the License.
 -->
 <!DOCTYPE configuration [
-    <!ENTITY ktest_dir "/data/local/tmp/vts_kernel_tests/DATA/nativetest/linux-kselftest">
+    <!ENTITY ktest_dir "/data/local/tmp/vts_kernel_kselftest_tests/DATA/nativetest/linux-kselftest">
 ]>
 <configuration description="Runs vts_linux_kselftest.">
-    <target_preparer class="com.android.tradefed.targetprep.RootTargetPreparer">
-    </target_preparer>
+    <target_preparer class="com.android.tradefed.targetprep.RootTargetPreparer" />
+    <target_preparer class="com.android.tradefed.targetprep.StopServicesSetup" />
 
     <object type="module_controller" class="com.android.tradefed.testtype.suite.module.KernelTestModuleController" >
         <option name="arch" value="x86"/>
@@ -23,7 +23,7 @@
 
     <target_preparer class="com.android.tradefed.targetprep.PushFilePreparer">
         <option name="cleanup" value="true" />
-        <option name="push-file" key="vts_kernel_tests" value="/data/local/tmp/vts_kernel_tests" />
+        <option name="push-file" key="vts_kernel_kselftest_tests" value="/data/local/tmp/vts_kernel_kselftest_tests" />
         <option name="skip-abi-filtering" value="true" />
     </target_preparer>
 
@@ -33,9 +33,10 @@
 
     <test class="com.android.tradefed.testtype.binary.KernelTargetTest" >
         <option name="exit-code-skip" value="4" />
-	<option name="test-command-line" key="binderfs_x86_32" value="chmod 755 &ktest_dir;/filesystems/binderfs/binderfs_test; cd &ktest_dir;/filesystems/binderfs; ./binderfs_test" />
+        <option name="skip-binary-check" value="true" />
+        <option name="test-command-line" key="binderfs_x86_32" value="chmod 755 &ktest_dir;/filesystems/binderfs/binderfs_test; cd &ktest_dir;/filesystems/binderfs; ./binderfs_test" />
         <option name="test-command-line" key="capabilities_test_execve_x86_32" value="chmod 755 &ktest_dir;/capabilities/test_execve; cd &ktest_dir;/capabilities; ./test_execve" />
-        <option name="test-command-line" key="futex_functional_run.sh_x86_32" value="chmod 755 &ktest_dir;/futex/functional/run.sh; cd &ktest_dir;/futex/functional; ./run.sh" />
+        <option name="test-command-line" key="futex_functional_run.sh_x86_32" value="chmod 755 &ktest_dir;/futex/functional/run.sh; cd &ktest_dir;/futex/functional; USE_COLOR=0 ./run.sh" />
         <option name="test-command-line" key="kcmp_kcmp_test_x86_32" value="chmod 755 &ktest_dir;/kcmp/kcmp_test; cd &ktest_dir;/kcmp; ./kcmp_test" />
         <option name="test-command-line" key="net_reuseaddr_conflict_x86_32" value="chmod 755 &ktest_dir;/net/reuseaddr_conflict; cd &ktest_dir;/net; ./reuseaddr_conflict" />
         <option name="test-command-line" key="net_socket_x86_32" value="chmod 755 &ktest_dir;/net/socket; cd &ktest_dir;/net; ./socket" />
@@ -66,6 +67,7 @@
         <option name="test-command-line" key="x86_test_FCOMI_x86_32" value="chmod 755 &ktest_dir;/x86/test_FCOMI; cd &ktest_dir;/x86; ./test_FCOMI" />
         <option name="test-command-line" key="x86_test_FISTTP_x86_32" value="chmod 755 &ktest_dir;/x86/test_FISTTP; cd &ktest_dir;/x86; ./test_FISTTP" />
         <option name="test-command-line" key="x86_vdso_restorer_x86_32" value="chmod 755 &ktest_dir;/x86/vdso_restorer; cd &ktest_dir;/x86; ./vdso_restorer" />
+        <option name="test-command-line" key="vm_mremap_dontunmap_x86_32" value="chmod 755 &ktest_dir;/vm/mremap_dontunmap; cd &ktest_dir;/vm; ./mremap_dontunmap" />
         <option name="test-command-line" key="vm_userfaultfd_anon_x86_32" value="chmod 755 &ktest_dir;/vm/userfaultfd; cd &ktest_dir;/vm; ./userfaultfd anon 32 99" />
         <option name="test-command-line" key="vm_userfaultfd_shmem_x86_32" value="chmod 755 &ktest_dir;/vm/userfaultfd; cd &ktest_dir;/vm; ./userfaultfd shmem 32 99" />
     </test>

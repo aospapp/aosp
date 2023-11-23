@@ -54,8 +54,6 @@ class RelayDevice(object):
 
     def setup(self):
         """Sets up the relay device to be ready for commands."""
-        pass
 
     def clean_up(self):
         """Sets the relay device back to its inert state."""
-        pass

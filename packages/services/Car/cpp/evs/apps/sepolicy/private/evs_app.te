@@ -25,5 +25,8 @@ allow evs_app self:process execmem;
 binder_use(evs_app);
 allow evs_app surfaceflinger_service:service_manager find;
 
-# Allow use of cartelemetry service
-allow evs_app cartelemetryd_service:service_manager find;
+# Allow get a list of available services
+allow evs_app servicemanager:service_manager list;
+
+# Allow find evsmanagerd service
+allow evs_app evsmanagerd_service:service_manager find;

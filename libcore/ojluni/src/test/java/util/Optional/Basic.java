@@ -138,6 +138,7 @@ public class Basic {
         checkEmpty(Optional.empty());
     }
 
+    @SuppressWarnings("NullArgumentForNonNullParameter")
     @Test
     public void testOfNull() {
         assertThrows(NullPointerException.class, () -> Optional.of(null));

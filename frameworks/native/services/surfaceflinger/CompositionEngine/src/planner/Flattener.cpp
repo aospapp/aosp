@@ -99,7 +99,8 @@ NonBufferHash Flattener::flattenLayers(const std::vector<const LayerState*>& lay
 
 void Flattener::renderCachedSets(
         const OutputCompositionState& outputState,
-        std::optional<std::chrono::steady_clock::time_point> renderDeadline) {
+        std::optional<std::chrono::steady_clock::time_point> renderDeadline,
+        bool deviceHandlesColorTransform) {
     ATRACE_CALL();
 
     if (!mNewCachedSet) {
@@ -136,7 +137,7 @@ void Flattener::renderCachedSets(
         }
     }
 
-    mNewCachedSet->render(mRenderEngine, mTexturePool, outputState);
+    mNewCachedSet->render(mRenderEngine, mTexturePool, outputState, deviceHandlesColorTransform);
 }
 
 void Flattener::dumpLayers(std::string& result) const {
@@ -412,6 +413,7 @@ std::vector<Flattener::Run> Flattener::findCandidateRuns(time_point now) const {
     for (auto currentSet = mLayers.cbegin(); currentSet != mLayers.cend(); ++currentSet) {
         bool layerIsInactive = now - currentSet->getLastUpdate() > mTunables.mActiveLayerTimeout;
         const bool layerHasBlur = currentSet->hasBlurBehind();
+        const bool layerDeniedFromCaching = currentSet->cachingHintExcludesLayers();
 
         // Layers should also be considered inactive whenever their framerate is lower than 1fps.
         if (!layerIsInactive && currentSet->getLayerCount() == kNumLayersFpsConsideration) {
@@ -423,7 +425,8 @@ std::vector<Flattener::Run> Flattener::findCandidateRuns(time_point now) const {
             }
         }
 
-        if (layerIsInactive && (firstLayer || runHasFirstLayer || !layerHasBlur) &&
+        if (!layerDeniedFromCaching && layerIsInactive &&
+            (firstLayer || runHasFirstLayer || !layerHasBlur) &&
             !currentSet->hasUnsupportedDataspace()) {
             if (isPartOfRun) {
                 builder.increment();

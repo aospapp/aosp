@@ -1,4 +1,4 @@
-#!/usr/bin/python2
+#!/usr/bin/python3
 #
 # Find the GWT installation and print its location to stdout.
 
@@ -10,11 +10,11 @@ site_gwt = os.path.abspath(os.path.join(
         os.path.dirname(__file__), '..', '..', 'site-packages', 'gwt'))
 
 if os.path.isdir(site_gwt):
-    print site_gwt
+    print(site_gwt)
     sys.exit(0)
 
 if not os.path.isdir(DEFAULT_GWT):
     sys.stderr.write('(%s): GWT not installed?\n' % __file__)
 
-print DEFAULT_GWT
+print(DEFAULT_GWT)
 

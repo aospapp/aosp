@@ -7,7 +7,7 @@
       "name": "fmtlib_ostream_test"
     }
   ],
-  "hwasan-postsubmit": [
+  "hwasan-presubmit": [
     {
       "name": "fmtlib_test"
     },

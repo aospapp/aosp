@@ -1,0 +1,5 @@
+type hal_secure_element_gto, domain;
+type hal_secure_element_gto_exec, exec_type, vendor_file_type, file_type;
+
+hal_server_domain(hal_secure_element_gto, hal_secure_element)
+init_daemon_domain(hal_secure_element_gto)

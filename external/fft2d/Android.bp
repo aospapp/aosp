@@ -47,24 +47,27 @@ license {
 
 cc_library_static {
     name: "libfft2d",
+    host_supported: true,
+    vendor_available: true,
     sdk_version: "current",
     min_sdk_version: "30",
     srcs: [
         "src/fft2d/fft2d/fftsg.c",
         "src/fft2d/fft2d/fftsg2d.c",
         "src/fft2d/fft2d/alloc.c",
-	"src/fft2d/fft2d/shrtdct.c"
+        "src/fft2d/fft2d/shrtdct.c",
     ],
     cflags: [
         "-Wno-unused-parameter",
-	"-Wno-unused-function",
+        "-Wno-unused-function",
     ],
     export_include_dirs: ["src/fft2d"],
     sanitize: {
-      integer_overflow: true,
+        integer_overflow: true,
     },
     apex_available: [
         "//apex_available:platform",
+        "com.android.adservices",
         "com.android.extservices",
     ],
 }

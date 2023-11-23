@@ -76,6 +76,8 @@ public class ApexShimValidationTest extends BaseHostJUnit4Test {
     private static final String DEAPEXING_FOLDER_NAME = "deapexing_";
     private static final String DEAPEXER_FILE_NAME = "deapexer";
     private static final String DEBUGFS_STATIC_FILE_NAME = "debugfs_static";
+    private static final String BLKID_FILE_NAME = "blkid";
+    private static final String FSCKEROFS_FILE_NAME = "fsck.erofs";
 
     private static final long DEFAULT_RUN_TIMEOUT_MS = 30 * 1000L;
 
@@ -148,12 +150,14 @@ public class ApexShimValidationTest extends BaseHostJUnit4Test {
         mDeapexingDir = FileUtil.createTempDir(DEAPEXING_FOLDER_NAME);
         final File deapexer = extractDeapexer(mDeapexingDir);
         final File debugfs = new File(mDeapexingDir, DEBUGFS_STATIC_FILE_NAME);
+        final File blkid = new File(mDeapexingDir, BLKID_FILE_NAME);
+        final File fsckerofs = new File(mDeapexingDir, FSCKEROFS_FILE_NAME);
         final List<File> apexes = extractApexes(mDeapexingDir);
         for (File apex : apexes) {
             final File outDir = new File(apex.getParent(), apex.getName().substring(
                     0, apex.getName().length() - APEX_FILE_SUFFIX.length()));
             try {
-                runDeapexerExtract(deapexer, debugfs, apex, outDir);
+                runDeapexerExtract(deapexer, debugfs, blkid, fsckerofs, apex, outDir);
                 final List<File> apkFiles = FileUtil.findFiles(outDir, ".+\\.apk").stream()
                         .map(str -> new File(str)).collect(Collectors.toList());
                 for (File apkFile : apkFiles) {
@@ -252,6 +256,14 @@ public class ApexShimValidationTest extends BaseHostJUnit4Test {
         assertWithMessage("Can't find " + DEBUGFS_STATIC_FILE_NAME + " binary file")
                 .that(debugfs).isNotNull();
         debugfs.setExecutable(true);
+        final File blkid = FileUtil.findFile(destDir, BLKID_FILE_NAME);
+        assertWithMessage("Can't find " + BLKID_FILE_NAME + " binary file")
+                .that(debugfs).isNotNull();
+        blkid.setExecutable(true);
+        final File fsckerofs = FileUtil.findFile(destDir, FSCKEROFS_FILE_NAME);
+        assertWithMessage("Can't find " + FSCKEROFS_FILE_NAME + " binary file")
+                .that(debugfs).isNotNull();
+        fsckerofs.setExecutable(true);
         return deapexer;
     }
 
@@ -290,7 +302,8 @@ public class ApexShimValidationTest extends BaseHostJUnit4Test {
      * @param apex The apex file to be extracted.
      * @param outDir The out folder.
      */
-    private void runDeapexerExtract(File deapexer, File debugfs, File apex, File outDir) {
+    private void runDeapexerExtract(File deapexer, File debugfs, File blkid, File fsckerofs,
+        File apex, File outDir) {
         final RunUtil runUtil = new RunUtil();
         final String os = System.getProperty("os.name").toLowerCase();
         final boolean isMacOs = (os.startsWith("mac") || os.startsWith("darwin"));
@@ -303,6 +316,10 @@ public class ApexShimValidationTest extends BaseHostJUnit4Test {
                 deapexer.getAbsolutePath(),
                 "--debugfs_path",
                 debugfs.getAbsolutePath(),
+                "--blkid_path",
+                blkid.getAbsolutePath(),
+                "--fsckerofs_path",
+                fsckerofs.getAbsolutePath(),
                 "extract",
                 apex.getAbsolutePath(),
                 outDir.getAbsolutePath());

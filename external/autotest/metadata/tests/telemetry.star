@@ -27,7 +27,7 @@ def define_tests():
         test_common.define_test(
             'telemetry/Sanity',
             suites = ['bvt-perbuild', 'smoke'],
-            main_package = 'autotest_lib.client.site_tests.telemetry_Sanity.telemetry_Sanity',
+            main_package = 'autotest_lib.client.site_tests.telemetry_Check.telemetry_Check',
         ),
         test_common.define_test(
             'telemetry/ScrollingActionTests',

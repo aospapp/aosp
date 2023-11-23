@@ -81,7 +81,7 @@ public class NetworkListAdapter extends ArrayAdapter<NetworkItem> {
 
         // If there's data to fill for the given position in the list
         if (position < getCount()) {
-            vh.netId.setText("" + mNetworkList[position].mNetId);
+            vh.netId.setText(String.format("%d", mNetworkList[position].mNetId));
             vh.netType.setText(mNetworkList[position].mType);
             vh.netState.setText(mNetworkList[position].mState);
             vh.connected.setText(mNetworkList[position].mConnected);

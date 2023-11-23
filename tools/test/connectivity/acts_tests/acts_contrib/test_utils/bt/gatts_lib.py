@@ -15,7 +15,6 @@
 # the License.
 
 import time
-import os
 
 from acts.keys import Config
 from acts.utils import rand_ascii_str
@@ -145,8 +144,9 @@ class GattServerLib():
                 else:
                     self.log.info("Execute result is false")
                 self.write_mapping = {}
-                self.dut.droid.gattServerSendResponse(
-                    self.gatt_server, 0, request_id, status, 0, [])
+                self.dut.droid.gattServerSendResponse(self.gatt_server, 0,
+                                                      request_id, status, 0,
+                                                      [])
                 continue
             offset = event['data']['offset']
             instance_id = event['data']['instanceId']
@@ -156,8 +156,8 @@ class GattServerLib():
                         and event['data']['preparedWrite'] == True):
                     value = event['data']['value']
                     if instance_id in self.write_mapping.keys():
-                        self.write_mapping[
-                            instance_id] = self.write_mapping[instance_id] + value
+                        self.write_mapping[instance_id] = self.write_mapping[
+                            instance_id] + value
                         self.log.info(
                             "New Prepared Write Value for {}: {}".format(
                                 instance_id, self.write_mapping[instance_id]))
@@ -186,8 +186,9 @@ class GattServerLib():
                 " [{}, {}, {}, {}]".
                 format(request_id, status, offset, data))
             data = data[offset:offset + mtu - 1]
-            self.dut.droid.gattServerSendResponse(
-                self.gatt_server, 0, request_id, status, offset, data)
+            self.dut.droid.gattServerSendResponse(self.gatt_server, 0,
+                                                  request_id, status, offset,
+                                                  data)
 
     def _setup_service(self, serv):
         service = self.dut.droid.gattServerCreateService(
@@ -304,8 +305,9 @@ class GattServerLib():
                     "GATT Server Send Response [request_id, status, offset, " \
                     "data] [{}, {}, {}, {}]".format(request_id, status, offset,
                         data))
-                self.dut.droid.gattServerSendResponse(
-                    self.gatt_server, 0, request_id, status, offset, data)
+                self.dut.droid.gattServerSendResponse(self.gatt_server, 0,
+                                                      request_id, status,
+                                                      offset, data)
 
     def send_continuous_response_data(self, user_input):
         """Send the same response with data"""
@@ -356,7 +358,8 @@ class GattServerLib():
                         value = event['data']['value']
                         if instance_id in self.write_mapping:
                             self.write_mapping[
-                                instance_id] = self.write_mapping[instance_id] + value
+                                instance_id] = self.write_mapping[
+                                    instance_id] + value
                         else:
                             self.write_mapping[instance_id] = value
                     else:

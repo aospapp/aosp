@@ -9,9 +9,9 @@ overrides are:
 * Generated code
 * Third-party code/libraries
 
-The overrides makefile is included in the nanoapp build by default, but the
-developers need to enable it by setting a flag in the nanoapp Makefile:
-`CHRE_STD_OVERRIDES_ALLOWED = true`
+The overrides makefile is included in the nanoapp build by and enabled by
+default, but the developers can disable it by setting a flag in the nanoapp Makefile:
+`CHRE_STD_OVERRIDES_ALLOWED = false`
 
 It is expected that the nanoapp developers only leverage these overrides while
 working towards zero overrides usage.

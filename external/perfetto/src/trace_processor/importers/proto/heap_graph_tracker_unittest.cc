@@ -65,7 +65,7 @@ TEST(HeapGraphTrackerTest, PopulateNativeSize) {
   context.process_tracker.reset(new ProcessTracker(&context));
   context.process_tracker->GetOrCreateProcess(kPid);
 
-  HeapGraphTracker tracker(&context);
+  HeapGraphTracker tracker(context.storage.get());
 
   StringPool::Id normal_kind = context.storage->InternString("KIND_NORMAL");
 
@@ -101,7 +101,8 @@ TEST(HeapGraphTrackerTest, PopulateNativeSize) {
   tracker.AddInternedType(
       kSeqId, kTypeCleaner, context.storage->InternString("sun.misc.Cleaner"),
       kLocation, /*object_size=*/0,
-      /*reference_field_name_ids=*/{kReferent, kThunk, kNext}, /*superclass_id=*/0,
+      /*reference_field_name_ids=*/{kReferent, kThunk, kNext},
+      /*superclass_id=*/0,
       /*classloader_id=*/0, /*no_reference_fields=*/false,
       /*kind=*/normal_kind);
 
@@ -173,7 +174,7 @@ TEST(HeapGraphTrackerTest, PopulateNativeSize) {
   const auto& class_table = context.storage->heap_graph_class_table();
   size_t count_bitmaps = 0;
   for (uint32_t obj_row = 0; obj_row < objs_table.row_count(); ++obj_row) {
-    base::Optional<uint32_t> class_row =
+    std::optional<uint32_t> class_row =
         class_table.id().IndexOf(objs_table.type_id()[obj_row]);
     ASSERT_TRUE(class_row.has_value());
     if (context.storage->string_pool().Get(class_table.name()[*class_row]) ==
@@ -207,7 +208,7 @@ TEST(HeapGraphTrackerTest, BuildFlamegraph) {
   context.process_tracker.reset(new ProcessTracker(&context));
   context.process_tracker->GetOrCreateProcess(kPid);
 
-  HeapGraphTracker tracker(&context);
+  HeapGraphTracker tracker(context.storage.get());
 
   constexpr uint64_t kField = 1;
   constexpr uint64_t kLocation = 0;

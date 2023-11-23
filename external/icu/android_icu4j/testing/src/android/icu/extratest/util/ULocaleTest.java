@@ -45,4 +45,10 @@ public class ULocaleTest {
     assertEquals("_IN", undIn.getName());
   }
 
+  @Test
+  public void testTRInEnglish() {
+    ULocale turkish = ULocale.forLanguageTag("tr-TR");
+    assertEquals("Türkiye", turkish.getDisplayCountry(ULocale.ENGLISH));
+  }
+
 }

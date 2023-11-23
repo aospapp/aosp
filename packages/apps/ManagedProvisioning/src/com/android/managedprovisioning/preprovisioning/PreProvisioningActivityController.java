@@ -26,7 +26,6 @@ import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_ALLOWED_P
 import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_DISCLAIMERS;
 import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_IMEI;
 import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_KEEP_ACCOUNT_ON_MIGRATION;
-import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_KEEP_SCREEN_ON;
 import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_LEAVE_ALL_SYSTEM_APPS_ENABLED;
 import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_LOCALE;
 import static android.app.admin.DevicePolicyManager.EXTRA_PROVISIONING_LOCAL_TIME;
@@ -53,7 +52,6 @@ import static android.app.admin.DevicePolicyManager.STATUS_USER_SETUP_COMPLETED;
 import static com.android.managedprovisioning.analytics.ProvisioningAnalyticsTracker.CANCELLED_BEFORE_PROVISIONING;
 import static com.android.managedprovisioning.common.Globals.ACTION_RESUME_PROVISIONING;
 import static com.android.managedprovisioning.model.ProvisioningParams.DEFAULT_EXTRA_PROVISIONING_KEEP_ACCOUNT_MIGRATED;
-import static com.android.managedprovisioning.model.ProvisioningParams.DEFAULT_EXTRA_PROVISIONING_KEEP_SCREEN_ON;
 import static com.android.managedprovisioning.model.ProvisioningParams.DEFAULT_EXTRA_PROVISIONING_PERMISSION_GRANT_OPT_OUT;
 import static com.android.managedprovisioning.model.ProvisioningParams.DEFAULT_EXTRA_PROVISIONING_SKIP_ENCRYPTION;
 import static com.android.managedprovisioning.model.ProvisioningParams.DEFAULT_LEAVE_ALL_SYSTEM_APPS_ENABLED;
@@ -72,8 +70,6 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
-import android.content.pm.UserInfo;
-import android.net.ConnectivityManager;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.PersistableBundle;
@@ -118,6 +114,9 @@ import com.android.managedprovisioning.parser.DisclaimersParserImpl;
 import com.android.managedprovisioning.preprovisioning.PreProvisioningViewModel.DefaultConfig;
 import com.android.managedprovisioning.preprovisioning.PreProvisioningViewModel.PreProvisioningViewModelFactory;
 import com.android.managedprovisioning.provisioning.Constants;
+import com.android.managedprovisioning.util.LazyStringResource;
+
+import com.google.android.setupdesign.util.DeviceHelper;
 
 import java.util.IllformedLocaleException;
 import java.util.List;
@@ -208,8 +207,8 @@ public class PreProvisioningActivityController {
         mUserManager = mContext.getSystemService(UserManager.class);
         mPackageManager = mContext.getPackageManager();
         mKeyguardManager = (KeyguardManager) mContext.getSystemService(Context.KEYGUARD_SERVICE);
-        mPdbManager = (PersistentDataBlockManager) mContext.getSystemService(
-                Context.PERSISTENT_DATA_BLOCK_SERVICE);
+        mPdbManager = (PersistentDataBlockManager)
+                mContext.getSystemService(Context.PERSISTENT_DATA_BLOCK_SERVICE);
         mProvisioningAnalyticsTracker = new ProvisioningAnalyticsTracker(
                 MetricsWriterFactory.getMetricsWriter(mContext, mSettingsFacade),
                 mSharedPreferences);
@@ -244,14 +243,22 @@ public class PreProvisioningActivityController {
 
         if (isRoleHolderReadyForProvisioning && isRoleHolderProvisioningAllowed) {
             ProvisionLogger.logw("Provisioning via role holder.");
-            Intent roleHolderProvisioningIntent =
-                    mRoleHolderHelper.createRoleHolderProvisioningIntent(
-                            managedProvisioningIntent,
-                            roleHolderAdditionalExtras, callingPackage, mViewModel.getRoleHolderState()
-                    );
-            mSharedPreferences.setIsProvisioningFlowDelegatedToRoleHolder(true);
-            mViewModel.onRoleHolderProvisioningInitiated();
-            mUi.startRoleHolderProvisioning(roleHolderProvisioningIntent);
+            mRoleHolderHelper.ensureRoleGranted(mContext, success -> {
+                if (success) {
+                    Intent roleHolderProvisioningIntent =
+                            mRoleHolderHelper.createRoleHolderProvisioningIntent(
+                                    managedProvisioningIntent,
+                                    roleHolderAdditionalExtras, callingPackage,
+                                    mViewModel.getRoleHolderState()
+                            );
+                    mSharedPreferences.setIsProvisioningFlowDelegatedToRoleHolder(true);
+                    mViewModel.onRoleHolderProvisioningInitiated();
+                    mUi.startRoleHolderProvisioning(roleHolderProvisioningIntent);
+                } else {
+                    ProvisionLogger.logw("Falling back to provisioning via platform.");
+                    performPlatformProvidedProvisioning();
+                }
+            });
             return true;
         } else if (!mRoleHolderHelper.isRoleHolderProvisioningEnabled()
                 || !mRoleHolderUpdaterHelper.isRoleHolderUpdaterDefined()
@@ -291,9 +298,18 @@ public class PreProvisioningActivityController {
     interface Ui {
         /**
          * Show an error message and cancel provisioning.
-         * @param titleId resource id used to form the user facing error title
-         * @param messageId resource id used to form the user facing error message
+         *
+         * @param title        resource id used to form the user facing error title
+         * @param message      resource id used to form the user facing error message
          * @param errorMessage an error message that gets logged for debugging
+         */
+        void showErrorAndClose(
+                LazyStringResource title, LazyStringResource message, String errorMessage);
+
+        /**
+         * Show an error message and cancel provisioning.
+         *
+         * @see #showErrorAndClose(LazyStringResource, LazyStringResource, String)
          */
         void showErrorAndClose(Integer titleId, int messageId, String errorMessage);
 
@@ -526,8 +542,10 @@ public class PreProvisioningActivityController {
         if (params.deviceAdminDownloadInfo == null) {
             return false;
         }
-        if (mUtils.isNetworkTypeConnected(mContext, ConnectivityManager.TYPE_WIFI,
-                ConnectivityManager.TYPE_ETHERNET)) {
+        var networkCapabilities = mUtils.getActiveNetworkCapabilities(mContext);
+        if (networkCapabilities != null
+                && (mUtils.isNetworkConnectedToInternetViaWiFi(networkCapabilities)
+                        || mUtils.isNetworkConnectedToInternetViaEthernet(networkCapabilities))) {
             return false;
         }
         // we intentionally disregard whether mobile is connected for QR and NFC
@@ -615,7 +633,6 @@ public class PreProvisioningActivityController {
         maybeUpdateSkipEducationScreens(builder, resultIntent);
         maybeUpdateDisclaimers(builder, resultIntent);
         maybeUpdateSkipEncryption(builder, resultIntent);
-        maybeUpdateKeepScreenOn(builder, resultIntent);
         if (updateAccountToMigrate) {
             maybeUpdateAccountToMigrate(builder, resultIntent);
         }
@@ -638,15 +655,6 @@ public class PreProvisioningActivityController {
             builder.setDeviceOwnerPermissionGrantOptOut(resultIntent.getBooleanExtra(
                     EXTRA_PROVISIONING_SENSORS_PERMISSION_GRANT_OPT_OUT,
                     DEFAULT_EXTRA_PROVISIONING_PERMISSION_GRANT_OPT_OUT));
-        }
-    }
-
-    private void maybeUpdateKeepScreenOn(
-            ProvisioningParams.Builder builder, Intent resultIntent) {
-        if (resultIntent.hasExtra(EXTRA_PROVISIONING_KEEP_SCREEN_ON)) {
-            builder.setKeepScreenOn(resultIntent.getBooleanExtra(
-                    EXTRA_PROVISIONING_KEEP_SCREEN_ON,
-                    DEFAULT_EXTRA_PROVISIONING_KEEP_SCREEN_ON));
         }
     }
 
@@ -809,13 +817,15 @@ public class PreProvisioningActivityController {
     public void continueProvisioningAfterUserConsent() {
         mProvisioningAnalyticsTracker.logProvisioningAction(
                 mContext, mViewModel.getParams().provisioningAction);
-
         // check if encryption is required
         if (isEncryptionRequired()) {
             if (mDevicePolicyManager.getStorageEncryptionStatus()
                     == DevicePolicyManager.ENCRYPTION_STATUS_UNSUPPORTED) {
-                mUi.showErrorAndClose(R.string.cant_set_up_device,
-                        R.string.device_doesnt_allow_encryption_contact_admin,
+                CharSequence deviceName = DeviceHelper.getDeviceName(mContext);
+                mUi.showErrorAndClose(
+                        LazyStringResource.of(R.string.cant_set_up_device),
+                        LazyStringResource.of(
+                                R.string.device_doesnt_allow_encryption_contact_admin, deviceName),
                         "This device does not support encryption, and "
                                 + DevicePolicyManager.EXTRA_PROVISIONING_SKIP_ENCRYPTION
                                 + " was not passed.");
@@ -834,31 +844,30 @@ public class PreProvisioningActivityController {
                 // we come back to this method after returning from launcher dialog
                 // TODO: refactor as evil - logic should be less spread out
                 return;
-            } else {
-                // Cancel the boot reminder as provisioning has now started.
-                mViewModel.getEncryptionController().cancelEncryptionReminder();
-                stopTimeLogger();
-                mUi.startProvisioning(mViewModel.getParams());
             }
-        } else { // DO case
-            // Cancel the boot reminder as provisioning has now started.
-            mViewModel.getEncryptionController().cancelEncryptionReminder();
-            stopTimeLogger();
-            mUi.startProvisioning(mViewModel.getParams());
         }
+        // Cancel the boot reminder as provisioning has now started.
+        mViewModel.getEncryptionController().cancelEncryptionReminder();
+        stopTimeLogger();
+        mUi.startProvisioning(mViewModel.getParams());
 
         mViewModel.onProvisioningStartedAfterUserConsent();
     }
 
-    /** @return False if condition preventing further provisioning */
+    /**
+     * @return False if condition preventing further provisioning
+     */
     @VisibleForTesting
     boolean checkFactoryResetProtection(ProvisioningParams params, String callingPackage) {
         if (skipFactoryResetProtectionCheck(params, callingPackage)) {
             return true;
         }
         if (factoryResetProtected()) {
-            mUi.showErrorAndClose(R.string.cant_set_up_device,
-                    R.string.device_has_reset_protection_contact_admin,
+            CharSequence deviceName = DeviceHelper.getDeviceName(mContext);
+            mUi.showErrorAndClose(
+                    LazyStringResource.of(R.string.cant_set_up_device),
+                    LazyStringResource.of(
+                            R.string.device_has_reset_protection_contact_admin, deviceName),
                     "Factory reset protection blocks provisioning.");
             return false;
         }
@@ -1110,22 +1119,22 @@ public class PreProvisioningActivityController {
                 return;
             case ACTION_PROVISION_MANAGED_DEVICE:
                 showDeviceOwnerErrorAndClose(provisioningPreCondition);
-                return;
         }
         // This should never be the case, as showProvisioningError is always called after
         // verifying the supported provisioning actions.
     }
 
     private void showManagedProfileErrorAndClose(int provisioningPreCondition) {
-        UserInfo userInfo = mUserManager.getUserInfo(mUserManager.getProcessUserId());
-        ProvisionLogger.logw("DevicePolicyManager.checkProvisioningPreCondition returns code: "
-                + provisioningPreCondition);
+        var userInfo = mUserManager.getUserInfo(mUserManager.getProcessUserId());
+        ProvisionLogger.logw(
+                "DevicePolicyManager.checkProvisioningPrecondition returns code: "
+                        + provisioningPreCondition);
         // If this is organization-owned provisioning, do not show any other error dialog, just
         // show the factory reset dialog and return.
         // This cannot be abused by regular apps to force a factory reset because
         // isOrganizationOwnedProvisioning is only set to true if the provisioning action was
         // from a trusted source. See Utils.isOrganizationOwnedProvisioning where we check for
-        // ACTION_PROVISION_MANAGED_DEVICE_FROM_TRUSTED_SOURCE which is guarded by the
+        // ACTION_ROLE_HOLDER_PROVISION_MANAGED_DEVICE_FROM_TRUSTED_SOURCE which is guarded by the
         // DISPATCH_PROVISIONING_MESSAGE system|privileged permission.
         if (mUtils.isOrganizationOwnedAllowed(mViewModel.getParams())) {
             ProvisionLogger.loge(
@@ -1134,42 +1143,49 @@ public class PreProvisioningActivityController {
                     R.string.contact_your_admin_for_help);
             return;
         }
+        CharSequence deviceName = DeviceHelper.getDeviceName(mContext);
         switch (provisioningPreCondition) {
             case STATUS_MANAGED_USERS_NOT_SUPPORTED:
-                mUi.showErrorAndClose(R.string.cant_add_work_profile,
-                        R.string.work_profile_cant_be_added_contact_admin,
+                mUi.showErrorAndClose(
+                        LazyStringResource.of(R.string.cant_add_work_profile),
+                        LazyStringResource.of(
+                                R.string.work_profile_cant_be_added_contact_admin, deviceName),
                         "Exiting managed profile provisioning, managed profiles "
                                 + "feature is not available");
                 break;
             case STATUS_CANNOT_ADD_MANAGED_PROFILE:
+                String errorMessage;
                 if (!userInfo.canHaveProfile()) {
-                    mUi.showErrorAndClose(R.string.cant_add_work_profile,
-                            R.string.work_profile_cant_be_added_contact_admin,
-                            "Exiting managed profile provisioning, calling user cannot "
-                                    + "have managed profiles");
+                    errorMessage = "Exiting managed profile provisioning, calling user cannot "
+                            + "have managed profiles";
                 } else if (!canAddManagedProfile()) {
-                    mUi.showErrorAndClose(R.string.cant_add_work_profile,
-                            R.string.work_profile_cant_be_added_contact_admin,
-                            "Exiting managed profile provisioning, a managed profile "
-                                    + "already exists");
+                    errorMessage = "Exiting managed profile provisioning, a managed profile "
+                            + "already exists";
                 } else {
-                    mUi.showErrorAndClose(R.string.cant_add_work_profile,
-                            R.string.work_profile_cant_be_added_contact_admin,
-                            "Exiting managed profile provisioning, cannot add more managed "
-                                    + "profiles");
+                    errorMessage = "Exiting managed profile provisioning, cannot add more managed "
+                            + "profiles";
                 }
+                mUi.showErrorAndClose(
+                        LazyStringResource.of(R.string.cant_add_work_profile),
+                        LazyStringResource.of(
+                                R.string.work_profile_cant_be_added_contact_admin, deviceName),
+                        errorMessage);
                 break;
             case STATUS_PROVISIONING_NOT_ALLOWED_FOR_NON_DEVELOPER_USERS:
-                mUi.showErrorAndClose(R.string.cant_add_work_profile,
-                        R.string.work_profile_cant_be_added_contact_admin,
+                mUi.showErrorAndClose(
+                        LazyStringResource.of(R.string.cant_add_work_profile),
+                        LazyStringResource.of(
+                                R.string.work_profile_cant_be_added_contact_admin, deviceName),
                         "Exiting managed profile provisioning, "
                                 + "provisioning not allowed by OEM");
                 break;
             default:
-                mUi.showErrorAndClose(R.string.cant_add_work_profile,
+                mUi.showErrorAndClose(
+                        R.string.cant_add_work_profile,
                         R.string.contact_your_admin_for_help,
                         "Managed profile provisioning not allowed for an unknown "
-                                + "reason, code: " + provisioningPreCondition);
+                                + "reason, code: "
+                                + provisioningPreCondition);
         }
     }
 
@@ -1179,24 +1195,31 @@ public class PreProvisioningActivityController {
     }
 
     private void showDeviceOwnerErrorAndClose(int provisioningPreCondition) {
+        CharSequence deviceName = DeviceHelper.getDeviceName(mContext);
         switch (provisioningPreCondition) {
             case STATUS_HAS_DEVICE_OWNER:
             case STATUS_USER_SETUP_COMPLETED:
-                mUi.showErrorAndClose(R.string.device_already_set_up,
-                        R.string.if_questions_contact_admin, "Device already provisioned.");
+                mUi.showErrorAndClose(
+                        LazyStringResource.of(R.string.device_already_set_up, deviceName),
+                        LazyStringResource.of(R.string.if_questions_contact_admin),
+                        "Device already provisioned.");
                 return;
             case STATUS_NOT_SYSTEM_USER:
-                mUi.showErrorAndClose(R.string.cant_set_up_device,
+                mUi.showErrorAndClose(
+                        R.string.cant_set_up_device,
                         R.string.contact_your_admin_for_help,
                         "Device owner can only be set up for USER_SYSTEM.");
                 return;
             case STATUS_PROVISIONING_NOT_ALLOWED_FOR_NON_DEVELOPER_USERS:
-                mUi.showErrorAndClose(R.string.cant_set_up_device,
+                mUi.showErrorAndClose(
+                        R.string.cant_set_up_device,
                         R.string.contact_your_admin_for_help,
                         "Provisioning not allowed by OEM");
                 return;
         }
-        mUi.showErrorAndClose(R.string.cant_set_up_device, R.string.contact_your_admin_for_help,
+        mUi.showErrorAndClose(
+                R.string.cant_set_up_device,
+                R.string.contact_your_admin_for_help,
                 "Device Owner provisioning not allowed for an unknown reason.");
     }
 }

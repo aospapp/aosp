@@ -147,6 +147,7 @@ struct Parameters {
 
     bool recordingHint;
     bool videoStabilization;
+    bool videoStabilizationOnSupported = false;
 
     CameraParameters2 params;
     String8 paramsFlattened;
@@ -182,6 +183,8 @@ struct Parameters {
     bool isDeviceZslSupported;
     // Whether the device supports geometric distortion correction
     bool isDistortionCorrectionSupported;
+    // Whether slowJpegMode is forced regardless of jpeg stream FPS
+    bool isSlowJpegModeForced;
 
     // Overall camera state
     enum State {

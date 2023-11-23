@@ -16,6 +16,14 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+    <string name="car_permission_label_bind_projection_service" msgid="6976251734714662552">"kupachika kwenye huduma ya kuonyesha skrini"</string>
+    <string name="car_permission_desc_bind_projection_service" msgid="4610418233070289810">"Inaruhusu kishikiliaji kipachikwe katika kiolesura cha kiwango cha juu cha huduma ya kuonyesha. Haipaswi kuhitajika katika programu za kawaida."</string>
+    <string name="car_permission_label_bind_vms_client" msgid="1298928874094319701">"Huduma ya Viteja vya VMS"</string>
+    <string name="car_permission_desc_bind_vms_client" msgid="7758142590449847602">"Ipachike kwenye viteja vya VMS"</string>
+    <string name="car_permission_label_bind_instrument_cluster_rendering" msgid="6723392540805279625">"Uwasilishaji wa Kikundi cha Zana"</string>
+    <string name="car_permission_desc_bind_instrument_cluster_rendering" msgid="2583711303360788080">"Kupokea data ya kikundi cha zana"</string>
+    <string name="car_permission_label_bind_input_service" msgid="6647238478703096557">"Huduma ya Kuweka Data ya Gari"</string>
+    <string name="car_permission_desc_bind_input_service" msgid="8460218104132496613">"Kudhibiti matukio ya kuweka data"</string>
     <string name="activity_blocked_text" msgid="5991043857905412794">"Huwezi kutumia kipengele hiki wakati unaendesha gari"</string>
     <string name="exit_button_message" msgid="5375678491245394542">"Ili uanzishe tena ukitumia vipengele salama vya programu, chagua <xliff:g id="EXIT_BUTTON">%s</xliff:g>."</string>
     <string name="exit_button" msgid="3491899413031549265">"Rudi Nyuma"</string>
@@ -30,11 +38,7 @@
     <string name="factory_reset_warning" msgid="8463356329619149262">"Data iliyomo kwenye kifaa chako itafutwa"</string>
     <string name="factory_reset_message" msgid="1972536809866779972">"Huwezi kutumia programu ya msimamizi. Sasa data iliyo kwenye kifaa chako itafutwa.\n\nIkiwa una maswali yoyote, wasiliana na msimamizi wa shirika lako."</string>
     <string name="resource_overuse_notification_title" msgid="1622015333965744463">"<xliff:g id="ID_1">^1</xliff:g> inaathiri utendaji wa mfumo wako"</string>
-    <string name="resource_overuse_notification_text_disable_app" msgid="6230392052741662158">"Zima programu ili uboreshe utendaji wa mfumo. Unaweza kuwasha programu tena kwenye Mipangilio."</string>
-    <string name="resource_overuse_notification_text_prioritize_app" msgid="5712958688473220136">"Ipe programu kipaumbele ili uendelee kuitumia."</string>
-    <string name="resource_overuse_notification_text_uninstall_app" msgid="7571808726595158942">"Ondoa programu ili uboreshe utendaji wa mfumo."</string>
-    <string name="resource_overuse_notification_button_disable_app" msgid="7366883746281232189">"Zima programu"</string>
+    <string name="resource_overuse_notification_text_disabled_app" msgid="9058683477901746549">"Programu hii imezuiwa kutumika chinichini. Ipe programu kipaumbele ili iendelee kutumika chinichini."</string>
+    <string name="resource_overuse_notification_button_close_app" msgid="131355952730826999">"Funga"</string>
     <string name="resource_overuse_notification_button_prioritize_app" msgid="1093325910457794796">"Ipe programu kipaumbele"</string>
-    <string name="resource_overuse_notification_button_uninstall_app" msgid="5259756814713178196">"Ondoa programu"</string>
-    <string name="resource_overuse_toast_disable_app_now" msgid="5020071090614971772">"<xliff:g id="ID_1">^1</xliff:g> imezimwa. Unaweza kuiwasha tena katika Mipangilio."</string>
 </resources>

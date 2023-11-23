@@ -33,9 +33,12 @@ android_test {
     libs: [
         "framework-appsearch.impl",
     ],
+    // jni libs are not normally accessible from apps so they must be explicitly included.
+    jni_libs: ["libicing"],
     test_suites: [
         "general-tests",
         "mts-appsearch",
     ],
     compile_multilib: "both",
+    min_sdk_version: "33",
 }

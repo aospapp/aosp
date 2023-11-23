@@ -16,6 +16,8 @@
 
 package android.net.wifi.hotspot2.pps;
 
+import static android.net.wifi.hotspot2.PasspointConfiguration.MAX_NUMBER_OF_ENTRIES;
+
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
@@ -307,6 +309,34 @@ public class PolicyTest {
         String[] excludedSsidList = new String[] {
                 new String(rawSsidBytes, StandardCharsets.UTF_8)};
         policy.setExcludedSsidList(excludedSsidList);
+        assertFalse(policy.validate());
+    }
+
+    @Test
+    public void validatePolicyWithInvalidRequiredProtoPortMap() {
+        Policy policy = createPolicy();
+        Map<Integer, String> requiredProtoPortMap = new HashMap<>();
+        requiredProtoPortMap.put(-1, "23,342,123");
+        policy.setRequiredProtoPortMap(requiredProtoPortMap);
+        assertFalse(policy.validate());
+        requiredProtoPortMap.put(256, "23,342,123");
+        policy.setRequiredProtoPortMap(requiredProtoPortMap);
+        assertFalse(policy.validate());
+    }
+
+    @Test
+    public void validatePolicyWithPreferRoamingPartner() {
+        Policy policy = createPolicy();
+        List<Policy.RoamingPartner> preferredRoamingPartnerList = new ArrayList<>();
+        for (int i = 0; i < MAX_NUMBER_OF_ENTRIES + 1; i++) {
+            Policy.RoamingPartner partner = new Policy.RoamingPartner();
+            partner.setFqdn("partner1.com");
+            partner.setFqdnExactMatch(true);
+            partner.setPriority(12);
+            partner.setCountries("us,jp");
+            preferredRoamingPartnerList.add(partner);
+        }
+        policy.setPreferredRoamingPartnerList(preferredRoamingPartnerList);
         assertFalse(policy.validate());
     }
 }

@@ -1,4 +1,4 @@
-#!/usr/bin/python2
+# Lint as: python2, python3
 # Copyright (c) 2013 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -88,7 +88,7 @@ class _LoggingService(object):
             self._loggers.remove(logger)
             return
 
-        for line in data.split('\n'):
+        for line in data.split(b'\n'):
             logging.log(logger._level, '%s%s', logger._prefix, line)
 
 
@@ -100,7 +100,7 @@ class _LoggingService(object):
         """
         logger = _PipeLogger(level=level, prefix=prefix)
         self._loggers.append(logger)
-        os.write(self._pipe[1], '\0')
+        os.write(self._pipe[1], b'\0')
         return _LoggerProxy(logger)
 
 

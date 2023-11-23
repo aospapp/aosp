@@ -24,7 +24,7 @@
 #include <vector>
 
 #include "fcntl.h"
-#include "os/log.h"
+#include "log.h"
 #include "sys/select.h"
 #include "unistd.h"
 
@@ -175,7 +175,7 @@ class AsyncManager::AsyncFdWatcher {
     return 0;
   }
 
-  int notifyThread() {
+  int notifyThread() const {
     char buffer = '0';
     if (TEMP_FAILURE_RETRY(write(notification_write_fd_, &buffer, 1)) < 0) {
       LOG_ERROR("%s: Unable to send message to reading thread", __func__);
@@ -201,7 +201,7 @@ class AsyncManager::AsyncFdWatcher {
   }
 
   // check the comm channel and read everything there
-  bool consumeThreadNotifications(fd_set& read_fds) {
+  bool consumeThreadNotifications(fd_set& read_fds) const {
     if (FD_ISSET(notification_listen_fd_, &read_fds)) {
       char buffer[kNotificationBufferSize];
       while (TEMP_FAILURE_RETRY(read(notification_listen_fd_, buffer,
@@ -303,6 +303,11 @@ class AsyncManager::AsyncTaskManager {
     return true;
   }
 
+  void Synchronize(const CriticalCallback& critical) {
+    std::unique_lock<std::mutex> guard(synchronization_mutex_);
+    critical();
+  }
+
   AsyncTaskManager() = default;
   AsyncTaskManager(const AsyncTaskManager&) = delete;
   AsyncTaskManager& operator=(const AsyncTaskManager&) = delete;
@@ -364,6 +369,7 @@ class AsyncManager::AsyncTaskManager {
     std::chrono::steady_clock::time_point time;
     bool periodic;
     std::chrono::milliseconds period{};
+    std::mutex in_callback; // Taken when the callback is active
     TaskCallback callback;
     AsyncTaskId task_id;
     AsyncUserId user_id;
@@ -381,8 +387,22 @@ class AsyncManager::AsyncTaskManager {
     if (tasks_by_id_.count(async_task_id) == 0) {
       return false;
     }
-    task_queue_.erase(tasks_by_id_[async_task_id]);
-    tasks_by_id_.erase(async_task_id);
+
+    // Now make sure we are not running this task.
+    // 2 cases:
+    // - This is called from thread_, this means a running
+    //   scheduled task is actually unregistering. All bets are off.
+    // - Another thread is calling us, let's make sure the task is not active.
+    if (thread_.get_id() != std::this_thread::get_id()) {
+      auto task = tasks_by_id_[async_task_id];
+      const std::lock_guard<std::mutex> lock(task->in_callback);
+      task_queue_.erase(task);
+      tasks_by_id_.erase(async_task_id);
+    } else {
+      task_queue_.erase(tasks_by_id_[async_task_id]);
+      tasks_by_id_.erase(async_task_id);
+    }
+
     return true;
   }
 
@@ -390,8 +410,9 @@ class AsyncManager::AsyncTaskManager {
     {
       std::unique_lock<std::mutex> guard(internal_mutex_);
       // no more room for new tasks, we need a larger type for IDs
-      if (tasks_by_id_.size() == kMaxTaskId)  // TODO potentially type unsafe
+      if (tasks_by_id_.size() == kMaxTaskId) {  // TODO potentially type unsafe
         return kInvalidTaskId;
+      }
       do {
         lastTaskId_ = NextAsyncTaskId(lastTaskId_);
       } while (isTaskIdInUse(lastTaskId_));
@@ -437,11 +458,12 @@ class AsyncManager::AsyncTaskManager {
   void ThreadRoutine() {
     while (running_) {
       TaskCallback callback;
+      std::shared_ptr<Task> task_p;
       bool run_it = false;
       {
         std::unique_lock<std::mutex> guard(internal_mutex_);
         if (!task_queue_.empty()) {
-          std::shared_ptr<Task> task_p = *(task_queue_.begin());
+          task_p = *(task_queue_.begin());
           if (task_p->time < std::chrono::steady_clock::now()) {
             run_it = true;
             callback = task_p->callback;
@@ -458,14 +480,17 @@ class AsyncManager::AsyncTaskManager {
         }
       }
       if (run_it) {
-        callback();
+        const std::lock_guard<std::mutex> lock(task_p->in_callback);
+        Synchronize(callback);
       }
       {
         std::unique_lock<std::mutex> guard(internal_mutex_);
         // check for termination right before waiting
-        if (!running_) break;
+        if (!running_) {
+          break;
+        }
         // wait until time for the next task (if any)
-        if (task_queue_.size() > 0) {
+        if (!task_queue_.empty()) {
           // Make a copy of the time_point because wait_until takes a reference
           // to it and may read it after waiting, by which time the task may
           // have been freed (e.g. via CancelAsyncTask).
@@ -482,6 +507,7 @@ class AsyncManager::AsyncTaskManager {
   bool running_ = false;
   std::thread thread_;
   std::mutex internal_mutex_;
+  std::mutex synchronization_mutex_;
   std::condition_variable internal_cond_var_;
 
   AsyncTaskId lastTaskId_ = kInvalidTaskId;
@@ -543,7 +569,6 @@ bool AsyncManager::CancelAsyncTasksFromUser(rootcanal::AsyncUserId user_id) {
 }
 
 void AsyncManager::Synchronize(const CriticalCallback& critical) {
-  std::unique_lock<std::mutex> guard(synchronization_mutex_);
-  critical();
+  taskManager_p_->Synchronize(critical);
 }
 }  // namespace rootcanal

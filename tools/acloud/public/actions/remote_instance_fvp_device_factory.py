@@ -34,7 +34,7 @@ class RemoteInstanceDeviceFactory(gce_device_factory.GCEDeviceFactory):
         Returns:
             The instance.
         """
-        instance = self._CreateGceInstance()
+        instance = self.CreateGceInstance()
         if instance in self.GetFailures():
             return instance
 

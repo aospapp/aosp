@@ -107,6 +107,11 @@ void checkTextureSupport (Context& context, const Texture2DTestCaseParameters& t
 
 	if (testParameters.wrapS == tcu::Sampler::Sampler::MIRRORED_ONCE || testParameters.wrapT == tcu::Sampler::Sampler::MIRRORED_ONCE)
 		context.requireDeviceFunctionality("VK_KHR_sampler_mirror_clamp_to_edge");
+
+#ifndef CTS_USES_VULKANSC
+	if (testParameters.format == VK_FORMAT_R10X6G10X6B10X6A10X6_UNORM_4PACK16 && context.getRGBA10X6FormatsFeaturesEXT().formatRgba10x6WithoutYCbCrSampler == VK_FALSE)
+		TCU_THROW(NotSupportedError, "formatRgba10x6WithoutYCbCrSampler not supported");
+#endif
 }
 
 template <>
@@ -121,6 +126,11 @@ void checkTextureSupport (Context& context, const Texture2DArrayTestCaseParamete
 {
 	if (testParameters.wrapS == tcu::Sampler::Sampler::MIRRORED_ONCE || testParameters.wrapT == tcu::Sampler::Sampler::MIRRORED_ONCE)
 		context.requireDeviceFunctionality("VK_KHR_sampler_mirror_clamp_to_edge");
+
+#ifndef CTS_USES_VULKANSC
+	if (testParameters.format == VK_FORMAT_R10X6G10X6B10X6A10X6_UNORM_4PACK16 && testParameters.mipmaps && context.getRGBA10X6FormatsFeaturesEXT().formatRgba10x6WithoutYCbCrSampler == VK_FALSE)
+		TCU_THROW(NotSupportedError, "formatRgba10x6WithoutYCbCrSampler not supported");
+#endif
 }
 
 template <>
@@ -128,6 +138,23 @@ void checkTextureSupport (Context& context, const Texture3DTestCaseParameters& t
 {
 	if (testParameters.wrapS == tcu::Sampler::Sampler::MIRRORED_ONCE || testParameters.wrapT == tcu::Sampler::Sampler::MIRRORED_ONCE || testParameters.wrapR == tcu::Sampler::Sampler::MIRRORED_ONCE)
 		context.requireDeviceFunctionality("VK_KHR_sampler_mirror_clamp_to_edge");
+
+#ifndef CTS_USES_VULKANSC
+	if (testParameters.format == VK_FORMAT_R10X6G10X6B10X6A10X6_UNORM_4PACK16 && context.getRGBA10X6FormatsFeaturesEXT().formatRgba10x6WithoutYCbCrSampler == VK_FALSE)
+		TCU_THROW(NotSupportedError, "formatRgba10x6WithoutYCbCrSampler not supported");
+#endif
+}
+
+template <>
+void checkTextureSupport (Context& context, const TextureCubeFilteringTestCaseParameters& testParameters)
+{
+#ifndef CTS_USES_VULKANSC
+	if (testParameters.format == VK_FORMAT_R10X6G10X6B10X6A10X6_UNORM_4PACK16 && context.getRGBA10X6FormatsFeaturesEXT().formatRgba10x6WithoutYCbCrSampler == VK_FALSE)
+		TCU_THROW(NotSupportedError, "formatRgba10x6WithoutYCbCrSampler not supported");
+#else
+	DE_UNREF(context);
+	DE_UNREF(testParameters);
+#endif
 }
 
 } // util
@@ -340,24 +367,29 @@ tcu::TestStatus Texture2DFilteringTestInstance::iterate (void)
 		lookupPrecision.uvwBits			= tcu::IVec3(7,7,0);
 		lookupPrecision.colorMask		= getCompareMask(pixelFormat);
 
-		const bool isHighQuality = verifyTextureResult(m_context.getTestContext(), rendered.getAccess(), (tcu::Texture2DView)texture.getTexture(),
-													   &texCoord[0], refParams, lookupPrecision, lodPrecision, pixelFormat);
-
-		if (!isHighQuality)
+#ifdef CTS_USES_VULKANSC
+		if (m_context.getTestContext().getCommandLine().isSubProcess())
+#endif // CTS_USES_VULKANSC
 		{
-			// Evaluate against lower precision requirements.
-			lodPrecision.lodBits	= 4;
-			lookupPrecision.uvwBits	= tcu::IVec3(4,4,0);
+			const bool isHighQuality = verifyTextureResult(m_context.getTestContext(), rendered.getAccess(), (tcu::Texture2DView)texture.getTexture(),
+														   &texCoord[0], refParams, lookupPrecision, lodPrecision, pixelFormat);
 
-			log << TestLog::Message << "Warning: Verification against high precision requirements failed, trying with lower requirements." << TestLog::EndMessage;
-
-			const bool isOk = verifyTextureResult(m_context.getTestContext(), rendered.getAccess(), (tcu::Texture2DView)texture.getTexture(),
-												  &texCoord[0], refParams, lookupPrecision, lodPrecision, pixelFormat);
-
-			if (!isOk)
+			if (!isHighQuality)
 			{
-				log << TestLog::Message << "ERROR: Verification against low precision requirements failed, failing test case." << TestLog::EndMessage;
-				return tcu::TestStatus::fail("Image verification failed");
+				// Evaluate against lower precision requirements.
+				lodPrecision.lodBits	= 4;
+				lookupPrecision.uvwBits	= tcu::IVec3(4,4,0);
+
+				log << TestLog::Message << "Warning: Verification against high precision requirements failed, trying with lower requirements." << TestLog::EndMessage;
+
+				const bool isOk = verifyTextureResult(m_context.getTestContext(), rendered.getAccess(), (tcu::Texture2DView)texture.getTexture(),
+													  &texCoord[0], refParams, lookupPrecision, lodPrecision, pixelFormat);
+
+				if (!isOk)
+				{
+					log << TestLog::Message << "ERROR: Verification against low precision requirements failed, failing test case." << TestLog::EndMessage;
+					return tcu::TestStatus::fail("Image verification failed");
+				}
 			}
 		}
 	}
@@ -365,11 +397,6 @@ tcu::TestStatus Texture2DFilteringTestInstance::iterate (void)
 	m_caseNdx += 1;
 	return m_caseNdx < (int)m_cases.size() ? tcu::TestStatus::incomplete() : tcu::TestStatus::pass("Pass");
 }
-
-struct TextureCubeFilteringTestCaseParameters : public TextureCubeTestCaseParameters
-{
-	bool	onlySampleFaceInterior;
-};
 
 class TextureCubeFilteringTestInstance : public TestInstance
 {
@@ -583,24 +610,29 @@ tcu::TestStatus TextureCubeFilteringTestInstance::iterate (void)
 			lookupPrecision.uvwBits			= tcu::IVec3(6,6,0);
 			lookupPrecision.colorMask		= getCompareMask(pixelFormat);
 
-			const bool isHighQuality = verifyTextureResult(m_context.getTestContext(), rendered.getAccess(), (tcu::TextureCubeView)texture.getTexture(),
-														   &texCoord[0], refParams, lookupPrecision, lodPrecision, pixelFormat);
-
-			if (!isHighQuality)
+#ifdef CTS_USES_VULKANSC
+			if (m_context.getTestContext().getCommandLine().isSubProcess())
+#endif // CTS_USES_VULKANSC
 			{
-				// Evaluate against lower precision requirements.
-				lodPrecision.lodBits	= 4;
-				lookupPrecision.uvwBits	= tcu::IVec3(4,4,0);
+				const bool isHighQuality = verifyTextureResult(m_context.getTestContext(), rendered.getAccess(), (tcu::TextureCubeView)texture.getTexture(),
+															   &texCoord[0], refParams, lookupPrecision, lodPrecision, pixelFormat);
 
-				log << TestLog::Message << "Warning: Verification against high precision requirements failed, trying with lower requirements." << TestLog::EndMessage;
-
-				const bool isOk = verifyTextureResult(m_context.getTestContext(), rendered.getAccess(), (tcu::TextureCubeView)texture.getTexture(),
-													  &texCoord[0], refParams, lookupPrecision, lodPrecision, pixelFormat);
-
-				if (!isOk)
+				if (!isHighQuality)
 				{
-					log << TestLog::Message << "ERROR: Verification against low precision requirements failed, failing test case." << TestLog::EndMessage;
-					return tcu::TestStatus::fail("Image verification failed");
+					// Evaluate against lower precision requirements.
+					lodPrecision.lodBits	= 4;
+					lookupPrecision.uvwBits	= tcu::IVec3(4,4,0);
+
+					log << TestLog::Message << "Warning: Verification against high precision requirements failed, trying with lower requirements." << TestLog::EndMessage;
+
+					const bool isOk = verifyTextureResult(m_context.getTestContext(), rendered.getAccess(), (tcu::TextureCubeView)texture.getTexture(),
+														  &texCoord[0], refParams, lookupPrecision, lodPrecision, pixelFormat);
+
+					if (!isOk)
+					{
+						log << TestLog::Message << "ERROR: Verification against low precision requirements failed, failing test case." << TestLog::EndMessage;
+						return tcu::TestStatus::fail("Image verification failed");
+					}
 				}
 			}
 		}
@@ -804,24 +836,29 @@ tcu::TestStatus Texture2DArrayFilteringTestInstance::iterate (void)
 		lookupPrecision.uvwBits			= tcu::IVec3(7,7,0);
 		lookupPrecision.colorMask		= getCompareMask(pixelFormat);
 
-		const bool isHighQuality = verifyTextureResult(m_context.getTestContext(), rendered.getAccess(), (tcu::Texture2DArrayView)texture.getTexture(),
-													   texCoordPtr, refParams, lookupPrecision, lodPrecision, pixelFormat);
-
-		if (!isHighQuality)
+#ifdef CTS_USES_VULKANSC
+		if (m_context.getTestContext().getCommandLine().isSubProcess())
+#endif // CTS_USES_VULKANSC
 		{
-			// Evaluate against lower precision requirements.
-			lodPrecision.lodBits	= 4;
-			lookupPrecision.uvwBits	= tcu::IVec3(4,4,0);
+			const bool isHighQuality = verifyTextureResult(m_context.getTestContext(), rendered.getAccess(), (tcu::Texture2DArrayView)texture.getTexture(),
+														   texCoordPtr, refParams, lookupPrecision, lodPrecision, pixelFormat);
 
-			log << TestLog::Message << "Warning: Verification against high precision requirements failed, trying with lower requirements." << TestLog::EndMessage;
-
-			const bool isOk = verifyTextureResult(m_context.getTestContext(), rendered.getAccess(), (tcu::Texture2DArrayView)texture.getTexture(),
-												  texCoordPtr, refParams, lookupPrecision, lodPrecision, pixelFormat);
-
-			if (!isOk)
+			if (!isHighQuality)
 			{
-				log << TestLog::Message << "ERROR: Verification against low precision requirements failed, failing test case." << TestLog::EndMessage;
-				return tcu::TestStatus::fail("Image verification failed");
+				// Evaluate against lower precision requirements.
+				lodPrecision.lodBits	= 4;
+				lookupPrecision.uvwBits	= tcu::IVec3(4,4,0);
+
+				log << TestLog::Message << "Warning: Verification against high precision requirements failed, trying with lower requirements." << TestLog::EndMessage;
+
+				const bool isOk = verifyTextureResult(m_context.getTestContext(), rendered.getAccess(), (tcu::Texture2DArrayView)texture.getTexture(),
+													  texCoordPtr, refParams, lookupPrecision, lodPrecision, pixelFormat);
+
+				if (!isOk)
+				{
+					log << TestLog::Message << "ERROR: Verification against low precision requirements failed, failing test case." << TestLog::EndMessage;
+					return tcu::TestStatus::fail("Image verification failed");
+				}
 			}
 		}
 	}
@@ -1008,24 +1045,29 @@ tcu::TestStatus Texture3DFilteringTestInstance::iterate (void)
 		lookupPrecision.uvwBits			= tcu::IVec3(7,7,7);
 		lookupPrecision.colorMask		= getCompareMask(pixelFormat);
 
-		const bool isHighQuality = verifyTextureResult(m_context.getTestContext(), rendered.getAccess(), (tcu::Texture3DView)texture.getTexture(),
-													   texCoordPtr, refParams, lookupPrecision, lodPrecision, pixelFormat);
-
-		if (!isHighQuality)
+#ifdef CTS_USES_VULKANSC
+		if (m_context.getTestContext().getCommandLine().isSubProcess())
+#endif // CTS_USES_VULKANSC
 		{
-			// Evaluate against lower precision requirements.
-			lodPrecision.lodBits	= 4;
-			lookupPrecision.uvwBits	= tcu::IVec3(4,4,4);
+			const bool isHighQuality = verifyTextureResult(m_context.getTestContext(), rendered.getAccess(), (tcu::Texture3DView)texture.getTexture(),
+														   texCoordPtr, refParams, lookupPrecision, lodPrecision, pixelFormat);
 
-			log << TestLog::Message << "Warning: Verification against high precision requirements failed, trying with lower requirements." << TestLog::EndMessage;
-
-			const bool isOk = verifyTextureResult(m_context.getTestContext(), rendered.getAccess(), (tcu::Texture3DView)texture.getTexture(),
-												  texCoordPtr, refParams, lookupPrecision, lodPrecision, pixelFormat);
-
-			if (!isOk)
+			if (!isHighQuality)
 			{
-				log << TestLog::Message << "ERROR: Verification against low precision requirements failed, failing test case." << TestLog::EndMessage;
-				return tcu::TestStatus::fail("Image verification failed");
+				// Evaluate against lower precision requirements.
+				lodPrecision.lodBits	= 4;
+				lookupPrecision.uvwBits	= tcu::IVec3(4,4,4);
+
+				log << TestLog::Message << "Warning: Verification against high precision requirements failed, trying with lower requirements." << TestLog::EndMessage;
+
+				const bool isOk = verifyTextureResult(m_context.getTestContext(), rendered.getAccess(), (tcu::Texture3DView)texture.getTexture(),
+													  texCoordPtr, refParams, lookupPrecision, lodPrecision, pixelFormat);
+
+				if (!isOk)
+				{
+					log << TestLog::Message << "ERROR: Verification against low precision requirements failed, failing test case." << TestLog::EndMessage;
+					return tcu::TestStatus::fail("Image verification failed");
+				}
 			}
 		}
 	}
@@ -1664,11 +1706,6 @@ void populateTextureFilteringTests (tcu::TestCaseGroup* textureFilteringTests)
 		// Formats.
 		for (int fmtNdx = 0; fmtNdx < DE_LENGTH_OF_ARRAY(filterableFormatsByType); fmtNdx++)
 		{
-			// YCbCr conversion formats require that imageType is VK_IMAGE_TYPE_2D.
-			// Skip for 3D texture filtering tests.
-			if (isYCbCrConversionFormat(filterableFormatsByType[fmtNdx].format))
-				continue;
-
 			const string					filterGroupName = filterableFormatsByType[fmtNdx].name;
 			de::MovePtr<tcu::TestCaseGroup>	filterGroup		(new tcu::TestCaseGroup(testCtx, filterGroupName.c_str(), ""));
 

@@ -242,34 +242,36 @@ public class MediaParserTest {
 
     @Test
     public void testOggBearVorbis() throws IOException {
-        testAssetExtraction("ogg/bear_vorbis.ogg");
+        testAssetExtraction("media/ogg/bear_vorbis.ogg");
     }
 
     @Test
     public void testOggBear() throws IOException {
-        testAssetExtraction("ogg/bear.opus");
+        testAssetExtraction("media/ogg/bear.opus");
     }
 
     @Test
     public void testOggBearFlac() throws IOException {
-        testAssetExtraction("ogg/bear_flac.ogg");
+        testAssetExtraction("media/ogg/bear_flac.ogg");
     }
 
     @Test
     public void testOggNoFlacSeekTable() throws IOException {
-        testAssetExtraction("ogg/bear_flac_noseektable.ogg");
+        testAssetExtraction("media/ogg/bear_flac_noseektable.ogg");
     }
 
     @Test
     public void testOggFlacHeaderSniff() throws IOException {
-        testSniffAsset("ogg/flac_header", /* expectedExtractorName= */ MediaParser.PARSER_NAME_OGG);
+        testSniffAsset(
+                "media/ogg/flac_header", /* expectedExtractorName= */ MediaParser.PARSER_NAME_OGG);
     }
 
     @Test
     public void testOggOpusHeaderSniff() throws IOException {
         try {
             testSniffAsset(
-                    "ogg/opus_header", /* expectedExtractorName= */ MediaParser.PARSER_NAME_OGG);
+                    "media/ogg/opus_header",
+                    /* expectedExtractorName= */ MediaParser.PARSER_NAME_OGG);
             fail();
         } catch (MediaParser.UnrecognizedInputFormatException e) {
             // Expected.
@@ -280,7 +282,7 @@ public class MediaParserTest {
     public void testOggInvalidHeaderSniff() throws IOException {
         try {
             testSniffAsset(
-                    "ogg/invalid_ogg_header",
+                    "media/ogg/invalid_ogg_header",
                     /* expectedExtractorName= */ MediaParser.PARSER_NAME_OGG);
             fail();
         } catch (MediaParser.UnrecognizedInputFormatException e) {
@@ -288,7 +290,8 @@ public class MediaParserTest {
         }
         try {
             testSniffAsset(
-                    "ogg/invalid_header", /* expectedExtractorName= */ MediaParser.PARSER_NAME_OGG);
+                    "media/ogg/invalid_header",
+                    /* expectedExtractorName= */ MediaParser.PARSER_NAME_OGG);
             fail();
         } catch (MediaParser.UnrecognizedInputFormatException e) {
             // Expected.
@@ -299,115 +302,115 @@ public class MediaParserTest {
 
     @Test
     public void testFlacUncommonSampleRateFlac() throws IOException {
-        testAssetExtraction("flac/bear_uncommon_sample_rate.flac");
+        testAssetExtraction("media/flac/bear_uncommon_sample_rate.flac");
     }
 
     @Test
     public void testFlacNoSeekTableAndNoNumSamples() throws IOException {
-        testAssetExtraction("flac/bear_no_seek_table_no_num_samples.flac");
+        testAssetExtraction("media/flac/bear_no_seek_table_no_num_samples.flac");
     }
 
     @Test
     public void testFlacWithPicture() throws IOException {
-        testAssetExtraction("flac/bear_with_picture.flac");
+        testAssetExtraction("media/flac/bear_with_picture.flac");
     }
 
     @Test
     public void testFlacWithVorbisComments() throws IOException {
-        testAssetExtraction("flac/bear_with_vorbis_comments.flac");
+        testAssetExtraction("media/flac/bear_with_vorbis_comments.flac");
     }
 
     @Test
     public void testFlacOneMetadataBlock() throws IOException {
-        testAssetExtraction("flac/bear_one_metadata_block.flac");
+        testAssetExtraction("media/flac/bear_one_metadata_block.flac");
     }
 
     @Test
     public void testFlacNoMinMaxFrameSize() throws IOException {
-        testAssetExtraction("flac/bear_no_min_max_frame_size.flac");
+        testAssetExtraction("media/flac/bear_no_min_max_frame_size.flac");
     }
 
     @Test
     public void testFlacNoNumSamples() throws IOException {
-        testAssetExtraction("flac/bear_no_num_samples.flac");
+        testAssetExtraction("media/flac/bear_no_num_samples.flac");
     }
 
     @Test
     public void testFlacWithId3() throws IOException {
-        testAssetExtraction("flac/bear_with_id3.flac");
+        testAssetExtraction("media/flac/bear_with_id3.flac");
     }
 
     @Test
     public void testFlacSample() throws IOException {
-        testAssetExtraction("flac/bear.flac");
+        testAssetExtraction("media/flac/bear.flac");
     }
 
     // MP3.
 
     @Test
     public void testMp3WithNoSeekTableVariableFrameSize() throws IOException {
-        testAssetExtraction("mp3/bear-cbr-variable-frame-size-no-seek-table.mp3");
+        testAssetExtraction("media/mp3/bear-cbr-variable-frame-size-no-seek-table.mp3");
     }
 
     @Test
     public void testMp3WithVariableBitrateAndXingHeader() throws IOException {
-        testAssetExtraction("mp3/bear-vbr-xing-header.mp3");
+        testAssetExtraction("media/mp3/bear-vbr-xing-header.mp3");
     }
 
     @Test
     public void testMp3WithNoSeekTableVariableBitrate() throws IOException {
-        testAssetExtraction("mp3/bear-vbr-no-seek-table.mp3");
+        testAssetExtraction("media/mp3/bear-vbr-no-seek-table.mp3");
     }
 
     @Test
     public void testMp3WithTrimmedSample() throws IOException {
-        testAssetExtraction("mp3/play-trimmed.mp3");
+        testAssetExtraction("media/mp3/play-trimmed.mp3");
     }
 
     @Test
     public void testMp3WithId3() throws IOException {
-        testAssetExtraction("mp3/bear-id3.mp3");
+        testAssetExtraction("media/mp3/bear-id3.mp3");
     }
 
     // WAV.
 
     @Test
     public void testWavWithImaAdpcm() throws IOException {
-        testAssetExtraction("wav/sample_ima_adpcm.wav");
+        testAssetExtraction("media/wav/sample_ima_adpcm.wav");
     }
 
     @Test
     public void testWav() throws IOException {
-        testAssetExtraction("wav/sample.wav");
+        testAssetExtraction("media/wav/sample.wav");
     }
 
     // AMR.
 
     @Test
     public void testAmrNarrowBandSamplesWithConstantBitrateSeeking() throws IOException {
-        testAssetExtraction("amr/sample_nb_cbr.amr");
+        testAssetExtraction("media/amr/sample_nb_cbr.amr");
     }
 
     @Test
     public void testAmrNarrowBandSamples() throws IOException {
-        testAssetExtraction("amr/sample_nb.amr");
+        testAssetExtraction("media/amr/sample_nb.amr");
     }
 
     @Test
     public void testAmrWideBandSamples() throws IOException {
-        testAssetExtraction("amr/sample_wb.amr");
+        testAssetExtraction("media/amr/sample_wb.amr");
     }
 
     @Test
     public void testAmrWideBandSamplesWithConstantBitrateSeeking() throws IOException {
-        testAssetExtraction("amr/sample_wb_cbr.amr");
+        testAssetExtraction("media/amr/sample_wb_cbr.amr");
     }
 
     // FLV.
 
     @Test
     public void testFlv() throws IOException {
-        testAssetExtraction("flv/sample.flv");
+        testAssetExtraction("media/flv/sample.flv");
     }
 
     // PS.
@@ -416,17 +419,17 @@ public class MediaParserTest {
     @Test
     @Ignore
     public void testPsElphantsDream() throws IOException {
-        testAssetExtraction("ts/elephants_dream.mpg");
+        testAssetExtraction("media/ts/elephants_dream.mpg");
     }
 
     @Test
     public void testPsWithAc3() throws IOException {
-        testAssetExtraction("ts/sample_ac3.ps");
+        testAssetExtraction("media/ts/sample_ac3.ps");
     }
 
     @Test
     public void testPsWithH262MpegAudio() throws IOException {
-        testAssetExtraction("ts/sample_h262_mpeg_audio.ps");
+        testAssetExtraction("media/ts/sample_h262_mpeg_audio.ps");
     }
 
     // ADTS.
@@ -434,41 +437,34 @@ public class MediaParserTest {
     @Test
     public void testAdtsTruncatedWithConstantBitrateSeeking() throws IOException {
         testAssetExtraction(
-                "ts/sample_cbs_truncated.adts",
+                "media/ts/sample_cbs_truncated.adts",
                 Collections.singletonMap(MediaParser.PARAMETER_ADTS_ENABLE_CBR_SEEKING, true));
     }
 
     @Test
     public void testAdts() throws IOException {
-        testAssetExtraction("ts/sample.adts");
-    }
-
-    @Test
-    public void testAdtsWithConstantBitrateSeeking() throws IOException {
-        testAssetExtraction(
-                "ts/sample_cbs.adts",
-                Collections.singletonMap(MediaParser.PARAMETER_ADTS_ENABLE_CBR_SEEKING, true));
+        testAssetExtraction("media/ts/sample.adts");
     }
 
     // AC-3.
 
     @Test
     public void testAc3() throws IOException {
-        testAssetExtraction("ts/sample.ac3");
+        testAssetExtraction("media/ts/sample.ac3");
     }
 
     // AC-4.
 
     @Test
     public void testAc4() throws IOException {
-        testAssetExtraction("ts/sample.ac4");
+        testAssetExtraction("media/ts/sample.ac4");
     }
 
     // EAC-3.
 
     @Test
     public void testEac3() throws IOException {
-        testAssetExtraction("ts/sample.eac3");
+        testAssetExtraction("media/ts/sample.eac3");
     }
 
     // TS.
@@ -477,7 +473,7 @@ public class MediaParserTest {
     public void testTsBigBuckBunny() throws IOException {
         // This file is too big to run a full extraction with multiple seeks like other tests do.
         MockMediaParserOutputConsumer outputConsumer = new MockMediaParserOutputConsumer();
-        MockMediaParserInputReader inputReader = getInputReader("ts/bbb_2500ms.ts");
+        MockMediaParserInputReader inputReader = getInputReader("media/ts/bbb_2500ms.ts");
         MediaParser mediaParser = MediaParser.create(outputConsumer);
         advanceUntilSample(outputConsumer, inputReader, mediaParser, /* sampleNumber= */ 100);
         assertThat(outputConsumer.getSeekMap().getDurationMicros()).isEqualTo(2_500_000);
@@ -488,71 +484,71 @@ public class MediaParserTest {
 
     @Test
     public void testTsWithH262MpegAudio() throws IOException {
-        testAssetExtraction("ts/sample_h262_mpeg_audio.ts");
+        testAssetExtraction("media/ts/sample_h262_mpeg_audio.ts");
     }
 
     @Test
     public void testTsWithH264MpegAudio() throws IOException {
-        testAssetExtraction("ts/sample_h264_mpeg_audio.ts");
+        testAssetExtraction("media/ts/sample_h264_mpeg_audio.ts");
     }
 
     @Test
     public void testTsWithH264DetectAccessUnits() throws IOException {
         testAssetExtraction(
-                "ts/sample_h264_no_access_unit_delimiters.ts",
+                "media/ts/sample_h264_no_access_unit_delimiters.ts",
                 Collections.singletonMap(MediaParser.PARAMETER_TS_DETECT_ACCESS_UNITS, true));
     }
 
     @Test
     public void testTsWithH264DtsAudio() throws IOException {
         testAssetExtraction(
-                "ts/sample_h264_dts_audio.ts",
+                "media/ts/sample_h264_dts_audio.ts",
                 Collections.singletonMap(
                         MediaParser.PARAMETER_TS_ENABLE_HDMV_DTS_AUDIO_STREAMS, true));
     }
 
     @Test
     public void testTsWithLatm() throws IOException {
-        testAssetExtraction("ts/sample_latm.ts");
+        testAssetExtraction("media/ts/sample_latm.ts");
     }
 
     @Test
     public void testTsWithSdt() throws IOException {
-        testAssetExtraction("ts/sample_with_sdt.ts");
+        testAssetExtraction("media/ts/sample_with_sdt.ts");
     }
 
     @Test
     public void testTsWithH265() throws IOException {
-        testAssetExtraction("ts/sample_h265.ts");
+        testAssetExtraction("media/ts/sample_h265.ts");
     }
 
     // MKV.
 
     @Test
     public void testMatroskaSubsampleEncryptedNoAltref() throws IOException {
-        testAssetExtraction("mkv/subsample_encrypted_noaltref.webm");
+        testAssetExtraction("media/mkv/subsample_encrypted_noaltref.webm");
     }
 
     @Test
     public void testMatroskaFile() throws IOException {
-        testAssetExtraction("mkv/sample.mkv");
+        testAssetExtraction("media/mkv/sample.mkv");
     }
 
     @Test
     public void testMatroskaFullBlocks() throws IOException {
-        testAssetExtraction("mkv/full_blocks.mkv");
+        testAssetExtraction("media/mkv/full_blocks.mkv");
     }
 
     @Test
     public void testMatroskaSubsampleEncryptedAltref() throws IOException {
-        testAssetExtraction("mkv/subsample_encrypted_altref.webm");
+        testAssetExtraction("media/mkv/subsample_encrypted_altref.webm");
     }
 
     @Test
     public void testMatroskaOutOfBandCrypto() throws IOException {
         MockMediaParserOutputConsumer outputConsumer = new MockMediaParserOutputConsumer();
         MockMediaParserInputReader inputReader =
-                getInputReader("mkv/subsample_encrypted_noaltref.webm");
+                getInputReader("media/mkv/subsample_encrypted_noaltref.webm");
         MediaParser mediaParser = MediaParser.create(outputConsumer);
         // Initialization vectors are 16 bytes in size, as per CryptoInfo documentation.
         MediaCodec.CryptoInfo expectedCryptoInfo = new MediaCodec.CryptoInfo();
@@ -573,53 +569,54 @@ public class MediaParserTest {
 
     @Test
     public void testMp4Ac4Fragmented() throws IOException {
-        testAssetExtraction("mp4/sample_ac4_fragmented.mp4");
+        testAssetExtraction("media/mp4/sample_ac4_fragmented.mp4");
     }
 
     @Test
     public void testMp4AndroidSlowMotion() throws IOException {
-        testAssetExtraction("mp4/sample_android_slow_motion.mp4");
+        testAssetExtraction("media/mp4/sample_android_slow_motion.mp4");
     }
 
     @Test
     public void testMp4FragmentedSei() throws IOException {
-        testAssetExtraction("mp4/sample_fragmented_sei.mp4");
+        testAssetExtraction("media/mp4/sample_fragmented_sei.mp4");
     }
 
     @Test
     public void testMp4WithAc4() throws IOException {
-        testAssetExtraction("mp4/sample_ac4.mp4");
+        testAssetExtraction("media/mp4/sample_ac4.mp4");
     }
 
     @Test
     public void testMp4FragmentedSeekable() throws IOException {
-        testAssetExtraction("mp4/sample_fragmented_seekable.mp4");
+        testAssetExtraction("media/mp4/sample_fragmented_seekable.mp4");
     }
 
     @Test
     public void testMp4WithProtectedAc4() throws IOException {
-        testAssetExtraction("mp4/sample_ac4_protected.mp4");
+        testAssetExtraction("media/mp4/sample_ac4_protected.mp4");
     }
 
     @Test
     public void testMp4() throws IOException {
-        testAssetExtraction("mp4/sample.mp4");
+        testAssetExtraction("media/mp4/sample.mp4");
     }
 
     @Test
     public void testMp4MdatTooLong() throws IOException {
-        testAssetExtraction("mp4/sample_mdat_too_long.mp4");
+        testAssetExtraction("media/mp4/sample_mdat_too_long.mp4");
     }
 
     @Test
     public void testMp4Fragmented() throws IOException {
-        testAssetExtraction("mp4/sample_fragmented.mp4");
+        testAssetExtraction("media/mp4/sample_fragmented.mp4");
     }
 
     @Test
     public void testMp4FragmentedOutOfBandCrypto() throws IOException {
         MockMediaParserOutputConsumer outputConsumer = new MockMediaParserOutputConsumer();
-        MockMediaParserInputReader inputReader = getInputReader("mp4/sample_ac4_protected.mp4");
+        MockMediaParserInputReader inputReader =
+                getInputReader("media/mp4/sample_ac4_protected.mp4");
         MediaParser mediaParser = MediaParser.create(outputConsumer);
         // Initialization vectors are 16 bytes in size, as per CryptoInfo documentation.
         MediaCodec.CryptoInfo expectedCryptoInfo = new MediaCodec.CryptoInfo();

@@ -30,19 +30,13 @@ import static com.google.common.truth.Truth.assertWithMessage;
 import android.provider.MediaStore;
 import android.scopedstorage.cts.lib.TestUtils;
 
-import org.junit.BeforeClass;
+import static org.junit.Assume.assumeTrue;
 
 import java.util.Arrays;
 import java.util.List;
 
 class ScopedStorageBaseDeviceTest {
     private static final String VOLUME_PUBLIC = "volume_public";
-
-    @BeforeClass
-    public static void setup() throws Exception {
-        createPublicVolume();
-        setupStorage();
-    }
 
     private static void createPublicVolume() throws Exception {
         TestUtils.preparePublicVolume();
@@ -57,12 +51,19 @@ class ScopedStorageBaseDeviceTest {
         }
     }
 
-    void setupExternalStorage(String volumeName) {
+    void setupExternalStorage(String volumeName) throws Exception {
         assertThat(volumeName).isNotNull();
+
         if (volumeName.equals(MediaStore.VOLUME_EXTERNAL)) {
+            setupStorage();
+
             resetDefaultExternalStorageVolume();
             TestUtils.assertDefaultVolumeIsPrimary();
         } else {
+            assumeTrue(TestUtils.isAdoptableStorageSupported());
+            createPublicVolume();
+            setupStorage();
+
             final String publicVolumeName = TestUtils.getCurrentPublicVolumeName();
             assertWithMessage("Expected public volume name to be not null")
                     .that(publicVolumeName)

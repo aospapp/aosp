@@ -750,6 +750,12 @@ angle::Result Buffer11::markRawBufferUsage(const gl::Context *context)
     return angle::Result::Continue;
 }
 
+angle::Result Buffer11::markTypedBufferUsage(const gl::Context *context)
+{
+    ANGLE_TRY(markBufferUsage(context, BUFFER_USAGE_TYPED_UAV));
+    return angle::Result::Continue;
+}
+
 angle::Result Buffer11::getRawUAVRange(const gl::Context *context,
                                        GLintptr offset,
                                        GLsizeiptr size,
@@ -1349,6 +1355,12 @@ void Buffer11::NativeStorage::FillBufferDesc(D3D11_BUFFER_DESC *bufferDesc,
             bufferDesc->Usage          = D3D11_USAGE_DEFAULT;
             bufferDesc->CPUAccessFlags = 0;
             break;
+        case BUFFER_USAGE_TYPED_UAV:
+            bufferDesc->BindFlags      = D3D11_BIND_UNORDERED_ACCESS | D3D11_BIND_SHADER_RESOURCE;
+            bufferDesc->Usage          = D3D11_USAGE_DEFAULT;
+            bufferDesc->CPUAccessFlags = 0;
+            bufferDesc->MiscFlags      = 0;
+            break;
 
         default:
             UNREACHABLE();
@@ -1365,10 +1377,8 @@ angle::Result Buffer11::NativeStorage::map(const gl::Context *context,
 
     D3D11_MAPPED_SUBRESOURCE mappedResource;
     D3D11_MAP d3dMapType = gl_d3d11::GetD3DMapTypeFromBits(mUsage, access);
-    UINT d3dMapFlag = ((access & GL_MAP_UNSYNCHRONIZED_BIT) != 0 ? D3D11_MAP_FLAG_DO_NOT_WAIT : 0);
 
-    ANGLE_TRY(
-        mRenderer->mapResource(context, mBuffer.get(), 0, d3dMapType, d3dMapFlag, &mappedResource));
+    ANGLE_TRY(mRenderer->mapResource(context, mBuffer.get(), 0, d3dMapType, 0, &mappedResource));
     ASSERT(mappedResource.pData);
     *mapPointerOut = static_cast<uint8_t *>(mappedResource.pData) + offset;
     return angle::Result::Continue;

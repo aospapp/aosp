@@ -26,6 +26,9 @@ struct dri_driver {
 	const __DRIconfig **configs;
 };
 
+void *dri_dlopen(const char *dri_so_path);
+void dri_dlclose(void *dri_so_handle);
+
 int dri_init(struct driver *drv, const char *dri_so_path, const char *driver_suffix);
 void dri_close(struct driver *drv);
 int dri_bo_create(struct bo *bo, uint32_t width, uint32_t height, uint32_t format,

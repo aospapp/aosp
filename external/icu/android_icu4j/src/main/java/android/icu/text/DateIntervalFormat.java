@@ -207,11 +207,12 @@ import android.icu.util.UResourceBundle;
  *   // and parses into
  *   DateInterval dtInterval = new DateInterval(1000*3600*24L, 1000*3600*24*2L);
  *   DateIntervalFormat dtIntervalFmt = DateIntervalFormat.getInstance(
- *                   YEAR_MONTH_DAY, Locale("en", "GB", ""));
- *   StringBuffer str = new StringBuffer("");
- *   FieldPosition pos = new FieldPosition(0);
+ *           DateFormat.YEAR_MONTH_DAY, new Locale("en", "GB", ""));
+ *   StringBuffer result = new StringBuffer("");
+ *   FieldPosition pos = new FieldPosition(-1);
  *   // formatting
- *   dtIntervalFmt.format(dtInterval, dateIntervalString, pos);
+ *   dtIntervalFmt.format(dtInterval, result, pos);
+ *   assertEquals("interval", "1–2 January 1970", result.toString());
  *
  * </pre>
  *
@@ -1588,18 +1589,27 @@ public class DateIntervalFormat extends UFormat {
         StringBuilder result = new StringBuilder(skeleton);
 
         char hourMetachar = '\0';
-        int metacharStart = 0;
-        int metacharCount = 0;
+        char dayPeriodChar = '\0';
+        int hourFieldStart = 0;
+        int hourFieldLength = 0;
+        int dayPeriodStart = 0;
+        int dayPeriodLength = 0;
         for (int i = 0; i < result.length(); i++) {
             char c = result.charAt(i);
-            if (c == 'j' || c == 'J' || c == 'C') {
+            if (c == 'j' || c == 'J' || c == 'C' || c == 'h' || c == 'H' || c == 'k' || c == 'K') {
                 if (hourMetachar == '\0') {
                     hourMetachar = c;
-                    metacharStart = i;
+                    hourFieldStart = i;
                 }
-                ++metacharCount;
+                ++hourFieldLength;
+            } else if (c == 'a' || c == 'b' || c == 'B') {
+                if (dayPeriodChar == '\0') {
+                    dayPeriodChar = c;
+                    dayPeriodStart = i;
+                }
+                ++dayPeriodLength;
             } else {
-                if (hourMetachar != '\0') {
+                if (hourMetachar != '\0' && dayPeriodChar != '\0') {
                     break;
                 }
             }
@@ -1607,7 +1617,6 @@ public class DateIntervalFormat extends UFormat {
 
         if (hourMetachar != '\0') {
             char hourChar = 'H';
-            char dayPeriodChar = 'a';
 
             DateTimePatternGenerator dtptng = DateTimePatternGenerator.getInstance(locale);
             String convertedPattern = dtptng.getBestPattern(String.valueOf(hourMetachar));
@@ -1635,34 +1644,30 @@ public class DateIntervalFormat extends UFormat {
                 dayPeriodChar = 'b';
             } else if (convertedPattern.indexOf('B') != -1) {
                 dayPeriodChar = 'B';
+            } else if (dayPeriodChar == '\0') {
+                dayPeriodChar = 'a';
             }
 
-            if (hourChar == 'H' || hourChar == 'k') {
-                result.replace(metacharStart, metacharStart + metacharCount, String.valueOf(hourChar));
-            } else {
-                StringBuilder hourAndDayPeriod = new StringBuilder();
-                hourAndDayPeriod.append(hourChar);
-                switch (metacharCount) {
-                    case 1:
-                    case 2:
-                    default:
-                        hourAndDayPeriod.append(dayPeriodChar);
-                        break;
-                    case 3:
-                    case 4:
-                        for (int i = 0; i < 4; i++) {
-                            hourAndDayPeriod.append(dayPeriodChar);
-                        }
-                        break;
-                    case 5:
-                    case 6:
-                        for (int i = 0; i < 5; i++) {
-                            hourAndDayPeriod.append(dayPeriodChar);
-                        }
-                        break;
+            StringBuilder hourAndDayPeriod = new StringBuilder();
+            hourAndDayPeriod.append(hourChar);
+            if (hourChar != 'H' && hourChar != 'k') {
+                int newDayPeriodLength = 0;
+                if (dayPeriodLength >= 5 || hourFieldLength >= 5) {
+                    newDayPeriodLength = 5;
+                } else if (dayPeriodLength >= 3 || hourFieldLength >= 3) {
+                    newDayPeriodLength = 3;
+                } else {
+                    newDayPeriodLength = 1;
                 }
-                result.replace(metacharStart, metacharStart + metacharCount, hourAndDayPeriod.toString());
+                for (int i = 0; i < newDayPeriodLength; i++) {
+                    hourAndDayPeriod.append(dayPeriodChar);
+                }
             }
+            result.replace(hourFieldStart, hourFieldStart + hourFieldLength, hourAndDayPeriod.toString());
+            if (dayPeriodStart > hourFieldStart) {
+                dayPeriodStart += hourAndDayPeriod.length() - hourFieldLength;
+            }
+            result.delete(dayPeriodStart, dayPeriodStart + dayPeriodLength);
         }
         return result.toString();
     }
@@ -2095,8 +2100,16 @@ public class DateIntervalFormat extends UFormat {
         if (suppressDayPeriodField) {
             if (bestMatchIntervalPattern.indexOf(" a") != -1) {
                 bestMatchIntervalPattern = findReplaceInPattern(bestMatchIntervalPattern, " a", "");
+            } else if (bestMatchIntervalPattern.indexOf("\u00A0a") != -1) {
+                bestMatchIntervalPattern = findReplaceInPattern(bestMatchIntervalPattern, "\u00A0a", "");
+            } else if (bestMatchIntervalPattern.indexOf("\u202Fa") != -1) {
+                bestMatchIntervalPattern = findReplaceInPattern(bestMatchIntervalPattern, "\u202Fa", "");
             } else if (bestMatchIntervalPattern.indexOf("a ") != -1) {
                 bestMatchIntervalPattern = findReplaceInPattern(bestMatchIntervalPattern, "a ", "");
+            } else if (bestMatchIntervalPattern.indexOf("a\u00A0") != -1) {
+                bestMatchIntervalPattern = findReplaceInPattern(bestMatchIntervalPattern, "a\u00A0", "");
+            } else if (bestMatchIntervalPattern.indexOf("a\u202F") != -1) {
+                bestMatchIntervalPattern = findReplaceInPattern(bestMatchIntervalPattern, "a\u202F", "");
             }
             bestMatchIntervalPattern = findReplaceInPattern(bestMatchIntervalPattern, "a", "");
         }

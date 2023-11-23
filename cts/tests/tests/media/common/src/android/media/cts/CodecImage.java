@@ -16,10 +16,9 @@
 
 package android.media.cts;
 
-import java.nio.ByteBuffer;
-import java.lang.AutoCloseable;
-
 import android.graphics.Rect;
+
+import java.nio.ByteBuffer;
 
 /**
  * <p>A single complete image buffer to use with a media source such as a

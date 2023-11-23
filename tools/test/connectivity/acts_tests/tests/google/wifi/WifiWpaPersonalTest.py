@@ -45,7 +45,7 @@ class WifiWpaPersonalTest(WifiBaseTest):
       self.configure_openwrt_ap_and_start(wpa1_network=True)
 
     req_params = ["OpenWrtAP", "roaming_attn"]
-    opt_params = ["pixel_models", "cnss_diag_file"]
+    opt_params = []
     self.unpack_userparams(req_params, opt_params)
     self.wpa_psk_2g = self.wpa1_networks[0]["2g"]
     self.wpa_psk_5g = self.wpa1_networks[0]["5g"]

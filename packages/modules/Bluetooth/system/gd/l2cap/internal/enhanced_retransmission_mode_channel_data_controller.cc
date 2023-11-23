@@ -280,14 +280,14 @@ struct ErtmController::impl {
         send_pending_i_frames();
       } else if (p == Poll::NOT_SET && f == Final::NOT_SET && with_valid_req_seq(req_seq) && with_valid_f_bit(f)) {
         pass_to_tx(req_seq, f);
-        if (remote_busy() and unacked_frames_ > 0) {
+        if (remote_busy() && unacked_frames_ > 0) {
           start_retrans_timer();
         }
         remote_busy_ = false;
         send_ack(Final::NOT_SET);
       } else if (p == Poll::POLL && with_valid_req_seq(req_seq) && with_valid_f_bit(f)) {
         pass_to_tx(req_seq, f);
-        if (remote_busy() and unacked_frames_ > 0) {
+        if (remote_busy() && unacked_frames_ > 0) {
           start_retrans_timer();
         }
         remote_busy_ = false;

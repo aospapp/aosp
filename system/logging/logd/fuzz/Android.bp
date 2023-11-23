@@ -18,8 +18,8 @@ package {
     default_applicable_licenses: ["Android-Apache-2.0"],
 }
 
-cc_defaults {
-    name: "log_fuzzer_defaults",
+cc_fuzz {
+    name: "serialized_log_buffer_fuzzer",
     static_libs: [
         "libbase",
         "libcutils",
@@ -36,23 +36,10 @@ cc_defaults {
     ],
     cflags: ["-Wextra"],
     host_supported: true,
-}
-
-cc_fuzz {
-    name: "log_buffer_log_fuzzer",
-    defaults: ["log_fuzzer_defaults"],
-    srcs: [
-        "log_buffer_log_fuzzer.cpp",
-    ],
-}
-
-cc_fuzz {
-    name: "serialized_log_buffer_fuzzer",
-    defaults: ["log_fuzzer_defaults"],
     srcs: [
         "serialized_log_buffer_fuzzer.cpp",
     ],
     corpus: [
         "corpus/logentry_use_after_compress",
-    ]
+    ],
 }

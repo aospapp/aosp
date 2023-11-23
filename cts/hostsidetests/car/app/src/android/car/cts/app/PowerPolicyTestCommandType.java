@@ -25,4 +25,4 @@ public enum PowerPolicyTestCommandType {
     DUMP_LISTENER,
     RESET_LISTENERS,
     CHECK_LISTENERS
-};
+}

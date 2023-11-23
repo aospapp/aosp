@@ -133,6 +133,7 @@
     <string name="cdma_call_waiting_in_ims_off" msgid="1099246114368636334">"ปิดใช้สายเรียกซ้อนระบบ CDMA ภายใต้ IMS"</string>
     <string name="updating_title" msgid="6130548922615719689">"การตั้งค่าการโทร"</string>
     <string name="call_settings_admin_user_only" msgid="7238947387649986286">"ผู้ใช้ระดับผู้ดูแลระบบเท่านั้นที่สามารถเปลี่ยนแปลงการตั้งค่าการโทรได้"</string>
+    <string name="phone_account_settings_user_restriction" msgid="9142685151087208396">"เฉพาะผู้ดูแลระบบหรือผู้ใช้ที่ทำงานเท่านั้นที่สามารถเปลี่ยนการตั้งค่าบัญชีของโทรศัพท์ได้"</string>
     <string name="call_settings_with_label" msgid="8460230435361579511">"การตั้งค่า (<xliff:g id="SUBSCRIPTIONLABEL">%s</xliff:g>)"</string>
     <string name="error_updating_title" msgid="2024290892676808965">"ข้อผิดพลาดในการตั้งค่าการโทร"</string>
     <string name="reading_settings" msgid="1605904432450871183">"กำลังประมวลการตั้งค่า…"</string>
@@ -556,10 +557,11 @@
     <string name="incall_error_supp_service_hold" msgid="8535056414643540997">"ไม่สามารถถือสายรอได้"</string>
     <string name="incall_error_wfc_only_no_wireless_network" msgid="5860742792811400109">"เชื่อมต่อเครือข่ายไร้สายเพื่อโทรออก"</string>
     <string name="incall_error_promote_wfc" msgid="9164896813931363415">"เปิดใช้การโทรผ่าน Wi-Fi เพื่อโทรออก"</string>
+    <string name="incall_error_satellite_enabled" msgid="1936541518147323016">"ปิดโหมดดาวเทียมเพื่อโทรออก"</string>
     <string name="emergency_information_hint" msgid="9208897544917793012">"ข้อมูลสำหรับกรณีฉุกเฉิน"</string>
     <string name="emergency_information_owner_hint" msgid="6256909888049185316">"เจ้าของ"</string>
     <string name="emergency_information_confirm_hint" msgid="5109017615894918914">"แตะอีกครั้งเพื่อดูข้อมูล"</string>
-    <string name="emergency_enable_radio_dialog_title" msgid="2667568200755388829">"หมายเลขฉุกเฉิน"</string>
+    <string name="emergency_enable_radio_dialog_title" msgid="2667568200755388829">"โทรฉุกเฉิน"</string>
     <string name="single_emergency_number_title" msgid="8413371079579067196">"หมายเลขฉุกเฉิน"</string>
     <string name="numerous_emergency_numbers_title" msgid="8972398932506755510">"หมายเลขฉุกเฉิน"</string>
     <string name="emergency_call_shortcut_hint" msgid="1290485125107779500">"แตะอีกครั้งเพื่อโทรหา <xliff:g id="EMERGENCY_NUMBER">%s</xliff:g>"</string>
@@ -585,7 +587,7 @@
     <string name="onscreenManageCallsText" msgid="1162047856081836469">"จัดการการโทร"</string>
     <string name="onscreenManageConferenceText" msgid="4700574060601755137">"จัดการการประชุม"</string>
     <string name="onscreenAudioText" msgid="7224226735052019986">"เสียง"</string>
-    <string name="onscreenVideoCallText" msgid="1743992456126258698">" Hangouts วิดีโอ"</string>
+    <string name="onscreenVideoCallText" msgid="1743992456126258698">"วิดีโอคอล"</string>
     <string name="importSimEntry" msgid="3892354284082689894">"นำเข้า"</string>
     <string name="importAllSimEntries" msgid="2628391505643564007">"นำเข้าทั้งหมด"</string>
     <string name="importingSimContacts" msgid="4995457122107888932">"กำลังนำเข้าสมุดโทรศัพท์ในซิม"</string>
@@ -713,6 +715,7 @@
     <string name="clh_callFailed_powerOff_txt" msgid="8279934912560765361">"โหมดบนเครื่องบินเปิดอยู่"</string>
     <string name="clh_callFailed_simError_txt" msgid="5128538525762326413">"เข้าถึงซิมการ์ดไม่ได้"</string>
     <string name="clh_incall_error_out_of_service_txt" msgid="2736010617446749869">"เครือข่ายมือถือใช้งานไม่ได้"</string>
+    <string name="clh_callFailed_satelliteEnabled_txt" msgid="1675517238240377396">"โหมดดาวเทียมเปิดอยู่"</string>
     <string name="clh_callFailed_unassigned_number_txt" msgid="141967660286695682">"เกิดปัญหากับหมายเลขโทรศัพท์ที่คุณต้องการโทรหา รหัสข้อผิดพลาด 1"</string>
     <string name="clh_callFailed_no_route_to_destination_txt" msgid="4805015149822352308">"โทรไม่สำเร็จ รหัสข้อผิดพลาด 3"</string>
     <string name="clh_callFailed_channel_unacceptable_txt" msgid="4062754579408613021">"โทรไม่สำเร็จ รหัสข้อผิดพลาด 6"</string>
@@ -837,6 +840,7 @@
     <string name="dsds_dialog_cancel" msgid="3245958947099586655">"ยกเลิก"</string>
     <string name="removable_esim_string" msgid="7931369811671787649">"กำหนดให้ eSIM แบบนำออกได้เป็นค่าเริ่มต้น"</string>
     <string name="radio_info_radio_power" msgid="8805595022160471587">"กำลังส่งของวิทยุเครือข่ายมือถือ"</string>
+    <string name="simulate_out_of_service_string" msgid="7787925611727597193">"จําลองความไม่พร้อมให้บริการ (บิลด์การแก้ไขข้อบกพร่องเท่านั้น)"</string>
     <string name="radioInfo_menu_viewADN" msgid="4533179730908559846">"ดูสมุดที่อยู่ของซิม"</string>
     <string name="radioInfo_menu_viewFDN" msgid="1847236480527032061">"ดูการจำกัดหมายเลขโทรออก"</string>
     <string name="radioInfo_menu_viewSDN" msgid="2613431584522392842">"ดูหมายเลขรับบริการโทรออก"</string>
@@ -861,6 +865,7 @@
     <string name="radioInfo_data_connected" msgid="7637335645634239508">"เชื่อมต่อแล้ว"</string>
     <string name="radioInfo_data_suspended" msgid="8695262782642002785">"ถูกระงับ"</string>
     <string name="radioInfo_unknown" msgid="5401423738500672850">"ไม่รู้จัก"</string>
+    <string name="radioInfo_imei_primary" msgid="5948747378637224400">"หลัก"</string>
     <string name="radioInfo_display_packets" msgid="6794302192441084157">"pkts"</string>
     <string name="radioInfo_display_bytes" msgid="7701006329222413797">"ไบต์"</string>
     <string name="radioInfo_display_dbm" msgid="7491944975710865703">"dBm"</string>
@@ -887,10 +892,12 @@
     <string name="radio_info_ppp_sent_label" msgid="6542208429356199695">"ส่งข้อมูลแล้ว:"</string>
     <string name="radio_info_message_waiting_label" msgid="1886549432566952078">"ข้อความที่รออยู่:"</string>
     <string name="radio_info_phone_number_label" msgid="2533852539562512203">"หมายเลขโทรศัพท์:"</string>
-    <string name="radio_info_band_mode_label" msgid="23480556225515290">"เลือกย่านความถี่วิทยุ"</string>
     <string name="radio_info_voice_network_type_label" msgid="2395347336419593265">"ประเภทของเครือข่ายเสียง:"</string>
     <string name="radio_info_data_network_type_label" msgid="8886597029237501929">"ประเภทเครือข่ายข้อมูล:"</string>
     <string name="radio_info_override_network_type_label" msgid="4176280017221092005">"ประเภทการลบล้างเครือข่าย:"</string>
+    <string name="radio_info_voice_raw_registration_state_label" msgid="2822988327145825128">"สถานะการจดทะเบียนข้อมูลดิบไฟล์เสียง:"</string>
+    <string name="radio_info_data_raw_registration_state_label" msgid="2895895513822604539">"สถานะการจดทะเบียนข้อมูลดิบ:"</string>
+    <string name="radio_info_wlan_data_raw_registration_state_label" msgid="6396894835757296612">"สถานะการจดทะเบียนข้อมูลดิบของ WLAN:"</string>
     <string name="phone_index_label" msgid="6222406512768964268">"เลือกดัชนีโทรศัพท์"</string>
     <string name="radio_info_set_perferred_label" msgid="7408131389363136210">"ตั้งค่าประเภทเครือข่ายที่ต้องการ:"</string>
     <string name="radio_info_ping_hostname_v4" msgid="6951237885381284790">"ใช้คำสั่ง ping ชื่อโฮสต์ (www.google.com) IPv4:"</string>
@@ -919,4 +926,9 @@
     <string name="call_quality_notification_bluetooth_details" msgid="8348950331707346711">"สัญญาณบลูทูธอ่อน ลองเปลี่ยนไปใช้ลำโพงแทน"</string>
     <string name="call_quality_notification_name" msgid="3476828289553948830">"การแจ้งเตือนคุณภาพการโทร"</string>
     <string name="notification_channel_sip_account" msgid="1261816025156179637">"บัญชี SIP ที่เลิกใช้งาน"</string>
+    <string name="send_from_work_profile_title" msgid="7044759579507604732">"ส่งข้อความจากแอปส่วนตัวไม่ได้"</string>
+    <string name="send_from_work_profile_description" msgid="2174402508727161974">"องค์กรอนุญาตให้คุณส่งข้อความได้จากแอปงานเท่านั้น"</string>
+    <string name="send_from_work_profile_cancel" msgid="177746511030381711">"ยกเลิก"</string>
+    <string name="send_from_work_profile_action_str" msgid="6892775562934243337">"สลับไปใช้โปรไฟล์งาน"</string>
+    <string name="install_messages_on_work_profile_action_str" msgid="3773440996395152903">"ติดตั้งแอปรับส่งข้อความสำหรับที่ทำงาน"</string>
 </resources>

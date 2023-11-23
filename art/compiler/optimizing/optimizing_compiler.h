@@ -18,18 +18,19 @@
 #define ART_COMPILER_OPTIMIZING_OPTIMIZING_COMPILER_H_
 
 #include "base/globals.h"
+#include "base/macros.h"
 #include "base/mutex.h"
 
-namespace art {
+namespace art HIDDEN {
 
 class ArtMethod;
+class CompiledCodeStorage;
 class Compiler;
-class CompiledMethodStorage;
 class CompilerOptions;
 class DexFile;
 
 Compiler* CreateOptimizingCompiler(const CompilerOptions& compiler_options,
-                                   CompiledMethodStorage* storage);
+                                   CompiledCodeStorage* storage);
 
 bool EncodeArtMethodInInlineInfo(ArtMethod* method);
 

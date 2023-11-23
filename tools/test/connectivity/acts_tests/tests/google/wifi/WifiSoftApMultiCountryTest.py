@@ -14,11 +14,7 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
-
-
 import logging
-import queue
-import random
 import time
 import re
 import acts.controllers.packet_capture as packet_capture
@@ -38,18 +34,17 @@ from acts_contrib.test_utils.wifi import wifi_test_utils as wutils
 from acts_contrib.test_utils.wifi.WifiBaseTest import WifiBaseTest
 from acts.controllers.ap_lib.hostapd_constants import CHANNEL_MAP
 
-
-
 WifiEnums = wutils.WifiEnums
 
-class WifiSoftApMultiCountryTest(WifiBaseTest):
 
+class WifiSoftApMultiCountryTest(WifiBaseTest):
     def __init__(self, configs):
         super().__init__(configs)
         self.basetest_name = (
-                "test_full_tether_startup_auto_one_client_ping_softap_multicountry",
-                "test_full_tether_startup_2G_one_client_ping_softap_multicountry",
-                "test_full_tether_startup_5G_one_client_ping_softap_multicountry",)
+            "test_full_tether_startup_auto_one_client_ping_softap_multicountry",
+            "test_full_tether_startup_2G_one_client_ping_softap_multicountry",
+            "test_full_tether_startup_5G_one_client_ping_softap_multicountry",
+        )
         self.generate_tests()
 
     def generate_testcase(self, basetest_name, country):
@@ -62,16 +57,15 @@ class WifiSoftApMultiCountryTest(WifiBaseTest):
         base_test = getattr(self, basetest_name)
         test_tracker_uuid = ""
         testcase_name = 'test_%s_%s' % (basetest_name, country)
-        test_case = test_tracker_info(uuid=test_tracker_uuid)(
-            lambda: base_test(country))
+        test_case = test_tracker_info(
+            uuid=test_tracker_uuid)(lambda: base_test(country))
         setattr(self, testcase_name, test_case)
         self.tests.append(testcase_name)
 
     def generate_tests(self):
         for country in self.user_params['wifi_country_code']:
-                for basetest_name in self.basetest_name:
-                    self.generate_testcase(basetest_name, country)
-
+            for basetest_name in self.basetest_name:
+                self.generate_testcase(basetest_name, country)
 
     def setup_class(self):
         """It will setup the required dependencies from config file and configure
@@ -90,8 +84,8 @@ class WifiSoftApMultiCountryTest(WifiBaseTest):
         self.channel_list_5g = WifiEnums.ALL_5G_FREQUENCIES
         req_params = ["dbs_supported_models"]
         opt_param = ["open_network"]
-        self.unpack_userparams(
-            req_param_names=req_params, opt_param_names=opt_param)
+        self.unpack_userparams(req_param_names=req_params,
+                               opt_param_names=opt_param)
         if "AccessPoint" in self.user_params:
             self.legacy_configure_ap_and_start()
         elif "OpenWrtAP" in self.user_params:
@@ -107,10 +101,12 @@ class WifiSoftApMultiCountryTest(WifiBaseTest):
         utils.sync_device_time(self.dut_client)
         # Enable verbose logging on the duts
         self.dut.droid.wifiEnableVerboseLogging(1)
-        asserts.assert_equal(self.dut.droid.wifiGetVerboseLoggingLevel(), 1,
+        asserts.assert_equal(
+            self.dut.droid.wifiGetVerboseLoggingLevel(), 1,
             "Failed to enable WiFi verbose logging on the softap dut.")
         self.dut_client.droid.wifiEnableVerboseLogging(1)
-        asserts.assert_equal(self.dut_client.droid.wifiGetVerboseLoggingLevel(), 1,
+        asserts.assert_equal(
+            self.dut_client.droid.wifiGetVerboseLoggingLevel(), 1,
             "Failed to enable WiFi verbose logging on the client dut.")
         wutils.wifi_toggle_state(self.dut, True)
         wutils.wifi_toggle_state(self.dut_client, True)
@@ -133,6 +129,7 @@ class WifiSoftApMultiCountryTest(WifiBaseTest):
             wutils.stop_wifi_tethering(self.dut)
 
     """ Snifferconfig Functions """
+
     def conf_packet_capture(self, band, channel):
         """Configure packet capture on necessary channels."""
         freq_to_chan = wutils.WifiEnums.freq_to_channel[int(channel)]
@@ -142,12 +139,12 @@ class WifiSoftApMultiCountryTest(WifiBaseTest):
         if not result:
             logging.error("Failed to configure channel "
                           "for {} band".format(band))
-        self.pcap_procs = wutils.start_pcap(
-            self.packet_capture, band, self.test_name)
+        self.pcap_procs = wutils.start_pcap(self.packet_capture, band,
+                                            self.test_name)
         time.sleep(5)
 
-
     """ Helper Functions """
+
     def create_softap_config(self):
         """Create a softap config with ssid and password."""
         ap_ssid = "softap_" + utils.rand_ascii_str(8)
@@ -169,11 +166,10 @@ class WifiSoftApMultiCountryTest(WifiBaseTest):
         initial_wifi_state = self.dut.droid.wifiCheckState()
         self.dut.log.info("current state: %s", initial_wifi_state)
         config = self.create_softap_config()
-        wutils.start_wifi_tethering(
-                self.dut,
-                config[wutils.WifiEnums.SSID_KEY],
-                config[wutils.WifiEnums.PWD_KEY],
-                band=band)
+        wutils.start_wifi_tethering(self.dut,
+                                    config[wutils.WifiEnums.SSID_KEY],
+                                    config[wutils.WifiEnums.PWD_KEY],
+                                    band=band)
 
         if test_ping:
             self.validate_ping_between_softap_and_client(config)
@@ -185,7 +181,7 @@ class WifiSoftApMultiCountryTest(WifiBaseTest):
             wutils.wait_for_wifi_state(self.dut, True)
         elif self.dut.droid.wifiCheckState():
             asserts.fail(
-                    "Wifi was disabled before softap and now it is enabled")
+                "Wifi was disabled before softap and now it is enabled")
 
     def validate_ping_between_softap_and_client(self, config):
         """Test ping between softap and its client.
@@ -210,16 +206,23 @@ class WifiSoftApMultiCountryTest(WifiBaseTest):
         if hasattr(self, 'packet_capture'):
             self.conf_packet_capture(softap_band, softap_frequency)
         dut_ip = self.dut.droid.connectivityGetIPv4Addresses(self.AP_IFACE)[0]
-        dut_client_ip = self.dut_client.droid.connectivityGetIPv4Addresses('wlan0')[0]
+        dut_client_ip = self.dut_client.droid.connectivityGetIPv4Addresses(
+            'wlan0')[0]
 
         self.dut.log.info("Try to ping %s" % dut_client_ip)
         asserts.assert_true(
-            utils.adb_shell_ping(self.dut, count=10, dest_ip=dut_client_ip, timeout=20),
+            utils.adb_shell_ping(self.dut,
+                                 count=10,
+                                 dest_ip=dut_client_ip,
+                                 timeout=20),
             "%s ping %s failed" % (self.dut.serial, dut_client_ip))
 
         self.dut_client.log.info("Try to ping %s" % dut_ip)
         asserts.assert_true(
-            utils.adb_shell_ping(self.dut_client, count=10, dest_ip=dut_ip, timeout=20),
+            utils.adb_shell_ping(self.dut_client,
+                                 count=10,
+                                 dest_ip=dut_ip,
+                                 timeout=20),
             "%s ping %s failed" % (self.dut_client.serial, dut_ip))
 
         wutils.stop_wifi_tethering(self.dut)
@@ -234,7 +237,8 @@ class WifiSoftApMultiCountryTest(WifiBaseTest):
     """ Tests Begin """
 
     @test_tracker_info(uuid="6ce4fb40-6fa7-452f-ba17-ea3fe47d325d")
-    def test_full_tether_startup_2G_one_client_ping_softap_multicountry(self, country):
+    def test_full_tether_startup_2G_one_client_ping_softap_multicountry(
+            self, country):
         """(AP) 1 Device can connect to 2G hotspot
 
         Steps:
@@ -245,13 +249,14 @@ class WifiSoftApMultiCountryTest(WifiBaseTest):
         """
         wutils.set_wifi_country_code(self.dut, country)
         wutils.set_wifi_country_code(self.dut_client, country)
-        self.validate_full_tether_startup(WIFI_CONFIG_APBAND_2G, test_ping=True)
+        self.validate_full_tether_startup(WIFI_CONFIG_APBAND_2G,
+                                          test_ping=True)
         if hasattr(self, 'packet_capture'):
             wutils.stop_pcap(self.packet_capture, self.pcap_procs, False)
 
-
     @test_tracker_info(uuid="ae4629e6-08d5-4b51-ac34-6c2485f54df5")
-    def test_full_tether_startup_5G_one_client_ping_softap_multicountry(self, country):
+    def test_full_tether_startup_5G_one_client_ping_softap_multicountry(
+            self, country):
         """(AP) 1 Device can connect to 2G hotspot
 
         Steps:
@@ -262,13 +267,14 @@ class WifiSoftApMultiCountryTest(WifiBaseTest):
         """
         wutils.set_wifi_country_code(self.dut, country)
         wutils.set_wifi_country_code(self.dut_client, country)
-        self.validate_full_tether_startup(WIFI_CONFIG_APBAND_5G, test_ping=True)
+        self.validate_full_tether_startup(WIFI_CONFIG_APBAND_5G,
+                                          test_ping=True)
         if hasattr(self, 'packet_capture'):
             wutils.stop_pcap(self.packet_capture, self.pcap_procs, False)
 
-
     @test_tracker_info(uuid="84a10203-cb02-433c-92a7-e8aa2348cc02")
-    def test_full_tether_startup_auto_one_client_ping_softap_multicountry(self, country):
+    def test_full_tether_startup_auto_one_client_ping_softap_multicountry(
+            self, country):
         """(AP) 1 Device can connect to hotspot
 
         Steps:
@@ -279,11 +285,10 @@ class WifiSoftApMultiCountryTest(WifiBaseTest):
         """
         wutils.set_wifi_country_code(self.dut, country)
         wutils.set_wifi_country_code(self.dut_client, country)
-        self.validate_full_tether_startup(
-            WIFI_CONFIG_APBAND_AUTO, test_ping=True)
+        self.validate_full_tether_startup(WIFI_CONFIG_APBAND_AUTO,
+                                          test_ping=True)
         if hasattr(self, 'packet_capture'):
             wutils.stop_pcap(self.packet_capture, self.pcap_procs, False)
-
 
     """ Tests End """
 

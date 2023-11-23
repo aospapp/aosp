@@ -11,9 +11,10 @@
 #import <Foundation/Foundation.h>
 
 #import "RTCWrappedNativeVideoDecoder.h"
+#import "base/RTCMacros.h"
 #import "helpers/NSString+StdString.h"
 
-@implementation RTCWrappedNativeVideoDecoder {
+@implementation RTC_OBJC_TYPE (RTCWrappedNativeVideoDecoder) {
   std::unique_ptr<webrtc::VideoDecoder> _wrappedDecoder;
 }
 
@@ -32,16 +33,16 @@
 #pragma mark - RTC_OBJC_TYPE(RTCVideoDecoder)
 
 - (void)setCallback:(RTCVideoDecoderCallback)callback {
-  RTC_NOTREACHED();
+  RTC_DCHECK_NOTREACHED();
 }
 
 - (NSInteger)startDecodeWithNumberOfCores:(int)numberOfCores {
-  RTC_NOTREACHED();
+  RTC_DCHECK_NOTREACHED();
   return 0;
 }
 
 - (NSInteger)releaseDecoder {
-  RTC_NOTREACHED();
+  RTC_DCHECK_NOTREACHED();
   return 0;
 }
 
@@ -49,12 +50,12 @@
         missingFrames:(BOOL)missingFrames
     codecSpecificInfo:(nullable id<RTC_OBJC_TYPE(RTCCodecSpecificInfo)>)info
          renderTimeMs:(int64_t)renderTimeMs {
-  RTC_NOTREACHED();
+  RTC_DCHECK_NOTREACHED();
   return 0;
 }
 
 - (NSString *)implementationName {
-  RTC_NOTREACHED();
+  RTC_DCHECK_NOTREACHED();
   return nil;
 }
 

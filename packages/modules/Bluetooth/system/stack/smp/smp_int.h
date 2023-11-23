@@ -32,6 +32,15 @@
 #include "stack/include/bt_octets.h"
 #include "types/raw_address.h"
 
+typedef enum : uint16_t {
+  SMP_METRIC_COMMAND_LE_FLAG = 0x0000,
+  SMP_METRIC_COMMAND_BR_FLAG = 0x0100,
+  SMP_METRIC_COMMAND_LE_PAIRING_CMPL = 0xFF00,
+  SMP_METRIC_COMMAND_BR_PAIRING_CMPL = 0xFF01,
+} tSMP_METRIC_COMMAND;
+
+constexpr uint16_t SMP_METRIC_STATUS_INTERNAL_FLAG = 0x0100;
+
 typedef enum : uint8_t {
   /* Legacy mode */
   SMP_MODEL_ENCRYPTION_ONLY = 0, /* Just Works model */
@@ -309,164 +318,149 @@ typedef void (*tSMP_ACT)(tSMP_CB* p_cb, tSMP_INT_DATA* p_data);
 extern tSMP_CB smp_cb;
 
 /* Functions provided by att_main.cc */
-extern void smp_init(void);
+void smp_init(void);
 
 /* smp main */
-extern void smp_sm_event(tSMP_CB* p_cb, tSMP_EVENT event,
-                         tSMP_INT_DATA* p_data);
+bool smp_sm_event(tSMP_CB* p_cb, tSMP_EVENT event, tSMP_INT_DATA* p_data);
 
-extern tSMP_STATE smp_get_state(void);
-extern void smp_set_state(tSMP_STATE state);
+tSMP_STATE smp_get_state(void);
+void smp_set_state(tSMP_STATE state);
 
 /* smp_br_main */
-extern void smp_br_state_machine_event(tSMP_CB* p_cb, tSMP_BR_EVENT event,
-                                       tSMP_INT_DATA* p_data);
-extern tSMP_BR_STATE smp_get_br_state(void);
-extern void smp_set_br_state(tSMP_BR_STATE state);
+void smp_br_state_machine_event(tSMP_CB* p_cb, tSMP_BR_EVENT event,
+                                tSMP_INT_DATA* p_data);
+tSMP_BR_STATE smp_get_br_state(void);
+void smp_set_br_state(tSMP_BR_STATE state);
 
 /* smp_act.cc */
-extern void smp_send_pair_req(tSMP_CB* p_cb, tSMP_INT_DATA* p_data);
-extern void smp_send_confirm(tSMP_CB* p_cb, tSMP_INT_DATA* p_data);
-extern void smp_send_pair_fail(tSMP_CB* p_cb, tSMP_INT_DATA* p_data);
-extern void smp_send_rand(tSMP_CB* p_cb, tSMP_INT_DATA* p_data);
-extern void smp_send_pair_public_key(tSMP_CB* p_cb, tSMP_INT_DATA* p_data);
-extern void smp_send_commitment(tSMP_CB* p_cb, tSMP_INT_DATA* p_data);
-extern void smp_send_dhkey_check(tSMP_CB* p_cb, tSMP_INT_DATA* p_data);
-extern void smp_send_keypress_notification(tSMP_CB* p_cb,
+void smp_send_pair_req(tSMP_CB* p_cb, tSMP_INT_DATA* p_data);
+void smp_send_confirm(tSMP_CB* p_cb, tSMP_INT_DATA* p_data);
+void smp_send_pair_fail(tSMP_CB* p_cb, tSMP_INT_DATA* p_data);
+void smp_send_rand(tSMP_CB* p_cb, tSMP_INT_DATA* p_data);
+void smp_send_pair_public_key(tSMP_CB* p_cb, tSMP_INT_DATA* p_data);
+void smp_send_commitment(tSMP_CB* p_cb, tSMP_INT_DATA* p_data);
+void smp_send_dhkey_check(tSMP_CB* p_cb, tSMP_INT_DATA* p_data);
+void smp_send_keypress_notification(tSMP_CB* p_cb, tSMP_INT_DATA* p_data);
+void smp_proc_pair_fail(tSMP_CB* p_cb, tSMP_INT_DATA* p_data);
+void smp_proc_confirm(tSMP_CB* p_cb, tSMP_INT_DATA* p_data);
+void smp_proc_rand(tSMP_CB* p_cb, tSMP_INT_DATA* p_data);
+void smp_process_pairing_public_key(tSMP_CB* p_cb, tSMP_INT_DATA* p_data);
+void smp_proc_enc_info(tSMP_CB* p_cb, tSMP_INT_DATA* p_data);
+void smp_proc_central_id(tSMP_CB* p_cb, tSMP_INT_DATA* p_data);
+void smp_proc_id_info(tSMP_CB* p_cb, tSMP_INT_DATA* p_data);
+void smp_proc_id_addr(tSMP_CB* p_cb, tSMP_INT_DATA* p_data);
+void smp_proc_sec_grant(tSMP_CB* p_cb, tSMP_INT_DATA* p_data);
+void smp_proc_sec_req(tSMP_CB* p_cb, tSMP_INT_DATA* p_data);
+void smp_proc_sl_key(tSMP_CB* p_cb, tSMP_INT_DATA* p_data);
+void smp_start_enc(tSMP_CB* p_cb, tSMP_INT_DATA* p_data);
+void smp_enc_cmpl(tSMP_CB* p_cb, tSMP_INT_DATA* p_data);
+void smp_proc_discard(tSMP_CB* p_cb, tSMP_INT_DATA* p_data);
+void smp_pairing_cmpl(tSMP_CB* p_cb, tSMP_INT_DATA* p_data);
+void smp_decide_association_model(tSMP_CB* p_cb, tSMP_INT_DATA* p_data);
+void smp_send_app_cback(tSMP_CB* p_cb, tSMP_INT_DATA* p_data);
+void smp_proc_compare(tSMP_CB* p_cb, tSMP_INT_DATA* p_data);
+void smp_check_auth_req(tSMP_CB* p_cb, tSMP_INT_DATA* p_data);
+void smp_process_io_response(tSMP_CB* p_cb, tSMP_INT_DATA* p_data);
+void smp_send_id_info(tSMP_CB* p_cb, tSMP_INT_DATA* p_data);
+void smp_send_enc_info(tSMP_CB* p_cb, tSMP_INT_DATA* p_data);
+void smp_send_csrk_info(tSMP_CB* p_cb, tSMP_INT_DATA* p_data);
+void smp_send_ltk_reply(tSMP_CB* p_cb, tSMP_INT_DATA* p_data);
+void smp_proc_pair_cmd(tSMP_CB* p_cb, tSMP_INT_DATA* p_data);
+void smp_pair_terminate(tSMP_CB* p_cb, tSMP_INT_DATA* p_data);
+void smp_idle_terminate(tSMP_CB* p_cb, tSMP_INT_DATA* p_data);
+void smp_send_pair_rsp(tSMP_CB* p_cb, tSMP_INT_DATA* p_data);
+void smp_key_distribution(tSMP_CB* p_cb, tSMP_INT_DATA* p_data);
+void smp_proc_srk_info(tSMP_CB* p_cb, tSMP_INT_DATA* p_data);
+void smp_generate_csrk(tSMP_CB* p_cb, tSMP_INT_DATA* p_data);
+void smp_key_pick_key(tSMP_CB* p_cb, tSMP_INT_DATA* p_data);
+void smp_both_have_public_keys(tSMP_CB* p_cb, tSMP_INT_DATA* p_data);
+void smp_start_secure_connection_phase1(tSMP_CB* p_cb, tSMP_INT_DATA* p_data);
+void smp_process_local_nonce(tSMP_CB* p_cb, tSMP_INT_DATA* p_data);
+void smp_process_pairing_commitment(tSMP_CB* p_cb, tSMP_INT_DATA* p_data);
+void smp_process_peer_nonce(tSMP_CB* p_cb, tSMP_INT_DATA* p_data);
+void smp_process_dhkey_check(tSMP_CB* p_cb, tSMP_INT_DATA* p_data);
+void smp_match_dhkey_checks(tSMP_CB* p_cb, tSMP_INT_DATA* p_data);
+void smp_process_keypress_notification(tSMP_CB* p_cb, tSMP_INT_DATA* p_data);
+void smp_move_to_secure_connections_phase2(tSMP_CB* p_cb,
                                            tSMP_INT_DATA* p_data);
-extern void smp_proc_pair_fail(tSMP_CB* p_cb, tSMP_INT_DATA* p_data);
-extern void smp_proc_confirm(tSMP_CB* p_cb, tSMP_INT_DATA* p_data);
-extern void smp_proc_rand(tSMP_CB* p_cb, tSMP_INT_DATA* p_data);
-extern void smp_process_pairing_public_key(tSMP_CB* p_cb,
-                                           tSMP_INT_DATA* p_data);
-extern void smp_proc_enc_info(tSMP_CB* p_cb, tSMP_INT_DATA* p_data);
-extern void smp_proc_central_id(tSMP_CB* p_cb, tSMP_INT_DATA* p_data);
-extern void smp_proc_id_info(tSMP_CB* p_cb, tSMP_INT_DATA* p_data);
-extern void smp_proc_id_addr(tSMP_CB* p_cb, tSMP_INT_DATA* p_data);
-extern void smp_proc_sec_grant(tSMP_CB* p_cb, tSMP_INT_DATA* p_data);
-extern void smp_proc_sec_req(tSMP_CB* p_cb, tSMP_INT_DATA* p_data);
-extern void smp_proc_sl_key(tSMP_CB* p_cb, tSMP_INT_DATA* p_data);
-extern void smp_start_enc(tSMP_CB* p_cb, tSMP_INT_DATA* p_data);
-extern void smp_enc_cmpl(tSMP_CB* p_cb, tSMP_INT_DATA* p_data);
-extern void smp_proc_discard(tSMP_CB* p_cb, tSMP_INT_DATA* p_data);
-extern void smp_pairing_cmpl(tSMP_CB* p_cb, tSMP_INT_DATA* p_data);
-extern void smp_decide_association_model(tSMP_CB* p_cb, tSMP_INT_DATA* p_data);
-extern void smp_send_app_cback(tSMP_CB* p_cb, tSMP_INT_DATA* p_data);
-extern void smp_proc_compare(tSMP_CB* p_cb, tSMP_INT_DATA* p_data);
-extern void smp_check_auth_req(tSMP_CB* p_cb, tSMP_INT_DATA* p_data);
-extern void smp_process_io_response(tSMP_CB* p_cb, tSMP_INT_DATA* p_data);
-extern void smp_send_id_info(tSMP_CB* p_cb, tSMP_INT_DATA* p_data);
-extern void smp_send_enc_info(tSMP_CB* p_cb, tSMP_INT_DATA* p_data);
-extern void smp_send_csrk_info(tSMP_CB* p_cb, tSMP_INT_DATA* p_data);
-extern void smp_send_ltk_reply(tSMP_CB* p_cb, tSMP_INT_DATA* p_data);
-extern void smp_proc_pair_cmd(tSMP_CB* p_cb, tSMP_INT_DATA* p_data);
-extern void smp_pair_terminate(tSMP_CB* p_cb, tSMP_INT_DATA* p_data);
-extern void smp_idle_terminate(tSMP_CB* p_cb, tSMP_INT_DATA* p_data);
-extern void smp_send_pair_rsp(tSMP_CB* p_cb, tSMP_INT_DATA* p_data);
-extern void smp_key_distribution(tSMP_CB* p_cb, tSMP_INT_DATA* p_data);
-extern void smp_proc_srk_info(tSMP_CB* p_cb, tSMP_INT_DATA* p_data);
-extern void smp_generate_csrk(tSMP_CB* p_cb, tSMP_INT_DATA* p_data);
-extern void smp_key_pick_key(tSMP_CB* p_cb, tSMP_INT_DATA* p_data);
-extern void smp_both_have_public_keys(tSMP_CB* p_cb, tSMP_INT_DATA* p_data);
-extern void smp_start_secure_connection_phase1(tSMP_CB* p_cb,
-                                               tSMP_INT_DATA* p_data);
-extern void smp_process_local_nonce(tSMP_CB* p_cb, tSMP_INT_DATA* p_data);
-extern void smp_process_pairing_commitment(tSMP_CB* p_cb,
-                                           tSMP_INT_DATA* p_data);
-extern void smp_process_peer_nonce(tSMP_CB* p_cb, tSMP_INT_DATA* p_data);
-extern void smp_process_dhkey_check(tSMP_CB* p_cb, tSMP_INT_DATA* p_data);
-extern void smp_match_dhkey_checks(tSMP_CB* p_cb, tSMP_INT_DATA* p_data);
-extern void smp_process_keypress_notification(tSMP_CB* p_cb,
-                                              tSMP_INT_DATA* p_data);
-extern void smp_move_to_secure_connections_phase2(tSMP_CB* p_cb,
-                                                  tSMP_INT_DATA* p_data);
-extern void smp_phase_2_dhkey_checks_are_present(tSMP_CB* p_cb,
-                                                 tSMP_INT_DATA* p_data);
-extern void smp_wait_for_both_public_keys(tSMP_CB* p_cb, tSMP_INT_DATA* p_data);
-extern void smp_start_passkey_verification(tSMP_CB* p_cb,
-                                           tSMP_INT_DATA* p_data);
-extern void smp_process_secure_connection_oob_data(tSMP_CB* p_cb,
-                                                   tSMP_INT_DATA* p_data);
-extern void smp_process_secure_connection_long_term_key(void);
-extern void smp_set_local_oob_keys(tSMP_CB* p_cb, tSMP_INT_DATA* p_data);
-extern void smp_set_local_oob_random_commitment(tSMP_CB* p_cb,
-                                                tSMP_INT_DATA* p_data);
-extern void smp_set_derive_link_key(tSMP_CB* p_cb, tSMP_INT_DATA* p_data);
-extern void smp_derive_link_key_from_long_term_key(tSMP_CB* p_cb,
-                                                   tSMP_INT_DATA* p_data);
-extern void smp_br_process_pairing_command(tSMP_CB* p_cb,
-                                           tSMP_INT_DATA* p_data);
-extern void smp_br_process_security_grant(tSMP_CB* p_cb, tSMP_INT_DATA* p_data);
-extern void smp_br_process_peripheral_keys_response(tSMP_CB* p_cb,
-                                                    tSMP_INT_DATA* p_data);
-extern void smp_br_send_pair_response(tSMP_CB* p_cb, tSMP_INT_DATA* p_data);
-extern void smp_br_check_authorization_request(tSMP_CB* p_cb,
-                                               tSMP_INT_DATA* p_data);
-extern void smp_br_select_next_key(tSMP_CB* p_cb, tSMP_INT_DATA* p_data);
-extern void smp_br_process_link_key(tSMP_CB* p_cb, tSMP_INT_DATA* p_data);
-extern void smp_key_distribution_by_transport(tSMP_CB* p_cb,
-                                              tSMP_INT_DATA* p_data);
-extern void smp_br_pairing_complete(tSMP_CB* p_cb, tSMP_INT_DATA* p_data);
+void smp_phase_2_dhkey_checks_are_present(tSMP_CB* p_cb, tSMP_INT_DATA* p_data);
+void smp_wait_for_both_public_keys(tSMP_CB* p_cb, tSMP_INT_DATA* p_data);
+void smp_start_passkey_verification(tSMP_CB* p_cb, tSMP_INT_DATA* p_data);
+void smp_process_secure_connection_oob_data(tSMP_CB* p_cb,
+                                            tSMP_INT_DATA* p_data);
+void smp_process_secure_connection_long_term_key(void);
+void smp_set_local_oob_keys(tSMP_CB* p_cb, tSMP_INT_DATA* p_data);
+void smp_set_local_oob_random_commitment(tSMP_CB* p_cb, tSMP_INT_DATA* p_data);
+void smp_set_derive_link_key(tSMP_CB* p_cb, tSMP_INT_DATA* p_data);
+void smp_derive_link_key_from_long_term_key(tSMP_CB* p_cb,
+                                            tSMP_INT_DATA* p_data);
+void smp_br_process_pairing_command(tSMP_CB* p_cb, tSMP_INT_DATA* p_data);
+void smp_br_process_security_grant(tSMP_CB* p_cb, tSMP_INT_DATA* p_data);
+void smp_br_process_peripheral_keys_response(tSMP_CB* p_cb,
+                                             tSMP_INT_DATA* p_data);
+void smp_br_send_pair_response(tSMP_CB* p_cb, tSMP_INT_DATA* p_data);
+void smp_br_check_authorization_request(tSMP_CB* p_cb, tSMP_INT_DATA* p_data);
+void smp_br_select_next_key(tSMP_CB* p_cb, tSMP_INT_DATA* p_data);
+void smp_br_process_link_key(tSMP_CB* p_cb, tSMP_INT_DATA* p_data);
+void smp_key_distribution_by_transport(tSMP_CB* p_cb, tSMP_INT_DATA* p_data);
+void smp_br_pairing_complete(tSMP_CB* p_cb, tSMP_INT_DATA* p_data);
 
 /* smp_l2c */
-extern void smp_l2cap_if_init(void);
-extern void smp_data_ind(const RawAddress& bd_addr, BT_HDR* p_buf);
+void smp_l2cap_if_init(void);
+void smp_data_ind(const RawAddress& bd_addr, BT_HDR* p_buf);
 
 /* smp_util.cc */
-extern void smp_log_metrics(const RawAddress& bd_addr, bool is_outgoing,
-                            const uint8_t* p_buf, size_t buf_len);
-extern bool smp_send_cmd(uint8_t cmd_code, tSMP_CB* p_cb);
-extern void smp_cb_cleanup(tSMP_CB* p_cb);
-extern void smp_reset_control_value(tSMP_CB* p_cb);
-extern void smp_proc_pairing_cmpl(tSMP_CB* p_cb);
-extern void smp_convert_string_to_tk(Octet16* tk, uint32_t passkey);
-extern void smp_mask_enc_key(uint8_t loc_enc_size, Octet16* p_data);
-extern void smp_rsp_timeout(void* data);
-extern void smp_delayed_auth_complete_timeout(void* data);
-extern bool smp_command_has_invalid_length(tSMP_CB* p_cb);
-extern bool smp_command_has_invalid_parameters(tSMP_CB* p_cb);
-extern void smp_reject_unexpected_pairing_command(const RawAddress& bd_addr);
-extern tSMP_ASSO_MODEL smp_select_association_model(tSMP_CB* p_cb);
-extern uint8_t smp_calculate_random_input(uint8_t* random, uint8_t round);
-extern void smp_collect_local_io_capabilities(uint8_t* iocap, tSMP_CB* p_cb);
-extern void smp_collect_peer_io_capabilities(uint8_t* iocap, tSMP_CB* p_cb);
-extern void smp_collect_local_ble_address(uint8_t* le_addr, tSMP_CB* p_cb);
-extern void smp_collect_peer_ble_address(uint8_t* le_addr, tSMP_CB* p_cb);
-extern bool smp_check_commitment(tSMP_CB* p_cb);
-extern void smp_save_secure_connections_long_term_key(tSMP_CB* p_cb);
-extern void smp_calculate_f5_mackey_and_long_term_key(tSMP_CB* p_cb);
-extern void smp_remove_fixed_channel(tSMP_CB* p_cb);
-extern bool smp_request_oob_data(tSMP_CB* p_cb);
+void smp_log_metrics(const RawAddress& bd_addr, bool is_outgoing,
+                     const uint8_t* p_buf, size_t buf_len, bool is_over_br);
+bool smp_send_cmd(uint8_t cmd_code, tSMP_CB* p_cb);
+void smp_cb_cleanup(tSMP_CB* p_cb);
+void smp_reset_control_value(tSMP_CB* p_cb);
+void smp_proc_pairing_cmpl(tSMP_CB* p_cb);
+void smp_convert_string_to_tk(Octet16* tk, uint32_t passkey);
+void smp_mask_enc_key(uint8_t loc_enc_size, Octet16* p_data);
+void smp_rsp_timeout(void* data);
+void smp_delayed_auth_complete_timeout(void* data);
+bool smp_command_has_invalid_length(tSMP_CB* p_cb);
+bool smp_command_has_invalid_parameters(tSMP_CB* p_cb);
+void smp_reject_unexpected_pairing_command(const RawAddress& bd_addr);
+tSMP_ASSO_MODEL smp_select_association_model(tSMP_CB* p_cb);
+uint8_t smp_calculate_random_input(uint8_t* random, uint8_t round);
+void smp_collect_local_io_capabilities(uint8_t* iocap, tSMP_CB* p_cb);
+void smp_collect_peer_io_capabilities(uint8_t* iocap, tSMP_CB* p_cb);
+void smp_collect_local_ble_address(uint8_t* le_addr, tSMP_CB* p_cb);
+void smp_collect_peer_ble_address(uint8_t* le_addr, tSMP_CB* p_cb);
+bool smp_check_commitment(tSMP_CB* p_cb);
+void smp_save_secure_connections_long_term_key(tSMP_CB* p_cb);
+void smp_calculate_f5_mackey_and_long_term_key(tSMP_CB* p_cb);
+void smp_remove_fixed_channel(tSMP_CB* p_cb);
+bool smp_request_oob_data(tSMP_CB* p_cb);
 
 /* smp_keys.cc */
-extern void smp_generate_srand_mrand_confirm(tSMP_CB* p_cb,
-                                             tSMP_INT_DATA* p_data);
-extern void smp_generate_compare(tSMP_CB* p_cb, tSMP_INT_DATA* p_data);
-extern void smp_generate_stk(tSMP_CB* p_cb, tSMP_INT_DATA* p_data);
-extern void smp_generate_ltk(tSMP_CB* p_cb, tSMP_INT_DATA* p_data);
-extern void smp_generate_passkey(tSMP_CB* p_cb, tSMP_INT_DATA* p_data);
-extern void smp_generate_rand_cont(tSMP_CB* p_cb, tSMP_INT_DATA* p_data);
-extern void smp_create_private_key(tSMP_CB* p_cb, tSMP_INT_DATA* p_data);
-extern void smp_use_oob_private_key(tSMP_CB* p_cb, tSMP_INT_DATA* p_data);
-extern void smp_compute_dhkey(tSMP_CB* p_cb);
-extern void smp_calculate_local_commitment(tSMP_CB* p_cb);
-extern Octet16 smp_calculate_peer_commitment(tSMP_CB* p_cb);
-extern void smp_calculate_numeric_comparison_display_number(
-    tSMP_CB* p_cb, tSMP_INT_DATA* p_data);
-extern void smp_calculate_local_dhkey_check(tSMP_CB* p_cb,
-                                            tSMP_INT_DATA* p_data);
-extern void smp_calculate_peer_dhkey_check(tSMP_CB* p_cb,
-                                           tSMP_INT_DATA* p_data);
-extern void smp_start_nonce_generation(tSMP_CB* p_cb);
-extern bool smp_calculate_link_key_from_long_term_key(tSMP_CB* p_cb);
-extern bool smp_calculate_long_term_key_from_link_key(tSMP_CB* p_cb);
+void smp_generate_srand_mrand_confirm(tSMP_CB* p_cb, tSMP_INT_DATA* p_data);
+void smp_generate_compare(tSMP_CB* p_cb, tSMP_INT_DATA* p_data);
+void smp_generate_stk(tSMP_CB* p_cb, tSMP_INT_DATA* p_data);
+void smp_generate_ltk(tSMP_CB* p_cb, tSMP_INT_DATA* p_data);
+void smp_generate_passkey(tSMP_CB* p_cb, tSMP_INT_DATA* p_data);
+void smp_generate_rand_cont(tSMP_CB* p_cb, tSMP_INT_DATA* p_data);
+void smp_create_private_key(tSMP_CB* p_cb, tSMP_INT_DATA* p_data);
+void smp_use_oob_private_key(tSMP_CB* p_cb, tSMP_INT_DATA* p_data);
+void smp_compute_dhkey(tSMP_CB* p_cb);
+void smp_calculate_local_commitment(tSMP_CB* p_cb);
+Octet16 smp_calculate_peer_commitment(tSMP_CB* p_cb);
+void smp_calculate_numeric_comparison_display_number(tSMP_CB* p_cb,
+                                                     tSMP_INT_DATA* p_data);
+void smp_calculate_local_dhkey_check(tSMP_CB* p_cb, tSMP_INT_DATA* p_data);
+void smp_calculate_peer_dhkey_check(tSMP_CB* p_cb, tSMP_INT_DATA* p_data);
+void smp_start_nonce_generation(tSMP_CB* p_cb);
+bool smp_calculate_link_key_from_long_term_key(tSMP_CB* p_cb);
+bool smp_calculate_long_term_key_from_link_key(tSMP_CB* p_cb);
 
-extern void print128(const Octet16& x, const uint8_t* key_name);
-extern void smp_xor_128(Octet16* a, const Octet16& b);
+void print128(const Octet16& x, const uint8_t* key_name);
+void smp_xor_128(Octet16* a, const Octet16& b);
 
 /* Save the p_cb->sc_oob_data.loc_oob_data for later, since the p_cb gets
  * cleaned up */
-extern void smp_save_local_oob_data(tSMP_CB* p_cb);
-extern void smp_clear_local_oob_data();
-extern bool smp_has_local_oob_data();
+void smp_save_local_oob_data(tSMP_CB* p_cb);
+void smp_clear_local_oob_data();
+bool smp_has_local_oob_data();
 #endif /* SMP_INT_H */

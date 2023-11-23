@@ -46,6 +46,12 @@ func TestDroidstubs(t *testing.T) {
 			api_levels_annotations_enabled: true,
 			api_levels_jar_filename: "android.other.jar",
 		}
+
+		droidstubs {
+			name: "stubs-applying-api-versions",
+			srcs: ["bar-doc/a.java"],
+			api_levels_module: "bar-stubs-other",
+		}
 		`,
 		map[string][]byte{
 			"bar-doc/a.java": nil,
@@ -53,26 +59,37 @@ func TestDroidstubs(t *testing.T) {
 	testcases := []struct {
 		moduleName          string
 		expectedJarFilename string
+		generate_xml        bool
 		high_mem            bool
 	}{
 		{
 			moduleName:          "bar-stubs",
+			generate_xml:        true,
 			expectedJarFilename: "android.jar",
 			high_mem:            false,
 		},
 		{
 			moduleName:          "bar-stubs-other",
+			generate_xml:        true,
 			expectedJarFilename: "android.other.jar",
 			high_mem:            true,
+		},
+		{
+			moduleName:   "stubs-applying-api-versions",
+			generate_xml: false,
 		},
 	}
 	for _, c := range testcases {
 		m := ctx.ModuleForTests(c.moduleName, "android_common")
 		manifest := m.Output("metalava.sbox.textproto")
 		sboxProto := android.RuleBuilderSboxProtoForTests(t, manifest)
-		expected := "--android-jar-pattern ./%/public/" + c.expectedJarFilename
-		if actual := String(sboxProto.Commands[0].Command); !strings.Contains(actual, expected) {
-			t.Errorf("For %q, expected metalava argument %q, but was not found %q", c.moduleName, expected, actual)
+		cmdline := String(sboxProto.Commands[0].Command)
+		android.AssertStringContainsEquals(t, "api-versions generation flag", cmdline, "--generate-api-levels", c.generate_xml)
+		if c.expectedJarFilename != "" {
+			expected := "--android-jar-pattern ./%/public/" + c.expectedJarFilename
+			if !strings.Contains(cmdline, expected) {
+				t.Errorf("For %q, expected metalava argument %q, but was not found %q", c.moduleName, expected, cmdline)
+			}
 		}
 
 		metalava := m.Rule("metalava")
@@ -105,7 +122,7 @@ func getAndroidJarPatternsForDroidstubs(t *testing.T, sdkType string) []string {
 				"some-other-exported-dir",
 			],
 			api_levels_annotations_enabled: true,
-      api_levels_sdk_type: "%s",
+			api_levels_sdk_type: "%s",
 		}
 		`, sdkType),
 		map[string][]byte{
@@ -143,6 +160,21 @@ func TestModuleLibDroidstubs(t *testing.T) {
 	patterns := getAndroidJarPatternsForDroidstubs(t, "module-lib")
 
 	android.AssertArrayString(t, "order of patterns", []string{
+		"--android-jar-pattern somedir/%/module-lib/android.jar",
+		"--android-jar-pattern someotherdir/%/module-lib/android.jar",
+		"--android-jar-pattern somedir/%/system/android.jar",
+		"--android-jar-pattern someotherdir/%/system/android.jar",
+		"--android-jar-pattern somedir/%/public/android.jar",
+		"--android-jar-pattern someotherdir/%/public/android.jar",
+	}, patterns)
+}
+
+func TestSystemServerDroidstubs(t *testing.T) {
+	patterns := getAndroidJarPatternsForDroidstubs(t, "system-server")
+
+	android.AssertArrayString(t, "order of patterns", []string{
+		"--android-jar-pattern somedir/%/system-server/android.jar",
+		"--android-jar-pattern someotherdir/%/system-server/android.jar",
 		"--android-jar-pattern somedir/%/module-lib/android.jar",
 		"--android-jar-pattern someotherdir/%/module-lib/android.jar",
 		"--android-jar-pattern somedir/%/system/android.jar",
@@ -241,4 +273,133 @@ func checkSystemModulesUseByDroidstubs(t *testing.T, ctx *android.TestContext, m
 	if len(systemJars) < 1 || systemJars[0] != systemJar {
 		t.Errorf("inputs of %q must be []string{%q}, but was %#v.", moduleName, systemJar, systemJars)
 	}
+}
+
+func TestDroidstubsWithSdkExtensions(t *testing.T) {
+	ctx, _ := testJavaWithFS(t, `
+		droiddoc_exported_dir {
+			name: "sdk-dir",
+			path: "sdk",
+		}
+
+		droidstubs {
+			name: "baz-stubs",
+			api_levels_annotations_dirs: ["sdk-dir"],
+			api_levels_annotations_enabled: true,
+			extensions_info_file: ":info-file",
+		}
+
+		filegroup {
+			name: "info-file",
+			srcs: ["sdk/extensions/info.txt"],
+		}
+		`,
+		map[string][]byte{
+			"sdk/extensions/1/public/some-mainline-module-stubs.jar": nil,
+			"sdk/extensions/info.txt":                                nil,
+		})
+	m := ctx.ModuleForTests("baz-stubs", "android_common")
+	manifest := m.Output("metalava.sbox.textproto")
+	cmdline := String(android.RuleBuilderSboxProtoForTests(t, manifest).Commands[0].Command)
+	android.AssertStringDoesContain(t, "sdk-extensions-root present", cmdline, "--sdk-extensions-root sdk/extensions")
+	android.AssertStringDoesContain(t, "sdk-extensions-info present", cmdline, "--sdk-extensions-info sdk/extensions/info.txt")
+}
+
+func TestApiSurfaceFromDroidStubsName(t *testing.T) {
+	testCases := []struct {
+		desc               string
+		name               string
+		expectedApiSurface string
+	}{
+		{
+			desc:               "Default is publicapi",
+			name:               "mydroidstubs",
+			expectedApiSurface: "publicapi",
+		},
+		{
+			desc:               "name contains system substring",
+			name:               "mydroidstubs.system.suffix",
+			expectedApiSurface: "systemapi",
+		},
+		{
+			desc:               "name contains system_server substring",
+			name:               "mydroidstubs.system_server.suffix",
+			expectedApiSurface: "system-serverapi",
+		},
+		{
+			desc:               "name contains module_lib substring",
+			name:               "mydroidstubs.module_lib.suffix",
+			expectedApiSurface: "module-libapi",
+		},
+		{
+			desc:               "name contains test substring",
+			name:               "mydroidstubs.test.suffix",
+			expectedApiSurface: "testapi",
+		},
+		{
+			desc:               "name contains intra.core substring",
+			name:               "mydroidstubs.intra.core.suffix",
+			expectedApiSurface: "intracoreapi",
+		},
+	}
+	for _, tc := range testCases {
+		android.AssertStringEquals(t, tc.desc, tc.expectedApiSurface, bazelApiSurfaceName(tc.name))
+	}
+}
+
+func TestDroidStubsApiContributionGeneration(t *testing.T) {
+	ctx, _ := testJavaWithFS(t, `
+		droidstubs {
+			name: "foo",
+			srcs: ["A/a.java"],
+			api_surface: "public",
+			check_api: {
+				current: {
+					api_file: "A/current.txt",
+					removed_api_file: "A/removed.txt",
+				}
+			}
+		}
+		`,
+		map[string][]byte{
+			"A/a.java":      nil,
+			"A/current.txt": nil,
+			"A/removed.txt": nil,
+		},
+	)
+
+	ctx.ModuleForTests("foo.api.contribution", "")
+}
+
+func TestGeneratedApiContributionVisibilityTest(t *testing.T) {
+	library_bp := `
+		java_api_library {
+			name: "bar",
+			api_surface: "public",
+			api_contributions: ["foo.api.contribution"],
+		}
+	`
+	ctx, _ := testJavaWithFS(t, `
+			droidstubs {
+				name: "foo",
+				srcs: ["A/a.java"],
+				api_surface: "public",
+				check_api: {
+					current: {
+						api_file: "A/current.txt",
+						removed_api_file: "A/removed.txt",
+					}
+				},
+				visibility: ["//a"],
+			}
+		`,
+		map[string][]byte{
+			"a/a.java":      nil,
+			"a/current.txt": nil,
+			"a/removed.txt": nil,
+			"b/Android.bp":  []byte(library_bp),
+		},
+	)
+
+	ctx.ModuleForTests("bar", "android_common")
 }

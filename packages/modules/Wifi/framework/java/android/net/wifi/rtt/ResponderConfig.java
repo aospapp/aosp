@@ -57,17 +57,14 @@ public final class ResponderConfig implements Parcelable {
     }
 
     /**
-     * Responder is an AP.
-     * @hide
+     * Responder is an access point(AP).
      */
-    @SystemApi
+
     public static final int RESPONDER_AP = 0;
 
     /**
-     * Responder is a STA.
-     * @hide
+     * Responder is a client device(STA).
      */
-    @SystemApi
     public static final int RESPONDER_STA = 1;
 
     /**
@@ -553,11 +550,20 @@ public final class ResponderConfig implements Parcelable {
     }
 
     /**
+     * Get responder type.
+     * @see Builder#setResponderType(int)
+     * @return The type of this responder
+     */
+    public @ResponderType int getResponderType() {
+        return responderType;
+    }
+
+    /**
      * Builder class used to construct {@link ResponderConfig} objects.
      */
     public static final class Builder {
         private MacAddress mMacAddress;
-        private @ResponderType int mResponderType;
+        private @ResponderType int mResponderType = RESPONDER_AP;
         private boolean mSupports80211Mc = true;
         private @ChannelWidth int mChannelWidth = CHANNEL_WIDTH_20MHZ;
         private int mFrequency = 0;
@@ -673,6 +679,22 @@ public final class ResponderConfig implements Parcelable {
         }
 
         /**
+         * Sets the responder type, can be {@link #RESPONDER_AP} or {@link #RESPONDER_STA}
+         *
+         * @param responderType the type of the responder, if not set defaults to
+         * {@link #RESPONDER_AP}
+         * @return the builder to facilitate chaining {@code builder.setXXX(..).setXXX(..)}.
+         */
+        @NonNull
+        public Builder setResponderType(@ResponderType int responderType) {
+            if (responderType != RESPONDER_STA && responderType != RESPONDER_AP) {
+                throw new IllegalArgumentException("invalid responder type");
+            }
+            mResponderType = responderType;
+            return this;
+        }
+
+        /**
          * Build {@link ResponderConfig} given the current configurations made on the builder.
          * @return an instance of {@link ResponderConfig}
          */
@@ -682,7 +704,6 @@ public final class ResponderConfig implements Parcelable {
                 throw new IllegalArgumentException(
                         "Invalid ResponderConfig - must specify a MAC address");
             }
-            mResponderType = RESPONDER_AP;
             return new ResponderConfig(mMacAddress, mResponderType, mSupports80211Mc, mChannelWidth,
                     mFrequency, mCenterFreq0, mCenterFreq1, mPreamble);
         }

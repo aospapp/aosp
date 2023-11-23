@@ -27,7 +27,7 @@ namespace net {
 UnreachableNetwork::UnreachableNetwork(unsigned netId) : Network(netId) {}
 
 int UnreachableNetwork::addUsers(const UidRanges& uidRanges, int32_t subPriority) {
-    if (!isValidSubPriority(subPriority) || !canAddUidRanges(uidRanges, subPriority)) {
+    if (!isValidSubPriority(subPriority) || !canAddUidRanges(uidRanges)) {
         return -EINVAL;
     }
 

@@ -60,6 +60,8 @@ type Module struct {
 	Type    string
 	TypePos scanner.Position
 	Map
+	//TODO(delmerico) make this a private field once ag/21588220 lands
+	Name__internal_only *string
 }
 
 func (m *Module) Copy() *Module {
@@ -86,6 +88,28 @@ func (m *Module) definitionTag() {}
 func (m *Module) Pos() scanner.Position { return m.TypePos }
 func (m *Module) End() scanner.Position { return m.Map.End() }
 
+func (m *Module) Name() string {
+	if m.Name__internal_only != nil {
+		return *m.Name__internal_only
+	}
+	for _, prop := range m.Properties {
+		if prop.Name == "name" {
+			if stringProp, ok := prop.Value.(*String); ok {
+				name := stringProp.Value
+				m.Name__internal_only = &name
+			} else {
+				name := prop.Value.String()
+				m.Name__internal_only = &name
+			}
+		}
+	}
+	if m.Name__internal_only == nil {
+		name := ""
+		m.Name__internal_only = &name
+	}
+	return *m.Name__internal_only
+}
+
 // A Property is a name: value pair within a Map, which may be a top level Module.
 type Property struct {
 	Name     string
@@ -107,29 +131,6 @@ func (p *Property) String() string {
 func (p *Property) Pos() scanner.Position { return p.NamePos }
 func (p *Property) End() scanner.Position { return p.Value.End() }
 
-// A MapItem is a key: value pair within a Map, corresponding to map type, rather than a struct.
-type MapItem struct {
-	ColonPos scanner.Position
-	Key      *String
-	Value    Expression
-}
-
-func (m *MapItem) Copy() *MapItem {
-	ret := MapItem{
-		ColonPos: m.ColonPos,
-		Key:      m.Key.Copy().(*String),
-		Value:    m.Value.Copy(),
-	}
-	return &ret
-}
-
-func (m *MapItem) String() string {
-	return fmt.Sprintf("%s@%s: %s", m.Key, m.ColonPos, m.Value)
-}
-
-func (m *MapItem) Pos() scanner.Position { return m.Key.Pos() }
-func (m *MapItem) End() scanner.Position { return m.Value.End() }
-
 // An Expression is a Value in a Property or Assignment.  It can be a literal (String or Bool), a
 // Map, a List, an Operator that combines two expressions of the same type, or a Variable that
 // references and Assignment.
@@ -138,7 +139,7 @@ type Expression interface {
 	// Copy returns a copy of the Expression that will not affect the original if mutated
 	Copy() Expression
 	String() string
-	// Type returns the underlying Type enum of the Expression if it were to be evalutated
+	// Type returns the underlying Type enum of the Expression if it were to be evaluated
 	Type() Type
 	// Eval returns an expression that is fully evaluated to a simple type (List, Map, String, or
 	// Bool).  It will return the same object for every call to Eval().
@@ -267,7 +268,6 @@ type Map struct {
 	LBracePos  scanner.Position
 	RBracePos  scanner.Position
 	Properties []*Property
-	MapItems   []*MapItem
 }
 
 func (x *Map) Pos() scanner.Position { return x.LBracePos }
@@ -279,36 +279,20 @@ func (x *Map) Copy() Expression {
 	for i := range x.Properties {
 		ret.Properties[i] = x.Properties[i].Copy()
 	}
-	ret.MapItems = make([]*MapItem, len(x.MapItems))
-	for i := range x.MapItems {
-		ret.MapItems[i] = x.MapItems[i].Copy()
-	}
 	return &ret
 }
 
 func (x *Map) Eval() Expression {
-	if len(x.Properties) > 0 && len(x.MapItems) > 0 {
-		panic("Cannot support both Properties and MapItems")
-	}
 	return x
 }
 
 func (x *Map) String() string {
-	var s string
-	if len(x.MapItems) > 0 {
-		mapStrings := make([]string, len(x.MapItems))
-		for i, mapItem := range x.MapItems {
-			mapStrings[i] = mapItem.String()
-		}
-		s = strings.Join(mapStrings, ", ")
-	} else {
-		propertyStrings := make([]string, len(x.Properties))
-		for i, property := range x.Properties {
-			propertyStrings[i] = property.String()
-		}
-		s = strings.Join(propertyStrings, ", ")
+	propertyStrings := make([]string, len(x.Properties))
+	for i, property := range x.Properties {
+		propertyStrings[i] = property.String()
 	}
-	return fmt.Sprintf("@%s-%s{%s}", x.LBracePos, x.RBracePos, s)
+	return fmt.Sprintf("@%s-%s{%s}", x.LBracePos, x.RBracePos,
+		strings.Join(propertyStrings, ", "))
 }
 
 func (x *Map) Type() Type { return MapType }
@@ -336,6 +320,42 @@ func (x *Map) RemoveProperty(propertyName string) (removed bool) {
 		x.Properties = append(x.Properties[:index], x.Properties[index+1:]...)
 	}
 	return found
+}
+
+// MovePropertyContents moves the contents of propertyName into property newLocation
+// If property newLocation doesn't exist, MovePropertyContents renames propertyName as newLocation.
+// Otherwise, MovePropertyContents only supports moving contents that are a List of String.
+func (x *Map) MovePropertyContents(propertyName string, newLocation string) (removed bool) {
+	oldProp, oldFound, _ := x.getPropertyImpl(propertyName)
+	newProp, newFound, _ := x.getPropertyImpl(newLocation)
+
+	// newLoc doesn't exist, simply renaming property
+	if oldFound && !newFound {
+		oldProp.Name = newLocation
+		return oldFound
+	}
+
+	if oldFound {
+		old, oldOk := oldProp.Value.(*List)
+		new, newOk := newProp.Value.(*List)
+		if oldOk && newOk {
+			toBeMoved := make([]string, len(old.Values)) //
+			for i, p := range old.Values {
+				toBeMoved[i] = p.(*String).Value
+			}
+
+			for _, moved := range toBeMoved {
+				RemoveStringFromList(old, moved)
+				AddStringToList(new, moved)
+			}
+			// oldProp should now be empty and needs to be deleted
+			x.RemoveProperty(oldProp.Name)
+		} else {
+			print(`MovePropertyContents currently only supports moving PropertyName
+					with List of Strings into an existing newLocation with List of Strings\n`)
+		}
+	}
+	return oldFound
 }
 
 type List struct {

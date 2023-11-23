@@ -894,6 +894,7 @@ public class MediaUtils {
                 } catch (IllegalArgumentException e) {
                      // mime is not supported
                      Log.w(TAG, "not supported mime: " + mime);
+                     return false;
                 }
             }
         }
@@ -1479,6 +1480,14 @@ public class MediaUtils {
         if (screenSize < (FIRST_SDK_IS_AT_LEAST_R ? 3.3 : 2.5)) return false;
         if (screenSize > 8.0) return false;
         if (!hasDeviceGotBattery()) return false;
+        // handheld nature is not exposed to package manager, so for now,
+        // in addition to physical screen size, the following checks are
+        // also required:
+        if (!pm.hasSystemFeature(PackageManager.FEATURE_TOUCHSCREEN)) return false;
+        if (isWatch()) return false;
+        if (isTv()) return false;
+        if (isAutomotive()) return false;
+        if (isPc()) return false;
         return true;
     }
 
@@ -1487,6 +1496,14 @@ public class MediaUtils {
         if (screenSize < 7.0) return false;
         if (screenSize > 18.0) return false;
         if (!hasDeviceGotBattery()) return false;
+        // tablet nature is not exposed to package manager, so for now,
+        // in addition to physical screen size, the following checks are
+        // also required:
+        if (!pm.hasSystemFeature(PackageManager.FEATURE_TOUCHSCREEN)) return false;
+        if (isWatch()) return false;
+        if (isTv()) return false;
+        if (isAutomotive()) return false;
+        if (isPc()) return false;
         return true;
     }
 
@@ -1527,6 +1544,27 @@ public class MediaUtils {
         if ((systemBrand.equals("Android") || systemBrand.equals("google")) &&
                 (systemProduct.startsWith("cf_") || systemProduct.startsWith("aosp_cf_") ||
                         systemModel.startsWith("Cuttlefish "))) {
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     *  Function to identify if the device is a cuttlefish instance
+     */
+    public static boolean onCuttlefish() throws IOException {
+        String device = SystemProperties.get("ro.product.device", "");
+        String model = SystemProperties.get("ro.product.model", "");
+        String name = SystemProperties.get("ro.product.name", "");
+
+        // Return true for cuttlefish instances
+        if (!device.startsWith("vsoc_")) {
+            return false;
+        }
+        if (!model.startsWith("Cuttlefish ")) {
+            return false;
+        }
+        if (name.startsWith("cf_") || name.startsWith("aosp_cf_")) {
             return true;
         }
         return false;

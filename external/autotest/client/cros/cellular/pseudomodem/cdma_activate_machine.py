@@ -2,11 +2,17 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-import gobject
 import logging
 
-import pm_errors
-import state_machine
+import common
+
+# AU tests use ToT client code, but ToT -3 client version.
+try:
+    from gi.repository import GObject
+except ImportError:
+    import gobject as GObject
+from . import pm_errors
+from . import state_machine
 
 from autotest_lib.client.cros.cellular import mm1_constants
 
@@ -56,7 +62,7 @@ class CdmaActivateMachine(state_machine.StateMachine):
         def _DelayedStep():
             self.Step()
             return False
-        gobject.timeout_add(self._step_delay * 1000, _DelayedStep)
+        GObject.timeout_add(self._step_delay * 1000, _DelayedStep)
 
     def _HandleInvalidState(self):
         state = self._modem.Get(mm1_constants.I_MODEM, 'State')

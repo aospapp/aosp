@@ -22,7 +22,4 @@ java_library {
     name: "android-common-framesequence",
     sdk_version: "8",
     srcs: ["src/**/*.java"],
-    optimize: {
-        proguard_flags_files: ["proguard.flags"],
-    },
 }

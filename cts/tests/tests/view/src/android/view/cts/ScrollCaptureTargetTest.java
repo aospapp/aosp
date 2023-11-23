@@ -40,6 +40,7 @@ import android.graphics.Rect;
 import android.platform.test.annotations.Presubmit;
 import android.view.ScrollCaptureTarget;
 import android.view.View;
+import android.view.ViewGroup;
 
 import androidx.test.annotation.UiThreadTest;
 import androidx.test.filters.MediumTest;
@@ -161,8 +162,19 @@ public class ScrollCaptureTargetTest {
         // Verify the position in window is independent from the location on screen.
         int[] onScreen = new int[2];
         mTargetView.getLocationOnScreen(onScreen);
-        assertTrue("X position on screen expected to be > 5px", onScreen[0] > 5);
-        assertTrue("Y position on screen expected to be > 6px", onScreen[1] > 6);
+        boolean isDialogFullScreen =
+                mActivityRule.getActivity().getDialog().getWindow().getAttributes().height
+                        == ViewGroup.LayoutParams.MATCH_PARENT
+                && mActivityRule.getActivity().getDialog().getWindow().getAttributes().width
+                        == ViewGroup.LayoutParams.MATCH_PARENT;
+        // If Dialog is full screen, X and Y position is expected to be 5 and 6 px resp.
+        if (isDialogFullScreen) {
+            assertEquals("X position on screen expected to be 5px", 5, onScreen[0]);
+            assertEquals("Y position on screen expected to be 6px", 6, onScreen[1]);
+        } else {
+            assertTrue("X position on screen expected to be > 5px", onScreen[0] > 5);
+            assertTrue("Y position on screen expected to be > 6px", onScreen[1] > 6);
+        }
     }
 
     @Test

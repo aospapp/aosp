@@ -1,3 +1,8 @@
+# Lint as: python2, python3
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
 import json
 import math
 import os
@@ -9,6 +14,8 @@ from autotest_lib.tko import status_lib
 from autotest_lib.tko import utils as tko_utils
 from autotest_lib.tko.parsers import base
 from autotest_lib.tko.parsers import version_0
+from six.moves import map
+from six.moves import range
 
 
 class job(version_0.job):
@@ -173,7 +180,9 @@ class perf_value_iteration(models.perf_value_iteration):
         value = perf_dict['value']
         perf_dict['stddev'] = 0.0
         if isinstance(value, list):
-            value, stddev = mean_and_standard_deviation(map(float, value))
+            # list wrapping the map IS needed here.
+            value, stddev = mean_and_standard_deviation(list(map(float,
+                                                                 value)))
             perf_dict['value'] = value
             perf_dict['stddev'] = stddev
 
@@ -251,7 +260,7 @@ class parser(base.parser):
 
 
     @staticmethod
-    def make_dummy_abort(indent, subdir, testname, timestamp, reason):
+    def make_stub_abort(indent, subdir, testname, timestamp, reason):
         """
         Creates an abort string.
 
@@ -296,7 +305,7 @@ class parser(base.parser):
         """
         tko_utils.dprint('Unexpected indent: aborting log parse')
         line_buffer.put_back(line)
-        abort = parser.make_dummy_abort(
+        abort = parser.make_stub_abort(
             indent, subdir, testname, timestamp, reason)
         line_buffer.put_back(abort)
 
@@ -319,6 +328,7 @@ class parser(base.parser):
         started_time_stack = [None]
         subdir_stack = [None]
         testname_stack = [None]
+        running_client = None
         running_test = None
         running_reasons = set()
         ignored_lines = []
@@ -370,12 +380,12 @@ class parser(base.parser):
                     reason = 'Job aborted unexpectedly'
 
                 timestamp = line.optional_fields.get('timestamp')
-                for i in reversed(xrange(stack.size())):
+                for i in reversed(range(stack.size())):
                     if abort_subdir_stack:
                         subdir = abort_subdir_stack.pop()
                     else:
                         subdir = None
-                    abort = self.make_dummy_abort(
+                    abort = self.make_stub_abort(
                         i, subdir, subdir, timestamp, reason)
                     buffer.put(abort)
 
@@ -399,7 +409,7 @@ class parser(base.parser):
                 print_ignored_lines()
                 ignored_lines = []
 
-            # Do an initial sanity check of the indentation.
+            # Do an initial check of the indentation.
             expected_indent = stack.size()
             if line.type == 'END':
                 expected_indent -= 1
@@ -563,6 +573,8 @@ class parser(base.parser):
                 tko_utils.dprint(msg)
                 new_tests.append(new_test)
 
+        if current_reason and not running_job.reason:
+            running_job.reason = current_reason
         # The job is finished; produce the final SERVER_JOB entry and exit.
         final_job = test.parse_test(self.job, '----', 'SERVER_JOB',
                                     self.job.exit_status(), running_job.reason,

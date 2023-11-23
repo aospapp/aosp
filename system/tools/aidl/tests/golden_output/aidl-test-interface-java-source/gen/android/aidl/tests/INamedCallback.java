@@ -43,6 +43,26 @@ public interface INamedCallback extends android.os.IInterface
     {
       return this;
     }
+    /** @hide */
+    public static java.lang.String getDefaultTransactionName(int transactionCode)
+    {
+      switch (transactionCode)
+      {
+        case TRANSACTION_GetName:
+        {
+          return "GetName";
+        }
+        default:
+        {
+          return null;
+        }
+      }
+    }
+    /** @hide */
+    public java.lang.String getTransactionName(int transactionCode)
+    {
+      return this.getDefaultTransactionName(transactionCode);
+    }
     @Override public boolean onTransact(int code, android.os.Parcel data, android.os.Parcel reply, int flags) throws android.os.RemoteException
     {
       java.lang.String descriptor = DESCRIPTOR;
@@ -107,6 +127,11 @@ public interface INamedCallback extends android.os.IInterface
       }
     }
     static final int TRANSACTION_GetName = (android.os.IBinder.FIRST_CALL_TRANSACTION + 0);
+    /** @hide */
+    public int getMaxTransactionId()
+    {
+      return 0;
+    }
   }
   public static final java.lang.String DESCRIPTOR = "android$aidl$tests$INamedCallback".replace('$', '.');
   public java.lang.String GetName() throws android.os.RemoteException;

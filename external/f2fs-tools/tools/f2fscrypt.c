@@ -20,7 +20,8 @@
 #define _GNU_SOURCE
 #endif
 
-#include "config.h"
+#include <f2fs_fs.h>
+
 #include <assert.h>
 #include <errno.h>
 #include <getopt.h>
@@ -43,7 +44,12 @@
 #ifdef __KERNEL__
 #include <linux/fs.h>
 #endif
-#include <uuid.h>
+
+#ifdef HAVE_UUID_UUID_H
+#include <uuid/uuid.h>
+#else
+typedef unsigned char uuid_t[16];
+#endif
 
 #if !defined(HAVE_ADD_KEY) || !defined(HAVE_KEYCTL)
 #include <sys/syscall.h>
@@ -51,7 +57,6 @@
 #ifdef HAVE_SYS_KEY_H
 #include <sys/key.h>
 #endif
-#include <f2fs_fs.h>
 
 #define F2FS_MAX_KEY_SIZE		64
 #define F2FS_MAX_PASSPHRASE_SIZE	1024
@@ -102,7 +107,9 @@ struct f2fs_fscrypt_policy {
 	__u8 filenames_encryption_mode;
 	__u8 flags;
 	__u8 master_key_descriptor[F2FS_KEY_DESCRIPTOR_SIZE];
-} __attribute__((packed));
+};
+
+static_assert(sizeof(struct f2fs_fscrypt_policy) == 12, "");
 
 #define F2FS_IOC_SET_ENCRYPTION_POLICY	_IOR('f', 19, struct f2fs_fscrypt_policy)
 #define F2FS_IOC_GET_ENCRYPTION_PWSALT	_IOW('f', 20, __u8[16])
@@ -119,7 +126,9 @@ struct f2fs_encryption_key {
         __u32 mode;
         char raw[F2FS_MAX_KEY_SIZE];
         __u32 size;
-} __attribute__((__packed__));
+};
+
+static_assert(sizeof(struct f2fs_encryption_key) == 72, "");
 
 int options;
 
@@ -348,11 +357,13 @@ static void parse_salt(char *salt_str, int flags)
 			perror("F2FS_IOC_GET_ENCRYPTION_PWSALT");
 			exit(1);
 		}
+#ifdef HAVE_LIBUUID
 		if (options & OPT_VERBOSE) {
 			char tmp[80];
 			uuid_unparse(buf, tmp);
 			printf("%s has pw salt %s\n", cp, tmp);
 		}
+#endif
 		salt_len = 16;
 	} else if (strncmp(cp, "f:", 2) == 0) {
 		cp += 2;
@@ -374,8 +385,10 @@ static void parse_salt(char *salt_str, int flags)
 				(((unsigned char)(h - hexchars) << 4) +
 				 (unsigned char)(l - hexchars));
 		}
+#ifdef HAVE_LIBUUID
 	} else if (uuid_parse(cp, buf) == 0) {
 		salt_len = 16;
+#endif
 	} else {
 	invalid_salt:
 		fprintf(stderr, "Invalid salt: %s\n", salt_str);
@@ -714,6 +727,7 @@ static void do_add_key(int argc, char **argv, const struct cmd_desc *cmd)
 			break;
 		default:
 			fprintf(stderr, "Unrecognized option: %c\n", opt);
+			fallthrough;
 		case '?':
 			fputs("USAGE:\n  ", stderr);
 			fputs(cmd->cmd_help, stderr);

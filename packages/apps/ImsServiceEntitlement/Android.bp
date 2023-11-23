@@ -70,6 +70,7 @@ android_app {
     static_libs: [
         "ImsServiceEntitlementLib",
     ],
+    resource_dirs: [],
     optimize: {
         proguard_flags_files: ["proguard.flags"],
     },

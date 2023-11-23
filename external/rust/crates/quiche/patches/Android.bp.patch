@@ -1,8 +1,8 @@
 diff --git a/Android.bp b/Android.bp
-index aced8a6..578cc68 100644
+index 884af0e..ecbb83f 100644
 --- a/Android.bp
 +++ b/Android.bp
-@@ -43,26 +43,39 @@ cc_library_headers {
+@@ -43,8 +43,8 @@ cc_library_headers {
      min_sdk_version: "29",
  }
  
@@ -13,7 +13,7 @@ index aced8a6..578cc68 100644
      stem: "libquiche",
      host_supported: true,
      crate_name: "quiche",
-     cargo_env_compat: true,
+@@ -52,10 +52,11 @@ rust_ffi_shared {
      srcs: ["src/lib.rs"],
      edition: "2018",
      features: [
@@ -27,30 +27,27 @@ index aced8a6..578cc68 100644
          "liblazy_static",
          "liblibc",
          "liblibm",
-         "liblog_rust",
-         "libring",
+@@ -65,41 +66,19 @@ rust_ffi_shared {
+         "libslab",
+         "libsmallvec",
      ],
 -    static_libs: [
+-        "libcrypto",
+-        "libssl",
+-    ],
 +    prefer_rlib: true,
 +    // For DnsResolver (Mainline module introduced in Q).
-+    apex_available: [
-+        "//apex_available:platform",
-+        "com.android.resolv",
-+    ],
-+    min_sdk_version: "29",
-+}
-+
-+rust_ffi {
-+    name: "libquiche_ffi",
-+    defaults: ["libquiche_defaults"],
-+    shared_libs: [
-         "libcrypto",
-         "libssl",
+     apex_available: [
+         "//apex_available:platform",
+         "com.android.resolv",
      ],
-@@ -69,54 +82,20 @@ rust_ffi_shared {
+-    product_available: true,
+-    vendor_available: true,
+     min_sdk_version: "29",
+ }
  
- rust_library {
-     name: "libquiche",
+-rust_library {
+-    name: "libquiche",
 -    host_supported: true,
 -    crate_name: "quiche",
 -    cargo_env_compat: true,
@@ -65,26 +62,30 @@ index aced8a6..578cc68 100644
 -        "liblibc",
 -        "liblibm",
 -        "liblog_rust",
+-        "liboctets",
 -        "libring",
+-        "libslab",
+-        "libsmallvec",
 -    ],
 -    static_libs: [
++rust_ffi {
++    name: "libquiche_ffi",
 +    defaults: ["libquiche_defaults"],
 +    shared_libs: [
          "libcrypto",
          "libssl",
      ],
--    apex_available: [
--        "//apex_available:platform",
--        "com.android.resolv",
--    ],
--    min_sdk_version: "29",
+@@ -107,57 +86,41 @@ rust_library {
+         "//apex_available:platform",
+         "com.android.resolv",
+     ],
+-    product_available: true,
+-    vendor_available: true,
+     min_sdk_version: "29",
  }
  
 -rust_ffi_static {
-+// This target is used by doh_unit_test to prevent compatibility issues
-+// because doh_unit_test needs to be run on the R platform.
-+rust_library_rlib {
-     name: "libquiche_static",
+-    name: "libquiche_static",
 -    stem: "libquiche",
 -    host_supported: true,
 -    crate_name: "quiche",
@@ -100,8 +101,23 @@ index aced8a6..578cc68 100644
 -        "liblibc",
 -        "liblibm",
 -        "liblog_rust",
+-        "liboctets",
 -        "libring",
--    ],
+-        "libslab",
+-        "libsmallvec",
++rust_library {
++    name: "libquiche",
++    defaults: ["libquiche_defaults"],
++    shared_libs: [
++        "libcrypto",
++        "libssl",
+     ],
++}
++
++// This target is used by doh_unit_test to prevent compatibility issues
++// because doh_unit_test needs to be run on the R platform.
++rust_library_rlib {
++    name: "libquiche_static",
 +    defaults: ["libquiche_defaults"],
      static_libs: [
 -        "libcrypto",
@@ -109,7 +125,11 @@ index aced8a6..578cc68 100644
          "libssl",
      ],
      apex_available: [
-@@ -111,17 +90,13 @@ rust_library_rlib {
+         "//apex_available:platform",
+         "com.android.resolv",
+     ],
+-    product_available: true,
+-    vendor_available: true,
      min_sdk_version: "29",
  }
  
@@ -128,9 +148,9 @@ index aced8a6..578cc68 100644
 -    },
      edition: "2018",
      features: [
-         "boringssl",
-@@ -136,10 +132,6 @@ rust_test {
-         "libring",
+         "boringssl-vendored",
+@@ -175,10 +138,6 @@ rust_test {
+         "libsmallvec",
          "liburl",
      ],
 -    static_libs: [
@@ -140,7 +160,7 @@ index aced8a6..578cc68 100644
      data: [
          "examples/cert.crt",
          "examples/cert.key",
-@@ -149,3 +118,26 @@ rust_test {
+@@ -186,3 +145,26 @@ rust_test {
          "examples/rootca.crt",
      ],
  }

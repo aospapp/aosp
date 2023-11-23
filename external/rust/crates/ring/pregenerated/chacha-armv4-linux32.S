@@ -10,7 +10,8 @@
 
 #if !defined(OPENSSL_NO_ASM)
 #if defined(__arm__)
-#include <GFp/arm_arch.h>
+#include "ring_core_generated/prefix_symbols_asm.h"
+#include <ring-core/arm_arch.h>
 
 @ Silence ARMv8 deprecated IT instruction warnings. This file is used by both
 @ ARMv7 and ARMv8 processors and does not use ARMv8 instructions.
@@ -37,18 +38,18 @@
 .long	1,0,0,0
 #if __ARM_MAX_ARCH__>=7
 
-.hidden	GFp_armcap_P
+.hidden	OPENSSL_armcap_P
 .LOPENSSL_armcap:
-.word	GFp_armcap_P-.LChaCha20_ctr32
+.word	OPENSSL_armcap_P-.LChaCha20_ctr32
 #else
 .word	-1
 #endif
 
-.globl	GFp_ChaCha20_ctr32
-.hidden	GFp_ChaCha20_ctr32
-.type	GFp_ChaCha20_ctr32,%function
+.globl	ChaCha20_ctr32
+.hidden	ChaCha20_ctr32
+.type	ChaCha20_ctr32,%function
 .align	5
-GFp_ChaCha20_ctr32:
+ChaCha20_ctr32:
 .LChaCha20_ctr32:
 	ldr	r12,[sp,#0]		@ pull pointer to counter and nonce
 	stmdb	sp!,{r0,r1,r2,r4-r11,lr}
@@ -806,7 +807,7 @@ GFp_ChaCha20_ctr32:
 	add	sp,sp,#4*(32+3)
 .Lno_data:
 	ldmia	sp!,{r4,r5,r6,r7,r8,r9,r10,r11,pc}
-.size	GFp_ChaCha20_ctr32,.-GFp_ChaCha20_ctr32
+.size	ChaCha20_ctr32,.-ChaCha20_ctr32
 #if __ARM_MAX_ARCH__>=7
 .arch	armv7-a
 .fpu	neon

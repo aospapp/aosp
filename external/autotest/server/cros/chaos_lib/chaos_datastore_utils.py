@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
-#!/usr/bin/env python2.7
+#!/usr/bin/env python3
+# Lint as: python2, python3
 # Copyright (c) 2019 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -15,20 +16,20 @@ import requests
 
 class ChaosDataStoreUtils(object):
 
-    CHAOS_DATASTORE_URL = 'https://chaos-188802.appspot.com'
+    CHAOS_DATASTORE_URL = r'https://chaos-188802.appspot.com/'
 
     # The Datastore defines the following paths for operating methods.
-    ADD_DEVICE = "devices/new"
-    REMOVE_DEVICE = "devices/delete"
-    LOCK_DEVICE = "devices/lock"
-    UNLOCK_DEVICE = 'devices/unlock'
-    SHOW_DEVICE = "devices/"
-    GET_DEVICES = 'devices/'
-    GET_UNLOCKED_DEVICES = "unlocked_devices/"
-    GET_DEVICES_BY_AP_LABEL = "devices/location"
+    ADD_DEVICE = r"devices/new"
+    REMOVE_DEVICE = r"devices/delete"
+    LOCK_DEVICE = r"devices/lock"
+    UNLOCK_DEVICE = r"devices/unlock"
+    SHOW_DEVICE = r"devices/"
+    GET_DEVICES = r"devices/"
+    GET_UNLOCKED_DEVICES = r"unlocked_devices/"
+    GET_DEVICES_BY_AP_LABEL = r"devices/location"
 
     # HTTP content type. JSON encoded with UTF-8 character encoding.
-    HTTP_HEADER = {'content-type': 'application/json'}
+    HTTP_HEADER = {'content-type': r'application/json'}
 
 
     def add_device(self, host_name, ap_label):
@@ -43,7 +44,7 @@ class ChaosDataStoreUtils(object):
         @rtype: bool
 
         """
-        request = self.CHAOS_DATASTORE_URL + '/' + self.ADD_DEVICE
+        request = self.CHAOS_DATASTORE_URL + self.ADD_DEVICE
         logging.debug("Request = %s", request)
         response = requests.post(request,
                                  headers=self.HTTP_HEADER,
@@ -68,7 +69,7 @@ class ChaosDataStoreUtils(object):
         @rtype: bool
 
         """
-        request = self.CHAOS_DATASTORE_URL + '/' + self.REMOVE_DEVICE
+        request = self.CHAOS_DATASTORE_URL + self.REMOVE_DEVICE
         logging.debug("Request = %s", request)
         response = requests.put(request,
                                 headers=self.HTTP_HEADER,
@@ -91,7 +92,7 @@ class ChaosDataStoreUtils(object):
         @rtype: bool
 
         """
-        request = self.CHAOS_DATASTORE_URL + '/' + self.LOCK_DEVICE
+        request = self.CHAOS_DATASTORE_URL + self.LOCK_DEVICE
         logging.debug("Request = %s", request)
         response = requests.put(request,
                                 headers=self.HTTP_HEADER,
@@ -114,7 +115,7 @@ class ChaosDataStoreUtils(object):
         @rtype: bool
 
         """
-        request = self.CHAOS_DATASTORE_URL + '/' + self.UNLOCK_DEVICE
+        request = self.CHAOS_DATASTORE_URL + self.UNLOCK_DEVICE
         logging.debug("Request = %s", request)
         response = requests.put(request,
                                 headers=self.HTTP_HEADER,
@@ -138,7 +139,7 @@ class ChaosDataStoreUtils(object):
         @rtype: dict when True, else bool:False
 
         """
-        request = self.CHAOS_DATASTORE_URL + '/' + self.SHOW_DEVICE + host_name
+        request = str(self.CHAOS_DATASTORE_URL) + str(self.SHOW_DEVICE) + str(host_name)
         logging.debug("Request = %s", request)
         response = requests.get(request)
         if 'error' in response.text:
@@ -156,7 +157,7 @@ class ChaosDataStoreUtils(object):
         @rtype: dict when True, else bool:False
 
         """
-        request = self.CHAOS_DATASTORE_URL + '/' + self.GET_UNLOCKED_DEVICES
+        request = self.CHAOS_DATASTORE_URL + self.GET_UNLOCKED_DEVICES
         logging.debug("Request = %s", request)
         response = requests.get(request)
         if 'error' in response.text:
@@ -174,7 +175,7 @@ class ChaosDataStoreUtils(object):
         @rtype: dict when True, else bool:False
 
         """
-        request = self.CHAOS_DATASTORE_URL + '/' + self.GET_DEVICES
+        request = self.CHAOS_DATASTORE_URL + self.GET_DEVICES
         logging.debug("Request = %s", request)
         response = requests.get(request)
         if 'error' in response.text:
@@ -195,7 +196,7 @@ class ChaosDataStoreUtils(object):
         @rtype: dict when True, else bool:False
 
         """
-        request = self.CHAOS_DATASTORE_URL + '/' +  self.GET_DEVICES_BY_AP_LABEL
+        request = self.CHAOS_DATASTORE_URL + self.GET_DEVICES_BY_AP_LABEL
         logging.debug("Request = %s", request)
         response = requests.put(request,
                                 headers=self.HTTP_HEADER,
@@ -216,7 +217,7 @@ class ChaosDataStoreUtils(object):
         @rtype: bool
 
         """
-        request = self.CHAOS_DATASTORE_URL + '/' + self.SHOW_DEVICE + host_name
+        request = self.CHAOS_DATASTORE_URL + self.SHOW_DEVICE + host_name
         logging.debug("Request = %s", request)
         response = requests.get(request)
         if 'null' in response.text:

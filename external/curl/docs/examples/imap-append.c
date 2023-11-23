@@ -5,7 +5,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 1998 - 2021, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
@@ -18,10 +18,12 @@
  * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
  * KIND, either express or implied.
  *
+ * SPDX-License-Identifier: curl
+ *
  ***************************************************************************/
 
 /* <DESC>
- * IMAP example showing how to send e-mails
+ * Send email with IMAP
  * </DESC>
  */
 
@@ -89,7 +91,8 @@ int main(void)
 
   curl = curl_easy_init();
   if(curl) {
-    long infilesize;
+    size_t filesize;
+    long infilesize = LONG_MAX;
     struct upload_status upload_ctx = { 0 };
 
     /* Set username and password */
@@ -108,7 +111,9 @@ int main(void)
     curl_easy_setopt(curl, CURLOPT_READDATA, &upload_ctx);
     curl_easy_setopt(curl, CURLOPT_UPLOAD, 1L);
 
-    infilesize = strlen(payload_text);
+    filesize = strlen(payload_text);
+    if(filesize <= LONG_MAX)
+      infilesize = (long)filesize;
     curl_easy_setopt(curl, CURLOPT_INFILESIZE, infilesize);
 
     /* Perform the append */

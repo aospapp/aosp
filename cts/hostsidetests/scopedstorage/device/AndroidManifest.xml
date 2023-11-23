@@ -19,9 +19,25 @@
 
     <uses-sdk android:minSdkVersion="30" />
 
-    <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" />
+    <uses-permission android:name="android.permission.READ_MEDIA_VISUAL_USER_SELECTED" />
+    <uses-permission android:name="android.permission.ACCESS_MEDIA_LOCATION" />
+
+    <queries>
+        <package android:name="android.scopedstorage.cts.testapp.A.withres" />
+        <package android:name="android.scopedstorage.cts.testapp.A31.withres" />
+        <package android:name="android.scopedstorage.cts.testapp.B.noperms" />
+        <package android:name="android.scopedstorage.cts.testapp.C" />
+        <package android:name="android.scopedstorage.cts.testapp.D" />
+        <package android:name="android.scopedstorage.cts.testapp.filemanager" />
+        <package android:name="android.scopedstorage.cts.testapp.filemanagerbypassdb" />
+        <package android:name="android.scopedstorage.cts.testapp.SystemGalleryBypassDB" />
+        <package android:name="android.scopedstorage.cts.testapp.withqueriestag" />
+        <package android:name="android.scopedstorage.cts.testapp.withqueryallpackagestag" />
+    </queries>
+
     <application android:label="Scoped Storage Device Tests">
         <uses-library android:name="android.test.runner" />
+        <activity android:name="android.scopedstorage.cts.lib.GetResultActivity"/>
     </application>
 
     <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"

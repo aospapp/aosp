@@ -93,6 +93,8 @@ class BluetoothAudioClientInterface {
 
   static bool is_aidl_available();
 
+  static int GetAidlInterfaceVersion();
+
  protected:
   mutable std::mutex internal_mutex_;
   /***
@@ -106,6 +108,8 @@ class BluetoothAudioClientInterface {
   static void binderDiedCallbackAidl(void* cookie_ptr);
 
   std::shared_ptr<IBluetoothAudioProvider> provider_;
+
+  std::shared_ptr<IBluetoothAudioProviderFactory> provider_factory_;
 
   bool session_started_;
   std::unique_ptr<DataMQ> data_mq_;

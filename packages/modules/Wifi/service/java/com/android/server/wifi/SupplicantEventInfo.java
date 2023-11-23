@@ -18,22 +18,32 @@ package com.android.server.wifi;
 
 import android.annotation.NonNull;
 import android.net.MacAddress;
+import android.net.wifi.WifiManager;
+import android.util.Log;
 
 import com.android.server.wifi.SupplicantStaIfaceHal.SupplicantEventCode;
-
-import java.util.Objects;
 
 /**
  * Stores supplicant event information passed from WifiMonitor.
  */
 public class SupplicantEventInfo {
+    private static final String TAG = "SupplicantEventInfo";
     SupplicantEventInfo(@SupplicantEventCode int eventCode, @NonNull MacAddress bssid,
             @NonNull String reasonString) {
+        if (bssid == null) {
+            Log.wtf(TAG, "Null BSSID provided");
+            this.bssid = WifiManager.ALL_ZEROS_MAC_ADDRESS;
+        } else {
+            this.bssid = bssid;
+        }
+        if (reasonString == null) {
+            Log.wtf(TAG, "Null reason string provided");
+            this.reasonString = "unknown";
+        } else {
+            this.reasonString = reasonString;
+        }
         this.eventCode = eventCode;
-        this.bssid = Objects.requireNonNull(bssid);
-        this.reasonString = Objects.requireNonNull(reasonString);
     }
-
     public final @SupplicantEventCode int eventCode;
     @NonNull public final MacAddress bssid;
     @NonNull public final String reasonString;

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2021 The Android Open Source Project
+ * Copyright (C) 2022 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,32 +21,91 @@ import static junit.framework.Assert.assertTrue;
 import android.app.Instrumentation;
 import android.content.pm.PackageManager;
 import android.content.pm.PackageManager.NameNotFoundException;
-import android.support.test.uiautomator.By;
-import android.support.test.uiautomator.BySelector;
-import android.support.test.uiautomator.UiObject2;
+import android.platform.helpers.ScrollUtility.ScrollActions;
+import android.platform.helpers.ScrollUtility.ScrollDirection;
+import android.platform.helpers.exceptions.UnknownUiException;
 
-public class SettingsAppInfoHelperImpl extends AbstractAutoStandardAppHelper
+import androidx.test.uiautomator.By;
+import androidx.test.uiautomator.BySelector;
+import androidx.test.uiautomator.UiObject2;
+
+/** App info settings helper file */
+public class SettingsAppInfoHelperImpl extends AbstractStandardAppHelper
         implements IAutoAppInfoSettingsHelper {
+
+    private ScrollUtility mScrollUtility;
+    private ScrollActions mScrollAction;
+    private BySelector mBackwardButtonSelector;
+    private BySelector mForwardButtonSelector;
+    private BySelector mAppInfoPermissionsScrollableElementSelector;
+    private BySelector mAppInfoPermissionsBackwardButtonSelector;
+    private BySelector mAppInfoPermissionsForwardButtonSelector;
+    private BySelector mScrollableElementSelector;
+    private ScrollDirection mScrollDirection;
+
     public SettingsAppInfoHelperImpl(Instrumentation instr) {
         super(instr);
+        mScrollUtility = ScrollUtility.getInstance(getSpectatioUiUtil());
+        mScrollAction =
+                ScrollActions.valueOf(
+                        getActionFromConfig(
+                                AutomotiveConfigConstants.APP_INFO_SETTINGS_SCROLL_ACTION));
+        mBackwardButtonSelector =
+                getUiElementFromConfig(
+                        AutomotiveConfigConstants.APP_INFO_SETTINGS_SCROLL_BACKWARD_BUTTON);
+        mForwardButtonSelector =
+                getUiElementFromConfig(
+                        AutomotiveConfigConstants.APP_INFO_SETTINGS_SCROLL_FORWARD_BUTTON);
+        mScrollableElementSelector =
+                getUiElementFromConfig(AutomotiveConfigConstants.APP_INFO_SETTINGS_SCROLL_ELEMENT);
+        mAppInfoPermissionsScrollableElementSelector =
+                getUiElementFromConfig(
+                        AutomotiveConfigConstants.APP_INFO_SETTINGS_PERMISSIONS_SCROLL_ELEMENT);
+        mAppInfoPermissionsBackwardButtonSelector =
+                getUiElementFromConfig(
+                        AutomotiveConfigConstants
+                                .APP_INFO_SETTINGS_PERMISSIONS_SCROLL_BACKWARD_BUTTON);
+        mAppInfoPermissionsForwardButtonSelector =
+                getUiElementFromConfig(
+                        AutomotiveConfigConstants
+                                .APP_INFO_SETTINGS_PERMISSIONS_SCROLL_FORWARD_BUTTON);
+        mScrollDirection =
+                ScrollDirection.valueOf(
+                        getActionFromConfig(
+                                AutomotiveConfigConstants.APP_INFO_SETTINGS_SCROLL_DIRECTION));
+        mScrollUtility.setScrollValues(
+                Integer.valueOf(
+                        getActionFromConfig(
+                                AutomotiveConfigConstants.APP_INFO_SETTINGS_SCROLL_MARGIN)),
+                Integer.valueOf(
+                        getActionFromConfig(
+                                AutomotiveConfigConstants.APP_INFO_SETTINGS_SCROLL_WAIT_TIME)));
     }
 
     /** {@inheritDoc} */
     @Override
     public void open() {
-        executeShellCommand(getApplicationConfig(AutoConfigConstants.OPEN_SETTINGS_COMMAND));
+        getSpectatioUiUtil()
+                .executeShellCommand(
+                        getCommandFromConfig(AutomotiveConfigConstants.OPEN_SETTINGS_COMMAND));
     }
 
     /** {@inheritDoc} */
     @Override
     public String getPackage() {
-        return getApplicationConfig(AutoConfigConstants.SETTINGS_PACKAGE);
+        return getPackageFromConfig(AutomotiveConfigConstants.SETTINGS_PACKAGE);
     }
 
     /** {@inheritDoc} */
     @Override
     public String getLauncherName() {
-        throw new UnsupportedOperationException("Not Supported");
+        throw new UnsupportedOperationException("Operation not supported.");
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public void dismissInitialDialogs() {
+        // Nothing to dismiss
     }
 
     /** {@inheritDoc} */
@@ -55,28 +114,38 @@ public class SettingsAppInfoHelperImpl extends AbstractAutoStandardAppHelper
         BySelector selector =
                 By.clickable(true)
                         .hasDescendant(
-                                getResourceFromConfig(
-                                        AutoConfigConstants.SETTINGS,
-                                        AutoConfigConstants.APPS_SETTINGS,
-                                        AutoConfigConstants.VIEW_ALL));
-        UiObject2 show_all_apps_menu = scrollAndFindUiObject(selector, getScrollScreenIndex());
-        clickAndWaitForWindowUpdate(
-                getApplicationConfig(AutoConfigConstants.SETTINGS_PACKAGE), show_all_apps_menu);
+                                getUiElementFromConfig(
+                                        AutomotiveConfigConstants.APP_INFO_SETTINGS_VIEW_ALL));
+        UiObject2 show_all_apps_menu =
+                mScrollUtility.scrollAndFindUiObject(
+                        mScrollAction,
+                        mScrollDirection,
+                        mForwardButtonSelector,
+                        mBackwardButtonSelector,
+                        mScrollableElementSelector,
+                        selector,
+                        "Scroll on Apps to find View all button");
+        validateUiObject(show_all_apps_menu, "View all button");
+        getSpectatioUiUtil().clickAndWait(show_all_apps_menu);
     }
 
     /** {@inheritDoc} */
     @Override
     public void enableDisableApplication(State state) {
         BySelector enableDisableBtnSelector =
-                getResourceFromConfig(
-                        AutoConfigConstants.SETTINGS,
-                        AutoConfigConstants.APPS_SETTINGS,
-                        AutoConfigConstants.ENABLE_DISABLE_BUTTON);
+                getUiElementFromConfig(
+                        AutomotiveConfigConstants.APP_INFO_SETTINGS_ENABLE_DISABLE_BUTTON);
         UiObject2 enableDisableBtn =
-                scrollAndFindUiObject(enableDisableBtnSelector, getScrollScreenIndex());
-        clickAndWaitForWindowUpdate(
-                getApplicationConfig(AutoConfigConstants.SETTINGS_PACKAGE),
-                enableDisableBtn.getParent());
+                mScrollUtility.scrollAndFindUiObject(
+                        mScrollAction,
+                        mScrollDirection,
+                        mForwardButtonSelector,
+                        mBackwardButtonSelector,
+                        mScrollableElementSelector,
+                        enableDisableBtnSelector,
+                        String.format("Scroll on App info to find %s", state));
+        validateUiObject(enableDisableBtn, String.format("Enable Disable Button"));
+        getSpectatioUiUtil().clickAndWait(enableDisableBtn.getParent());
         if (state == State.ENABLE) {
             assertTrue(
                     "application is not enabled",
@@ -84,30 +153,23 @@ public class SettingsAppInfoHelperImpl extends AbstractAutoStandardAppHelper
                             .getText()
                             .matches(
                                     "(?i)"
-                                            + getResourceValue(
-                                                    AutoConfigConstants.SETTINGS,
-                                                    AutoConfigConstants.APPS_SETTINGS,
-                                                    AutoConfigConstants.DISABLE_BUTTON_TEXT)));
+                                            + AutomotiveConfigConstants
+                                                    .APP_INFO_SETTINGS_DISABLE_BUTTON_TEXT));
         } else {
             BySelector disableAppBtnSelector =
-                    getResourceFromConfig(
-                            AutoConfigConstants.SETTINGS,
-                            AutoConfigConstants.APPS_SETTINGS,
-                            AutoConfigConstants.DISABLE_APP_BUTTON);
-            UiObject2 disableAppBtn =
-                    scrollAndFindUiObject(disableAppBtnSelector, getScrollScreenIndex());
-            clickAndWaitForWindowUpdate(
-                    getApplicationConfig(AutoConfigConstants.SETTINGS_PACKAGE), disableAppBtn);
+                    getUiElementFromConfig(
+                            AutomotiveConfigConstants.APP_INFO_SETTINGS_DISABLE_APP_BUTTON);
+            UiObject2 disableAppBtn = getSpectatioUiUtil().findUiObject(disableAppBtnSelector);
+            validateUiObject(disableAppBtn, String.format("Disable app button"));
+            getSpectatioUiUtil().clickAndWait(disableAppBtn);
             assertTrue(
                     "application is not disabled",
                     enableDisableBtn
                             .getText()
                             .matches(
                                     "(?i)"
-                                            + getResourceValue(
-                                                    AutoConfigConstants.SETTINGS,
-                                                    AutoConfigConstants.APPS_SETTINGS,
-                                                    AutoConfigConstants.ENABLE_BUTTON_TEXT)));
+                                            + AutomotiveConfigConstants
+                                                    .APP_INFO_SETTINGS_ENABLE_BUTTON_TEXT));
         }
     }
 
@@ -125,80 +187,102 @@ public class SettingsAppInfoHelperImpl extends AbstractAutoStandardAppHelper
     @Override
     public void forceStop() {
         UiObject2 forceStopButton = getForceStopButton();
-        if (forceStopButton == null) {
-            throw new RuntimeException("Cannot find force stop button");
-        }
-        clickAndWaitForWindowUpdate(
-                getApplicationConfig(AutoConfigConstants.SETTINGS_PACKAGE), forceStopButton);
+        validateUiObject(forceStopButton, "force stop button");
+        getSpectatioUiUtil().clickAndWait(forceStopButton);
         BySelector okBtnSelector =
-                getResourceFromConfig(
-                        AutoConfigConstants.SETTINGS,
-                        AutoConfigConstants.APPS_SETTINGS,
-                        AutoConfigConstants.OK_BUTTON);
-        UiObject2 okBtn = findUiObject(okBtnSelector);
-        clickAndWaitForWindowUpdate(
-                getApplicationConfig(AutoConfigConstants.SETTINGS_PACKAGE), okBtn);
+                getUiElementFromConfig(AutomotiveConfigConstants.APP_INFO_SETTINGS_OK_BUTTON);
+        UiObject2 okBtn = getSpectatioUiUtil().findUiObject(okBtnSelector);
+        validateUiObject(okBtn, "Ok button");
+        getSpectatioUiUtil().clickAndWait(okBtn);
     }
 
     /** {@inheritDoc} */
     @Override
     public void setAppPermission(String permission, State state) {
         BySelector permissions_selector =
-                getResourceFromConfig(
-                        AutoConfigConstants.SETTINGS,
-                        AutoConfigConstants.APPS_SETTINGS,
-                        AutoConfigConstants.PERMISSIONS_MENU);
+                getUiElementFromConfig(
+                        AutomotiveConfigConstants.APP_INFO_SETTINGS_PERMISSIONS_MENU);
         UiObject2 permissions_menu =
-                scrollAndFindUiObject(permissions_selector, getScrollScreenIndex());
-        clickAndWaitForWindowUpdate(
-                getApplicationConfig(AutoConfigConstants.SETTINGS_PACKAGE), permissions_menu);
+                mScrollUtility.scrollAndFindUiObject(
+                        mScrollAction,
+                        mScrollDirection,
+                        mForwardButtonSelector,
+                        mBackwardButtonSelector,
+                        mScrollableElementSelector,
+                        permissions_selector,
+                        String.format("Scroll on %s permission to find %s", permission, state));
+        getSpectatioUiUtil().clickAndWait(permissions_menu);
         BySelector permission_selector = By.text(permission);
         UiObject2 permission_menu =
-                scrollAndFindUiObject(permission_selector, getScrollScreenIndex());
-        clickAndWaitForWindowUpdate(
-                getApplicationConfig(AutoConfigConstants.SETTINGS_PACKAGE), permission_menu);
+                mScrollUtility.scrollAndFindUiObject(
+                        mScrollAction,
+                        mScrollDirection,
+                        mAppInfoPermissionsForwardButtonSelector,
+                        mAppInfoPermissionsBackwardButtonSelector,
+                        mAppInfoPermissionsScrollableElementSelector,
+                        permission_selector,
+                        String.format("Scroll on %s permission to find %s", permission, state));
+        if (permission_menu == null) {
+            throw new RuntimeException("Cannot find the permission_selector" + permission);
+        }
+        getSpectatioUiUtil().clickAndWait(permission_menu);
         if (state == State.ENABLE) {
             UiObject2 allow_btn =
-                    scrollAndFindUiObject(
-                            getResourceFromConfig(
-                                    AutoConfigConstants.SETTINGS,
-                                    AutoConfigConstants.APPS_SETTINGS,
-                                    AutoConfigConstants.ALLOW_BUTTON));
-            clickAndWaitForWindowUpdate(
-                    getApplicationConfig(AutoConfigConstants.SETTINGS_PACKAGE), allow_btn);
+                    mScrollUtility.scrollAndFindUiObject(
+                            mScrollAction,
+                            mScrollDirection,
+                            mAppInfoPermissionsForwardButtonSelector,
+                            mAppInfoPermissionsBackwardButtonSelector,
+                            mAppInfoPermissionsScrollableElementSelector,
+                            getUiElementFromConfig(
+                                    AutomotiveConfigConstants.APP_INFO_SETTINGS_ALLOW_BUTTON),
+                            "Scroll on App info to find Allow Button");
+            validateUiObject(allow_btn, "Allow button");
+            getSpectatioUiUtil().clickAndWait(allow_btn);
         } else {
             UiObject2 dont_allow_btn =
-                    scrollAndFindUiObject(
-                            getResourceFromConfig(
-                                    AutoConfigConstants.SETTINGS,
-                                    AutoConfigConstants.APPS_SETTINGS,
-                                    AutoConfigConstants.DONT_ALLOW_BUTTON));
-            clickAndWaitForWindowUpdate(
-                    getApplicationConfig(AutoConfigConstants.SETTINGS_PACKAGE), dont_allow_btn);
+                    mScrollUtility.scrollAndFindUiObject(
+                            mScrollAction,
+                            mScrollDirection,
+                            mAppInfoPermissionsForwardButtonSelector,
+                            mAppInfoPermissionsBackwardButtonSelector,
+                            mAppInfoPermissionsScrollableElementSelector,
+                            getUiElementFromConfig(
+                                    AutomotiveConfigConstants.APP_INFO_SETTINGS_DONT_ALLOW_BUTTON),
+                            "Scroll on App info to find Don't Allow Button");
+            getSpectatioUiUtil().clickAndWait(dont_allow_btn);
             UiObject2 dont_allow_anyway_btn =
-                    scrollAndFindUiObject(
-                            getResourceFromConfig(
-                                    AutoConfigConstants.SETTINGS,
-                                    AutoConfigConstants.APPS_SETTINGS,
-                                    AutoConfigConstants.DONT_ALLOW_ANYWAY_BUTTON));
-            clickAndWaitForWindowUpdate(
-                    getApplicationConfig(AutoConfigConstants.SETTINGS_PACKAGE),
-                    dont_allow_anyway_btn);
+                    mScrollUtility.scrollAndFindUiObject(
+                            mScrollAction,
+                            mScrollDirection,
+                            mForwardButtonSelector,
+                            mBackwardButtonSelector,
+                            mScrollableElementSelector,
+                            getUiElementFromConfig(
+                                    AutomotiveConfigConstants
+                                            .APP_INFO_SETTINGS_DONT_ALLOW_ANYWAY_BUTTON),
+                            "Scroll on App info to find Don't Allow anyway Button");
+            getSpectatioUiUtil().clickAndWait(dont_allow_anyway_btn);
         }
-        pressBack();
-        pressBack();
+        getSpectatioUiUtil().pressBack();
+        getSpectatioUiUtil().pressBack();
     }
 
     /** {@inheritDoc} */
     @Override
     public String getCurrentPermissions() {
         BySelector permissions_selector =
-                getResourceFromConfig(
-                        AutoConfigConstants.SETTINGS,
-                        AutoConfigConstants.APPS_SETTINGS,
-                        AutoConfigConstants.PERMISSIONS_MENU);
+                getUiElementFromConfig(
+                        AutomotiveConfigConstants.APP_INFO_SETTINGS_PERMISSIONS_MENU);
         UiObject2 permission_menu =
-                scrollAndFindUiObject(permissions_selector, getScrollScreenIndex());
+                mScrollUtility.scrollAndFindUiObject(
+                        mScrollAction,
+                        mScrollDirection,
+                        mAppInfoPermissionsForwardButtonSelector,
+                        mAppInfoPermissionsBackwardButtonSelector,
+                        mAppInfoPermissionsScrollableElementSelector,
+                        permissions_selector,
+                        "Scroll on App info to find permission menu");
         String currentPermissions = permission_menu.getParent().getChildren().get(1).getText();
         return currentPermissions;
     }
@@ -206,32 +290,36 @@ public class SettingsAppInfoHelperImpl extends AbstractAutoStandardAppHelper
     /** {@inheritDoc} */
     @Override
     public void selectApp(String application) {
-        BySelector selector = By.textContains(application);
-        UiObject2 object = scrollAndFindUiObject(selector, getScrollScreenIndex());
-        if (object == null) {
-            throw new RuntimeException("Cannot find the app menu");
-        }
-        clickAndWaitForWindowUpdate(
-                getApplicationConfig(AutoConfigConstants.SETTINGS_PACKAGE), object);
+
+        BySelector applicationSelector = By.text(application);
+        UiObject2 object =
+                mScrollUtility.scrollAndFindUiObject(
+                        mScrollAction,
+                        mScrollDirection,
+                        mForwardButtonSelector,
+                        mBackwardButtonSelector,
+                        mScrollableElementSelector,
+                        applicationSelector,
+                        String.format("Scroll on App info to find %s", application));
+        validateUiObject(object, String.format("App %s", application));
+        getSpectatioUiUtil().clickAndWait(object);
+        getSpectatioUiUtil().wait5Seconds();
     }
 
     private UiObject2 getForceStopButton() {
         BySelector forceStopSelector =
-                getResourceFromConfig(
-                        AutoConfigConstants.SETTINGS,
-                        AutoConfigConstants.APPS_SETTINGS,
-                        AutoConfigConstants.FORCE_STOP_BUTTON);
+                getUiElementFromConfig(
+                        AutomotiveConfigConstants.APP_INFO_SETTINGS_FORCE_STOP_BUTTON);
         UiObject2 forceStopButton =
-                scrollAndFindUiObject(forceStopSelector, getScrollScreenIndex());
+                mScrollUtility.scrollAndFindUiObject(
+                        mScrollAction,
+                        mScrollDirection,
+                        mForwardButtonSelector,
+                        mBackwardButtonSelector,
+                        mScrollableElementSelector,
+                        forceStopSelector,
+                        "Scroll on App info to find force stop button");
         return forceStopButton;
-    }
-
-    private int getScrollScreenIndex() {
-        int scrollScreenIndex = 0;
-        if (hasSplitScreenSettingsUI()) {
-            scrollScreenIndex = 1;
-        }
-        return scrollScreenIndex;
     }
 
     /** {@inheritDoc} */
@@ -245,5 +333,32 @@ public class SettingsAppInfoHelperImpl extends AbstractAutoStandardAppHelper
             throw new RuntimeException(String.format("Failed to find package: %s", packageName), e);
         }
         return applicationDisabled;
+    }
+
+    /** {@inheritDoc} */
+    @Override
+    public boolean hasUIElement(String element) {
+        boolean isElementPresent;
+        BySelector elementSelector = getUiElementFromConfig(element);
+        isElementPresent = getSpectatioUiUtil().hasUiElement(elementSelector);
+        if (!isElementPresent) {
+            isElementPresent =
+                    mScrollUtility.scrollAndCheckIfUiElementExist(
+                            mScrollAction,
+                            mScrollDirection,
+                            mForwardButtonSelector,
+                            mBackwardButtonSelector,
+                            mScrollableElementSelector,
+                            elementSelector,
+                            "scroll and find UI Element");
+        }
+        return isElementPresent;
+    }
+
+    private void validateUiObject(UiObject2 uiObject, String action) {
+        if (uiObject == null) {
+            throw new UnknownUiException(
+                    String.format("Unable to find UI Element for %s.", action));
+        }
     }
 }

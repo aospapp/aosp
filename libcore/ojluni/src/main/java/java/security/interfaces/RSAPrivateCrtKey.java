@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998, 2018, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 1998, 2020, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -46,6 +46,13 @@ public interface RSAPrivateCrtKey extends RSAPrivateKey {
      * serialization compatibility with a previous
      * version of the type.
      */
+    // Android-removed: (b/260847206) revert once aosp/master is marked as V.
+    // * @deprecated A {@code serialVersionUID} field in an interface is
+    // * ineffectual. Do not use; no replacement.
+    // */
+    // @Deprecated
+    // @SuppressWarnings("serial")
+    // @java.io.Serial
     static final long serialVersionUID = -5682214253527700368L;
 
     /**
@@ -57,7 +64,7 @@ public interface RSAPrivateCrtKey extends RSAPrivateKey {
 
     /**
      * Returns the primeP.
-
+     *
      * @return the primeP
      */
     public BigInteger getPrimeP();

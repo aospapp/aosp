@@ -17,9 +17,7 @@ package android.host.test.composer;
 
 import java.util.Map;
 
-/**
- * An extension of {@link IterateBase} for host-side testing.
- */
+/** An extension of {@link IterateBase} for host-side testing. */
 public class Iterate<U> extends IterateBase<Map<String, String>, U> {
     @Override
     protected int getIterationsArgument(Map<String, String> args) {
@@ -44,10 +42,10 @@ public class Iterate<U> extends IterateBase<Map<String, String>, U> {
             try {
                 order = OrderOptions.valueOf(orderStr.toUpperCase());
             } catch (IllegalArgumentException e) {
-                throw new
-                    IllegalArgumentException(
-                            String.format("The supplied order option \"%s\" is not supported.",
-                                    orderStr));
+                throw new IllegalArgumentException(
+                        String.format(
+                                "The supplied order option \"%s\" is not supported.", orderStr),
+                        e);
             }
         }
         return order;

@@ -11,4 +11,7 @@
 # dependencies of the cc_toolchain. Then the root directory of the repository
 # becomes part of said transitive dependencies and thus every file is in a
 # subdirectory of it.
-filegroup(name="empty", visibility=["//visibility:public"])
+filegroup(
+    name = "empty",
+    visibility = ["//visibility:public"],
+)

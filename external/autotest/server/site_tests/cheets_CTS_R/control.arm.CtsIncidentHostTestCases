@@ -12,6 +12,7 @@ JOB_RETRIES = 1
 TEST_TYPE = 'server'
 TIME = 'MEDIUM'
 MAX_RESULT_SIZE_KB = 512000
+PY_VERSION = 3
 DOC = 'Run module CtsIncidentHostTestCases of the Android Compatibility Test Suite (CTS) using arm ABI in the ARC++ container.'
 
 def run_TS(machine):
@@ -20,6 +21,7 @@ def run_TS(machine):
         'cheets_CTS_R',
         hosts=host_list,
         iterations=1,
+        max_retry=10,
         tag='arm.CtsIncidentHostTestCases',
         test_name='cheets_CTS_R.arm.CtsIncidentHostTestCases',
         run_template=['run', 'commandAndExit', 'cts', '--module', 'CtsIncidentHostTestCases'],

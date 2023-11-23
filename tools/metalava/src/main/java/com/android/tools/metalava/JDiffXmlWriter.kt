@@ -207,7 +207,7 @@ class JDiffXmlWriter(
 
         writer.print("<method name=\"")
         writer.print(method.name())
-        method.returnType()?.let {
+        method.returnType().let {
             writer.print("\"\n return=\"")
             writer.print(XmlUtils.toXmlAttributeValue(formatType(it)))
         }

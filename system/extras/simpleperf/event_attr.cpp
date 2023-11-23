@@ -145,7 +145,7 @@ void DumpPerfEventAttr(const perf_event_attr& attr, size_t indent) {
   PrintIndented(indent + 1, "sample_stack_user 0x%" PRIx64 "\n", attr.sample_stack_user);
 }
 
-bool GetCommonEventIdPositionsForAttrs(std::vector<perf_event_attr>& attrs,
+bool GetCommonEventIdPositionsForAttrs(const EventAttrIds& attrs,
                                        size_t* event_id_pos_in_sample_records,
                                        size_t* event_id_reverse_pos_in_non_sample_records) {
   // When there are more than one perf_event_attrs, we need to read event id
@@ -153,7 +153,7 @@ bool GetCommonEventIdPositionsForAttrs(std::vector<perf_event_attr>& attrs,
   // we need to determine the event id position in a record here.
   std::vector<uint64_t> sample_types;
   for (const auto& attr : attrs) {
-    sample_types.push_back(attr.sample_type);
+    sample_types.push_back(attr.attr.sample_type);
   }
   // First determine event_id_pos_in_sample_records.
   // If PERF_SAMPLE_IDENTIFIER is enabled, it is just after perf_event_header.
@@ -192,7 +192,7 @@ bool GetCommonEventIdPositionsForAttrs(std::vector<perf_event_attr>& attrs,
   // also be the same.
   bool sample_id_all_enabled = true;
   for (const auto& attr : attrs) {
-    if (attr.sample_id_all == 0) {
+    if (attr.attr.sample_id_all == 0) {
       sample_id_all_enabled = false;
     }
   }
@@ -252,6 +252,13 @@ std::string GetEventNameByAttr(const perf_event_attr& attr) {
   };
   EventTypeManager::Instance().ForEachType(callback);
   return name;
+}
+
+void ReplaceRegAndStackWithCallChain(perf_event_attr& attr) {
+  attr.sample_type &= ~(PERF_SAMPLE_REGS_USER | PERF_SAMPLE_STACK_USER);
+  attr.exclude_callchain_user = 0;
+  attr.sample_regs_user = 0;
+  attr.sample_stack_user = 0;
 }
 
 }  // namespace simpleperf

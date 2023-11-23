@@ -36,8 +36,8 @@ import androidx.preference.Preference;
 import com.android.settingslib.core.AbstractPreferenceController;
 import com.android.tv.settings.PreferenceControllerFragment;
 import com.android.tv.settings.R;
-import com.android.tv.settings.library.overlay.FlavorUtils;
-import com.android.tv.settings.library.util.SliceUtils;
+import com.android.tv.settings.overlay.FlavorUtils;
+import com.android.tv.settings.util.SliceUtils;
 import com.android.tv.twopanelsettings.slices.SlicePreference;
 
 import java.util.ArrayList;

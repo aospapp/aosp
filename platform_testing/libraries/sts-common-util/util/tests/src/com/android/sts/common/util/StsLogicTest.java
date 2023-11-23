@@ -33,8 +33,9 @@ import java.util.Optional;
 @RunWith(DeviceJUnit4ClassRunner.class)
 public class StsLogicTest extends BaseHostJUnit4Test {
 
-    private static final long[] PLATFORM_BUG = {1_000_000_000};
-    private static final long[] KERNEL_BUG = {2_000_000_000};
+    private static final long[] PLATFORM_BUG = {1_000_000_000L};
+    private static final long[] KERNEL_BUG = {2_000_000_000L};
+    private static final long[] MAINLINE_BUG = {3_000_000_000L};
 
     static {
         new BusinessLogicSetStore()
@@ -43,6 +44,13 @@ public class StsLogicTest extends BaseHostJUnit4Test {
                         Arrays.stream(KERNEL_BUG).mapToObj(Long::toString).toArray(String[]::new));
         new BusinessLogicMapStore().putMap("security_bulletins", null);
         new BusinessLogicMapStore().putMap("sts_modification_times", null);
+        new BusinessLogicMapStore()
+                .putMap(
+                        "bugid_mainline_modules",
+                        "#",
+                        Arrays.stream(MAINLINE_BUG)
+                                .mapToObj((bugId) -> Long.toString(bugId) + "#module 1,module 2")
+                                .toArray(String[]::new));
     }
 
     @Test
@@ -116,6 +124,48 @@ public class StsLogicTest extends BaseHostJUnit4Test {
                 logic.getDeviceSpl());
     }
 
+    @Test
+    public final void testNoSkipMainlineNoFlag() throws Exception {
+        StsLogic logic =
+                new StsLogicMock()
+                        .setCveBugIds(MAINLINE_BUG);
+        assertFalse(
+                "shouldn't skip because the flag isn't set.",
+                logic.shouldSkipMainline());
+    }
+
+    @Test
+    public final void testSkipMainlineWithFlag() throws Exception {
+        StsLogic logic =
+                new StsLogicMock()
+                        .setCveBugIds(MAINLINE_BUG)
+                        .setShouldSkipMainlineTests(true);
+        assertTrue(
+                "should skip because the flag is set and this is a Mainline CVE.",
+                logic.shouldSkipMainline());
+    }
+
+    @Test
+    public final void testNoSkipMainlineNotCve() throws Exception {
+        StsLogic logic =
+                new StsLogicMock()
+                        .setCveBugIds(null)
+                        .setShouldSkipMainlineTests(true);
+        assertFalse(
+                "shouldn't Mainline skip because this test is not a CVE test.",
+                logic.shouldSkipMainline());
+    }
+
+    @Test
+    public final void testNoSkipMainlineNotMainlineCve() throws Exception {
+        StsLogic logic =
+                new StsLogicMock()
+                        .setShouldSkipMainlineTests(true);
+        assertFalse(
+                "shouldn't Mainline skip because this test is not a Mainline CVE.",
+                logic.shouldSkipMainline());
+    }
+
     private static class StsLogicMock implements StsLogic {
 
         private long[] cveBugIds = PLATFORM_BUG;
@@ -123,6 +173,7 @@ public class StsLogicTest extends BaseHostJUnit4Test {
         private LocalDate releaseBulletinSpl;
         private Optional<LocalDate> kernelBuildDate;
         private boolean shouldUseKernelSpl = false;
+        private boolean shouldSkipMainlineTests = false;
 
         {
             setPlatformSpl("2022-01-01");
@@ -159,6 +210,11 @@ public class StsLogicTest extends BaseHostJUnit4Test {
             return this;
         }
 
+        public StsLogicMock setShouldSkipMainlineTests(boolean shouldSkipMainlineTests) {
+            this.shouldSkipMainlineTests = shouldSkipMainlineTests;
+            return this;
+        }
+
         @Override
         public Description getTestDescription() {
             throw new UnsupportedOperationException(
@@ -184,6 +240,11 @@ public class StsLogicTest extends BaseHostJUnit4Test {
         @Override
         public boolean shouldUseKernelSpl() {
             return this.shouldUseKernelSpl;
+        }
+
+        @Override
+        public boolean shouldSkipMainlineTests() {
+            return this.shouldSkipMainlineTests;
         }
 
         @Override

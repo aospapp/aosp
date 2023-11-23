@@ -18,10 +18,14 @@
 
 #define LOG_TAG "bt_btif_sock"
 
+#include "btif/include/btif_sock.h"
+
+#include <base/functional/callback.h>
 #include <base/logging.h>
 #include <frameworks/proto_logging/stats/enums/bluetooth/enums.pb.h>
 #include <hardware/bluetooth.h>
 #include <hardware/bt_sock.h>
+#include <time.h>
 
 #include <atomic>
 
@@ -40,9 +44,8 @@
 #include "types/bluetooth/uuid.h"
 #include "types/raw_address.h"
 
-extern bool btif_get_address_type(const RawAddress& bda,
-                                  tBLE_ADDR_TYPE* p_addr_type);
-extern bool btif_get_device_type(const RawAddress& bda, int* p_device_type);
+bool btif_get_address_type(const RawAddress& bda, tBLE_ADDR_TYPE* p_addr_type);
+bool btif_get_device_type(const RawAddress& bda, int* p_device_type);
 
 using bluetooth::Uuid;
 
@@ -54,17 +57,39 @@ static bt_status_t btsock_connect(const RawAddress* bd_addr, btsock_type_t type,
                                   int flags, int app_uid);
 
 static void btsock_request_max_tx_data_length(const RawAddress& bd_addr);
+static bt_status_t btsock_control_req(uint8_t dlci, const RawAddress& bd_addr,
+                                      uint8_t modem_signal,
+                                      uint8_t break_signal,
+                                      uint8_t discard_buffers,
+                                      uint8_t break_signal_seq, bool fc);
 
 static void btsock_signaled(int fd, int type, int flags, uint32_t user_id);
 
 static std::atomic_int thread_handle{-1};
 static thread_t* thread;
 
+#define SOCK_LOGGER_SIZE_MAX 16
+
+struct SockConnectionEvent {
+  bool used;
+  RawAddress addr;
+  int state;
+  int role;
+  struct timespec timestamp;
+
+  void dump(const int fd);
+};
+
+static std::atomic<uint8_t> logger_index;
+
+static SockConnectionEvent connection_logger[SOCK_LOGGER_SIZE_MAX];
+
 const btsock_interface_t* btif_sock_get_interface(void) {
   static btsock_interface_t interface = {
-      sizeof(interface), btsock_listen, /* listen */
-      btsock_connect,                   /* connect */
-      btsock_request_max_tx_data_length /* request_max_tx_data_length */
+      sizeof(interface), btsock_listen,  /* listen */
+      btsock_connect,                    /* connect */
+      btsock_request_max_tx_data_length, /* request_max_tx_data_length */
+      btsock_control_req                 /* send_control_req */
   };
 
   return &interface;
@@ -131,6 +156,97 @@ void btif_sock_cleanup(void) {
   thread = NULL;
 }
 
+void btif_sock_connection_logger(int state, int role, const RawAddress& addr) {
+  LOG_INFO("address=%s, role=%d, state=%d", ADDRESS_TO_LOGGABLE_CSTR(addr),
+           state, role);
+
+  uint8_t index = logger_index++ % SOCK_LOGGER_SIZE_MAX;
+
+  connection_logger[index] = {
+      .used = true,
+      .addr = addr,
+      .state = state,
+      .role = role,
+  };
+  clock_gettime(CLOCK_REALTIME, &connection_logger[index].timestamp);
+}
+
+void btif_sock_dump(int fd) {
+  dprintf(fd, "\nSocket Events: \n");
+  dprintf(fd, "  Time        \tAddress          \tState             \tRole\n");
+
+  const uint8_t head = logger_index.load() % SOCK_LOGGER_SIZE_MAX;
+
+  uint8_t index = head;
+  do {
+    connection_logger[index].dump(fd);
+
+    index++;
+    index %= SOCK_LOGGER_SIZE_MAX;
+  } while (index != head);
+  dprintf(fd, "\n");
+}
+
+void SockConnectionEvent::dump(const int fd) {
+  if (!used) {
+    return;
+  }
+
+  char eventtime[20];
+  char temptime[20];
+  struct tm* tstamp = localtime(&timestamp.tv_sec);
+  strftime(temptime, sizeof(temptime), "%H:%M:%S", tstamp);
+  snprintf(eventtime, sizeof(eventtime), "%s.%03ld", temptime,
+           timestamp.tv_nsec / 1000000);
+
+  const char* str_state;
+  switch (state) {
+    case SOCKET_CONNECTION_STATE_LISTENING:
+      str_state = "STATE_LISTENING";
+      break;
+    case SOCKET_CONNECTION_STATE_CONNECTING:
+      str_state = "STATE_CONNECTING";
+      break;
+    case SOCKET_CONNECTION_STATE_CONNECTED:
+      str_state = "STATE_CONNECTED";
+      break;
+    case SOCKET_CONNECTION_STATE_DISCONNECTING:
+      str_state = "STATE_DISCONNECTING";
+      break;
+    case SOCKET_CONNECTION_STATE_DISCONNECTED:
+      str_state = "STATE_DISCONNECTED";
+      break;
+    default:
+      str_state = "STATE_UNKNOWN";
+      break;
+  }
+
+  const char* str_role;
+  switch (role) {
+    case SOCKET_ROLE_LISTEN:
+      str_role = "ROLE_LISTEN";
+      break;
+    case SOCKET_ROLE_CONNECTION:
+      str_role = "ROLE_CONNECTION";
+      break;
+    default:
+      str_role = "ROLE_UNKNOWN";
+      break;
+  }
+
+  dprintf(fd, "  %s\t%s\t%s   \t%s\n", eventtime,
+          ADDRESS_TO_LOGGABLE_CSTR(addr), str_state, str_role);
+}
+
+static bt_status_t btsock_control_req(uint8_t dlci, const RawAddress& bd_addr,
+                                      uint8_t modem_signal,
+                                      uint8_t break_signal,
+                                      uint8_t discard_buffers,
+                                      uint8_t break_signal_seq, bool fc) {
+  return btsock_rfc_control_req(dlci, bd_addr, modem_signal, break_signal,
+                                discard_buffers, break_signal_seq, fc);
+}
+
 static bt_status_t btsock_listen(btsock_type_t type, const char* service_name,
                                  const Uuid* service_uuid, int channel,
                                  int* sock_fd, int flags, int app_uid) {
@@ -142,6 +258,8 @@ static bt_status_t btsock_listen(btsock_type_t type, const char* service_name,
   bt_status_t status = BT_STATUS_FAIL;
   int original_channel = channel;
 
+  btif_sock_connection_logger(SOCKET_CONNECTION_STATE_LISTENING,
+                              SOCKET_ROLE_LISTEN, RawAddress::kEmpty);
   log_socket_connection_state(RawAddress::kEmpty, 0, type,
                               android::bluetooth::SocketConnectionstateEnum::
                                   SOCKET_CONNECTION_STATE_LISTENING,
@@ -183,6 +301,8 @@ static bt_status_t btsock_listen(btsock_type_t type, const char* service_name,
       break;
   }
   if (status != BT_STATUS_SUCCESS) {
+    btif_sock_connection_logger(SOCKET_CONNECTION_STATE_DISCONNECTED,
+                                SOCKET_ROLE_LISTEN, RawAddress::kEmpty);
     log_socket_connection_state(RawAddress::kEmpty, 0, type,
                                 android::bluetooth::SocketConnectionstateEnum::
                                     SOCKET_CONNECTION_STATE_DISCONNECTED,
@@ -198,9 +318,13 @@ static bt_status_t btsock_connect(const RawAddress* bd_addr, btsock_type_t type,
   CHECK(bd_addr != NULL);
   CHECK(sock_fd != NULL);
 
+  LOG_INFO("%s", __func__);
+
   *sock_fd = INVALID_FD;
   bt_status_t status = BT_STATUS_FAIL;
 
+  btif_sock_connection_logger(SOCKET_CONNECTION_STATE_CONNECTING,
+                              SOCKET_ROLE_CONNECTION, *bd_addr);
   log_socket_connection_state(*bd_addr, 0, type,
                               android::bluetooth::SocketConnectionstateEnum::
                                   SOCKET_CONNECTION_STATE_CONNECTING,
@@ -245,6 +369,8 @@ static bt_status_t btsock_connect(const RawAddress* bd_addr, btsock_type_t type,
       break;
   }
   if (status != BT_STATUS_SUCCESS) {
+    btif_sock_connection_logger(SOCKET_CONNECTION_STATE_DISCONNECTED,
+                                SOCKET_ROLE_CONNECTION, *bd_addr);
     log_socket_connection_state(*bd_addr, 0, type,
                                 android::bluetooth::SocketConnectionstateEnum::
                                     SOCKET_CONNECTION_STATE_DISCONNECTED,

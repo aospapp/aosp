@@ -16,7 +16,9 @@
 
 #pragma once
 
+#include <memory>
 #include <vector>
+#include "aidl/android/hardware/security/keymint/IRemotelyProvisionedComponent.h"
 
 #include <keymaster/cppcose/cppcose.h>
 
@@ -106,15 +108,6 @@ struct BccEntryData {
     bytevec pubKey;
 };
 
-/**
- * Validates the provided CBOR-encoded BCC, returning a vector of BccEntryData
- * structs containing the BCC entry contents.  If an entry contains no firmware
- * digest, the corresponding BccEntryData.firmwareDigest will have length zero
- * (there's no way to distinguish between an empty and missing firmware digest,
- * which seems fine).
- */
-ErrMsgOr<std::vector<BccEntryData>> validateBcc(const cppbor::Array* bcc);
-
 struct JsonOutput {
     static JsonOutput Ok(std::string json) { return {std::move(json), ""}; }
     static JsonOutput Error(std::string error) { return {"", std::move(error)}; }
@@ -138,5 +131,55 @@ struct JsonOutput {
  */
 JsonOutput jsonEncodeCsrWithBuild(const std::string instance_name,
                                   const cppbor::Array& csr);
+
+/**
+ * Parses a DeviceInfo structure from the given CBOR data. The parsed data is then validated to
+ * ensure it contains the minimum required data at the time of manufacturing. This is only a
+ * partial validation, as some fields may not be provisioned yet at the time this information
+ * is parsed in the manufacturing process.
+ */
+ErrMsgOr<std::unique_ptr<cppbor::Map>> parseAndValidateFactoryDeviceInfo(
+        const std::vector<uint8_t>& deviceInfoBytes, IRemotelyProvisionedComponent* provisionable);
+
+/**
+ * Parses a DeviceInfo structure from the given CBOR data. The parsed data is then validated to
+ * ensure it is formatted correctly and that it contains the required values for Remote Key
+ * Provisioning. This is a full validation, and assumes the device is provisioned as if it is
+ * suitable for the end user.
+ */
+ErrMsgOr<std::unique_ptr<cppbor::Map>> parseAndValidateProductionDeviceInfo(
+        const std::vector<uint8_t>& deviceInfoBytes, IRemotelyProvisionedComponent* provisionable);
+
+/**
+ * Verify the protected data as if the device is still early in the factory process and may not
+ * have all device identifiers provisioned yet.
+ */
+ErrMsgOr<std::vector<BccEntryData>> verifyFactoryProtectedData(
+        const DeviceInfo& deviceInfo, const cppbor::Array& keysToSign,
+        const std::vector<uint8_t>& keysToSignMac, const ProtectedData& protectedData,
+        const EekChain& eekChain, const std::vector<uint8_t>& eekId, int32_t supportedEekCurve,
+        IRemotelyProvisionedComponent* provisionable, const std::vector<uint8_t>& challenge);
+/**
+ * Verify the protected data as if the device is a final production sample.
+ */
+ErrMsgOr<std::vector<BccEntryData>> verifyProductionProtectedData(
+        const DeviceInfo& deviceInfo, const cppbor::Array& keysToSign,
+        const std::vector<uint8_t>& keysToSignMac, const ProtectedData& protectedData,
+        const EekChain& eekChain, const std::vector<uint8_t>& eekId, int32_t supportedEekCurve,
+        IRemotelyProvisionedComponent* provisionable, const std::vector<uint8_t>& challenge);
+
+/**
+ * Verify the CSR as if the device is still early in the factory process and may not
+ * have all device identifiers provisioned yet.
+ */
+ErrMsgOr<std::unique_ptr<cppbor::Array>> verifyFactoryCsr(
+        const cppbor::Array& keysToSign, const std::vector<uint8_t>& csr,
+        IRemotelyProvisionedComponent* provisionable, const std::vector<uint8_t>& challenge);
+/**
+ * Verify the CSR as if the device is a final production sample.
+ */
+ErrMsgOr<std::unique_ptr<cppbor::Array>> verifyProductionCsr(
+        const cppbor::Array& keysToSign, const std::vector<uint8_t>& csr,
+        IRemotelyProvisionedComponent* provisionable, const std::vector<uint8_t>& challenge);
 
 }  // namespace aidl::android::hardware::security::keymint::remote_prov

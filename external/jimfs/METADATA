@@ -16,7 +16,7 @@ third_party {
     type: GIT
     value: "https://github.com/google/jimfs.git"
   }
-  version: "v1.1"
-  last_upgrade_date { year: 2019 month: 12 day: 18 }
+  version: "v1.2"
+  last_upgrade_date { year: 2022 month: 11 day: 2 }
   license_type: NOTICE
 }

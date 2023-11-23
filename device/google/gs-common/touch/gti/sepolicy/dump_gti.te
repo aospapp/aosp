@@ -1,0 +1,8 @@
+pixel_bugreport(dump_gti)
+
+allow dump_gti proc_touch_gti:dir r_dir_perms;
+allow dump_gti proc_touch_gti:file rw_file_perms;
+allow dump_gti sysfs_touch_gti:dir r_dir_perms;
+allow dump_gti sysfs_touch_gti:file rw_file_perms;
+allow dump_gti vendor_toolbox_exec:file execute_no_trans;
+

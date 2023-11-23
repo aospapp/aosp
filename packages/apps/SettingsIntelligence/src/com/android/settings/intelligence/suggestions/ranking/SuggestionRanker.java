@@ -40,15 +40,14 @@ public class SuggestionRanker {
     // relevance metric for ranking the suggestion items. This model is learned with off-line data
     // by training a binary classifier to detect the clicked items. The higher the obtained
     // relevance metric, the higher chance of getting clicked.
-    private static final Map<String, Double> WEIGHTS = new HashMap<String, Double>() {{
-        put(SuggestionFeaturizer.FEATURE_IS_SHOWN, 5.05140842519);
-        put(SuggestionFeaturizer.FEATURE_IS_DISMISSED, 2.29641455171);
-        put(SuggestionFeaturizer.FEATURE_IS_CLICKED, -2.98812233623);
-        put(SuggestionFeaturizer.FEATURE_TIME_FROM_LAST_SHOWN, 5.02807250202);
-        put(SuggestionFeaturizer.FEATURE_TIME_FROM_LAST_DISMISSED, 2.49589700842);
-        put(SuggestionFeaturizer.FEATURE_TIME_FROM_LAST_CLICKED, -4.3377039948);
-        put(SuggestionFeaturizer.FEATURE_SHOWN_COUNT, -2.35993512546);
-    }};
+    private static final Map<String, Double> WEIGHTS = Map.of(
+            SuggestionFeaturizer.FEATURE_IS_SHOWN, 5.05140842519,
+            SuggestionFeaturizer.FEATURE_IS_DISMISSED, 2.29641455171,
+            SuggestionFeaturizer.FEATURE_IS_CLICKED, -2.98812233623,
+            SuggestionFeaturizer.FEATURE_TIME_FROM_LAST_SHOWN, 5.02807250202,
+            SuggestionFeaturizer.FEATURE_TIME_FROM_LAST_DISMISSED, 2.49589700842,
+            SuggestionFeaturizer.FEATURE_TIME_FROM_LAST_CLICKED, -4.3377039948,
+            SuggestionFeaturizer.FEATURE_SHOWN_COUNT, -2.35993512546);
 
     private final long mMaxSuggestionsDisplayCount;
     private final SuggestionFeaturizer mSuggestionFeaturizer;

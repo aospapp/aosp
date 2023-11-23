@@ -11,15 +11,15 @@ from autotest_lib.client.cros.cellular.mbim_compliance import mbim_constants
 from autotest_lib.client.cros.cellular.mbim_compliance import mbim_data_transfer
 
 class TestMbimDeviceContext(object):
-    """ Dummy device context. """
+    """ Stub device context. """
     pass
 
 class TestMbimDescriptorCache(object):
-    """ Dummy MBIM descriptor cache. """
+    """ Stub MBIM descriptor cache. """
     pass
 
 class TestMbimEndpointDescriptor(object):
-    """ Dummy MBIM endpoint descriptor. """
+    """ Stub MBIM endpoint descriptor. """
     pass
 
 class MBIMMessageTestCase(unittest.TestCase):

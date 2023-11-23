@@ -7,5 +7,6 @@
   "device": true,
   "features": "std",
   "run": true,
-  "tests": true
+  "tests": true,
+  "vendor-available": true
 }

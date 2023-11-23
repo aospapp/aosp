@@ -21,8 +21,7 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 
 @IntDef({
-        NotificationViewType.GROUP_COLLAPSED,
-        NotificationViewType.GROUP_EXPANDED,
+        NotificationViewType.GROUP,
         NotificationViewType.GROUP_SUMMARY,
         NotificationViewType.BASIC,
         NotificationViewType.BASIC_IN_GROUP,
@@ -46,35 +45,34 @@ import java.lang.annotation.RetentionPolicy;
 @Retention(RetentionPolicy.SOURCE)
 @interface NotificationViewType {
 
-    int GROUP_COLLAPSED = 1;
-    int GROUP_EXPANDED = 2;
-    int GROUP_SUMMARY = 3;
+    int GROUP = 1;
+    int GROUP_SUMMARY = 2;
 
-    int BASIC = 4;
-    int BASIC_IN_GROUP = 5;
+    int BASIC = 3;
+    int BASIC_IN_GROUP = 4;
 
-    int MESSAGE = 6;
-    int MESSAGE_IN_GROUP = 7;
+    int MESSAGE = 5;
+    int MESSAGE_IN_GROUP = 6;
 
-    int PROGRESS = 8;
-    int PROGRESS_IN_GROUP = 9;
+    int PROGRESS = 7;
+    int PROGRESS_IN_GROUP = 8;
 
-    int INBOX = 10;
-    int INBOX_IN_GROUP = 11;
+    int INBOX = 9;
+    int INBOX_IN_GROUP = 10;
 
-    int CAR_EMERGENCY = 12;
+    int CAR_EMERGENCY = 11;
 
-    int CAR_WARNING = 13;
+    int CAR_WARNING = 12;
 
-    int CAR_INFORMATION = 14;
-    int CAR_INFORMATION_IN_GROUP = 15;
+    int CAR_INFORMATION = 13;
+    int CAR_INFORMATION_IN_GROUP = 14;
 
-    int NAVIGATION = 16;
-    int CALL = 17;
+    int NAVIGATION = 15;
+    int CALL = 16;
 
-    int HEADER = 18;
-    int FOOTER = 19;
+    int HEADER = 17;
+    int FOOTER = 18;
 
-    int RECENTS = 20;
-    int OLDER = 21;
+    int RECENTS = 19;
+    int OLDER = 20;
 }

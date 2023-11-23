@@ -318,7 +318,8 @@ class PairingHandlerLe {
 
   std::optional<PairingEvent> WaitUiPairingAccept() {
     PairingEvent e = WaitForEvent();
-    if (e.type == PairingEvent::UI & e.ui_action == PairingEvent::PAIRING_ACCEPTED) {
+    if (e.type == PairingEvent::UI &&
+        e.ui_action == PairingEvent::PAIRING_ACCEPTED) {
       return e;
     } else {
       return std::nullopt;
@@ -327,7 +328,8 @@ class PairingHandlerLe {
 
   std::optional<PairingEvent> WaitUiConfirmYesNo() {
     PairingEvent e = WaitForEvent();
-    if (e.type == PairingEvent::UI & e.ui_action == PairingEvent::CONFIRM_YESNO) {
+    if (e.type == PairingEvent::UI &&
+        e.ui_action == PairingEvent::CONFIRM_YESNO) {
       return e;
     } else {
       return std::nullopt;
@@ -362,7 +364,8 @@ class PairingHandlerLe {
       e = WaitForEvent();
     }
 
-    if (e.type == PairingEvent::UI & e.ui_action == PairingEvent::PASSKEY) {
+    if (e.type == PairingEvent::UI &&
+        e.ui_action == PairingEvent::PASSKEY) {
       return e;
     } else {
       return std::nullopt;

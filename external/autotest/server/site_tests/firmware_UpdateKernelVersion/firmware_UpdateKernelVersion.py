@@ -46,7 +46,8 @@ class firmware_UpdateKernelVersion(FirmwareTest):
         """Initialize the test"""
         super(firmware_UpdateKernelVersion, self).initialize(host, cmdline_args)
 
-        self.switcher.setup_mode('dev' if dev_mode else 'normal')
+        self.switcher.setup_mode('dev' if dev_mode else 'normal',
+                                 allow_gbb_force=True)
 
         actual_ver = self.faft_client.kernel.get_version('b')
         logging.info('Original Kernel Version of KERN-B is %s', actual_ver)

@@ -17,11 +17,12 @@
 package android.car.hardware.power;
 
 import android.car.annotation.AddedInOrBefore;
+import android.car.annotation.ApiRequirements;
 
 /**
  * Copy from android.frameworks.automotive.powerpolicy-java-source/gen/android/frameworks/automotive
  * /powerpolicy/PowerComponent.java. Must be updated when power components are added to
- * {@link android.frameworks.hardware.automotivie.powerpolicy.PowerComponent}.
+ * {@code android.frameworks.automotive.powerpolicy.PowerComponent}.
  */
 public @interface PowerComponent {
     /**
@@ -105,4 +106,11 @@ public @interface PowerComponent {
      */
     @AddedInOrBefore(majorVersion = 33)
     int CPU = 16;
+    /**
+     * This is minimal allowed value for custom defined power components
+     */
+    @ApiRequirements(minCarVersion = ApiRequirements.CarVersion.UPSIDE_DOWN_CAKE_0,
+            minPlatformVersion = ApiRequirements.PlatformVersion.UPSIDE_DOWN_CAKE_0)
+    int MINIMUM_CUSTOM_COMPONENT_VALUE = 1000;
+
 }

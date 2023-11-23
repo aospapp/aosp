@@ -19,18 +19,17 @@
  *   Functions generated:11
  */
 
+#include <string.h>
+
 #include <map>
 #include <string>
-
-extern std::map<std::string, int> mock_function_count_map;
-
-#include <string.h>
 
 #include "bta/include/bta_api.h"
 #include "stack/bnep/bnep_int.h"
 #include "stack/btm/btm_sec.h"
 #include "stack/include/bnep_api.h"
 #include "stack/include/bt_hdr.h"
+#include "test/common/mock_functions.h"
 #include "types/bluetooth/uuid.h"
 #include "types/raw_address.h"
 
@@ -43,48 +42,48 @@ using namespace bluetooth;
 tBNEP_RESULT BNEP_Connect(const RawAddress& p_rem_bda, const Uuid& src_uuid,
                           const Uuid& dst_uuid, uint16_t* p_handle,
                           uint32_t mx_chan_id) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return 0;
 }
 tBNEP_RESULT BNEP_ConnectResp(uint16_t handle, tBNEP_RESULT resp) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return 0;
 }
 tBNEP_RESULT BNEP_Disconnect(uint16_t handle) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return 0;
 }
 tBNEP_RESULT BNEP_Register(tBNEP_REGISTER* p_reg_info) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return 0;
 }
 tBNEP_RESULT BNEP_SetMulticastFilters(uint16_t handle, uint16_t num_filters,
                                       uint8_t* p_start_array,
                                       uint8_t* p_end_array) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return 0;
 }
 tBNEP_RESULT BNEP_SetProtocolFilters(uint16_t handle, uint16_t num_filters,
                                      uint16_t* p_start_array,
                                      uint16_t* p_end_array) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return 0;
 }
 tBNEP_RESULT BNEP_Write(uint16_t handle, const RawAddress& p_dest_addr,
                         uint8_t* p_data, uint16_t len, uint16_t protocol,
                         const RawAddress* p_src_addr, bool fw_ext_present) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return 0;
 }
 tBNEP_RESULT BNEP_WriteBuf(uint16_t handle, const RawAddress& p_dest_addr,
                            BT_HDR* p_buf, uint16_t protocol,
                            const RawAddress* p_src_addr, bool fw_ext_present) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return 0;
 }
 uint8_t BNEP_SetTraceLevel(uint8_t new_level) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return 0;
 }
-void BNEP_Deregister(void) { mock_function_count_map[__func__]++; }
-void BNEP_Init(void) { mock_function_count_map[__func__]++; }
+void BNEP_Deregister(void) { inc_func_call_count(__func__); }
+void BNEP_Init(void) { inc_func_call_count(__func__); }

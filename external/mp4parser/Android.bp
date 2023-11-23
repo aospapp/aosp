@@ -48,4 +48,9 @@ java_library {
     srcs: ["isoparser/src/main/java/**/*.java"],
     java_resource_dirs: ["isoparser/src/main/resources"],
 
+    errorprone: {
+        javacflags: [
+            "-Xep:ArrayToString:WARN",
+        ],
+    },
 }

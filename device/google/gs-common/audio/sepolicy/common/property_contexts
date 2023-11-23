@@ -1,0 +1,11 @@
+# for audio
+vendor.audio_hal.period_multiplier              u:object_r:vendor_audio_prop:s0
+vendor.audiodump.enable                         u:object_r:vendor_audio_prop:s0
+persist.vendor.audio.                           u:object_r:vendor_audio_prop:s0
+vendor.audiodump.log.ondemand                   u:object_r:vendor_audio_prop:s0
+vendor.audiodump.log.config                     u:object_r:vendor_audio_prop:s0
+vendor.audiodump.output.dir                     u:object_r:vendor_audio_prop:s0
+vendor.audiodump.encode.disable                 u:object_r:vendor_audio_prop:s0
+vendor.audiodump.log.cca.updated                u:object_r:vendor_audio_prop:s0
+vendor.audiodump.cca.config                     u:object_r:vendor_audio_prop:s0
+vendor.audio_hal.aidl.enable                    u:object_r:vendor_audio_prop:s0

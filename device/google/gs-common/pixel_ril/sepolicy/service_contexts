@@ -1,0 +1,3 @@
+hardware.google.ril_ext.IRilExt/slot1               u:object_r:hal_ril_ext_service:s0
+hardware.google.ril_ext.IRilExt/slot2               u:object_r:hal_ril_ext_service:s0
+hardware.google.ril_ext.IRilExt/slot3               u:object_r:hal_ril_ext_service:s0

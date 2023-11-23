@@ -2,6 +2,10 @@
 
 #include <binder/IInterface.h>
 #include <android/aidl/tests/nested/INestedService.h>
+#include <android/aidl/tests/nested/BnNestedService.h>
+#include <android/aidl/tests/nested/INestedService.h>
+#include <binder/Delegate.h>
+
 
 namespace android {
 namespace aidl {
@@ -17,13 +21,18 @@ public:
 
 class INestedServiceDelegator : public BnNestedService {
 public:
-  explicit INestedServiceDelegator(::android::sp<INestedService> &impl) : _aidl_delegate(impl) {}
+  explicit INestedServiceDelegator(const ::android::sp<INestedService> &impl) : _aidl_delegate(impl) {}
 
+  ::android::sp<INestedService> getImpl() { return _aidl_delegate; }
   ::android::binder::Status flipStatus(const ::android::aidl::tests::nested::ParcelableWithNested& p, ::android::aidl::tests::nested::INestedService::Result* _aidl_return) override {
     return _aidl_delegate->flipStatus(p, _aidl_return);
   }
   ::android::binder::Status flipStatusWithCallback(::android::aidl::tests::nested::ParcelableWithNested::Status status, const ::android::sp<::android::aidl::tests::nested::INestedService::ICallback>& cb) override {
-    return _aidl_delegate->flipStatusWithCallback(status, cb);
+    ::android::sp<::android::aidl::tests::nested::INestedService::ICallbackDelegator> _cb;
+    if (cb) {
+      _cb = ::android::sp<::android::aidl::tests::nested::INestedService::ICallbackDelegator>::cast(delegate(cb));
+    }
+    return _aidl_delegate->flipStatusWithCallback(status, _cb);
   }
 private:
   ::android::sp<INestedService> _aidl_delegate;

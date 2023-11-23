@@ -46,6 +46,12 @@ public class FastPairTestData {
     /** Model ID in {@link #getFastPairRecord()}. */
     public static final byte[] FAST_PAIR_MODEL_ID = Hex.stringToBytes("AABBCC");
 
+    /** An arbitrary BLE device address. */
+    public static final String DEVICE_ADDRESS = "00:00:00:00:00:01";
+
+    /** Arbitrary RSSI (Received Signal Strength Indicator). */
+    public static final int RSSI = -72;
+
     /** @see #getFastPairRecord() */
     public static byte[] newFastPairRecord(byte header, byte[] modelId) {
         return newFastPairRecord(
@@ -60,6 +66,45 @@ public class FastPairTestData {
                 String.format("02011E020AF0%02X162CFE%s", length,
                         Hex.bytesToStringUppercase(serviceData)));
     }
+
+    // This is an example extended inquiry response for a phone with PANU
+    // and Hands-free Audio Gateway
+    public static byte[] eir_1 = {
+            0x06, // Length of this Data
+            0x09, // <<Complete Local Name>>
+            'P',
+            'h',
+            'o',
+            'n',
+            'e',
+            0x05, // Length of this Data
+            0x03, // <<Complete list of 16-bit Service UUIDs>>
+            0x15,
+            0x11, // PANU service class UUID
+            0x1F,
+            0x11, // Hands-free Audio Gateway service class UUID
+            0x01, // Length of this data
+            0x05, // <<Complete list of 32-bit Service UUIDs>>
+            0x11, // Length of this data
+            0x07, // <<Complete list of 128-bit Service UUIDs>>
+            0x01,
+            0x02,
+            0x03,
+            0x04,
+            0x05,
+            0x06,
+            0x07,
+            0x08, // Made up UUID
+            0x11,
+            0x12,
+            0x13,
+            0x14,
+            0x15,
+            0x16,
+            0x17,
+            0x18, //
+            0x00 // End of Data (Not transmitted over the air
+    };
 
     // This is an example of advertising data with AD types
     public static byte[] adv_1 = {
@@ -138,4 +183,46 @@ public class FastPairTestData {
             0x00
     };
 
+    // An Eddystone UID frame. go/eddystone for more info
+    public static byte[] eddystone_header_and_uuid = {
+            // BLE Flags
+            (byte) 0x02,
+            (byte) 0x01,
+            (byte) 0x06,
+            // Service UUID
+            (byte) 0x03,
+            (byte) 0x03,
+            (byte) 0xaa,
+            (byte) 0xfe,
+            // Service data header
+            (byte) 0x17,
+            (byte) 0x16,
+            (byte) 0xaa,
+            (byte) 0xfe,
+            // Eddystone frame type
+            (byte) 0x00,
+            // Ranging data
+            (byte) 0xb3,
+            // Eddystone ID namespace
+            (byte) 0x0a,
+            (byte) 0x09,
+            (byte) 0x08,
+            (byte) 0x07,
+            (byte) 0x06,
+            (byte) 0x05,
+            (byte) 0x04,
+            (byte) 0x03,
+            (byte) 0x02,
+            (byte) 0x01,
+            // Eddystone ID instance
+            (byte) 0x16,
+            (byte) 0x15,
+            (byte) 0x14,
+            (byte) 0x13,
+            (byte) 0x12,
+            (byte) 0x11,
+            // RFU
+            (byte) 0x00,
+            (byte) 0x00
+    };
 }

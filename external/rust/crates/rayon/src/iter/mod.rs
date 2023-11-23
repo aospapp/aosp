@@ -119,6 +119,8 @@ mod flat_map_iter;
 mod flatten;
 mod flatten_iter;
 mod fold;
+mod fold_chunks;
+mod fold_chunks_with;
 mod for_each;
 mod from_par_iter;
 mod inspect;
@@ -139,9 +141,14 @@ mod reduce;
 mod repeat;
 mod rev;
 mod skip;
+mod skip_any;
+mod skip_any_while;
 mod splitter;
+mod step_by;
 mod sum;
 mod take;
+mod take_any;
+mod take_any_while;
 mod try_fold;
 mod try_reduce;
 mod try_reduce_with;
@@ -165,6 +172,8 @@ pub use self::{
     flatten::Flatten,
     flatten_iter::FlattenIter,
     fold::{Fold, FoldWith},
+    fold_chunks::FoldChunks,
+    fold_chunks_with::FoldChunksWith,
     inspect::Inspect,
     interleave::Interleave,
     interleave_shortest::InterleaveShortest,
@@ -180,18 +189,19 @@ pub use self::{
     repeat::{repeat, repeatn, Repeat, RepeatN},
     rev::Rev,
     skip::Skip,
+    skip_any::SkipAny,
+    skip_any_while::SkipAnyWhile,
     splitter::{split, Split},
+    step_by::StepBy,
     take::Take,
+    take_any::TakeAny,
+    take_any_while::TakeAnyWhile,
     try_fold::{TryFold, TryFoldWith},
     update::Update,
     while_some::WhileSome,
     zip::Zip,
     zip_eq::ZipEq,
 };
-
-mod step_by;
-#[cfg(step_by)]
-pub use self::step_by::StepBy;
 
 /// `IntoParallelIterator` implements the conversion to a [`ParallelIterator`].
 ///
@@ -457,10 +467,10 @@ pub trait ParallelIterator: Sized + Send {
     fn try_for_each<OP, R>(self, op: OP) -> R
     where
         OP: Fn(Self::Item) -> R + Sync + Send,
-        R: Try<Ok = ()> + Send,
+        R: Try<Output = ()> + Send,
     {
-        fn ok<R: Try<Ok = ()>>(_: (), _: ()) -> R {
-            R::from_ok(())
+        fn ok<R: Try<Output = ()>>(_: (), _: ()) -> R {
+            R::from_output(())
         }
 
         self.map(op).try_reduce(<()>::default, ok)
@@ -497,10 +507,10 @@ pub trait ParallelIterator: Sized + Send {
     where
         OP: Fn(&mut T, Self::Item) -> R + Sync + Send,
         T: Send + Clone,
-        R: Try<Ok = ()> + Send,
+        R: Try<Output = ()> + Send,
     {
-        fn ok<R: Try<Ok = ()>>(_: (), _: ()) -> R {
-            R::from_ok(())
+        fn ok<R: Try<Output = ()>>(_: (), _: ()) -> R {
+            R::from_output(())
         }
 
         self.map_with(init, op).try_reduce(<()>::default, ok)
@@ -539,10 +549,10 @@ pub trait ParallelIterator: Sized + Send {
     where
         OP: Fn(&mut T, Self::Item) -> R + Sync + Send,
         INIT: Fn() -> T + Sync + Send,
-        R: Try<Ok = ()> + Send,
+        R: Try<Output = ()> + Send,
     {
-        fn ok<R: Try<Ok = ()>>(_: (), _: ()) -> R {
-            R::from_ok(())
+        fn ok<R: Try<Output = ()>>(_: (), _: ()) -> R {
+            R::from_output(())
         }
 
         self.map_init(init, op).try_reduce(<()>::default, ok)
@@ -921,7 +931,7 @@ pub trait ParallelIterator: Sized + Send {
 
     /// An adaptor that flattens serial-iterable `Item`s into one large iterator.
     ///
-    /// See also [`flatten`](#method.flatten) and the analagous comparison of
+    /// See also [`flatten`](#method.flatten) and the analogous comparison of
     /// [`flat_map_iter` versus `flat_map`](#flat_map_iter-versus-flat_map).
     ///
     /// # Examples
@@ -1065,7 +1075,7 @@ pub trait ParallelIterator: Sized + Send {
     where
         OP: Fn(T, T) -> Self::Item + Sync + Send,
         ID: Fn() -> T + Sync + Send,
-        Self::Item: Try<Ok = T>,
+        Self::Item: Try<Output = T>,
     {
         try_reduce::try_reduce(self, identity, op)
     }
@@ -1108,7 +1118,7 @@ pub trait ParallelIterator: Sized + Send {
     fn try_reduce_with<T, OP>(self, op: OP) -> Option<Self::Item>
     where
         OP: Fn(T, T) -> Self::Item + Sync + Send,
-        Self::Item: Try<Ok = T>,
+        Self::Item: Try<Output = T>,
     {
         try_reduce_with::try_reduce_with(self, op)
     }
@@ -1124,7 +1134,7 @@ pub trait ParallelIterator: Sized + Send {
     /// multiple sums. The number of results is nondeterministic, as
     /// is the point where the breaks occur.
     ///
-    /// So if did the same parallel fold (`fold(0, |a,b| a+b)`) on
+    /// So if we did the same parallel fold (`fold(0, |a,b| a+b)`) on
     /// our example list, we might wind up with a sequence of two numbers,
     /// like so:
     ///
@@ -1311,7 +1321,7 @@ pub trait ParallelIterator: Sized + Send {
     where
         F: Fn(T, Self::Item) -> R + Sync + Send,
         ID: Fn() -> T + Sync + Send,
-        R: Try<Ok = T> + Send,
+        R: Try<Output = T> + Send,
     {
         TryFold::new(self, identity, fold_op)
     }
@@ -1337,7 +1347,7 @@ pub trait ParallelIterator: Sized + Send {
     fn try_fold_with<F, T, R>(self, init: T, fold_op: F) -> TryFoldWith<Self, R, F>
     where
         F: Fn(T, Self::Item) -> R + Sync + Send,
-        R: Try<Ok = T> + Send,
+        R: Try<Output = T> + Send,
         T: Clone + Send,
     {
         TryFoldWith::new(self, init, fold_op)
@@ -2098,7 +2108,7 @@ pub trait ParallelIterator: Sized + Send {
     /// Note: unlike the standard `Iterator::partition`, this allows distinct
     /// collection types for the left and right items.  This is more flexible,
     /// but may require new type annotations when converting sequential code
-    /// that used type inferrence assuming the two were the same.
+    /// that used type inference assuming the two were the same.
     ///
     /// # Examples
     ///
@@ -2192,6 +2202,143 @@ pub trait ParallelIterator: Sized + Send {
         Intersperse::new(self, element)
     }
 
+    /// Creates an iterator that yields `n` elements from *anywhere* in the original iterator.
+    ///
+    /// This is similar to [`IndexedParallelIterator::take`] without being
+    /// constrained to the "first" `n` of the original iterator order. The
+    /// taken items will still maintain their relative order where that is
+    /// visible in `collect`, `reduce`, and similar outputs.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use rayon::prelude::*;
+    ///
+    /// let result: Vec<_> = (0..100)
+    ///     .into_par_iter()
+    ///     .filter(|&x| x % 2 == 0)
+    ///     .take_any(5)
+    ///     .collect();
+    ///
+    /// assert_eq!(result.len(), 5);
+    /// assert!(result.windows(2).all(|w| w[0] < w[1]));
+    /// ```
+    fn take_any(self, n: usize) -> TakeAny<Self> {
+        TakeAny::new(self, n)
+    }
+
+    /// Creates an iterator that skips `n` elements from *anywhere* in the original iterator.
+    ///
+    /// This is similar to [`IndexedParallelIterator::skip`] without being
+    /// constrained to the "first" `n` of the original iterator order. The
+    /// remaining items will still maintain their relative order where that is
+    /// visible in `collect`, `reduce`, and similar outputs.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use rayon::prelude::*;
+    ///
+    /// let result: Vec<_> = (0..100)
+    ///     .into_par_iter()
+    ///     .filter(|&x| x % 2 == 0)
+    ///     .skip_any(5)
+    ///     .collect();
+    ///
+    /// assert_eq!(result.len(), 45);
+    /// assert!(result.windows(2).all(|w| w[0] < w[1]));
+    /// ```
+    fn skip_any(self, n: usize) -> SkipAny<Self> {
+        SkipAny::new(self, n)
+    }
+
+    /// Creates an iterator that takes elements from *anywhere* in the original iterator
+    /// until the given `predicate` returns `false`.
+    ///
+    /// The `predicate` may be anything -- e.g. it could be checking a fact about the item, a
+    /// global condition unrelated to the item itself, or some combination thereof.
+    ///
+    /// If parallel calls to the `predicate` race and give different results, then the
+    /// `true` results will still take those particular items, while respecting the `false`
+    /// result from elsewhere to skip any further items.
+    ///
+    /// This is similar to [`Iterator::take_while`] without being constrained to the original
+    /// iterator order. The taken items will still maintain their relative order where that is
+    /// visible in `collect`, `reduce`, and similar outputs.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use rayon::prelude::*;
+    ///
+    /// let result: Vec<_> = (0..100)
+    ///     .into_par_iter()
+    ///     .take_any_while(|x| *x < 50)
+    ///     .collect();
+    ///
+    /// assert!(result.len() <= 50);
+    /// assert!(result.windows(2).all(|w| w[0] < w[1]));
+    /// ```
+    ///
+    /// ```
+    /// use rayon::prelude::*;
+    /// use std::sync::atomic::AtomicUsize;
+    /// use std::sync::atomic::Ordering::Relaxed;
+    ///
+    /// // Collect any group of items that sum <= 1000
+    /// let quota = AtomicUsize::new(1000);
+    /// let result: Vec<_> = (0_usize..100)
+    ///     .into_par_iter()
+    ///     .take_any_while(|&x| {
+    ///         quota.fetch_update(Relaxed, Relaxed, |q| q.checked_sub(x))
+    ///             .is_ok()
+    ///     })
+    ///     .collect();
+    ///
+    /// let sum = result.iter().sum::<usize>();
+    /// assert!(matches!(sum, 902..=1000));
+    /// ```
+    fn take_any_while<P>(self, predicate: P) -> TakeAnyWhile<Self, P>
+    where
+        P: Fn(&Self::Item) -> bool + Sync + Send,
+    {
+        TakeAnyWhile::new(self, predicate)
+    }
+
+    /// Creates an iterator that skips elements from *anywhere* in the original iterator
+    /// until the given `predicate` returns `false`.
+    ///
+    /// The `predicate` may be anything -- e.g. it could be checking a fact about the item, a
+    /// global condition unrelated to the item itself, or some combination thereof.
+    ///
+    /// If parallel calls to the `predicate` race and give different results, then the
+    /// `true` results will still skip those particular items, while respecting the `false`
+    /// result from elsewhere to skip any further items.
+    ///
+    /// This is similar to [`Iterator::skip_while`] without being constrained to the original
+    /// iterator order. The remaining items will still maintain their relative order where that is
+    /// visible in `collect`, `reduce`, and similar outputs.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use rayon::prelude::*;
+    ///
+    /// let result: Vec<_> = (0..100)
+    ///     .into_par_iter()
+    ///     .skip_any_while(|x| *x < 50)
+    ///     .collect();
+    ///
+    /// assert!(result.len() >= 50);
+    /// assert!(result.windows(2).all(|w| w[0] < w[1]));
+    /// ```
+    fn skip_any_while<P>(self, predicate: P) -> SkipAnyWhile<Self, P>
+    where
+        P: Fn(&Self::Item) -> bool + Sync + Send,
+    {
+        SkipAnyWhile::new(self, predicate)
+    }
+
     /// Internal method used to define the behavior of this parallel
     /// iterator. You should not need to call this directly.
     ///
@@ -2241,6 +2388,8 @@ impl<T: ParallelIterator> IntoParallelIterator for T {
 /// those points.
 ///
 /// **Note:** Not implemented for `u64`, `i64`, `u128`, or `i128` ranges
+// Waiting for `ExactSizeIterator::is_empty` to be stabilized. See rust-lang/rust#35428
+#[allow(clippy::len_without_is_empty)]
 pub trait IndexedParallelIterator: ParallelIterator {
     /// Collects the results of the iterator into the specified
     /// vector. The vector is always truncated before execution
@@ -2339,13 +2488,18 @@ pub trait IndexedParallelIterator: ParallelIterator {
     /// // we should never get here
     /// assert_eq!(1, zipped.len());
     /// ```
+    #[track_caller]
     fn zip_eq<Z>(self, zip_op: Z) -> ZipEq<Self, Z::Iter>
     where
         Z: IntoParallelIterator,
         Z::Iter: IndexedParallelIterator,
     {
         let zip_op_iter = zip_op.into_par_iter();
-        assert_eq!(self.len(), zip_op_iter.len());
+        assert_eq!(
+            self.len(),
+            zip_op_iter.len(),
+            "iterators must have the same length"
+        );
         ZipEq::new(self, zip_op_iter)
     }
 
@@ -2410,9 +2564,93 @@ pub trait IndexedParallelIterator: ParallelIterator {
     /// let r: Vec<Vec<i32>> = a.into_par_iter().chunks(3).collect();
     /// assert_eq!(r, vec![vec![1,2,3], vec![4,5,6], vec![7,8,9], vec![10]]);
     /// ```
+    #[track_caller]
     fn chunks(self, chunk_size: usize) -> Chunks<Self> {
         assert!(chunk_size != 0, "chunk_size must not be zero");
         Chunks::new(self, chunk_size)
+    }
+
+    /// Splits an iterator into fixed-size chunks, performing a sequential [`fold()`] on
+    /// each chunk.
+    ///
+    /// Returns an iterator that produces a folded result for each chunk of items
+    /// produced by this iterator.
+    ///
+    /// This works essentially like:
+    ///
+    /// ```text
+    /// iter.chunks(chunk_size)
+    ///     .map(|chunk|
+    ///         chunk.into_iter()
+    ///             .fold(identity, fold_op)
+    ///     )
+    /// ```
+    ///
+    /// except there is no per-chunk allocation overhead.
+    ///
+    /// [`fold()`]: std::iter::Iterator#method.fold
+    ///
+    /// **Panics** if `chunk_size` is 0.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use rayon::prelude::*;
+    /// let nums = vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+    /// let chunk_sums = nums.into_par_iter().fold_chunks(2, || 0, |a, n| a + n).collect::<Vec<_>>();
+    /// assert_eq!(chunk_sums, vec![3, 7, 11, 15, 19]);
+    /// ```
+    #[track_caller]
+    fn fold_chunks<T, ID, F>(
+        self,
+        chunk_size: usize,
+        identity: ID,
+        fold_op: F,
+    ) -> FoldChunks<Self, ID, F>
+    where
+        ID: Fn() -> T + Send + Sync,
+        F: Fn(T, Self::Item) -> T + Send + Sync,
+        T: Send,
+    {
+        assert!(chunk_size != 0, "chunk_size must not be zero");
+        FoldChunks::new(self, chunk_size, identity, fold_op)
+    }
+
+    /// Splits an iterator into fixed-size chunks, performing a sequential [`fold()`] on
+    /// each chunk.
+    ///
+    /// Returns an iterator that produces a folded result for each chunk of items
+    /// produced by this iterator.
+    ///
+    /// This works essentially like `fold_chunks(chunk_size, || init.clone(), fold_op)`,
+    /// except it doesn't require the `init` type to be `Sync`, nor any other form of
+    /// added synchronization.
+    ///
+    /// [`fold()`]: std::iter::Iterator#method.fold
+    ///
+    /// **Panics** if `chunk_size` is 0.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use rayon::prelude::*;
+    /// let nums = vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+    /// let chunk_sums = nums.into_par_iter().fold_chunks_with(2, 0, |a, n| a + n).collect::<Vec<_>>();
+    /// assert_eq!(chunk_sums, vec![3, 7, 11, 15, 19]);
+    /// ```
+    #[track_caller]
+    fn fold_chunks_with<T, F>(
+        self,
+        chunk_size: usize,
+        init: T,
+        fold_op: F,
+    ) -> FoldChunksWith<Self, T, F>
+    where
+        T: Send + Clone,
+        F: Fn(T, Self::Item) -> T + Send + Sync,
+    {
+        assert!(chunk_size != 0, "chunk_size must not be zero");
+        FoldChunksWith::new(self, chunk_size, init, fold_op)
     }
 
     /// Lexicographically compares the elements of this `ParallelIterator` with those of
@@ -2601,11 +2839,6 @@ pub trait IndexedParallelIterator: ParallelIterator {
     ///
     /// assert_eq!(result, [3, 6, 9])
     /// ```
-    ///
-    /// # Compatibility
-    ///
-    /// This method is only available on Rust 1.38 or greater.
-    #[cfg(step_by)]
     fn step_by(self, step: usize) -> StepBy<Self> {
         StepBy::new(self, step)
     }
@@ -2808,7 +3041,7 @@ pub trait IndexedParallelIterator: ParallelIterator {
     }
 
     /// Sets the minimum length of iterators desired to process in each
-    /// thread.  Rayon will not split any smaller than this length, but
+    /// rayon job.  Rayon will not split any smaller than this length, but
     /// of course an iterator could already be smaller to begin with.
     ///
     /// Producers like `zip` and `interleave` will use greater of the two
@@ -2834,7 +3067,7 @@ pub trait IndexedParallelIterator: ParallelIterator {
     }
 
     /// Sets the maximum length of iterators desired to process in each
-    /// thread.  Rayon will try to split at least below this length,
+    /// rayon job.  Rayon will try to split at least below this length,
     /// unless that would put it below the length from `with_min_len()`.
     /// For example, given min=10 and max=15, a length of 16 will not be
     /// split any further.
@@ -3145,50 +3378,154 @@ pub trait ParallelDrainRange<Idx = usize> {
 /// We hide the `Try` trait in a private module, as it's only meant to be a
 /// stable clone of the standard library's `Try` trait, as yet unstable.
 mod private {
+    use std::convert::Infallible;
+    use std::ops::ControlFlow::{self, Break, Continue};
+    use std::task::Poll;
+
     /// Clone of `std::ops::Try`.
     ///
     /// Implementing this trait is not permitted outside of `rayon`.
     pub trait Try {
         private_decl! {}
 
-        type Ok;
-        type Error;
-        fn into_result(self) -> Result<Self::Ok, Self::Error>;
-        fn from_ok(v: Self::Ok) -> Self;
-        fn from_error(v: Self::Error) -> Self;
+        type Output;
+        type Residual;
+
+        fn from_output(output: Self::Output) -> Self;
+
+        fn from_residual(residual: Self::Residual) -> Self;
+
+        fn branch(self) -> ControlFlow<Self::Residual, Self::Output>;
+    }
+
+    impl<B, C> Try for ControlFlow<B, C> {
+        private_impl! {}
+
+        type Output = C;
+        type Residual = ControlFlow<B, Infallible>;
+
+        fn from_output(output: Self::Output) -> Self {
+            Continue(output)
+        }
+
+        fn from_residual(residual: Self::Residual) -> Self {
+            match residual {
+                Break(b) => Break(b),
+                Continue(_) => unreachable!(),
+            }
+        }
+
+        fn branch(self) -> ControlFlow<Self::Residual, Self::Output> {
+            match self {
+                Continue(c) => Continue(c),
+                Break(b) => Break(Break(b)),
+            }
+        }
     }
 
     impl<T> Try for Option<T> {
         private_impl! {}
 
-        type Ok = T;
-        type Error = ();
+        type Output = T;
+        type Residual = Option<Infallible>;
 
-        fn into_result(self) -> Result<T, ()> {
-            self.ok_or(())
+        fn from_output(output: Self::Output) -> Self {
+            Some(output)
         }
-        fn from_ok(v: T) -> Self {
-            Some(v)
+
+        fn from_residual(residual: Self::Residual) -> Self {
+            match residual {
+                None => None,
+                Some(_) => unreachable!(),
+            }
         }
-        fn from_error(_: ()) -> Self {
-            None
+
+        fn branch(self) -> ControlFlow<Self::Residual, Self::Output> {
+            match self {
+                Some(c) => Continue(c),
+                None => Break(None),
+            }
         }
     }
 
     impl<T, E> Try for Result<T, E> {
         private_impl! {}
 
-        type Ok = T;
-        type Error = E;
+        type Output = T;
+        type Residual = Result<Infallible, E>;
 
-        fn into_result(self) -> Result<T, E> {
-            self
+        fn from_output(output: Self::Output) -> Self {
+            Ok(output)
         }
-        fn from_ok(v: T) -> Self {
-            Ok(v)
+
+        fn from_residual(residual: Self::Residual) -> Self {
+            match residual {
+                Err(e) => Err(e),
+                Ok(_) => unreachable!(),
+            }
         }
-        fn from_error(v: E) -> Self {
-            Err(v)
+
+        fn branch(self) -> ControlFlow<Self::Residual, Self::Output> {
+            match self {
+                Ok(c) => Continue(c),
+                Err(e) => Break(Err(e)),
+            }
+        }
+    }
+
+    impl<T, E> Try for Poll<Result<T, E>> {
+        private_impl! {}
+
+        type Output = Poll<T>;
+        type Residual = Result<Infallible, E>;
+
+        fn from_output(output: Self::Output) -> Self {
+            output.map(Ok)
+        }
+
+        fn from_residual(residual: Self::Residual) -> Self {
+            match residual {
+                Err(e) => Poll::Ready(Err(e)),
+                Ok(_) => unreachable!(),
+            }
+        }
+
+        fn branch(self) -> ControlFlow<Self::Residual, Self::Output> {
+            match self {
+                Poll::Pending => Continue(Poll::Pending),
+                Poll::Ready(Ok(c)) => Continue(Poll::Ready(c)),
+                Poll::Ready(Err(e)) => Break(Err(e)),
+            }
+        }
+    }
+
+    impl<T, E> Try for Poll<Option<Result<T, E>>> {
+        private_impl! {}
+
+        type Output = Poll<Option<T>>;
+        type Residual = Result<Infallible, E>;
+
+        fn from_output(output: Self::Output) -> Self {
+            match output {
+                Poll::Ready(o) => Poll::Ready(o.map(Ok)),
+                Poll::Pending => Poll::Pending,
+            }
+        }
+
+        fn from_residual(residual: Self::Residual) -> Self {
+            match residual {
+                Err(e) => Poll::Ready(Some(Err(e))),
+                Ok(_) => unreachable!(),
+            }
+        }
+
+        fn branch(self) -> ControlFlow<Self::Residual, Self::Output> {
+            match self {
+                Poll::Pending => Continue(Poll::Pending),
+                Poll::Ready(None) => Continue(Poll::Ready(None)),
+                Poll::Ready(Some(Ok(c))) => Continue(Poll::Ready(Some(c))),
+                Poll::Ready(Some(Err(e))) => Break(Err(e)),
+            }
         }
     }
 }

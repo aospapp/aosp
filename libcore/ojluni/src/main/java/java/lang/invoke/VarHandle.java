@@ -26,7 +26,13 @@
 package java.lang.invoke;
 
 import dalvik.system.VMRuntime;
-import jdk.internal.HotSpotIntrinsicCandidate;
+import jdk.internal.vm.annotation.IntrinsicCandidate;
+import java.lang.constant.ClassDesc;
+import java.lang.constant.Constable;
+import java.lang.constant.ConstantDesc;
+import java.lang.constant.ConstantDescs;
+import java.lang.constant.DirectMethodHandleDesc;
+import java.lang.constant.DynamicConstantDesc;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.EnumSet;
@@ -491,7 +497,7 @@ public abstract class VarHandle {
      */
     public final native
     @MethodHandle.PolymorphicSignature
-    @HotSpotIntrinsicCandidate
+    @IntrinsicCandidate
     Object get(Object... args);
 
     /**
@@ -517,7 +523,7 @@ public abstract class VarHandle {
      */
     public final native
     @MethodHandle.PolymorphicSignature
-    @HotSpotIntrinsicCandidate
+    @IntrinsicCandidate
     void set(Object... args);
 
 
@@ -549,7 +555,7 @@ public abstract class VarHandle {
      */
     public final native
     @MethodHandle.PolymorphicSignature
-    @HotSpotIntrinsicCandidate
+    @IntrinsicCandidate
     Object getVolatile(Object... args);
 
     /**
@@ -579,7 +585,7 @@ public abstract class VarHandle {
      */
     public final native
     @MethodHandle.PolymorphicSignature
-    @HotSpotIntrinsicCandidate
+    @IntrinsicCandidate
     void setVolatile(Object... args);
 
 
@@ -609,7 +615,7 @@ public abstract class VarHandle {
      */
     public final native
     @MethodHandle.PolymorphicSignature
-    @HotSpotIntrinsicCandidate
+    @IntrinsicCandidate
     Object getOpaque(Object... args);
 
     /**
@@ -636,7 +642,7 @@ public abstract class VarHandle {
      */
     public final native
     @MethodHandle.PolymorphicSignature
-    @HotSpotIntrinsicCandidate
+    @IntrinsicCandidate
     void setOpaque(Object... args);
 
 
@@ -673,7 +679,7 @@ public abstract class VarHandle {
      */
     public final native
     @MethodHandle.PolymorphicSignature
-    @HotSpotIntrinsicCandidate
+    @IntrinsicCandidate
     Object getAcquire(Object... args);
 
     /**
@@ -704,7 +710,7 @@ public abstract class VarHandle {
      */
     public final native
     @MethodHandle.PolymorphicSignature
-    @HotSpotIntrinsicCandidate
+    @IntrinsicCandidate
     void setRelease(Object... args);
 
 
@@ -740,7 +746,7 @@ public abstract class VarHandle {
      */
     public final native
     @MethodHandle.PolymorphicSignature
-    @HotSpotIntrinsicCandidate
+    @IntrinsicCandidate
     boolean compareAndSet(Object... args);
 
     /**
@@ -775,7 +781,7 @@ public abstract class VarHandle {
      */
     public final native
     @MethodHandle.PolymorphicSignature
-    @HotSpotIntrinsicCandidate
+    @IntrinsicCandidate
     Object compareAndExchange(Object... args);
 
     /**
@@ -810,7 +816,7 @@ public abstract class VarHandle {
      */
     public final native
     @MethodHandle.PolymorphicSignature
-    @HotSpotIntrinsicCandidate
+    @IntrinsicCandidate
     Object compareAndExchangeAcquire(Object... args);
 
     /**
@@ -845,7 +851,7 @@ public abstract class VarHandle {
      */
     public final native
     @MethodHandle.PolymorphicSignature
-    @HotSpotIntrinsicCandidate
+    @IntrinsicCandidate
     Object compareAndExchangeRelease(Object... args);
 
     // Weak (spurious failures allowed)
@@ -884,7 +890,7 @@ public abstract class VarHandle {
      */
     public final native
     @MethodHandle.PolymorphicSignature
-    @HotSpotIntrinsicCandidate
+    @IntrinsicCandidate
     boolean weakCompareAndSetPlain(Object... args);
 
     /**
@@ -921,7 +927,7 @@ public abstract class VarHandle {
      */
     public final native
     @MethodHandle.PolymorphicSignature
-    @HotSpotIntrinsicCandidate
+    @IntrinsicCandidate
     boolean weakCompareAndSet(Object... args);
 
     /**
@@ -959,7 +965,7 @@ public abstract class VarHandle {
      */
     public final native
     @MethodHandle.PolymorphicSignature
-    @HotSpotIntrinsicCandidate
+    @IntrinsicCandidate
     boolean weakCompareAndSetAcquire(Object... args);
 
     /**
@@ -997,7 +1003,7 @@ public abstract class VarHandle {
      */
     public final native
     @MethodHandle.PolymorphicSignature
-    @HotSpotIntrinsicCandidate
+    @IntrinsicCandidate
     boolean weakCompareAndSetRelease(Object... args);
 
     /**
@@ -1030,7 +1036,7 @@ public abstract class VarHandle {
      */
     public final native
     @MethodHandle.PolymorphicSignature
-    @HotSpotIntrinsicCandidate
+    @IntrinsicCandidate
     Object getAndSet(Object... args);
 
     /**
@@ -1063,7 +1069,7 @@ public abstract class VarHandle {
      */
     public final native
     @MethodHandle.PolymorphicSignature
-    @HotSpotIntrinsicCandidate
+    @IntrinsicCandidate
     Object getAndSetAcquire(Object... args);
 
     /**
@@ -1096,7 +1102,7 @@ public abstract class VarHandle {
      */
     public final native
     @MethodHandle.PolymorphicSignature
-    @HotSpotIntrinsicCandidate
+    @IntrinsicCandidate
     Object getAndSetRelease(Object... args);
 
     // Primitive adders
@@ -1132,7 +1138,7 @@ public abstract class VarHandle {
      */
     public final native
     @MethodHandle.PolymorphicSignature
-    @HotSpotIntrinsicCandidate
+    @IntrinsicCandidate
     Object getAndAdd(Object... args);
 
     /**
@@ -1165,7 +1171,7 @@ public abstract class VarHandle {
      */
     public final native
     @MethodHandle.PolymorphicSignature
-    @HotSpotIntrinsicCandidate
+    @IntrinsicCandidate
     Object getAndAddAcquire(Object... args);
 
     /**
@@ -1198,7 +1204,7 @@ public abstract class VarHandle {
      */
     public final native
     @MethodHandle.PolymorphicSignature
-    @HotSpotIntrinsicCandidate
+    @IntrinsicCandidate
     Object getAndAddRelease(Object... args);
 
 
@@ -1239,7 +1245,7 @@ public abstract class VarHandle {
      */
     public final native
     @MethodHandle.PolymorphicSignature
-    @HotSpotIntrinsicCandidate
+    @IntrinsicCandidate
     Object getAndBitwiseOr(Object... args);
 
     /**
@@ -1276,7 +1282,7 @@ public abstract class VarHandle {
      */
     public final native
     @MethodHandle.PolymorphicSignature
-    @HotSpotIntrinsicCandidate
+    @IntrinsicCandidate
     Object getAndBitwiseOrAcquire(Object... args);
 
     /**
@@ -1313,7 +1319,7 @@ public abstract class VarHandle {
      */
     public final native
     @MethodHandle.PolymorphicSignature
-    @HotSpotIntrinsicCandidate
+    @IntrinsicCandidate
     Object getAndBitwiseOrRelease(Object... args);
 
     /**
@@ -1350,7 +1356,7 @@ public abstract class VarHandle {
      */
     public final native
     @MethodHandle.PolymorphicSignature
-    @HotSpotIntrinsicCandidate
+    @IntrinsicCandidate
     Object getAndBitwiseAnd(Object... args);
 
     /**
@@ -1387,7 +1393,7 @@ public abstract class VarHandle {
      */
     public final native
     @MethodHandle.PolymorphicSignature
-    @HotSpotIntrinsicCandidate
+    @IntrinsicCandidate
     Object getAndBitwiseAndAcquire(Object... args);
 
     /**
@@ -1424,7 +1430,7 @@ public abstract class VarHandle {
      */
     public final native
     @MethodHandle.PolymorphicSignature
-    @HotSpotIntrinsicCandidate
+    @IntrinsicCandidate
     Object getAndBitwiseAndRelease(Object... args);
 
     /**
@@ -1461,7 +1467,7 @@ public abstract class VarHandle {
      */
     public final native
     @MethodHandle.PolymorphicSignature
-    @HotSpotIntrinsicCandidate
+    @IntrinsicCandidate
     Object getAndBitwiseXor(Object... args);
 
     /**
@@ -1498,7 +1504,7 @@ public abstract class VarHandle {
      */
     public final native
     @MethodHandle.PolymorphicSignature
-    @HotSpotIntrinsicCandidate
+    @IntrinsicCandidate
     Object getAndBitwiseXorAcquire(Object... args);
 
     /**
@@ -1535,7 +1541,7 @@ public abstract class VarHandle {
      */
     public final native
     @MethodHandle.PolymorphicSignature
-    @HotSpotIntrinsicCandidate
+    @IntrinsicCandidate
     Object getAndBitwiseXorRelease(Object... args);
 
 
@@ -2349,4 +2355,161 @@ public abstract class VarHandle {
         return bitMask;
     }
     // END Android-added: helper state for VarHandle properties.
+
+    // BEGIN Android-added: Add VarHandleDesc from OpenJDK 17. http://b/270028670
+    /**
+     * A <a href="{@docRoot}/java.base/java/lang/constant/package-summary.html#nominal">nominal descriptor</a> for a
+     * {@link VarHandle} constant.
+     *
+     * @since 12
+     * @hide
+     */
+    public static final class VarHandleDesc extends DynamicConstantDesc<VarHandle> {
+
+        /**
+         * Kinds of variable handle descs
+         */
+        private enum Kind {
+            FIELD(ConstantDescs.BSM_VARHANDLE_FIELD),
+            STATIC_FIELD(ConstantDescs.BSM_VARHANDLE_STATIC_FIELD),
+            ARRAY(ConstantDescs.BSM_VARHANDLE_ARRAY);
+
+            final DirectMethodHandleDesc bootstrapMethod;
+
+            Kind(DirectMethodHandleDesc bootstrapMethod) {
+                this.bootstrapMethod = bootstrapMethod;
+            }
+
+            ConstantDesc[] toBSMArgs(ClassDesc declaringClass, ClassDesc varType) {
+                return switch (this) {
+                    case FIELD, STATIC_FIELD -> new ConstantDesc[]{declaringClass, varType};
+                    case ARRAY               -> new ConstantDesc[]{declaringClass};
+                    default -> throw new InternalError("Cannot reach here");
+                };
+            }
+        }
+
+        private final Kind kind;
+        private final ClassDesc declaringClass;
+        private final ClassDesc varType;
+
+        /**
+         * Construct a {@linkplain VarHandleDesc} given a kind, name, and declaring
+         * class.
+         *
+         * @param kind the kind of the var handle
+         * @param name the unqualified name of the field, for field var handles; otherwise ignored
+         * @param declaringClass a {@link ClassDesc} describing the declaring class,
+         *                       for field var handles
+         * @param varType a {@link ClassDesc} describing the type of the variable
+         * @throws NullPointerException if any required argument is null
+         * @jvms 4.2.2 Unqualified Names
+         */
+        private VarHandleDesc(Kind kind, String name, ClassDesc declaringClass, ClassDesc varType) {
+            super(kind.bootstrapMethod, name,
+                    ConstantDescs.CD_VarHandle,
+                    kind.toBSMArgs(declaringClass, varType));
+            this.kind = kind;
+            this.declaringClass = declaringClass;
+            this.varType = varType;
+        }
+
+        /**
+         * Returns a {@linkplain VarHandleDesc} corresponding to a {@link VarHandle}
+         * for an instance field.
+         *
+         * @param name the unqualified name of the field
+         * @param declaringClass a {@link ClassDesc} describing the declaring class,
+         *                       for field var handles
+         * @param fieldType a {@link ClassDesc} describing the type of the field
+         * @return the {@linkplain VarHandleDesc}
+         * @throws NullPointerException if any of the arguments are null
+         * @jvms 4.2.2 Unqualified Names
+         */
+        public static VarHandleDesc ofField(ClassDesc declaringClass, String name, ClassDesc fieldType) {
+            Objects.requireNonNull(declaringClass);
+            Objects.requireNonNull(name);
+            Objects.requireNonNull(fieldType);
+            return new VarHandleDesc(Kind.FIELD, name, declaringClass, fieldType);
+        }
+
+        /**
+         * Returns a {@linkplain VarHandleDesc} corresponding to a {@link VarHandle}
+         * for a static field.
+         *
+         * @param name the unqualified name of the field
+         * @param declaringClass a {@link ClassDesc} describing the declaring class,
+         *                       for field var handles
+         * @param fieldType a {@link ClassDesc} describing the type of the field
+         * @return the {@linkplain VarHandleDesc}
+         * @throws NullPointerException if any of the arguments are null
+         * @jvms 4.2.2 Unqualified Names
+         */
+        public static VarHandleDesc ofStaticField(ClassDesc declaringClass, String name, ClassDesc fieldType) {
+            Objects.requireNonNull(declaringClass);
+            Objects.requireNonNull(name);
+            Objects.requireNonNull(fieldType);
+            return new VarHandleDesc(Kind.STATIC_FIELD, name, declaringClass, fieldType);
+        }
+
+        /**
+         * Returns a {@linkplain VarHandleDesc} corresponding to a {@link VarHandle}
+         * for an array type.
+         *
+         * @param arrayClass a {@link ClassDesc} describing the type of the array
+         * @return the {@linkplain VarHandleDesc}
+         * @throws NullPointerException if any of the arguments are null
+         */
+        public static VarHandleDesc ofArray(ClassDesc arrayClass) {
+            Objects.requireNonNull(arrayClass);
+            if (!arrayClass.isArray())
+                throw new IllegalArgumentException("Array class argument not an array: " + arrayClass);
+            return new VarHandleDesc(Kind.ARRAY, ConstantDescs.DEFAULT_NAME, arrayClass, arrayClass.componentType());
+        }
+
+        /**
+         * Returns a {@link ClassDesc} describing the type of the variable described
+         * by this descriptor.
+         *
+         * @return the variable type
+         */
+        public ClassDesc varType() {
+            return varType;
+        }
+
+        @Override
+        public VarHandle resolveConstantDesc(MethodHandles.Lookup lookup)
+                throws ReflectiveOperationException {
+            return switch (kind) {
+                case FIELD        -> lookup.findVarHandle((Class<?>) declaringClass.resolveConstantDesc(lookup),
+                        constantName(),
+                        (Class<?>) varType.resolveConstantDesc(lookup));
+                case STATIC_FIELD -> lookup.findStaticVarHandle((Class<?>) declaringClass.resolveConstantDesc(lookup),
+                        constantName(),
+                        (Class<?>) varType.resolveConstantDesc(lookup));
+                case ARRAY        -> MethodHandles.arrayElementVarHandle((Class<?>) declaringClass.resolveConstantDesc(lookup));
+                default -> throw new InternalError("Cannot reach here");
+            };
+        }
+
+        /**
+         * Returns a compact textual description of this constant description.
+         * For a field {@linkplain VarHandle}, includes the owner, name, and type
+         * of the field, and whether it is static; for an array {@linkplain VarHandle},
+         * the name of the component type.
+         *
+         * @return A compact textual description of this descriptor
+         */
+        @Override
+        public String toString() {
+            return switch (kind) {
+                case FIELD, STATIC_FIELD -> String.format("VarHandleDesc[%s%s.%s:%s]",
+                        (kind == Kind.STATIC_FIELD) ? "static " : "",
+                        declaringClass.displayName(), constantName(), varType.displayName());
+                case ARRAY               -> String.format("VarHandleDesc[%s[]]", declaringClass.displayName());
+                default -> throw new InternalError("Cannot reach here");
+            };
+        }
+    }
+    // END Android-added: Add VarHandleDesc from OpenJDK 17. http://b/270028670
 }

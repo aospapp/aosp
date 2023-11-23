@@ -40,7 +40,6 @@ filegroup {
     srcs: [
         "clatd.c",
         "dump.c",
-        "getaddr.c",
         "icmp.c",
         "ipv4.c",
         "ipv6.c",

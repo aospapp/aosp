@@ -21,4 +21,8 @@
 
     <!-- Dimensions for GridFragment. -->
     <dimen name="preview_card_vertical_bias">0</dimen>
+
+    <!-- Clipping of the home screen overlay -->
+    <dimen name="home_screen_overlay_top_clipping">0dp</dimen>
+    <dimen name="home_screen_overlay_bottom_clipping">100dp</dimen>
 </resources>

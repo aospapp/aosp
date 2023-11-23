@@ -19,13 +19,20 @@ package com.android.server.wifi;
 import static com.android.server.wifi.ActiveModeManager.ROLE_CLIENT_PRIMARY;
 import static com.android.server.wifi.ActiveModeManager.ROLE_CLIENT_SECONDARY_TRANSIENT;
 
+import android.annotation.IntDef;
 import android.annotation.NonNull;
 import android.annotation.Nullable;
+import android.annotation.TestApi;
 import android.content.Context;
 import android.util.Log;
 
+import com.android.internal.annotations.VisibleForTesting;
+import com.android.server.wifi.proto.nano.WifiMetricsProto;
+
 import java.io.FileDescriptor;
 import java.io.PrintWriter;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -44,6 +51,49 @@ public class MakeBeforeBreakManager {
 
     private final List<Runnable> mOnAllSecondaryTransientCmmsStoppedListeners = new ArrayList<>();
     private boolean mVerboseLoggingEnabled = false;
+    private @MbbInternalState int mInternalState = MBB_STATE_NONE;
+
+    /** No MBB has been initiated. Package private. */
+    @VisibleForTesting
+    static final int MBB_STATE_NONE = 0;
+
+    /** Client manager with ROLE_CLIENT_SECONDARY_TRANSIENT has been created for MBB and trying
+     * to connect the new network. */
+    @VisibleForTesting
+    static final int MBB_STATE_SECONDARY_TRANSIENT_CREATED = 1;
+
+    /** MBB has got the captive portal detected. */
+    @VisibleForTesting
+    static final int MBB_STATE_CAPTIVE_PORTAL_DETECTED = 2;
+
+    /** MBB has got the internet validation on new network, start the role switch */
+    @VisibleForTesting
+    static final int MBB_STATE_INTERNET_VALIDATED = 3;
+
+    /** MBB has got the internet validation failed notification. */
+    @VisibleForTesting
+    static final int MBB_STATE_VALIDATION_FAILED = 4;
+
+    /** MBB has got the role changed event when both two roles are secondary transient. This
+     * happens in the middle of the old/new primary role switch */
+    @VisibleForTesting
+    static final int MBB_STATE_ROLES_BEING_SWITCHED_BOTH_SECONDARY_TRANSIENT = 5;
+
+    /** MBB has got the role changed event when one role is primary and anther is secondary
+     * transient. This happens when the old/new primary role switch is done. */
+    @VisibleForTesting
+    static final int MBB_STATE_ROLE_SWITCH_COMPLETE = 6;
+
+    /** @hide */
+    @Retention(RetentionPolicy.SOURCE)
+    @IntDef(prefix = {"MBB_STATE_"}, value = {
+            MBB_STATE_NONE,
+            MBB_STATE_SECONDARY_TRANSIENT_CREATED,
+            MBB_STATE_CAPTIVE_PORTAL_DETECTED,
+            MBB_STATE_INTERNET_VALIDATED,
+            MBB_STATE_ROLES_BEING_SWITCHED_BOTH_SECONDARY_TRANSIENT,
+            MBB_STATE_ROLE_SWITCH_COMPLETE})
+    private @interface MbbInternalState {}
 
     private static class MakeBeforeBreakInfo {
         @NonNull
@@ -96,6 +146,14 @@ public class MakeBeforeBreakManager {
                     @NonNull ConcreteClientModeManager clientModeManager) {
                 MakeBeforeBreakManager.this.onCaptivePortalDetected(clientModeManager);
             }
+
+            @Override
+            public void onInternetValidationFailed(
+                    @NonNull ConcreteClientModeManager clientModeManager,
+                    boolean currentConnectionDetectedCaptivePortal) {
+                MakeBeforeBreakManager.this.onInternetValidationFailed(clientModeManager,
+                        currentConnectionDetectedCaptivePortal);
+            }
         });
     }
 
@@ -114,6 +172,12 @@ public class MakeBeforeBreakManager {
             }
             // just in case
             recoverPrimary();
+            if (activeModeManager.getRole() == ROLE_CLIENT_SECONDARY_TRANSIENT) {
+                transitionToState(MBB_STATE_SECONDARY_TRANSIENT_CREATED);
+            } else {
+                Log.w(TAG, " MBB expects ROLE_CLIENT_SECONDARY_TRANSIENT but got "
+                        + activeModeManager.getRole());
+            }
         }
 
         @Override
@@ -127,6 +191,12 @@ public class MakeBeforeBreakManager {
             // if either the old or new primary stopped during MBB, abort the MBB attempt
             ConcreteClientModeManager clientModeManager =
                     (ConcreteClientModeManager) activeModeManager;
+            if (mVerboseLoggingEnabled) {
+                if (mInternalState == MBB_STATE_VALIDATION_FAILED) {
+                    Log.w(TAG, " ClientModeManager " + clientModeManager + " removed because"
+                            + " internet validation failed.");
+                }
+            }
             if (mMakeBeforeBreakInfo != null) {
                 boolean oldPrimaryStopped = clientModeManager == mMakeBeforeBreakInfo.oldPrimary;
                 boolean newPrimaryStopped = clientModeManager == mMakeBeforeBreakInfo.newPrimary;
@@ -141,6 +211,7 @@ public class MakeBeforeBreakManager {
             }
             recoverPrimary();
             triggerOnStoppedListenersIfNoMoreSecondaryTransientCmms();
+            transitionToState(MBB_STATE_NONE);
         }
 
         @Override
@@ -157,6 +228,39 @@ public class MakeBeforeBreakManager {
             maybeContinueMakeBeforeBreak(clientModeManager);
             triggerOnStoppedListenersIfNoMoreSecondaryTransientCmms();
         }
+    }
+
+    private String getInternalStateStr(@MbbInternalState int state) {
+        switch (state) {
+            case MBB_STATE_NONE:
+                return "MBB_STATE_NONE";
+            case MBB_STATE_SECONDARY_TRANSIENT_CREATED:
+                return "MBB_STATE_SECONDARY_TRANSIENT_CREATED";
+            case MBB_STATE_CAPTIVE_PORTAL_DETECTED:
+                return "MBB_STATE_CAPTIVE_PORTAL_DETECTED";
+            case MBB_STATE_INTERNET_VALIDATED:
+                return "MBB_STATE_INTERNET_VALIDATED";
+            case MBB_STATE_ROLES_BEING_SWITCHED_BOTH_SECONDARY_TRANSIENT:
+                return "MBB_STATE_ROLES_BEING_SWITCHED_BOTH_SECONDARY_TRANSIENT";
+            case MBB_STATE_ROLE_SWITCH_COMPLETE:
+                return "MBB_STATE_ROLE_SWITCH_COMPLETE";
+            default:
+                return "UNKNOWN MBB_STATE";
+        }
+    }
+
+    private void transitionToState(@MbbInternalState int state) {
+        if (mVerboseLoggingEnabled) {
+            Log.v(TAG, "MBB state transition: from = " + getInternalStateStr(mInternalState)
+                    + ", to = " + getInternalStateStr(state));
+        }
+        mInternalState = state;
+    }
+
+    // Get internal MBB state. Package private.
+    @TestApi
+    @MbbInternalState int getInternalState() {
+        return mInternalState;
     }
 
     /**
@@ -236,6 +340,52 @@ public class MakeBeforeBreakManager {
         // current primary CMM). This is to preserve the legacy single STA behavior.
         mBroadcastQueue.fakeDisconnectionBroadcasts();
         mMakeBeforeBreakInfo = new MakeBeforeBreakInfo(currentPrimary, newPrimary);
+        transitionToState(MBB_STATE_INTERNET_VALIDATED);
+    }
+
+    /**
+     * Notify MBB manager the internet validation has failed. This may come before
+     * onInternetValidated and mMakeBeforeBreakInfo is null.
+     * @param clientModeManager client mode manager for current connection.
+     * @param currentConnectionDetectedCaptivePortal whether current connection has detected
+     *                                               captive portal.
+     */
+    private void onInternetValidationFailed(ConcreteClientModeManager clientModeManager,
+            boolean currentConnectionDetectedCaptivePortal) {
+        final ConcreteClientModeManager secondaryCcm = mActiveModeWarden.getClientModeManagerInRole(
+                ROLE_CLIENT_SECONDARY_TRANSIENT);
+        // There has to be at least one ROLE_CLIENT_SECONDARY_TRANSIENT.
+        if (secondaryCcm == null) {
+            Log.w(TAG, "No ClientModeManager with ROLE_CLIENT_SECONDARY_TRANSIENT exist!"
+                    + " current state: " + getInternalStateStr(mInternalState));
+            return;
+        }
+
+        Log.w(TAG, "Internet validation failed during MBB,"
+                + " disconnecting ClientModeManager=" + clientModeManager);
+        mWifiMetrics.logStaEvent(
+                clientModeManager.getInterfaceName(),
+                WifiMetricsProto.StaEvent.TYPE_FRAMEWORK_DISCONNECT,
+                WifiMetricsProto.StaEvent.DISCONNECT_MBB_NO_INTERNET);
+        mWifiMetrics.incrementMakeBeforeBreakNoInternetCount();
+
+        // If the role has already switched, switch the roles back
+        if (clientModeManager.getRole() == ROLE_CLIENT_PRIMARY) {
+            clientModeManager.setRole(ROLE_CLIENT_SECONDARY_TRANSIENT,
+                    mFrameworkFacade.getSettingsWorkSource(mContext));
+            secondaryCcm.setRole(ROLE_CLIENT_PRIMARY,
+                    mFrameworkFacade.getSettingsWorkSource(mContext));
+        }
+        // Disconnect the client mode manager.
+        clientModeManager.disconnect();
+
+        if (mVerboseLoggingEnabled) {
+            Log.v(TAG, "onInternetValidationFailed (" + getInternalStateStr(mInternalState)
+                    + "), removeClientModeManager role: " + clientModeManager.getRole());
+        }
+        // This should trigger {@link ModeChangeCallback#onActiveModeManagerRemoved} to abort MBB.
+        mActiveModeWarden.removeClientModeManager(clientModeManager);
+        transitionToState(MBB_STATE_VALIDATION_FAILED);
     }
 
     private void onCaptivePortalDetected(@NonNull ConcreteClientModeManager newPrimary) {
@@ -259,12 +409,15 @@ public class MakeBeforeBreakManager {
         // Once the currentPrimary teardown completes, recoverPrimary() will make the Captive
         // Portal CMM the new primary, because it is the only SECONDARY_TRANSIENT CMM and no
         // primary CMM exists.
+        transitionToState(MBB_STATE_CAPTIVE_PORTAL_DETECTED);
     }
 
     private void maybeContinueMakeBeforeBreak(
             @NonNull ConcreteClientModeManager roleChangedClientModeManager) {
         // not in the middle of MBB
         if (mMakeBeforeBreakInfo == null) {
+            // The new STA iface has been changed to primary.
+            transitionToState(MBB_STATE_ROLE_SWITCH_COMPLETE);
             return;
         }
         // not the CMM we're looking for, keep monitoring
@@ -285,11 +438,12 @@ public class MakeBeforeBreakManager {
                         + mMakeBeforeBreakInfo.newPrimary);
                 return;
             }
-
+            // The old primary has been changed to secondary transient.
+            transitionToState(MBB_STATE_ROLES_BEING_SWITCHED_BOTH_SECONDARY_TRANSIENT);
             Log.i(TAG, "Continue MBB switch primary from " + mMakeBeforeBreakInfo.oldPrimary
                     + " to " + mMakeBeforeBreakInfo.newPrimary
                     + " by setting new Primary's role to ROLE_CLIENT_PRIMARY and reducing network"
-                    + " score");
+                    + " score of old primary");
 
             // TODO(b/180974604): In theory, newPrimary.setRole() could still fail, but that would
             //  still count as a MBB success in the metrics. But we don't really handle that
@@ -314,6 +468,7 @@ public class MakeBeforeBreakManager {
     public void dump(FileDescriptor fd, PrintWriter pw, String[] args) {
         pw.println("Dump of MakeBeforeBreakManager");
         pw.println("mMakeBeforeBreakInfo=" + mMakeBeforeBreakInfo);
+        pw.println("mInternalState " + getInternalStateStr(mInternalState));
     }
 
     /**
@@ -366,4 +521,5 @@ public class MakeBeforeBreakManager {
         }
         mOnAllSecondaryTransientCmmsStoppedListeners.clear();
     }
+
 }

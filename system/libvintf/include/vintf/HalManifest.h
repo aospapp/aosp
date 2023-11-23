@@ -41,6 +41,7 @@
 #include "Vndk.h"
 #include "WithFileName.h"
 #include "XmlFileGroup.h"
+#include "constants.h"
 
 namespace android {
 namespace vintf {
@@ -68,7 +69,7 @@ struct HalManifest : public HalGroup<ManifestHal>,
     // Construct a device HAL manifest.
     HalManifest() : mType(SchemaType::DEVICE) {}
 
-    bool add(ManifestHal&& hal, std::string* error = nullptr) override;
+    bool add(ManifestHal&& hal, std::string* error = nullptr);
     // Move all hals from another HalManifest to this.
     bool addAllHals(HalManifest* other, std::string* error = nullptr);
 
@@ -121,9 +122,6 @@ struct HalManifest : public HalGroup<ManifestHal>,
     // - otherwise the default value: /{system,vendor}/etc/<name>_V<major>_<minor>.xml
     // Otherwise if the <xmlfile> entry does not exist, "" is returned.
     std::string getXmlFilePath(const std::string& xmlFileName, const Version& version) const;
-
-    // Get metaversion of this manifest.
-    Version getMetaVersion() const;
 
     // Alternative to forEachInstance if you just need a set of instance names instead.
     std::set<std::string> getHidlInstances(const std::string& package, const Version& version,
@@ -187,6 +185,10 @@ struct HalManifest : public HalGroup<ManifestHal>,
     // (instance in matrix) => (instance in manifest).
     std::vector<std::string> checkIncompatibleHals(const CompatibilityMatrix& mat) const;
 
+    // Return vector of instance names that are defined in an APEX that are not
+    // specified as updatable apex hals in the compatibility matrix.
+    std::vector<std::string> checkApexHals(const CompatibilityMatrix& mat) const;
+
     void removeHals(const std::string& name, size_t majorVer);
 
     // Returns a list of instance names that are in this manifest but
@@ -227,11 +229,20 @@ struct HalManifest : public HalGroup<ManifestHal>,
     // false if hal should not be added, and set |error| accordingly. Return true if check passes.
     bool addingConflictingMajorVersion(const ManifestHal& hal, std::string* error) const;
 
+    // Helper for shouldAdd(). Check if |hal| has a conflicting major version in <fqname> with this.
+    // Return false if hal should not be added, and set |error| accordingly. Return true if check
+    // passes.
+    bool addingConflictingFqInstance(const ManifestHal& hal, std::string* error) const;
+
     // Inferred kernel level.
     Level inferredKernelLevel() const;
 
     SchemaType mType;
     Level mLevel = Level::UNSPECIFIED;
+
+    // The metaversion on the source file if the HAL manifest is parsed from an XML file,
+    // Otherwise, the object is created programmatically, so default to libvintf meta version.
+    Version mSourceMetaVersion = kMetaVersion;
 
     // entries for device hal manifest only
     struct {

@@ -69,7 +69,7 @@ public class HostActivity extends Activity implements SurfaceHolder.Callback{
         super.onCreate(savedInstanceState);
 
         IntentFilter filter = new IntentFilter(BROADCAST_EMBED_CONTENT);
-        registerReceiver(mReceiver, filter);
+        registerReceiver(mReceiver, filter, Context.RECEIVER_EXPORTED);
 
         final RelativeLayout content = new RelativeLayout(this);
         mSurfaceView = new SurfaceView(this);

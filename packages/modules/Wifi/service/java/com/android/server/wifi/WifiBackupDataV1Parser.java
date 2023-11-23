@@ -96,65 +96,77 @@ class WifiBackupDataV1Parser implements WifiBackupDataParser {
     private static final int HIGHEST_SUPPORTED_MINOR_VERSION = 3;
 
     // List of tags supported for <WifiConfiguration> section in minor version 0
-    private static final Set<String> WIFI_CONFIGURATION_MINOR_V0_SUPPORTED_TAGS =
-            new HashSet<String>(Arrays.asList(new String[] {
-                WifiConfigurationXmlUtil.XML_TAG_CONFIG_KEY,
-                WifiConfigurationXmlUtil.XML_TAG_SSID,
-                WifiConfigurationXmlUtil.XML_TAG_PRE_SHARED_KEY,
-                WifiConfigurationXmlUtil.XML_TAG_WEP_KEYS,
-                WifiConfigurationXmlUtil.XML_TAG_WEP_TX_KEY_INDEX,
-                WifiConfigurationXmlUtil.XML_TAG_HIDDEN_SSID,
-                WifiConfigurationXmlUtil.XML_TAG_REQUIRE_PMF,
-                WifiConfigurationXmlUtil.XML_TAG_ALLOWED_KEY_MGMT,
-                WifiConfigurationXmlUtil.XML_TAG_ALLOWED_PROTOCOLS,
-                WifiConfigurationXmlUtil.XML_TAG_ALLOWED_AUTH_ALGOS,
-                WifiConfigurationXmlUtil.XML_TAG_ALLOWED_GROUP_CIPHERS,
-                WifiConfigurationXmlUtil.XML_TAG_ALLOWED_PAIRWISE_CIPHERS,
-                WifiConfigurationXmlUtil.XML_TAG_SHARED,
-            }));
+    private static final Set<String> WIFI_CONFIGURATION_MINOR_V0_SUPPORTED_TAGS = Set.of(
+            WifiConfigurationXmlUtil.XML_TAG_CONFIG_KEY,
+            WifiConfigurationXmlUtil.XML_TAG_SSID,
+            WifiConfigurationXmlUtil.XML_TAG_PRE_SHARED_KEY,
+            WifiConfigurationXmlUtil.XML_TAG_WEP_KEYS,
+            WifiConfigurationXmlUtil.XML_TAG_WEP_TX_KEY_INDEX,
+            WifiConfigurationXmlUtil.XML_TAG_HIDDEN_SSID,
+            WifiConfigurationXmlUtil.XML_TAG_REQUIRE_PMF,
+            WifiConfigurationXmlUtil.XML_TAG_ALLOWED_KEY_MGMT,
+            WifiConfigurationXmlUtil.XML_TAG_ALLOWED_PROTOCOLS,
+            WifiConfigurationXmlUtil.XML_TAG_ALLOWED_AUTH_ALGOS,
+            WifiConfigurationXmlUtil.XML_TAG_ALLOWED_GROUP_CIPHERS,
+            WifiConfigurationXmlUtil.XML_TAG_ALLOWED_PAIRWISE_CIPHERS,
+            WifiConfigurationXmlUtil.XML_TAG_SHARED);
 
     // List of tags supported for <WifiConfiguration> section in minor version 1
     private static final Set<String> WIFI_CONFIGURATION_MINOR_V1_SUPPORTED_TAGS =
-            new HashSet<String>() {{
-                addAll(WIFI_CONFIGURATION_MINOR_V0_SUPPORTED_TAGS);
-                add(WifiConfigurationXmlUtil.XML_TAG_METERED_OVERRIDE);
-            }};
+            new HashSet<String>();
+    static {
+        WIFI_CONFIGURATION_MINOR_V1_SUPPORTED_TAGS.addAll(
+                WIFI_CONFIGURATION_MINOR_V0_SUPPORTED_TAGS);
+        WIFI_CONFIGURATION_MINOR_V1_SUPPORTED_TAGS.add(
+                WifiConfigurationXmlUtil.XML_TAG_METERED_OVERRIDE);
+    }
 
     // List of tags supported for <WifiConfiguration> section in minor version 2
     private static final Set<String> WIFI_CONFIGURATION_MINOR_V2_SUPPORTED_TAGS =
-            new HashSet<String>() {{
-                addAll(WIFI_CONFIGURATION_MINOR_V1_SUPPORTED_TAGS);
-                add(WifiConfigurationXmlUtil.XML_TAG_IS_AUTO_JOIN);
-            }};
+            new HashSet<String>();
+    static {
+        WIFI_CONFIGURATION_MINOR_V2_SUPPORTED_TAGS.addAll(
+                WIFI_CONFIGURATION_MINOR_V1_SUPPORTED_TAGS);
+        WIFI_CONFIGURATION_MINOR_V2_SUPPORTED_TAGS.add(
+                WifiConfigurationXmlUtil.XML_TAG_IS_AUTO_JOIN);
+    }
 
     // List of tags supported for <WifiConfiguration> section in minor version 3
     private static final Set<String> WIFI_CONFIGURATION_MINOR_V3_SUPPORTED_TAGS =
-            new HashSet<String>() {{
-                addAll(WIFI_CONFIGURATION_MINOR_V2_SUPPORTED_TAGS);
-                add(WifiConfigurationXmlUtil.XML_TAG_SECURITY_PARAMS_LIST);
-                add(WifiConfigurationXmlUtil.XML_TAG_SECURITY_PARAMS);
-                add(WifiConfigurationXmlUtil.XML_TAG_SECURITY_TYPE);
-                add(WifiConfigurationXmlUtil.XML_TAG_SAE_IS_H2E_ONLY_MODE);
-                add(WifiConfigurationXmlUtil.XML_TAG_SAE_IS_PK_ONLY_MODE);
-                add(WifiConfigurationXmlUtil.XML_TAG_IS_ADDED_BY_AUTO_UPGRADE);
-                add(WifiConfigurationXmlUtil.XML_TAG_DELETION_PRIORITY);
-                add(WifiConfigurationXmlUtil.XML_TAG_NUM_REBOOTS_SINCE_LAST_USE);
-            }};
+            new HashSet<String>();
+    static {
+        WIFI_CONFIGURATION_MINOR_V3_SUPPORTED_TAGS.addAll(
+                WIFI_CONFIGURATION_MINOR_V2_SUPPORTED_TAGS);
+        WIFI_CONFIGURATION_MINOR_V3_SUPPORTED_TAGS.add(
+                WifiConfigurationXmlUtil.XML_TAG_SECURITY_PARAMS_LIST);
+        WIFI_CONFIGURATION_MINOR_V3_SUPPORTED_TAGS.add(
+                WifiConfigurationXmlUtil.XML_TAG_SECURITY_PARAMS);
+        WIFI_CONFIGURATION_MINOR_V3_SUPPORTED_TAGS.add(
+                WifiConfigurationXmlUtil.XML_TAG_SECURITY_TYPE);
+        WIFI_CONFIGURATION_MINOR_V3_SUPPORTED_TAGS.add(
+                WifiConfigurationXmlUtil.XML_TAG_SAE_IS_H2E_ONLY_MODE);
+        WIFI_CONFIGURATION_MINOR_V3_SUPPORTED_TAGS.add(
+                WifiConfigurationXmlUtil.XML_TAG_SAE_IS_PK_ONLY_MODE);
+        WIFI_CONFIGURATION_MINOR_V3_SUPPORTED_TAGS.add(
+                WifiConfigurationXmlUtil.XML_TAG_IS_ADDED_BY_AUTO_UPGRADE);
+        WIFI_CONFIGURATION_MINOR_V3_SUPPORTED_TAGS.add(
+                WifiConfigurationXmlUtil.XML_TAG_DELETION_PRIORITY);
+        WIFI_CONFIGURATION_MINOR_V3_SUPPORTED_TAGS.add(
+                WifiConfigurationXmlUtil.XML_TAG_NUM_REBOOTS_SINCE_LAST_USE);
+    }
 
     // List of tags supported for <IpConfiguration> section in minor version 0 to 3
-    private static final Set<String> IP_CONFIGURATION_MINOR_V0_V1_V2_V3_SUPPORTED_TAGS =
-            new HashSet<String>(Arrays.asList(new String[] {
-                IpConfigurationXmlUtil.XML_TAG_IP_ASSIGNMENT,
-                IpConfigurationXmlUtil.XML_TAG_LINK_ADDRESS,
-                IpConfigurationXmlUtil.XML_TAG_LINK_PREFIX_LENGTH,
-                IpConfigurationXmlUtil.XML_TAG_GATEWAY_ADDRESS,
-                IpConfigurationXmlUtil.XML_TAG_DNS_SERVER_ADDRESSES,
-                IpConfigurationXmlUtil.XML_TAG_PROXY_SETTINGS,
-                IpConfigurationXmlUtil.XML_TAG_PROXY_HOST,
-                IpConfigurationXmlUtil.XML_TAG_PROXY_PORT,
-                IpConfigurationXmlUtil.XML_TAG_PROXY_EXCLUSION_LIST,
-                IpConfigurationXmlUtil.XML_TAG_PROXY_PAC_FILE,
-            }));
+    private static final Set<String> IP_CONFIGURATION_MINOR_V0_V1_V2_V3_SUPPORTED_TAGS = Set.of(
+            IpConfigurationXmlUtil.XML_TAG_IP_ASSIGNMENT,
+            IpConfigurationXmlUtil.XML_TAG_LINK_ADDRESS,
+            IpConfigurationXmlUtil.XML_TAG_LINK_PREFIX_LENGTH,
+            IpConfigurationXmlUtil.XML_TAG_GATEWAY_ADDRESS,
+            IpConfigurationXmlUtil.XML_TAG_DNS_SERVER_ADDRESSES,
+            IpConfigurationXmlUtil.XML_TAG_PROXY_SETTINGS,
+            IpConfigurationXmlUtil.XML_TAG_PROXY_HOST,
+            IpConfigurationXmlUtil.XML_TAG_PROXY_PORT,
+            IpConfigurationXmlUtil.XML_TAG_PROXY_EXCLUSION_LIST,
+            IpConfigurationXmlUtil.XML_TAG_PROXY_PAC_FILE);
 
     @Override
     public List<WifiConfiguration> parseNetworkConfigurationsFromXml(XmlPullParser in,

@@ -130,7 +130,7 @@ public class AddAccountPreferenceController extends PreferenceController<Prefere
     }
 
     @Override
-    protected int getAvailabilityStatus() {
+    protected int getDefaultAvailabilityStatus() {
         if (isDeviceManaged(getContext())
                 && !getProfileHelper().isNewUserDisclaimerAcknolwedged(getContext())) {
             return AVAILABLE_FOR_VIEWING;

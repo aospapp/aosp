@@ -32,7 +32,7 @@ import org.robolectric.RobolectricTestRunner;
  */
 @RunWith(RobolectricTestRunner.class)
 public class WifiInfoRoboTest {
-    private static final String TEST_SSID = "TestWifi";
+    private static final String TEST_SSID = "\"TestWifi\"";
     private static final boolean TEST_HIDDEN = true;
     private static final String TEST_SECURITY_TYPE = "WPA2";
     private static final String TEST_PASSWORD = "TestPassword";

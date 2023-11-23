@@ -43,7 +43,7 @@ public class ErrorsTests {
     private Context mContext;
 
     @Before
-    public void setUp() {
+    public void setUp() throws Exception {
         mContext = InstrumentationRegistry.getTargetContext();
 
         InstrumentationRegistry.getInstrumentation()
@@ -52,6 +52,8 @@ public class ErrorsTests {
                         "appops set "
                                 + mContext.getPackageName()
                                 + " android:get_usage_stats allow");
+
+        Runtime.getRuntime().exec("cmd activity reset-dropbox-rate-limiter");
     }
 
     @Test

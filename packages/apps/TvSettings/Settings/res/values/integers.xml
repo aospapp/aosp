@@ -14,6 +14,9 @@
      limitations under the License.
 -->
 <resources>
+    <!-- Reserve all the job ids in TvSettings -->
+    <integer name="job_energy_modes_stats_log">100</integer>
+
     <!-- Pin dialog -->
     <integer name="pin_dialog_anim_duration">250</integer>
     <integer name="pin_dialog_enter_offset_y">32</integer>

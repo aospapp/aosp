@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # Copyright (c) 2013 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -42,15 +43,16 @@ class BluetoothDevice(object):
 
     # We currently get dates back in string format due to some inconsistencies
     # between python2 and python3. This is the standard date format we use.
-    NATIVE_DATE_FORMAT = '%Y-%m-%d %H:%M:%S.%f'
+    STANDARD_DATE_FORMAT = '%Y-%m-%d %H:%M:%S.%f'
 
-    def __init__(self, device_host, remote_facade_proxy=None):
+    def __init__(self, device_host, remote_facade_proxy=None, floss=False):
         """Construct a BluetoothDevice.
 
         @param device_host: host object representing a remote host.
 
         """
         self.host = device_host
+        self.floss = floss
         self._remote_proxy = remote_facade_proxy
 
         # Make sure the client library is on the device so that the proxy code
@@ -59,19 +61,67 @@ class BluetoothDevice(object):
         client_at.install()
         self._proxy_lock = threading.Lock()
 
-        # If remote facade wasn't already created, connect directly here
-        if not self._remote_proxy:
-            self._connect_xmlrpc_directly()
+        # Assign the correct _proxy based on the remote facade
+        if self._remote_proxy:
+            if self.floss:
+                self._proxy = self._remote_proxy.floss
+            else:
+                self._proxy = self._remote_proxy.bluetooth
+        else:
+            # If remote facade wasn't already created, connect directly here
+            self._proxy = self._connect_xmlrpc_directly()
 
-        # Get some static information about the bluetooth adapter.
-        properties = self.get_adapter_properties()
-        self.bluez_version = properties.get('Name')
-        self.address = properties.get('Address')
-        self.bluetooth_class = properties.get('Class')
-        self.UUIDs = properties.get('UUIDs')
+    def __getattr__(self, name):
+        """Override default attribute behavior to call proxy methods.
+
+        To remove duplicate code in this class, we allow methods in the proxy
+        class to be called directly from the bluetooth device class. If an
+        attribute is contained within this class, we return it. Otherwise, if
+        the proxy object contains a callable attribute of that name, we return a
+        function that calls that object when invoked.
+
+        All methods called on the proxy in this way will hold the proxy lock.
+        """
+        try:
+            return object.__getattr__(self, name)
+        except AttributeError as ae:
+            pass
+
+        # We only return proxied methods if no such attribute exists on this
+        # class. Any attribute errors here will be raised at the end if attr
+        # is None
+        try:
+            proxy = object.__getattribute__(self, '_proxy')
+            proxy_lock = object.__getattribute__(self, '_proxy_lock')
+            attr = proxy.__getattr__(name)
+            if attr:
+
+                def wrapper(*args, **kwargs):
+                    """Call target function while holding proxy lock."""
+                    with proxy_lock:
+                        return attr(*args, **kwargs)
+
+                return wrapper
+        except AttributeError as ae:
+            pass
+
+        # Couldn't find the attribute in either self or self._proxy.
+        raise AttributeError('{} has no attribute: {}'.format(
+                type(self).__name__, name))
+
+    def is_floss(self):
+        """Is the current facade running Floss?"""
+        return self.floss
 
     def _connect_xmlrpc_directly(self):
-        """Connects to the bluetooth native facade directly via xmlrpc."""
+        """Connects to the bluetooth facade directly via xmlrpc."""
+        # When the xmlrpc server is already created (using the
+        # RemoteFacadeFactory), we will use the BluezFacadeLocal inside the
+        # remote proxy. Otherwise, we will use the xmlrpc server started from
+        # this class. Currently, there are a few users outside of the Bluetooth
+        # autotests that use this and this can be removed once those users
+        # migrate to using the RemoteFacadeFactory to generate the xmlrpc
+        # connection.
         proxy = self.host.rpc_server_tracker.xmlrpc_connect(
                 constants.BLUETOOTH_DEVICE_XMLRPC_SERVER_COMMAND,
                 constants.BLUETOOTH_DEVICE_XMLRPC_SERVER_PORT,
@@ -87,37 +137,40 @@ class BluetoothDevice(object):
         return proxy
 
     @property
-    def _proxy(self):
-        """Gets the proxy to the DUT bluetooth facade.
+    @proxy_thread_safe
+    def address(self):
+        """Get the adapter address."""
+        return self._proxy.get_address()
 
-        @return XML RPC proxy to DUT bluetooth facade.
+    @property
+    @proxy_thread_safe
+    def bluez_version(self):
+        """Get the bluez version."""
+        return self._proxy.get_bluez_version()
 
-        """
-        # When the xmlrpc server is already created (using the
-        # RemoteFacadeFactory), we will use the BluetoothNativeFacade inside the
-        # remote proxy. Otherwise, we will use the xmlrpc server started from
-        # this class. Currently, there are a few users outside of the Bluetooth
-        # autotests that use this and this can be removed once those users
-        # migrate to using the RemoteFacadeFactory to generate the xmlrpc
-        # connection.
-        if self._remote_proxy:
-            return self._remote_proxy.bluetooth
-        else:
-            return self._bt_direct_proxy
+    @property
+    @proxy_thread_safe
+    def bluetooth_class(self):
+        """Get the bluetooth class."""
+        return self._proxy.get_bluetooth_class()
 
     @proxy_thread_safe
-    def set_debug_log_levels(self, dispatcher_vb, newblue_vb, bluez_vb,
-                             kernel_vb):
+    def set_debug_log_levels(self, bluez_vb, kernel_vb):
         """Enable or disable the debug logs of bluetooth
 
-        @param dispatcher_vb: verbosity of btdispatcher debug log, either 0 or 1
-        @param newblue_vb: verbosity of newblued debug log, either 0 or 1
         @param bluez_vb: verbosity of bluez debug log, either 0 or 1
         @param kernel_vb: verbosity of kernel debug log, either 0 or 1
 
         """
-        return self._proxy.set_debug_log_levels(dispatcher_vb, newblue_vb,
-                                                bluez_vb, kernel_vb)
+        return self._proxy.set_debug_log_levels(bluez_vb, kernel_vb)
+
+    @proxy_thread_safe
+    def set_quality_debug_log(self, enable):
+        """Enable or disable bluez quality debug log in the DUT
+        @param enable: True to enable all of the debug log,
+                       False to disable all of the debug log.
+        """
+        return self._proxy.set_quality_debug_log(enable)
 
     @proxy_thread_safe
     def log_message(self, msg, dut=True, peer=True):
@@ -209,27 +262,6 @@ class BluetoothDevice(object):
         """
         return self._proxy.is_bluetoothd_proxy_valid()
 
-
-    @proxy_thread_safe
-    def reset_on(self):
-        """Reset the adapter and settings and power up the adapter.
-
-        @return True on success, False otherwise.
-
-        """
-        return self._proxy.reset_on()
-
-
-    @proxy_thread_safe
-    def reset_off(self):
-        """Reset the adapter and settings, leave the adapter powered off.
-
-        @return True on success, False otherwise.
-
-        """
-        return self._proxy.reset_off()
-
-
     @proxy_thread_safe
     def has_adapter(self):
         """@return True if an adapter is present, False if not."""
@@ -253,28 +285,6 @@ class BluetoothDevice(object):
         return self._proxy.set_wake_enabled(value)
 
 
-    @proxy_thread_safe
-    def set_powered(self, powered):
-        """Set the adapter power state.
-
-        @param powered: adapter power state to set (True or False).
-
-        @return True on success, False otherwise.
-
-        """
-        return self._proxy.set_powered(powered)
-
-
-    def is_powered_on(self):
-        """Is the adapter powered on?
-
-        @returns: True if the adapter is powered on
-
-        """
-        properties = self.get_adapter_properties()
-        return bool(properties.get(u'Powered'))
-
-
     def get_hci(self):
         """Get hci of the adapter; normally, it is 'hci0'.
 
@@ -287,41 +297,12 @@ class BluetoothDevice(object):
         return hci
 
 
-    def get_address(self):
-        """Get the bluetooth address of the adapter.
-
-        An example of the bluetooth address of the adapter: '6C:29:95:1A:D4:6F'
-
-        @returns: the bluetooth address of the adapter.
-
-        """
-        return self.address
-
-
-    def get_bluez_version(self):
-        """Get bluez version.
-
-        An exmaple of bluez version: 'BlueZ 5.39'
-
-        @returns: the bluez version
-
-        """
-        return self.bluez_version
-
-
-    def get_bluetooth_class(self):
-        """Get the bluetooth class of the adapter.
-
-        An example of the bluetooth class of a chromebook: 4718852
-
-        @returns: the bluetooth class.
-
-        """
-        return self.bluetooth_class
-
-
     def get_UUIDs(self):
         """Get the UUIDs.
+
+        The UUIDs can be dynamically changed at run time due to adapter/CRAS
+        services availability. Therefore, always query them from the adapter,
+        not from the cache.
 
         An example of UUIDs:
             [u'00001112-0000-1000-8000-00805f9b34fb',
@@ -334,52 +315,8 @@ class BluetoothDevice(object):
         @returns: the list of the UUIDs.
 
         """
-        return self.UUIDs
-
-
-    @proxy_thread_safe
-    def set_discoverable(self, discoverable):
-        """Set the adapter discoverable state.
-
-        @param discoverable: adapter discoverable state to set (True or False).
-
-        @return True on success, False otherwise.
-
-        """
-        return self._proxy.set_discoverable(discoverable)
-
-
-    def is_discoverable(self):
-        """Is the adapter in the discoverable state?
-
-        @return True if discoverable. False otherwise.
-
-        """
         properties = self.get_adapter_properties()
-        return properties.get('Discoverable') == 1
-
-
-    @proxy_thread_safe
-    def set_discoverable_timeout(self, discoverable_timeout):
-        """Set the adapter DiscoverableTimeout.
-
-        @param discoverable_timeout: adapter DiscoverableTimeout
-                value to set in seconds (Integer).
-
-        @return True on success, False otherwise.
-
-        """
-        return self._proxy.set_discoverable_timeout(discoverable_timeout)
-
-
-    @proxy_thread_safe
-    def get_discoverable_timeout(self):
-        """Get the adapter DiscoverableTimeout.
-
-        @return Value of property DiscoverableTimeout in seconds (Integer).
-
-        """
-        return self._proxy.get_discoverable_timeout()
+        return properties.get('UUIDs')
 
 
     @proxy_thread_safe
@@ -417,14 +354,14 @@ class BluetoothDevice(object):
         return self._proxy.set_pairable(pairable)
 
 
+    @proxy_thread_safe
     def is_pairable(self):
         """Is the adapter in the pairable state?
 
         @return True if pairable. False otherwise.
 
         """
-        properties = self.get_adapter_properties()
-        return properties.get('Pairable') == 1
+        return self._proxy.get_pairable()
 
     @proxy_thread_safe
     def set_adapter_alias(self, alias):
@@ -552,7 +489,7 @@ class BluetoothDevice(object):
         Required to handle non-ascii data
         @param data: data to be JSON and base64 decode
 
-        @return : JSON and base64 decoded date
+        @return : JSON and base64 decoded data
 
 
         """
@@ -586,8 +523,7 @@ class BluetoothDevice(object):
             dictionaries on success, the value False otherwise.
 
         """
-        encoded_devices = self._proxy.get_devices()
-        return self._decode_json_base64(encoded_devices)
+        return json.loads(self._proxy.get_devices())
 
 
     @proxy_thread_safe
@@ -602,12 +538,12 @@ class BluetoothDevice(object):
 
         prop_val = self._proxy.get_device_property(address, prop_name)
 
-        # Handle dbus error case returned by xmlrpc_server.dbus_safe decorator
+        # Handle dbus error case returned by dbus_safe decorator
         if prop_val is None:
-            return prop_val
+            return None
 
         # Decode and return property value
-        return self._decode_json_base64(prop_val)
+        return json.loads(prop_val)
 
 
     @proxy_thread_safe
@@ -622,38 +558,6 @@ class BluetoothDevice(object):
         """
 
         return self._proxy.get_battery_property(address, prop_name)
-
-    @proxy_thread_safe
-    def start_discovery(self):
-        """Start discovery of remote devices.
-
-        Obtain the discovered device information using get_devices(), called
-        stop_discovery() when done.
-
-        @return (True, None) on success, (False, <error>) otherwise.
-
-        """
-        return self._proxy.start_discovery()
-
-
-    @proxy_thread_safe
-    def stop_discovery(self):
-        """Stop discovery of remote devices.
-
-        @return (True, None) on success, (False, <error>) otherwise.
-
-        """
-        return self._proxy.stop_discovery()
-
-
-    def is_discovering(self):
-        """Is it discovering?
-
-        @return True if it is discovering. False otherwise.
-
-        """
-        return self.get_adapter_properties().get('Discovering') == 1
-
 
     @proxy_thread_safe
     def get_dev_info(self):
@@ -1002,6 +906,23 @@ class BluetoothDevice(object):
         return self._proxy.advmon_reset_event_count(app_id, monitor_id, event)
 
     @proxy_thread_safe
+    def advmon_set_target_devices(self, app_id, monitor_id, devices):
+        """Set the target devices to the given monitor.
+
+        DeviceFound and DeviceLost will only be counted if it is triggered by a
+        target device.
+
+        @param app_id: the app id.
+        @param monitor_id: the monitor id.
+        @param devices: a list of devices in MAC address
+
+        @returns: True on success, False otherwise.
+
+        """
+        return self._proxy.advmon_set_target_devices(app_id, monitor_id,
+                                                     devices)
+
+    @proxy_thread_safe
     def advmon_interleave_scan_logger_start(self):
         """ Start interleave logger recording
         """
@@ -1041,6 +962,16 @@ class BluetoothDevice(object):
         return self._proxy.advmon_interleave_scan_logger_get_cancel_events()
 
     @proxy_thread_safe
+    def advmon_interleave_scan_get_durations(self):
+        """Get durations of allowlist scan and no filter scan
+
+        @returns: a dict of {'allowlist': allowlist_duration,
+                             'no filter': no_filter_duration},
+                  or None if something went wrong
+        """
+        return self._proxy.get_advmon_interleave_durations()
+
+    @proxy_thread_safe
     def messages_start(self):
         """Start messages monitoring."""
         self._proxy.messages_start()
@@ -1064,6 +995,15 @@ class BluetoothDevice(object):
 
         """
         return self._proxy.messages_find(pattern_str)
+
+    @proxy_thread_safe
+    def clean_bluetooth_kernel_log(self, log_level=7):
+        """Remove Bluetooth kernel logs in /var/log/messages with loglevel
+           equal to or greater than |log_level|
+
+        @param log_level: int in range [0..7]
+        """
+        self._proxy.clean_bluetooth_kernel_log(log_level)
 
     @proxy_thread_safe
     def register_advertisement(self, advertisement_data):
@@ -1110,6 +1050,40 @@ class BluetoothDevice(object):
 
 
     @proxy_thread_safe
+    def get_advertisement_property(self, adv_path, prop_name):
+        """Grab property of an advertisement registered on the DUT
+
+        The service on the DUT registers a dbus object and holds it. During the
+        test, some properties on the object may change, so this allows the test
+        access to the properties at run-time.
+
+        @param adv_path: string path of the dbus object
+        @param prop_name: string name of the property required
+
+        @returns: the value of the property in standard (non-dbus) type if the
+                    property exists, else None
+        """
+
+        return self._proxy.get_advertisement_property(adv_path, prop_name)
+
+    @proxy_thread_safe
+    def get_advertising_manager_property(self, prop_name):
+        """Grab property of the bluez advertising manager
+
+        This allows us to understand the DUT's advertising capabilities, for
+        instance the maximum number of advertising instances supported, so that
+        we can test these capabilities.
+
+        @param adv_path: string path of the dbus object
+        @param prop_name: string name of the property required
+
+        @returns: the value of the property in standard (non-dbus) type if the
+                    property exists, else None
+        """
+
+        return self._proxy.get_advertising_manager_property(prop_name)
+
+    @proxy_thread_safe
     def reset_advertising(self):
         """Reset advertising.
 
@@ -1132,6 +1106,24 @@ class BluetoothDevice(object):
         """
         return self._proxy.create_audio_record_directory(audio_record_dir)
 
+    @proxy_thread_safe
+    def get_audio_thread_summary(self):
+        """Dumps audio thread info.
+
+        @returns: a list of cras audio information.
+        """
+        return self._proxy.get_audio_thread_summary()
+
+    @proxy_thread_safe
+    def get_device_id_from_node_type(self, node_type, is_input):
+        """Gets device id from node type.
+
+        @param node_type: a node type defined in CRAS_NODE_TYPES.
+        @param is_input: True if the node is input. False otherwise.
+
+        @returns: a string for device id.
+        """
+        return self._proxy.get_device_id_from_node_type(node_type, is_input)
 
     @proxy_thread_safe
     def start_capturing_audio_subprocess(self, audio_data, recording_device):
@@ -1157,15 +1149,17 @@ class BluetoothDevice(object):
 
 
     @proxy_thread_safe
-    def start_playing_audio_subprocess(self, audio_data):
+    def start_playing_audio_subprocess(self, audio_data, pin_device=None):
         """Start playing audio in a subprocess.
 
-        @param audio_data: the audio test data
+        @param audio_data: the audio test data.
+        @param pin_device: the device id to play audio.
 
         @returns: True on success. False otherwise.
         """
         audio_data = json.dumps(audio_data)
-        return self._proxy.start_playing_audio_subprocess(audio_data)
+        return self._proxy.start_playing_audio_subprocess(
+                audio_data, pin_device)
 
 
     @proxy_thread_safe
@@ -1630,16 +1624,22 @@ class BluetoothDevice(object):
 
 
     @proxy_thread_safe
-    def wait_for_hid_device(self, device_address):
+    def wait_for_hid_device(self,
+                            device_address,
+                            timeout=None,
+                            sleep_interval=None):
         """Wait for hid device with given device address.
 
         Args:
             device_address: Peripheral Address
+            timeout: maximum number of seconds to wait
+            sleep_interval: time to sleep between polls
 
         Returns:
             True if hid device is found.
         """
-        return self._proxy.wait_for_hid_device(device_address)
+        return self._proxy.wait_for_hid_device(device_address, timeout,
+                                               sleep_interval)
 
 
     @proxy_thread_safe
@@ -1665,8 +1665,8 @@ class BluetoothDevice(object):
         # python3 (hopefully)
         # TODO - Revisit converting date to string and back in this method
         if info:
-            start_date = datetime.strptime(info[0], self.NATIVE_DATE_FORMAT)
-            end_date = datetime.strptime(info[1], self.NATIVE_DATE_FORMAT)
+            start_date = datetime.strptime(info[0], self.STANDARD_DATE_FORMAT)
+            end_date = datetime.strptime(info[1], self.STANDARD_DATE_FORMAT)
             ret = info[2]
 
             return (start_date, end_date, ret)
@@ -1695,6 +1695,14 @@ class BluetoothDevice(object):
         return self._proxy.get_wlan_vid_pid()
 
     @proxy_thread_safe
+    def get_bt_transport(self):
+        """ Return the transport used by Bluetooth module
+
+        @returns: USB/UART/SDIO on success; None on failure
+        """
+        return self._proxy.get_bt_transport()
+
+    @proxy_thread_safe
     def get_bt_module_name(self):
         """ Return bluetooth module name for non-USB devices
 
@@ -1704,10 +1712,31 @@ class BluetoothDevice(object):
         return self._proxy.get_bt_module_name()
 
     @proxy_thread_safe
-    def get_device_time(self):
-        """ Get the current device time. """
-        return datetime.strptime(self._proxy.get_device_time(),
-                                 self.NATIVE_DATE_FORMAT)
+    def get_chipset_name(self):
+        """ Get the name of BT/WiFi chipset on this host
+
+        @returns chipset name if successful else ''
+        """
+        return self._proxy.get_chipset_name()
+
+    @proxy_thread_safe
+    def get_device_utc_time(self):
+        """ Get the current device time in UTC. """
+        return datetime.strptime(self._proxy.get_device_utc_time(),
+                                 self.STANDARD_DATE_FORMAT)
+
+    @proxy_thread_safe
+    def get_bt_usb_disconnect_str(self):
+        """ Return the expected log error on USB disconnect
+
+        Locate the descriptor that will be used from the list of all usb
+        descriptors associated with our bluetooth chip, and format into the
+        expected string error for USB disconnect
+
+        @returns: string representing expected usb disconnect log entry if usb
+                  device could be identified, None otherwise
+        """
+        return self._proxy.get_bt_usb_disconnect_str()
 
     @proxy_thread_safe
     def close(self, close_host=True):
@@ -1726,6 +1755,39 @@ class BluetoothDevice(object):
         # This kills the RPC server.
         if close_host:
             self.host.close()
-        elif self._bt_direct_proxy:
+        elif hasattr(self, '_bt_direct_proxy'):
             self.host.rpc_server_tracker.disconnect(
                     constants.BLUETOOTH_DEVICE_XMLRPC_SERVER_PORT)
+
+
+    @proxy_thread_safe
+    def policy_get_service_allow_list(self):
+        """Get the service allow list for enterprise policy.
+
+        @returns: array of strings representing the allowed service UUIDs.
+        """
+        return self._proxy.policy_get_service_allow_list()
+
+
+    @proxy_thread_safe
+    def policy_set_service_allow_list(self, uuids):
+        """Get the service allow list for enterprise policy.
+
+        @param uuids: a string representing the uuids
+                      e.g., "0x1234,0xabcd" or ""
+
+        @returns: (True, '') on success, (False, '<error>') on failure
+        """
+        return self._proxy.policy_set_service_allow_list(uuids)
+
+    @proxy_thread_safe
+    def policy_get_device_affected(self, device_address):
+        """Get if the device is affected by enterprise policy.
+
+        @param device_address: address of the device
+                               e.g. '6C:29:95:1A:D4:6F'
+
+        @returns: True if the device is affected by the enterprise policy.
+                  False if not. None if the device is not found.
+        """
+        return self._proxy.policy_get_device_affected(device_address)

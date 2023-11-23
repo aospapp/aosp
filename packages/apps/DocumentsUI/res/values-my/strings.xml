@@ -55,8 +55,8 @@
     <string name="menu_copy_to_clipboard" msgid="5064081159073330776">"မိတ္တူကူးပါ"</string>
     <string name="menu_paste_from_clipboard" msgid="360947260414135827">"ကူးထည့်ပါ"</string>
     <string name="menu_paste_into_folder" msgid="8000644546983240101">"ဖိုင်တွဲသို့ ကူးထည့်ပါ"</string>
-    <string name="menu_advanced_show" msgid="7558626506462906726">"အတွင်းသိမ်းခန်း ပြပါ"</string>
-    <string name="menu_advanced_hide" msgid="6488381508009246334">"အတွင်းသိမ်းခန်း ဖျောက်ပါ"</string>
+    <string name="menu_advanced_show" msgid="7558626506462906726">"စက်တွင်းသိုလှောင်ခန်း ပြပါ"</string>
+    <string name="menu_advanced_hide" msgid="6488381508009246334">"စက်တွင်းသိုလှောင်ခန်း ဖျောက်ပါ"</string>
     <string name="button_select" msgid="240863497069321364">"ရွေးချယ်ရန်"</string>
     <string name="button_copy" msgid="8219059853840996027">"မိတ္တူကူးရန်"</string>
     <string name="button_compress" msgid="8951561310857223966">"ချုံ့ရန်"</string>
@@ -92,8 +92,8 @@
     <string name="save_error" msgid="8631128801982095782">"စာဖိုင်ကို သိမ်း၍မရခဲ့ပါ"</string>
     <string name="create_error" msgid="3092144450044861994">"ဖိုင်တွဲကို ဖန်တီး၍ မရခဲ့ပါ"</string>
     <string name="query_error" msgid="6625421453613879336">"ဖိုင်ကို လောလောဆယ် တင်ပေး၍မရသေးပါ"</string>
-    <string name="quiet_mode_error_title" msgid="9126656325282792843">"အလုပ်ပရိုဖိုင် ခဏရပ်ထားသည်"</string>
-    <string name="quiet_mode_button" msgid="6977115032320235420">"ဖွင့်ရန်"</string>
+    <string name="quiet_mode_error_title" msgid="554319751414657910">"အလုပ်သုံးအက်ပ်များကို ခေတ္တရပ်ထားသည်"</string>
+    <string name="quiet_mode_button" msgid="8051436551926677305">"အလုပ်သုံးအက်ပ်များ ဖွင့်ရန်"</string>
     <string name="cant_select_work_files_error_title" msgid="6688716319549644354">"အလုပ်ဖိုင်များကို ရွေး၍မရပါ"</string>
     <string name="cant_select_work_files_error_message" msgid="683480676150690641">"ကိုယ်ပိုင်အက်ပ်မှနေ၍ အလုပ်ဖိုင်များ သုံးရန် သင်၏ IT စီမံခန့်ခွဲသူက ခွင့်မပြုပါ"</string>
     <string name="cant_select_personal_files_error_title" msgid="3200697170148617742">"ကိုယ်ပိုင်ဖိုင်များကို ရွေး၍မရပါ"</string>

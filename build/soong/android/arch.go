@@ -16,9 +16,11 @@ package android
 
 import (
 	"encoding"
+	"encoding/json"
 	"fmt"
 	"reflect"
 	"runtime"
+	"sort"
 	"strings"
 
 	"android/soong/bazel"
@@ -146,10 +148,11 @@ const COMMON_VARIANT = "common"
 var (
 	archTypeList []ArchType
 
-	Arm    = newArch("arm", "lib32")
-	Arm64  = newArch("arm64", "lib64")
-	X86    = newArch("x86", "lib32")
-	X86_64 = newArch("x86_64", "lib64")
+	Arm     = newArch("arm", "lib32")
+	Arm64   = newArch("arm64", "lib64")
+	Riscv64 = newArch("riscv64", "lib64")
+	X86     = newArch("x86", "lib32")
+	X86_64  = newArch("x86_64", "lib64")
 
 	Common = ArchType{
 		Name: COMMON_VARIANT,
@@ -307,7 +310,7 @@ var (
 	// Linux is the OS for the Linux kernel plus the glibc runtime.
 	Linux = newOsType("linux_glibc", Host, false, X86, X86_64)
 	// LinuxMusl is the OS for the Linux kernel plus the musl runtime.
-	LinuxMusl = newOsType("linux_musl", Host, false, X86, X86_64)
+	LinuxMusl = newOsType("linux_musl", Host, false, X86, X86_64, Arm64, Arm)
 	// Darwin is the OS for MacOS/Darwin host machines.
 	Darwin = newOsType("darwin", Host, false, Arm64, X86_64)
 	// LinuxBionic is the OS for the Linux kernel plus the Bionic libc runtime, but without the
@@ -317,7 +320,7 @@ var (
 	Windows = newOsType("windows", Host, true, X86, X86_64)
 	// Android is the OS for target devices that run all of Android, including the Linux kernel
 	// and the Bionic libc runtime.
-	Android = newOsType("android", Device, false, Arm, Arm64, X86, X86_64)
+	Android = newOsType("android", Device, false, Arm, Arm64, Riscv64, X86, X86_64)
 
 	// CommonOS is a pseudo OSType for a common OS variant, which is OsType agnostic and which
 	// has dependencies on all the OS variants.
@@ -391,54 +394,6 @@ func (target Target) Variations() []blueprint.Variation {
 		{Mutator: "os", Variation: target.OsVariation()},
 		{Mutator: "arch", Variation: target.ArchVariation()},
 	}
-}
-
-func registerBp2buildArchPathDepsMutator(ctx RegisterMutatorsContext) {
-	ctx.BottomUp("bp2build-arch-pathdeps", bp2buildArchPathDepsMutator).Parallel()
-}
-
-// add dependencies for architecture specific properties tagged with `android:"path"`
-func bp2buildArchPathDepsMutator(ctx BottomUpMutatorContext) {
-	var module Module
-	module = ctx.Module()
-
-	m := module.base()
-	if !m.ArchSpecific() {
-		return
-	}
-
-	// addPathDepsForProps does not descend into sub structs, so we need to descend into the
-	// arch-specific properties ourselves
-	var properties []interface{}
-	for _, archProperties := range m.archProperties {
-		for _, archProps := range archProperties {
-			archPropValues := reflect.ValueOf(archProps).Elem()
-			// there are three "arch" variations, descend into each
-			for _, variant := range []string{"Arch", "Multilib", "Target"} {
-				// The properties are an interface, get the value (a pointer) that it points to
-				archProps := archPropValues.FieldByName(variant).Elem()
-				if archProps.IsNil() {
-					continue
-				}
-				// And then a pointer to a struct
-				archProps = archProps.Elem()
-				for i := 0; i < archProps.NumField(); i += 1 {
-					f := archProps.Field(i)
-					// If the value of the field is a struct (as opposed to a pointer to a struct) then step
-					// into the BlueprintEmbed field.
-					if f.Kind() == reflect.Struct {
-						f = f.FieldByName("BlueprintEmbed")
-					}
-					if f.IsZero() {
-						continue
-					}
-					props := f.Interface().(interface{})
-					properties = append(properties, props)
-				}
-			}
-		}
-	}
-	addPathDepsForProps(ctx, properties)
 }
 
 // osMutator splits an arch-specific module into a variant for each OS that is enabled for the
@@ -572,26 +527,29 @@ var DarwinUniversalVariantTag = archDepTag{name: "darwin universal binary"}
 // archMutator splits a module into a variant for each Target requested by the module.  Target selection
 // for a module is in three levels, OsClass, multilib, and then Target.
 // OsClass selection is determined by:
-//    - The HostOrDeviceSupported value passed in to InitAndroidArchModule by the module type factory, which selects
-//      whether the module type can compile for host, device or both.
-//    - The host_supported and device_supported properties on the module.
+//   - The HostOrDeviceSupported value passed in to InitAndroidArchModule by the module type factory, which selects
+//     whether the module type can compile for host, device or both.
+//   - The host_supported and device_supported properties on the module.
+//
 // If host is supported for the module, the Host and HostCross OsClasses are selected.  If device is supported
 // for the module, the Device OsClass is selected.
 // Within each selected OsClass, the multilib selection is determined by:
-//    - The compile_multilib property if it set (which may be overridden by target.android.compile_multilib or
-//      target.host.compile_multilib).
-//    - The default multilib passed to InitAndroidArchModule if compile_multilib was not set.
+//   - The compile_multilib property if it set (which may be overridden by target.android.compile_multilib or
+//     target.host.compile_multilib).
+//   - The default multilib passed to InitAndroidArchModule if compile_multilib was not set.
+//
 // Valid multilib values include:
-//    "both": compile for all Targets supported by the OsClass (generally x86_64 and x86, or arm64 and arm).
-//    "first": compile for only a single preferred Target supported by the OsClass.  This is generally x86_64 or arm64,
-//        but may be arm for a 32-bit only build.
-//    "32": compile for only a single 32-bit Target supported by the OsClass.
-//    "64": compile for only a single 64-bit Target supported by the OsClass.
-//    "common": compile a for a single Target that will work on all Targets supported by the OsClass (for example Java).
-//    "common_first": compile a for a Target that will work on all Targets supported by the OsClass
-//        (same as "common"), plus a second Target for the preferred Target supported by the OsClass
-//        (same as "first").  This is used for java_binary that produces a common .jar and a wrapper
-//        executable script.
+//
+//	"both": compile for all Targets supported by the OsClass (generally x86_64 and x86, or arm64 and arm).
+//	"first": compile for only a single preferred Target supported by the OsClass.  This is generally x86_64 or arm64,
+//	    but may be arm for a 32-bit only build.
+//	"32": compile for only a single 32-bit Target supported by the OsClass.
+//	"64": compile for only a single 64-bit Target supported by the OsClass.
+//	"common": compile a for a single Target that will work on all Targets supported by the OsClass (for example Java).
+//	"common_first": compile a for a Target that will work on all Targets supported by the OsClass
+//	    (same as "common"), plus a second Target for the preferred Target supported by the OsClass
+//	    (same as "first").  This is used for java_binary that produces a common .jar and a wrapper
+//	    executable script.
 //
 // Once the list of Targets is determined, the module is split into a variant for each Target.
 //
@@ -655,12 +613,19 @@ func archMutator(bpctx blueprint.BottomUpMutatorContext) {
 	prefer32 := os == Windows
 
 	// Determine the multilib selection for this module.
-	multilib, extraMultilib := decodeMultilib(base, os)
+	ignorePrefer32OnDevice := mctx.Config().IgnorePrefer32OnDevice()
+	multilib, extraMultilib := decodeMultilib(base, os, ignorePrefer32OnDevice)
 
 	// Convert the multilib selection into a list of Targets.
 	targets, err := decodeMultilibTargets(multilib, osTargets, prefer32)
 	if err != nil {
 		mctx.ModuleErrorf("%s", err.Error())
+	}
+
+	// If there are no supported targets disable the module.
+	if len(targets) == 0 {
+		base.Disable()
+		return
 	}
 
 	// If the module is using extraMultilib, decode the extraMultilib selection into
@@ -671,6 +636,7 @@ func archMutator(bpctx blueprint.BottomUpMutatorContext) {
 		if err != nil {
 			mctx.ModuleErrorf("%s", err.Error())
 		}
+		multiTargets = filterHostCross(multiTargets, targets[0].HostCross)
 	}
 
 	// Recovery is always the primary architecture, filter out any other architectures.
@@ -730,7 +696,7 @@ func addTargetProperties(m Module, target Target, multiTargets []Target, primary
 // multilib from the factory's call to InitAndroidArchModule if none was set.  For modules that
 // called InitAndroidMultiTargetsArchModule it always returns "common" for multilib, and returns
 // the actual multilib in extraMultilib.
-func decodeMultilib(base *ModuleBase, os OsType) (multilib, extraMultilib string) {
+func decodeMultilib(base *ModuleBase, os OsType, ignorePrefer32OnDevice bool) (multilib, extraMultilib string) {
 	// First check the "android.compile_multilib" or "host.compile_multilib" properties.
 	switch os.Class {
 	case Device:
@@ -747,6 +713,13 @@ func decodeMultilib(base *ModuleBase, os OsType) (multilib, extraMultilib string
 	// If that wasn't set, use the default multilib set by the factory.
 	if multilib == "" {
 		multilib = base.commonProperties.Default_multilib
+	}
+
+	// If a device is configured with multiple targets, this option
+	// force all device targets that prefer32 to be compiled only as
+	// the first target.
+	if ignorePrefer32OnDevice && os.Class == Device && (multilib == "prefer32" || multilib == "first_prefer32") {
+		multilib = "first"
 	}
 
 	if base.commonProperties.UseTargetVariants {
@@ -793,6 +766,18 @@ func filterToArch(targets []Target, archs ...ArchType) []Target {
 			}
 		}
 		if !found {
+			targets = append(targets[:i], targets[i+1:]...)
+			i--
+		}
+	}
+	return targets
+}
+
+// filterHostCross takes a list of Targets and a hostCross value, and returns a modified list
+// that contains only Targets that have the specified HostCross.
+func filterHostCross(targets []Target, hostCross bool) []Target {
+	for i := 0; i < len(targets); i++ {
+		if targets[i].HostCross != hostCross {
 			targets = append(targets[:i], targets[i+1:]...)
 			i--
 		}
@@ -990,19 +975,13 @@ func filterArchStruct(field reflect.StructField, prefix string) (bool, reflect.S
 		if string(field.Tag) != `android:"`+strings.Join(values, ",")+`"` {
 			panic(fmt.Errorf("unexpected tag format %q", field.Tag))
 		}
-		// don't delete path tag as it is needed for bp2build
 		// these tags don't need to be present in the runtime generated struct type.
-		values = RemoveListFromList(values, []string{"arch_variant", "variant_prepend"})
-		if len(values) > 0 && values[0] != "path" {
+		values = RemoveListFromList(values, []string{"arch_variant", "variant_prepend", "path"})
+		if len(values) > 0 {
 			panic(fmt.Errorf("unknown tags %q in field %q", values, prefix+field.Name))
-		} else if len(values) == 1 {
-			// FIXME(b/200678898): This assumes that the only tag type when there's
-			// `android:"arch_variant"` is `android` itself and thus clobbers others
-			field.Tag = reflect.StructTag(`android:"` + strings.Join(values, ",") + `"`)
-		} else {
-			field.Tag = ``
 		}
 
+		field.Tag = ``
 		return true, field
 	}
 	return false, field
@@ -1261,11 +1240,13 @@ func (m *ModuleBase) setOSProperties(ctx BottomUpMutatorContext) {
 
 // Returns the struct containing the properties specific to the given
 // architecture type. These look like this in Blueprint files:
-// arch: {
-//     arm64: {
-//         key: value,
-//     },
-// },
+//
+//	arch: {
+//	    arm64: {
+//	        key: value,
+//	    },
+//	},
+//
 // This struct will also contain sub-structs containing to the architecture/CPU
 // variants and features that themselves contain properties specific to those.
 func getArchTypeStruct(ctx ArchVariantContext, archProperties interface{}, archType ArchType) (reflect.Value, bool) {
@@ -1277,11 +1258,12 @@ func getArchTypeStruct(ctx ArchVariantContext, archProperties interface{}, archT
 
 // Returns the struct containing the properties specific to a given multilib
 // value. These look like this in the Blueprint file:
-// multilib: {
-//     lib32: {
-//         key: value,
-//     },
-// },
+//
+//	multilib: {
+//	    lib32: {
+//	        key: value,
+//	    },
+//	},
 func getMultilibStruct(ctx ArchVariantContext, archProperties interface{}, archType ArchType) (reflect.Value, bool) {
 	archPropValues := reflect.ValueOf(archProperties).Elem()
 	multilibProp := archPropValues.FieldByName("Multilib").Elem()
@@ -1700,20 +1682,19 @@ func hasArmAndroidArch(targets []Target) bool {
 
 // archConfig describes a built-in configuration.
 type archConfig struct {
-	arch        string
-	archVariant string
-	cpuVariant  string
-	abi         []string
+	Arch        string   `json:"arch"`
+	ArchVariant string   `json:"arch_variant"`
+	CpuVariant  string   `json:"cpu_variant"`
+	Abi         []string `json:"abis"`
 }
 
-// getNdkAbisConfig returns the list of archConfigs that are used for bulding
-// the API stubs and static libraries that are included in the NDK. These are
-// built *without Neon*, because non-Neon is still supported and building these
-// with Neon will break those users.
+// getNdkAbisConfig returns the list of archConfigs that are used for building
+// the API stubs and static libraries that are included in the NDK.
 func getNdkAbisConfig() []archConfig {
 	return []archConfig{
 		{"arm64", "armv8-a-branchprot", "", []string{"arm64-v8a"}},
-		{"arm", "armv7-a", "", []string{"armeabi-v7a"}},
+		{"arm", "armv7-a-neon", "", []string{"armeabi-v7a"}},
+		{"riscv64", "", "", []string{"riscv64"}},
 		{"x86_64", "", "", []string{"x86_64"}},
 		{"x86", "", "", []string{"x86"}},
 	}
@@ -1734,8 +1715,8 @@ func decodeAndroidArchSettings(archConfigs []archConfig) ([]Target, error) {
 	var ret []Target
 
 	for _, config := range archConfigs {
-		arch, err := decodeArch(Android, config.arch, &config.archVariant,
-			&config.cpuVariant, config.abi)
+		arch, err := decodeArch(Android, config.Arch, &config.ArchVariant,
+			&config.CpuVariant, config.Abi)
 		if err != nil {
 			return nil, err
 		}
@@ -1825,7 +1806,9 @@ func getCommonTargets(targets []Target) []Target {
 	for _, t := range targets {
 		if _, found := set[t.Os.String()]; !found {
 			set[t.Os.String()] = true
-			ret = append(ret, commonTargetMap[t.Os.String()])
+			common := commonTargetMap[t.Os.String()]
+			common.HostCross = t.HostCross
+			ret = append(ret, common)
 		}
 	}
 
@@ -1833,20 +1816,23 @@ func getCommonTargets(targets []Target) []Target {
 }
 
 // FirstTarget takes a list of Targets and a list of multilib values and returns a list of Targets
-// that contains zero or one Target for each OsType, selecting the one that matches the earliest
-// filter.
+// that contains zero or one Target for each OsType and HostCross, selecting the one that matches
+// the earliest filter.
 func FirstTarget(targets []Target, filters ...string) []Target {
 	// find the first target from each OS
 	var ret []Target
-	hasHost := false
-	set := make(map[OsType]bool)
+	type osHostCross struct {
+		os        OsType
+		hostCross bool
+	}
+	set := make(map[osHostCross]bool)
 
 	for _, filter := range filters {
 		buildTargets := filterMultilibTargets(targets, filter)
 		for _, t := range buildTargets {
-			if _, found := set[t.Os]; !found {
-				hasHost = hasHost || (t.Os.Class == Host)
-				set[t.Os] = true
+			key := osHostCross{t.Os, t.HostCross}
+			if _, found := set[key]; !found {
+				set[key] = true
 				ret = append(ret, t)
 			}
 		}
@@ -2054,9 +2040,10 @@ type ConfigurationAxisToArchVariantProperties map[bazel.ConfigurationAxis]ArchVa
 // arch-variant properties correspond to the values of the properties of the 'propertySet' struct
 // that are specific to that axis/configuration. Each axis is independent, containing
 // non-overlapping configs that correspond to the various "arch-variant" support, at this time:
-//    arches (including multilib)
-//    oses
-//    arch+os combinations
+//
+//	arches (including multilib)
+//	oses
+//	arch+os combinations
 //
 // For example, passing a struct { Foo bool, Bar string } will return an interface{} that can be
 // type asserted back into the same struct, containing the config-specific property value specified
@@ -2099,13 +2086,22 @@ func (m *ModuleBase) GetArchVariantProperties(ctx ArchVariantContext, propertySe
 	// For each arch type (x86, arm64, etc.)
 	for _, arch := range ArchTypeList() {
 		// Arch properties are sometimes sharded (see createArchPropTypeDesc() ).
-		// Iterate over ever shard and extract a struct with the same type as the
+		// Iterate over every shard and extract a struct with the same type as the
 		// input one that contains the data specific to that arch.
 		propertyStructs := make([]reflect.Value, 0)
+		archFeaturePropertyStructs := make(map[string][]reflect.Value, 0)
 		for _, archProperty := range archProperties {
 			archTypeStruct, ok := getArchTypeStruct(ctx, archProperty, arch)
 			if ok {
 				propertyStructs = append(propertyStructs, archTypeStruct)
+
+				// For each feature this arch supports (arm: neon, x86: ssse3, sse4, ...)
+				for _, feature := range archFeatures[arch] {
+					prefix := "arch." + arch.Name + "." + feature
+					if featureProperties, ok := getChildPropertyStruct(ctx, archTypeStruct, feature, prefix); ok {
+						archFeaturePropertyStructs[feature] = append(archFeaturePropertyStructs[feature], featureProperties)
+					}
+				}
 			}
 			multilibStruct, ok := getMultilibStruct(ctx, archProperty, arch)
 			if ok {
@@ -2113,10 +2109,31 @@ func (m *ModuleBase) GetArchVariantProperties(ctx ArchVariantContext, propertySe
 			}
 		}
 
-		// Create a new instance of the requested property set
-		value := reflect.New(reflect.ValueOf(propertySet).Elem().Type()).Interface()
+		archToProp[arch.Name] = mergeStructs(ctx, propertyStructs, propertySet)
 
-		archToProp[arch.Name] = mergeStructs(ctx, propertyStructs, value)
+		// In soong, if multiple features match the current configuration, they're
+		// all used. In bazel, we have to have unambiguous select() statements, so
+		// we can't have two features that are both active in the same select().
+		// One alternative is to split out each feature into a separate select(),
+		// but then it's difficult to support exclude_srcs, which may need to
+		// exclude things from the regular arch select() statement if a certain
+		// feature is active. Instead, keep the features in the same select
+		// statement as the arches, but emit the power set of all possible
+		// combinations of features, so that bazel can match the most precise one.
+		allFeatures := make([]string, 0, len(archFeaturePropertyStructs))
+		for feature := range archFeaturePropertyStructs {
+			allFeatures = append(allFeatures, feature)
+		}
+		for _, features := range bazel.PowerSetWithoutEmptySet(allFeatures) {
+			sort.Strings(features)
+			propsForCurrentFeatureSet := make([]reflect.Value, 0)
+			propsForCurrentFeatureSet = append(propsForCurrentFeatureSet, propertyStructs...)
+			for _, feature := range features {
+				propsForCurrentFeatureSet = append(propsForCurrentFeatureSet, archFeaturePropertyStructs[feature]...)
+			}
+			archToProp[arch.Name+"-"+strings.Join(features, "-")] =
+				mergeStructs(ctx, propsForCurrentFeatureSet, propertySet)
+		}
 	}
 	axisToProps[bazel.ArchConfigurationAxis] = archToProp
 
@@ -2209,17 +2226,21 @@ func (m *ModuleBase) GetArchVariantProperties(ctx ArchVariantContext, propertySe
 
 // Returns a struct matching the propertySet interface, containing properties specific to the targetName
 // For example, given these arguments:
-//    propertySet = BaseCompilerProperties
-//    targetName = "android_arm"
+//
+//	propertySet = BaseCompilerProperties
+//	targetName = "android_arm"
+//
 // And given this Android.bp fragment:
-//    target:
-//       android_arm: {
-//          srcs: ["foo.c"],
-//       }
-//       android_arm64: {
-//          srcs: ["bar.c"],
-//      }
-//    }
+//
+//	target:
+//	   android_arm: {
+//	      srcs: ["foo.c"],
+//	   }
+//	   android_arm64: {
+//	      srcs: ["bar.c"],
+//	  }
+//	}
+//
 // This would return a BaseCompilerProperties with BaseCompilerProperties.Srcs = ["foo.c"]
 func getTargetStructs(ctx ArchVariantContext, archProperties []interface{}, targetName string) []reflect.Value {
 	var propertyStructs []reflect.Value
@@ -2265,6 +2286,14 @@ func printArchTypeNestedStarlarkDict(dict map[ArchType]map[string][]string) stri
 	return starlark_fmt.PrintDict(valDict, 0)
 }
 
+func printArchConfigList(arches []archConfig) string {
+	jsonOut, err := json.MarshalIndent(arches, "", starlark_fmt.Indention(1))
+	if err != nil {
+		panic(fmt.Errorf("Error converting arch configs %#v to json: %q", arches, err))
+	}
+	return fmt.Sprintf("json.decode('''%s''')", string(jsonOut))
+}
+
 func StarlarkArchConfigurations() string {
 	return fmt.Sprintf(`
 _arch_to_variants = %s
@@ -2275,13 +2304,21 @@ _arch_to_features = %s
 
 _android_arch_feature_for_arch_variant = %s
 
+_aml_arches = %s
+
+_ndk_arches = %s
+
 arch_to_variants = _arch_to_variants
 arch_to_cpu_variants = _arch_to_cpu_variants
 arch_to_features = _arch_to_features
 android_arch_feature_for_arch_variants = _android_arch_feature_for_arch_variant
+aml_arches = _aml_arches
+ndk_arches = _ndk_arches
 `, printArchTypeStarlarkDict(archVariants),
 		printArchTypeStarlarkDict(cpuVariants),
 		printArchTypeStarlarkDict(archFeatures),
 		printArchTypeNestedStarlarkDict(androidArchFeatureMap),
+		printArchConfigList(getAmlAbisConfig()),
+		printArchConfigList(getNdkAbisConfig()),
 	)
 }

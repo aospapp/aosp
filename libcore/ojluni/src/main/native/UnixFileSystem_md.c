@@ -23,20 +23,28 @@
  * questions.
  */
 
+#include <unistd.h>
 #include <assert.h>
 #include <sys/types.h>
 #include <sys/time.h>
 #include <sys/stat.h>
+#ifdef MACOSX
+#include <sys/param.h>
+#include <sys/mount.h>
+#else
 #include <sys/statvfs.h>
+#endif
 #include <string.h>
 #include <stdlib.h>
 #include <dlfcn.h>
 #include <limits.h>
+#include <errno.h>
+#include <fcntl.h>
+#include <dirent.h>
 
 #include "jni.h"
 #include "jni_util.h"
 #include "jlong.h"
-#include "jvm.h"
 #include "io_util.h"
 #include "io_util_md.h"
 #include "java_io_FileSystem.h"
@@ -44,15 +52,28 @@
 
 #include <nativehelper/JNIHelp.h>
 
+#if defined(_AIX)
+  #if !defined(NAME_MAX)
+    #define NAME_MAX MAXNAMLEN
+  #endif
+  #define DIR DIR64
+  #define opendir opendir64
+  #define closedir closedir64
+#endif
+
+#if defined(__solaris__) && !defined(NAME_MAX)
+  #define NAME_MAX MAXNAMLEN
+#endif
+
 // Android-changed: Fuchsia: Alias *64 on Fuchsia builds. http://b/119496969
 // #if defined(_ALLBSD_SOURCE)
 #if defined(_ALLBSD_SOURCE) || defined(__Fuchsia__)
-#define dirent64 dirent
-// Android-changed: Integrate OpenJDK 12 commit to use readdir, not readdir_r. b/64362645
-// #define readdir64_r readdir_r
-#define readdir64 readdir
-#define stat64 stat
-#define statvfs64 statvfs
+  #define dirent64 dirent
+  #define readdir64 readdir
+  #define stat64 stat
+  #ifndef MACOSX
+    #define statvfs64 statvfs
+  #endif
 #endif
 
 /* -- Field IDs -- */
@@ -87,9 +108,9 @@ Java_java_io_UnixFileSystem_canonicalize0(JNIEnv *env, jobject this,
     jstring rv = NULL;
 
     WITH_PLATFORM_STRING(env, pathname, path) {
-        char canonicalPath[JVM_MAXPATHLEN];
+        char canonicalPath[PATH_MAX];
         if (canonicalize((char *)path,
-                         canonicalPath, JVM_MAXPATHLEN) < 0) {
+                         canonicalPath, PATH_MAX) < 0) {
             JNU_ThrowIOExceptionWithLastError(env, "Bad pathname");
         } else {
 #ifdef MACOSX
@@ -227,7 +248,16 @@ Java_java_io_UnixFileSystem_getLastModifiedTime0(JNIEnv *env, jobject this,
     WITH_FIELD_PLATFORM_STRING(env, file, ids.path, path) {
         struct stat64 sb;
         if (stat64(path, &sb) == 0) {
-            rv = 1000 * (jlong)sb.st_mtime;
+#if defined(_AIX)
+            rv =  (jlong)sb.st_mtime * 1000;
+            rv += (jlong)sb.st_mtime_n / 1000000;
+#elif defined(MACOSX)
+            rv  = (jlong)sb.st_mtimespec.tv_sec * 1000;
+            rv += (jlong)sb.st_mtimespec.tv_nsec / 1000000;
+#else
+            rv  = (jlong)sb.st_mtim.tv_sec * 1000;
+            rv += (jlong)sb.st_mtim.tv_nsec / 1000000;
+#endif
         }
     } END_PLATFORM_STRING(env, path);
     return rv;
@@ -306,8 +336,6 @@ Java_java_io_UnixFileSystem_list0(JNIEnv *env, jobject this,
 {
     DIR *dir = NULL;
     struct dirent64 *ptr;
-    // Android-removed: Integrate OpenJDK 12 commit to use readdir, not readdir_r. b/64362645
-    // struct dirent64 *result;
     int len, maxlen;
     jobjectArray rv, old;
     jclass str_class;
@@ -321,16 +349,6 @@ Java_java_io_UnixFileSystem_list0(JNIEnv *env, jobject this,
     } END_PLATFORM_STRING(env, path);
     if (dir == NULL) return NULL;
 
-    // Android-removed: Integrate OpenJDK 12 commit to use readdir, not readdir_r. b/64362645
-    /*
-    ptr = malloc(sizeof(struct dirent64) + (PATH_MAX + 1));
-    if (ptr == NULL) {
-        JNU_ThrowOutOfMemoryError(env, "heap allocation failed");
-        closedir(dir);
-        return NULL;
-    }
-    */
-
     /* Allocate an initial String array */
     len = 0;
     maxlen = 16;
@@ -338,8 +356,6 @@ Java_java_io_UnixFileSystem_list0(JNIEnv *env, jobject this,
     if (rv == NULL) goto error;
 
     /* Scan the directory */
-    // Android-changed: Integrate OpenJDK 12 commit to use readdir, not readdir_r. b/64362645
-    // while ((readdir64_r(dir, ptr, &result) == 0)  && (result != NULL)) {
     while ((ptr = readdir64(dir)) != NULL) {
         jstring name;
         if (!strcmp(ptr->d_name, ".") || !strcmp(ptr->d_name, ".."))
@@ -361,8 +377,6 @@ Java_java_io_UnixFileSystem_list0(JNIEnv *env, jobject this,
         (*env)->DeleteLocalRef(env, name);
     }
     closedir(dir);
-    // Android-removed: Integrate OpenJDK 12 commit to use readdir, not readdir_r. b/64362645
-    // free(ptr);
 
     /* Copy the final results into an appropriately-sized array */
     old = rv;
@@ -377,8 +391,6 @@ Java_java_io_UnixFileSystem_list0(JNIEnv *env, jobject this,
 
  error:
     closedir(dir);
-    // Android-removed: Integrate OpenJDK 12 commit to use readdir, not readdir_r. b/64362645
-    // free(ptr);
     return NULL;
 }
 
@@ -432,9 +444,16 @@ Java_java_io_UnixFileSystem_setLastModifiedTime0(JNIEnv *env, jobject this,
             struct timeval tv[2];
 
             /* Preserve access time */
+#if defined(_AIX)
             tv[0].tv_sec = sb.st_atime;
-            tv[0].tv_usec = 0;
-
+            tv[0].tv_usec = sb.st_atime_n / 1000;
+#elif defined(MACOSX)
+            tv[0].tv_sec = sb.st_atimespec.tv_sec;
+            tv[0].tv_usec = sb.st_atimespec.tv_nsec / 1000;
+#else
+            tv[0].tv_sec = sb.st_atim.tv_sec;
+            tv[0].tv_usec = sb.st_atim.tv_nsec / 1000;
+#endif
             /* Change last-modified time */
             tv[1].tv_sec = time / 1000;
             tv[1].tv_usec = (time % 1000) * 1000;
@@ -473,8 +492,32 @@ Java_java_io_UnixFileSystem_getSpace0(JNIEnv *env, jobject this,
     jlong rv = 0L;
 
     WITH_FIELD_PLATFORM_STRING(env, file, ids.path, path) {
+#ifdef MACOSX
+        struct statfs fsstat;
+#else
         struct statvfs64 fsstat;
+#endif
         memset(&fsstat, 0, sizeof(fsstat));
+#ifdef MACOSX
+        if (statfs(path, &fsstat) == 0) {
+            switch(t) {
+                case java_io_FileSystem_SPACE_TOTAL:
+                    rv = jlong_mul(long_to_jlong(fsstat.f_bsize),
+                                   long_to_jlong(fsstat.f_blocks));
+                    break;
+                case java_io_FileSystem_SPACE_FREE:
+                    rv = jlong_mul(long_to_jlong(fsstat.f_bsize),
+                                   long_to_jlong(fsstat.f_bfree));
+                    break;
+                case java_io_FileSystem_SPACE_USABLE:
+                    rv = jlong_mul(long_to_jlong(fsstat.f_bsize),
+                                   long_to_jlong(fsstat.f_bavail));
+                    break;
+                default:
+                    assert(0);
+            }
+        }
+#else
         if (statvfs64(path, &fsstat) == 0) {
             switch(t) {
             case java_io_FileSystem_SPACE_TOTAL:
@@ -493,14 +536,27 @@ Java_java_io_UnixFileSystem_getSpace0(JNIEnv *env, jobject this,
                 assert(0);
             }
         }
+#endif
     } END_PLATFORM_STRING(env, path);
     return rv;
+}
+
+JNIEXPORT jlong JNICALL
+Java_java_io_UnixFileSystem_getNameMax0(JNIEnv *env, jobject this,
+                                        jstring pathname)
+{
+    jlong length = -1;
+    WITH_PLATFORM_STRING(env, pathname, path) {
+        length = (jlong)pathconf(path, _PC_NAME_MAX);
+    } END_PLATFORM_STRING(env, path);
+    return length != -1 ? length : (jlong)NAME_MAX;
 }
 
 static JNINativeMethod gMethods[] = {
     NATIVE_METHOD(UnixFileSystem, initIDs, "()V"),
     NATIVE_METHOD(UnixFileSystem, canonicalize0, "(Ljava/lang/String;)Ljava/lang/String;"),
     NATIVE_METHOD(UnixFileSystem, getBooleanAttributes0, "(Ljava/lang/String;)I"),
+    NATIVE_METHOD(UnixFileSystem, getNameMax0, "(Ljava/lang/String;)J"),
     NATIVE_METHOD(UnixFileSystem, setPermission0, "(Ljava/io/File;IZZ)Z"),
     NATIVE_METHOD(UnixFileSystem, getLastModifiedTime0, "(Ljava/io/File;)J"),
     NATIVE_METHOD(UnixFileSystem, createFileExclusively0, "(Ljava/lang/String;)Z"),

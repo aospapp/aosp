@@ -15,10 +15,8 @@
 #
 
 #
-# x86_64  target for Cuttlefish
+# x86_64 target for Cuttlefish
 #
-
--include device/google/cuttlefish/shared/BoardConfig.mk
 
 TARGET_BOARD_PLATFORM := vsoc_x86_64
 TARGET_ARCH := x86_64
@@ -39,6 +37,9 @@ TARGET_NATIVE_BRIDGE_2ND_ARCH_VARIANT := armv7-a-neon
 TARGET_NATIVE_BRIDGE_2ND_CPU_VARIANT := generic
 TARGET_NATIVE_BRIDGE_2ND_ABI := armeabi-v7a armeabi
 
-ifeq ($(BOARD_VENDOR_RAMDISK_KERNEL_MODULES),)
-    BOARD_VENDOR_RAMDISK_KERNEL_MODULES += $(wildcard kernel/prebuilts/common-modules/virtual-device/$(TARGET_KERNEL_USE)/x86-64/*.ko)
-endif
+-include device/google/cuttlefish/shared/BoardConfig.mk
+-include device/google/cuttlefish/shared/camera/BoardConfig.mk
+-include device/google/cuttlefish/shared/graphics/BoardConfig.mk
+-include device/google/cuttlefish/shared/swiftshader/BoardConfig.mk
+-include device/google/cuttlefish/shared/telephony/BoardConfig.mk
+-include device/google/cuttlefish/shared/virgl/BoardConfig.mk

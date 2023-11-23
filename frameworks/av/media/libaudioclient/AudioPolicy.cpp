@@ -57,6 +57,10 @@ status_t AudioMixMatchCriterion::readFromParcel(Parcel *parcel)
     case RULE_EXCLUDE_USERID:
         mValue.mUserId = (int) parcel->readInt32();
         break;
+    case RULE_MATCH_AUDIO_SESSION_ID:
+    case RULE_EXCLUDE_AUDIO_SESSION_ID:
+        mValue.mAudioSessionId = (audio_session_t) parcel->readInt32();
+        break;
     default:
         ALOGE("Trying to build AudioMixMatchCriterion from unknown rule %d", mRule);
         return BAD_VALUE;
@@ -69,6 +73,10 @@ status_t AudioMixMatchCriterion::writeToParcel(Parcel *parcel) const
     parcel->writeInt32(mRule);
     parcel->writeInt32(mValue.mUsage);
     return NO_ERROR;
+}
+
+bool AudioMixMatchCriterion::isExcludeCriterion() const {
+    return mRule & RULE_EXCLUSION_MASK;
 }
 
 //
@@ -91,10 +99,11 @@ status_t AudioMix::readFromParcel(Parcel *parcel)
     if (size > MAX_CRITERIA_PER_MIX) {
         size = MAX_CRITERIA_PER_MIX;
     }
+    mCriteria.reserve(size);
     for (size_t i = 0; i < size; i++) {
         AudioMixMatchCriterion criterion;
         if (criterion.readFromParcel(parcel) == NO_ERROR) {
-            mCriteria.add(criterion);
+            mCriteria.push_back(criterion);
         }
     }
     return NO_ERROR;
@@ -135,18 +144,18 @@ status_t AudioMix::writeToParcel(Parcel *parcel) const
     return NO_ERROR;
 }
 
-void AudioMix::setExcludeUid(uid_t uid) const {
+void AudioMix::setExcludeUid(uid_t uid) {
     AudioMixMatchCriterion crit;
     crit.mRule = RULE_EXCLUDE_UID;
     crit.mValue.mUid = uid;
-    mCriteria.add(crit);
+    mCriteria.push_back(crit);
 }
 
-void AudioMix::setMatchUid(uid_t uid) const {
+void AudioMix::setMatchUid(uid_t uid) {
     AudioMixMatchCriterion crit;
     crit.mRule = RULE_MATCH_UID;
     crit.mValue.mUid = uid;
-    mCriteria.add(crit);
+    mCriteria.push_back(crit);
 }
 
 bool AudioMix::hasUidRule(bool match, uid_t uid) const {
@@ -169,18 +178,18 @@ bool AudioMix::hasMatchUidRule() const {
     return false;
 }
 
-void AudioMix::setExcludeUserId(int userId) const {
+void AudioMix::setExcludeUserId(int userId) {
     AudioMixMatchCriterion crit;
     crit.mRule = RULE_EXCLUDE_USERID;
     crit.mValue.mUserId = userId;
-    mCriteria.add(crit);
+    mCriteria.push_back(crit);
 }
 
-void AudioMix::setMatchUserId(int userId) const {
+void AudioMix::setMatchUserId(int userId) {
     AudioMixMatchCriterion crit;
     crit.mRule = RULE_MATCH_USERID;
     crit.mValue.mUserId = userId;
-    mCriteria.add(crit);
+    mCriteria.push_back(crit);
 }
 
 bool AudioMix::hasUserIdRule(bool match, int userId) const {
@@ -194,9 +203,10 @@ bool AudioMix::hasUserIdRule(bool match, int userId) const {
     return false;
 }
 
-bool AudioMix::hasMatchUserIdRule() const {
+bool AudioMix::hasUserIdRule(bool match) const {
+    const uint32_t rule = match ? RULE_MATCH_USERID : RULE_EXCLUDE_USERID;
     for (size_t i = 0; i < mCriteria.size(); i++) {
-        if (mCriteria[i].mRule == RULE_MATCH_USERID) {
+        if (mCriteria[i].mRule == rule) {
             return true;
         }
     }
@@ -205,7 +215,7 @@ bool AudioMix::hasMatchUserIdRule() const {
 
 bool AudioMix::isDeviceAffinityCompatible() const {
     return ((mMixType == MIX_TYPE_PLAYERS)
-            && (mRouteFlags == MIX_ROUTE_FLAG_RENDER));
+            && ((mRouteFlags & MIX_ROUTE_FLAG_RENDER) == MIX_ROUTE_FLAG_RENDER));
 }
 
 } // namespace android

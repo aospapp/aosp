@@ -79,7 +79,7 @@ public final class ModuleTest {
   // constructor exists.
   @Module
   @InstallIn(SingletonComponent.class)
-  static final class TestModule3 {
+  public static final class TestModule3 {
     TestModule3() {
       this("");
     }

@@ -21,8 +21,6 @@ limitations under the License.
 #include <string>
 #include <utility>
 
-#include "tensorflow/core/kernels/spacetobatch_functor.h"
-
 #include "third_party/eigen3/unsupported/Eigen/CXX11/Tensor"
 #include "tensorflow/core/framework/op.h"
 #include "tensorflow/core/framework/op_kernel.h"
@@ -31,8 +29,10 @@ limitations under the License.
 #include "tensorflow/core/framework/tensor_shape.h"
 #include "tensorflow/core/framework/tensor_types.h"
 #include "tensorflow/core/framework/types.h"
+#include "tensorflow/core/kernels/spacetobatch_functor.h"
 #include "tensorflow/core/platform/logging.h"
 #include "tensorflow/core/platform/types.h"
+#include "tensorflow/core/util/overflow.h"
 
 namespace tensorflow {
 
@@ -68,8 +68,8 @@ Status SpaceToBatchOpCompute(OpKernelContext* context,
 
   // To avoid out-of-bounds access in the case that the block_shape and/or
   // paddings tensors are concurrently modified, we must copy the values.
-  gtl::InlinedVector<int64, 4> block_shape;
-  gtl::InlinedVector<int64, 8> paddings;
+  gtl::InlinedVector<int64_t, 4> block_shape;
+  gtl::InlinedVector<int64_t, 8> paddings;
   internal::spacetobatch::SubtleMustCopyFlat(orig_block_shape, &block_shape);
   internal::spacetobatch::SubtleMustCopyFlat(orig_paddings, &paddings);
 
@@ -99,7 +99,13 @@ Status SpaceToBatchOpCompute(OpKernelContext* context,
   // Compute the product of the block_shape values.
   int64_t block_shape_product = 1;
   for (int block_dim = 0; block_dim < block_dims; ++block_dim) {
-    block_shape_product *= block_shape[block_dim];
+    if (block_shape[block_dim] < 1) {
+      return errors::InvalidArgument(
+          "All values in block_shape must be positive, got value, ",
+          block_shape[block_dim], " at index ", block_dim, ".");
+    }
+    block_shape_product =
+        MultiplyWithoutOverflow(block_shape_product, block_shape[block_dim]);
   }
   if (block_shape_product <= 0) {
     return errors::InvalidArgument(
@@ -117,7 +123,7 @@ Status SpaceToBatchOpCompute(OpKernelContext* context,
 
   if (internal_block_dims == 0) {
     context->set_output(0, orig_input_tensor);
-    return Status::OK();
+    return OkStatus();
   }
 
   // For the purpose of computing the result, the input will be treated as
@@ -131,8 +137,14 @@ Status SpaceToBatchOpCompute(OpKernelContext* context,
   // The actual output shape exposed to callers.
   TensorShape external_output_shape;
 
-  external_output_shape.AddDim(orig_input_tensor.dim_size(0) *
-                               block_shape_product);
+  const int64_t output_shape = MultiplyWithoutOverflow(
+      orig_input_tensor.dim_size(0), block_shape_product);
+  if (output_shape < 0) {
+    return errors::InvalidArgument(
+        "Negative output dimension size caused by overflow when multiplying ",
+        orig_input_tensor.dim_size(0), " and ", block_shape_product);
+  }
+  external_output_shape.AddDim(output_shape);
 
   int64_t input_batch_size = orig_input_tensor.dim_size(0);
   for (int block_dim = 0; block_dim < removed_prefix_block_dims; ++block_dim) {
@@ -180,8 +192,8 @@ Status SpaceToBatchOpCompute(OpKernelContext* context,
   TF_RETURN_IF_ERROR(
       context->allocate_output(0, external_output_shape, &output_tensor));
 
-  const int64* internal_paddings = &paddings[2 * removed_prefix_block_dims];
-  const int64* internal_block_shape = &block_shape[removed_prefix_block_dims];
+  const int64_t* internal_paddings = &paddings[2 * removed_prefix_block_dims];
+  const int64_t* internal_block_shape = &block_shape[removed_prefix_block_dims];
 
   switch (internal_block_dims) {
 #define TF_SPACETOBATCH_BLOCK_DIMS_CASE(NUM_BLOCK_DIMS)                   \
@@ -199,7 +211,7 @@ Status SpaceToBatchOpCompute(OpKernelContext* context,
     TF_SPACETOBATCH_FOR_EACH_NUM_BLOCK_DIMS(TF_SPACETOBATCH_BLOCK_DIMS_CASE)
 #undef TF_SPACETOBATCH_BLOCK_DIMS_CASE
   }
-  return Status::OK();
+  return OkStatus();
 }
 
 }  // namespace
@@ -229,7 +241,7 @@ class SpaceToBatchOp : public OpKernel {
         context, block_size_ > 1,
         errors::InvalidArgument("Block size should be > 1: ", block_size_));
     block_shape_ = Tensor(tensorflow::DT_INT64, TensorShape({2}));
-    auto block_shape_vec = block_shape_.vec<int64>();
+    auto block_shape_vec = block_shape_.vec<int64_t>();
     block_shape_vec(0) = block_size_;
     block_shape_vec(1) = block_size_;
   }

@@ -20,10 +20,9 @@ import uuid
 
 
 class FuchsiaBleLib(BaseLib):
-    def __init__(self, addr, tc, client_id):
-        self.address = addr
-        self.test_counter = tc
-        self.client_id = client_id
+
+    def __init__(self, addr: str) -> None:
+        super().__init__(addr, "ble")
 
     def _convert_human_readable_uuid_to_byte_list(self, readable_uuid):
         """Converts a readable uuid to a byte list.
@@ -31,7 +30,8 @@ class FuchsiaBleLib(BaseLib):
         Args:
             readable_uuid: string, A readable uuid in the format:
                 Input: "00001101-0000-1000-8000-00805f9b34fb"
-                Output: ['fb', '34', '9b', '5f', '80', '00', '00', '80', '00', '10', '00', '00', '01', '11', '00', '00']
+                Output: ['fb', '34', '9b', '5f', '80', '00', '00', '80', '00',
+                         '10', '00', '00', '01', '11', '00', '00']
 
         Returns:
             A byte list representing the readable uuid.
@@ -53,10 +53,8 @@ class FuchsiaBleLib(BaseLib):
         """
         test_cmd = "ble_advertise_facade.BleStopAdvertise"
         test_args = {}
-        test_id = self.build_id(self.test_counter)
-        self.test_counter += 1
 
-        return self.send_command(test_id, test_cmd, test_args)
+        return self.send_command(test_cmd, test_args)
 
     def bleStartBleAdvertising(self,
                                advertising_data,
@@ -112,15 +110,12 @@ class FuchsiaBleLib(BaseLib):
             "interval_ms": interval,
             "connectable": connectable
         }
-        test_id = self.build_id(self.test_counter)
-        self.test_counter += 1
-        return self.send_command(test_id, test_cmd, test_args)
+        return self.send_command(test_cmd, test_args)
 
-    def blePublishService(self, id_, primary, type_, service_id):
+    def blePublishService(self, primary, type_, service_id):
         """Publishes services specified by input args
 
         Args:
-            id: string, Identifier of service.
             primary: bool, Flag of service.
             type: string, Canonical 8-4-4-4-12 uuid of service.
             service_proxy_key: string, Unique identifier to specify where to publish service
@@ -130,12 +125,9 @@ class FuchsiaBleLib(BaseLib):
         """
         test_cmd = "bluetooth.BlePublishService"
         test_args = {
-            "id": id_,
             "primary": primary,
             "type": type_,
             "local_service_id": service_id
         }
-        test_id = self.build_id(self.test_counter)
-        self.test_counter += 1
 
-        return self.send_command(test_id, test_cmd, test_args)
+        return self.send_command(test_cmd, test_args)

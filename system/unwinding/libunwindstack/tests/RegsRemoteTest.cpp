@@ -70,6 +70,14 @@ TEST_F(RegsRemoteTest, remote_get) {
 #endif
 }
 
+TEST_F(RegsRemoteTest, remote_get_ptrace_fails) {
+  ErrorCode error_code;
+  // Use our own pid since that will always fail.
+  std::unique_ptr<Regs> regs(Regs::RemoteGet(getpid(), &error_code));
+  ASSERT_TRUE(regs == nullptr);
+  ASSERT_EQ(ERROR_PTRACE_CALL, error_code);
+}
+
 TEST_F(RegsRemoteTest, remote_get_arch) {
 #if defined(__arm__)
   ASSERT_EQ(ARCH_ARM, Regs::RemoteGetArch(pid_));
@@ -79,9 +87,18 @@ TEST_F(RegsRemoteTest, remote_get_arch) {
   ASSERT_EQ(ARCH_X86, Regs::RemoteGetArch(pid_));
 #elif defined(__x86_64__)
   ASSERT_EQ(ARCH_X86_64, Regs::RemoteGetArch(pid_));
+#elif defined(__riscv)
+  ASSERT_EQ(ARCH_RISCV64, Regs::RemoteGetArch(pid_));
 #else
   ASSERT_EQ(ARCH_NONE, Regs::RemoteGetArch(pid_));
 #endif
+}
+
+TEST_F(RegsRemoteTest, remote_get_arch_ptrace_fails) {
+  ErrorCode error_code;
+  // Use our own pid since that will always fail.
+  ASSERT_EQ(ARCH_UNKNOWN, Regs::RemoteGetArch(getpid(), &error_code));
+  ASSERT_EQ(ERROR_PTRACE_CALL, error_code);
 }
 
 }  // namespace unwindstack

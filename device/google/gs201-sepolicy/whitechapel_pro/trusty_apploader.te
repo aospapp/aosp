@@ -1,0 +1,7 @@
+type trusty_apploader, domain;
+type trusty_apploader_exec, exec_type, vendor_file_type, file_type;
+init_daemon_domain(trusty_apploader)
+
+allow trusty_apploader ion_device:chr_file r_file_perms;
+allow trusty_apploader tee_device:chr_file rw_file_perms;
+allow trusty_apploader dmabuf_system_heap_device:chr_file r_file_perms;

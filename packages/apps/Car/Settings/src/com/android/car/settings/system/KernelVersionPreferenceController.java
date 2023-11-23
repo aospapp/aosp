@@ -44,7 +44,7 @@ public class KernelVersionPreferenceController extends PreferenceController<Pref
     }
 
     @Override
-    protected int getAvailabilityStatus() {
+    protected int getDefaultAvailabilityStatus() {
         return AVAILABLE_FOR_VIEWING;
     }
 }

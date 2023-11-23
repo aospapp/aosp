@@ -17,15 +17,15 @@
 package android.security.cts;
 
 import android.platform.test.annotations.AsbSecurityTest;
-import org.junit.Test;
-import org.junit.runner.RunWith;
+
+import com.android.sts.common.tradefed.testtype.NonRootSecurityTestCase;
 import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
 
-import static org.junit.Assert.*;
-import static org.junit.Assume.*;
+import org.junit.Test;
+import org.junit.runner.RunWith;
 
 @RunWith(DeviceJUnit4ClassRunner.class)
-public class Poc21_01 extends SecurityTestCase {
+public class Poc21_01 extends NonRootSecurityTestCase {
 
     /**
      * b/168211968

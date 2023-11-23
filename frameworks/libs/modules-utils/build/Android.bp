@@ -31,10 +31,13 @@ package {
 cc_library_static {
     name: "libmodules-utils-build",
     min_sdk_version: "29",
-    sdk_version: "current",
+    sdk_version: "29",
     export_include_dirs: ["include"],
     header_libs: ["liblog_headers"],
     export_header_lib_headers: ["liblog_headers"],
     visibility: ["//visibility:public"],
-    apex_available: ["//apex_available:anyapex"],
+    apex_available: [
+        "//apex_available:anyapex",
+        "//apex_available:platform",
+    ],
 }

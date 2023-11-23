@@ -22,6 +22,7 @@ android_test {
     static_libs: [
         "androidx.test.runner",
         "androidx.test.rules",
+        "automotive-app-grid-helper",
         "automotive-home-helper",
         "automotive-media-center-app-helper",
         "automotive-utility-helper",

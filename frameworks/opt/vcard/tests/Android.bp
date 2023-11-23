@@ -31,6 +31,10 @@ android_test {
     static_libs: [
         "com.android.vcard",
         "junit",
+        "androidx.test.ext.truth",
+        "androidx.test.rules",
+        "mockito-target",
+        "truth-prebuilt",
     ],
 
     jacoco: {

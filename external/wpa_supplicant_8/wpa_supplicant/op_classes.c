@@ -103,10 +103,7 @@ static enum chan_allowed verify_80mhz(struct hostapd_hw_modes *mode,
 		    NOT_ALLOWED)
 			return NOT_ALLOWED;
 
-		if ((i == 0 && !(flags & HOSTAPD_CHAN_VHT_10_70)) ||
-		    (i == 1 && !(flags & HOSTAPD_CHAN_VHT_30_50)) ||
-		    (i == 2 && !(flags & HOSTAPD_CHAN_VHT_50_30)) ||
-		    (i == 3 && !(flags & HOSTAPD_CHAN_VHT_70_10)))
+		if (!(flags & HOSTAPD_CHAN_VHT_80MHZ_SUBCHANNEL))
 			return NOT_ALLOWED;
 
 		if (flags & HOSTAPD_CHAN_NO_IR)
@@ -175,14 +172,8 @@ static enum chan_allowed verify_160mhz(struct hostapd_hw_modes *mode,
 		    NOT_ALLOWED)
 			return NOT_ALLOWED;
 
-		if ((i == 0 && !(flags & HOSTAPD_CHAN_VHT_10_150)) ||
-		    (i == 1 && !(flags & HOSTAPD_CHAN_VHT_30_130)) ||
-		    (i == 2 && !(flags & HOSTAPD_CHAN_VHT_50_110)) ||
-		    (i == 3 && !(flags & HOSTAPD_CHAN_VHT_70_90)) ||
-		    (i == 4 && !(flags & HOSTAPD_CHAN_VHT_90_70)) ||
-		    (i == 5 && !(flags & HOSTAPD_CHAN_VHT_110_50)) ||
-		    (i == 6 && !(flags & HOSTAPD_CHAN_VHT_130_30)) ||
-		    (i == 7 && !(flags & HOSTAPD_CHAN_VHT_150_10)))
+		if (!(flags & HOSTAPD_CHAN_VHT_80MHZ_SUBCHANNEL) ||
+		    !(flags & HOSTAPD_CHAN_VHT_160MHZ_SUBCHANNEL))
 			return NOT_ALLOWED;
 
 		if (flags & HOSTAPD_CHAN_NO_IR)
@@ -470,8 +461,9 @@ size_t wpas_supp_op_class_ie(struct wpa_supplicant *wpa_s,
 	 * or used.
 	 */
 	if (wpas_sta_secondary_channel_offset(bss, &current, &chan) < 0 &&
-	    ieee80211_freq_to_channel_ext(bss->freq, 0, CHANWIDTH_USE_HT,
-					  &current, &chan) == NUM_HOSTAPD_MODES)
+	    ieee80211_freq_to_channel_ext(bss->freq, 0,
+					  CONF_OPER_CHWIDTH_USE_HT, &current,
+					  &chan) == NUM_HOSTAPD_MODES)
 		return 0;
 
 	/*

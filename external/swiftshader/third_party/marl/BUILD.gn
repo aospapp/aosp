@@ -18,6 +18,9 @@ import("//testing/test.gni")
 
 config("marl_config") {
   include_dirs = [ "include" ]
+  if (!is_win) {
+    defines = [ "MARL_USE_PTHREAD_THREAD_LOCAL=1" ]
+  }
 }
 
 swiftshader_source_set("Marl_headers") {
@@ -85,6 +88,12 @@ swiftshader_source_set("Marl") {
         "src/osfiber_rv64.c",
         "src/osfiber_asm_rv64.h",
         "src/osfiber_asm_rv64.S",
+      ]
+    } else if (current_cpu == "loong64") {
+      sources += [
+        "src/osfiber_loongarch64.c",
+        "src/osfiber_asm_loongarch64.h",
+        "src/osfiber_asm_loongarch64.S",
       ]
     } else if (current_cpu == "x64") {
       sources += [

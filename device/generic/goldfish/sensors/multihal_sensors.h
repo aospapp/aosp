@@ -20,6 +20,7 @@
 #include <atomic>
 #include <condition_variable>
 #include <cstdint>
+#include <random>
 #include <queue>
 #include <thread>
 #include <vector>
@@ -104,6 +105,8 @@ private:
     void qemuSensorListenerThread();
     void batchThread();
 
+    double randomError(float lo, float hi);
+
     static constexpr char kCMD_QUIT = 'q';
     bool qemuSensorThreadSendCommand(char cmd) const;
 
@@ -147,6 +150,9 @@ private:
     std::atomic<bool>                       m_batchRunning = true;
 
     mutable std::mutex                      m_mtx;
+
+    std::random_device rd;
+    std::mt19937 gen = std::mt19937(rd());
 };
 
 }  // namespace goldfish

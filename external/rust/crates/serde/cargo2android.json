@@ -1,15 +1,13 @@
 {
-  "apex-available": [
-    "//apex_available:platform",
-    "com.android.virt"
-  ],
+  "add-toplevel-block": "cargo2android_nostd.bp",
   "cfg-blocklist": [
     "std_atomic64"
   ],
   "dependencies": true,
   "device": true,
-  "features": "default,derive",
+  "features": "default,derive,rc",
   "run": true,
   "tests": true,
-  "vendor-available": true
+  "vendor-available": true,
+  "min_sdk_version": "29"
 }

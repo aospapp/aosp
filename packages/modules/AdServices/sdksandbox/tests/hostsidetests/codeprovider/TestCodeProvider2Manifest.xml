@@ -15,11 +15,11 @@
   ~ limitations under the License.
   -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-          package="com.android.testcode2">
+          package="com.android.testcode2_1">
 
-    <application hasCode="false">
+    <application>
         <sdk-library android:name="com.android.testcode2" android:versionMajor="1" />
         <property android:name="android.sdksandbox.PROPERTY_SDK_PROVIDER_CLASS_NAME"
-                  android:value="com.android.testcode2.TestSandboxedSdkProvider2" />
+                  android:value="com.android.testcode2_1.TestSandboxedSdkProvider2" />
     </application>
 </manifest>

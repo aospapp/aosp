@@ -8,15 +8,16 @@
 #endif
 
 #if defined(__x86_64__) && !defined(OPENSSL_NO_ASM)
+#include "ring_core_generated/prefix_symbols_asm.h"
 .text	
 
 
 
-.globl	_GFp_bn_mul_mont
-.private_extern _GFp_bn_mul_mont
+.globl	_bn_mul_mont
+.private_extern _bn_mul_mont
 
 .p2align	4
-_GFp_bn_mul_mont:
+_bn_mul_mont:
 
 	movl	%r9d,%r9d
 	movq	%rsp,%rax
@@ -25,7 +26,7 @@ _GFp_bn_mul_mont:
 	jnz	L$mul_enter
 	cmpl	$8,%r9d
 	jb	L$mul_enter
-	movl	_GFp_ia32cap_P+8(%rip),%r11d
+	movl	_OPENSSL_ia32cap_P+8(%rip),%r11d
 	cmpq	%rsi,%rdx
 	jne	L$mul4x_enter
 	testl	$7,%r9d
@@ -784,12 +785,12 @@ L$sqr8x_body:
 	pxor	%xmm0,%xmm0
 .byte	102,72,15,110,207
 .byte	102,73,15,110,218
-	movl	_GFp_ia32cap_P+8(%rip),%eax
+	movl	_OPENSSL_ia32cap_P+8(%rip),%eax
 	andl	$0x80100,%eax
 	cmpl	$0x80100,%eax
 	jne	L$sqr8x_nox
 
-	call	_GFp_bn_sqrx8x_internal
+	call	_bn_sqrx8x_internal
 
 
 
@@ -803,7 +804,7 @@ L$sqr8x_body:
 
 .p2align	5
 L$sqr8x_nox:
-	call	_GFp_bn_sqr8x_internal
+	call	_bn_sqr8x_internal
 
 
 

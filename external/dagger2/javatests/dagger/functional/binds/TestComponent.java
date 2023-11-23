@@ -18,15 +18,18 @@ package dagger.functional.binds;
 
 import dagger.Component;
 import dagger.functional.SomeQualifier;
+import dagger.functional.binds.subpackage.ExposedModule;
 import java.util.Map;
 import java.util.Set;
 import javax.inject.Provider;
 import javax.inject.Singleton;
 
 @Singleton
-@Component(modules = SimpleBindingModule.class)
+@Component(modules = {SimpleBindingModule.class, ExposedModule.class})
 public interface TestComponent {
   Object object();
+
+  String notExposedString();
 
   @SomeQualifier
   Object reusableObject();

@@ -6,23 +6,24 @@ function onConnectivityDataWithSession(published_data, state)
     -- for every session
     -- sessionId: integer that starts from 1 and increases for each new session to uniquely
     -- identify each session. It's reset to 1 upon reboot.
-    res['sessionId'] = published_data['sessionId']
+    res['sessionId'] = published_data['session.sessionId']
     -- sessionState: either 1 (STATE_EXIT_DRIVING_SESSION) meaning currently outside a session or
     -- 2 (STATE_ENTER_DRIVING_SESSION) meaning currently in a session (device is on). For
     -- connectivity this is always 1 because data is calculated at session end.
-    res['sessionState'] = published_data['sessionState']
+    res['sessionState'] = published_data['session.sessionState']
     -- createdAtSinceBootMillis: milliseconds since boot
-    res['createdAtSinceBootMillis'] = published_data['createdAtSinceBootMillis']
+    res['createdAtSinceBootMillis'] = published_data['session.createdAtSinceBootMillis']
     -- createdAtMillis: current time in milliseconds unix time
-    res['createdAtMillis'] = published_data['createdAtMillis']
+    res['createdAtMillis'] = published_data['session.createdAtMillis']
     -- bootReason: last boot reason
-    res['bootReason'] = published_data['bootReason']
+    res['bootReason'] = published_data['session.bootReason']
+    res['bootCount'] = published_data['session.bootCount']
 
     -- If we don't have metrics data then exit with only sessions data right now
-    if published_data['packages'] == nil then
+    if published_data['conn.packages'] == nil then
         -- on_metrics_report(r) sends r as finished result table
         -- on_metrics_report(r, s) sends r as finished result table while also sending
-        -- s as intermediate result that will be sent received time as 'state' param
+        -- s as intermediate result that will be received next time as 'state' param
         log("packages is nil, only sessions data available.")
         on_metrics_report(res)
         do return end
@@ -36,15 +37,15 @@ function onConnectivityDataWithSession(published_data, state)
     -- package name group. In the packages array an entry can be a conglomeration of multiple package
     -- names (eg. ["com.example.abc", "com.example.cdf,com.vending.xyz"] the 2nd entry has 2
     -- package names because it's not distinguishable which made the data transfers)
-    for i, ps in ipairs(published_data['packages']) do
+    for i, ps in ipairs(published_data['conn.packages']) do
         if rx[ps] == nil then
             rx[ps] = 0
             tx[ps] = 0
         end
         -- For each package group accumulate the rx and tx separately
-        rx[ps] = rx[ps] + published_data['rxBytes'][i]
-        tx[ps] = tx[ps] + published_data['txBytes'][i]
-        uids[ps] = published_data['uid'][i]
+        rx[ps] = rx[ps] + published_data['conn.rxBytes'][i]
+        tx[ps] = tx[ps] + published_data['conn.txBytes'][i]
+        uids[ps] = published_data['conn.uid'][i]
     end
     -- For each package group name combine rx and tx into one string for print
     for p, v in pairs(rx) do

@@ -61,7 +61,8 @@ public class SendBubbleActivity extends Activity {
     public void sendInvalidBubble(int notifId, boolean autoExpand) {
         Context context = getApplicationContext();
 
-        PendingIntent pendingIntent = PendingIntent.getActivity(context, notifId, new Intent(),
+        PendingIntent pendingIntent = PendingIntent.getActivity(context, notifId,
+                new Intent().setPackage(context.getPackageName()),
                 PendingIntent.FLAG_MUTABLE);
         Notification n = new Notification.Builder(context, NOTIFICATION_CHANNEL_ID)
                 .setSmallIcon(R.drawable.black)

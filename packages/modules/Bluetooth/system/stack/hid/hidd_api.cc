@@ -25,6 +25,7 @@
 
 #include "hidd_api.h"
 
+#include <frameworks/proto_logging/stats/enums/bluetooth/enums.pb.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -35,6 +36,7 @@
 #include "osi/include/allocator.h"
 #include "stack/btm/btm_sec.h"
 #include "stack/include/bt_types.h"
+#include "stack/include/stack_metrics_logging.h"
 #include "types/bluetooth/uuid.h"
 #include "types/raw_address.h"
 
@@ -89,9 +91,19 @@ tHID_STATUS HID_DevRegister(tHID_DEV_HOST_CALLBACK* host_cback) {
 
   HIDD_TRACE_API("%s", __func__);
 
-  if (hd_cb.reg_flag) return HID_ERR_ALREADY_REGISTERED;
+  if (hd_cb.reg_flag) {
+    log_counter_metrics(
+        android::bluetooth::CodePathCounterKeyEnum::HIDD_ERR_ALREADY_REGISTERED,
+        1);
+    return HID_ERR_ALREADY_REGISTERED;
+  }
 
-  if (host_cback == NULL) return HID_ERR_INVALID_PARAM;
+  if (host_cback == NULL) {
+    log_counter_metrics(
+        android::bluetooth::CodePathCounterKeyEnum::HIDD_ERR_HOST_CALLBACK_NULL,
+        1);
+    return HID_ERR_INVALID_PARAM;
+  }
 
   /* Register with L2CAP */
   st = hidd_conn_reg();
@@ -120,7 +132,12 @@ tHID_STATUS HID_DevRegister(tHID_DEV_HOST_CALLBACK* host_cback) {
 tHID_STATUS HID_DevDeregister(void) {
   HIDD_TRACE_API("%s", __func__);
 
-  if (!hd_cb.reg_flag) return (HID_ERR_NOT_REGISTERED);
+  if (!hd_cb.reg_flag) {
+    log_counter_metrics(android::bluetooth::CodePathCounterKeyEnum::
+                            HIDD_ERR_NOT_REGISTERED_AT_DEREGISTER,
+                        1);
+    return (HID_ERR_NOT_REGISTERED);
+  }
 
   hidd_conn_dereg();
 
@@ -256,6 +273,10 @@ tHID_STATUS HID_DevAddRecord(uint32_t handle, char* p_name, char* p_description,
       if (desc_len > HIDD_APP_DESCRIPTOR_LEN) {
         HIDD_TRACE_ERROR("%s: descriptor length = %d, larger than max %d",
                          __func__, desc_len, HIDD_APP_DESCRIPTOR_LEN);
+        log_counter_metrics(
+            android::bluetooth::CodePathCounterKeyEnum::
+                HIDD_ERR_NOT_REGISTERED_DUE_TO_DESCRIPTOR_LENGTH,
+            1);
         return HID_ERR_NOT_REGISTERED;
       };
 
@@ -264,6 +285,10 @@ tHID_STATUS HID_DevAddRecord(uint32_t handle, char* p_name, char* p_description,
       if (p_buf == NULL) {
         HIDD_TRACE_ERROR("%s: Buffer allocation failure for size = 2048 ",
                          __func__);
+        log_counter_metrics(
+            android::bluetooth::CodePathCounterKeyEnum::
+                HIDD_ERR_NOT_REGISTERED_DUE_TO_BUFFER_ALLOCATION,
+            1);
         return HID_ERR_NOT_REGISTERED;
       }
 
@@ -328,7 +353,9 @@ tHID_STATUS HID_DevAddRecord(uint32_t handle, char* p_name, char* p_description,
 
   if (!result) {
     HIDD_TRACE_ERROR("%s: failed to complete SDP record", __func__);
-
+    log_counter_metrics(android::bluetooth::CodePathCounterKeyEnum::
+                            HIDD_ERR_NOT_REGISTERED_AT_SDP,
+                        1);
     return HID_ERR_NOT_REGISTERED;
   }
 
@@ -359,7 +386,9 @@ tHID_STATUS HID_DevSendReport(uint8_t channel, uint8_t type, uint8_t id,
     return hidd_conn_send_data(HID_CHANNEL_INTR, HID_TRANS_DATA,
                                HID_PAR_REP_TYPE_INPUT, id, len, p_data);
   }
-
+  log_counter_metrics(android::bluetooth::CodePathCounterKeyEnum::
+                          HIDD_ERR_INVALID_PARAM_SEND_REPORT,
+                      1);
   return HID_ERR_INVALID_PARAM;
 }
 
@@ -426,14 +455,22 @@ tHID_STATUS HID_DevUnplugDevice(const RawAddress& addr) {
  ******************************************************************************/
 tHID_STATUS HID_DevConnect(void) {
   if (!hd_cb.reg_flag) {
+    log_counter_metrics(android::bluetooth::CodePathCounterKeyEnum::
+                            HIDD_ERR_NOT_REGISTERED_AT_CONNECT,
+                        1);
     return HID_ERR_NOT_REGISTERED;
   }
 
   if (!hd_cb.device.in_use) {
+    log_counter_metrics(android::bluetooth::CodePathCounterKeyEnum::
+                            HIDD_ERR_DEVICE_NOT_IN_USE_AT_CONNECT,
+                        1);
     return HID_ERR_INVALID_PARAM;
   }
 
   if (hd_cb.device.state != HIDD_DEV_NO_CONN) {
+    log_counter_metrics(
+        android::bluetooth::CodePathCounterKeyEnum::HIDD_ERR_ALREADY_CONN, 1);
     return HID_ERR_ALREADY_CONN;
   }
 
@@ -451,10 +488,16 @@ tHID_STATUS HID_DevConnect(void) {
  ******************************************************************************/
 tHID_STATUS HID_DevDisconnect(void) {
   if (!hd_cb.reg_flag) {
+    log_counter_metrics(android::bluetooth::CodePathCounterKeyEnum::
+                            HIDD_ERR_NOT_REGISTERED_AT_DISCONNECT,
+                        1);
     return HID_ERR_NOT_REGISTERED;
   }
 
   if (!hd_cb.device.in_use) {
+    log_counter_metrics(android::bluetooth::CodePathCounterKeyEnum::
+                            HIDD_ERR_DEVICE_NOT_IN_USE_AT_DISCONNECT,
+                        1);
     return HID_ERR_INVALID_PARAM;
   }
 
@@ -465,8 +508,14 @@ tHID_STATUS HID_DevDisconnect(void) {
       hd_cb.device.conn.conn_state = HID_CONN_STATE_UNUSED;
       hd_cb.callback(hd_cb.device.addr, HID_DHOST_EVT_CLOSE,
                      HID_ERR_DISCONNECTING, NULL);
+      log_counter_metrics(
+          android::bluetooth::CodePathCounterKeyEnum::HIDD_ERR_DISCONNECTING,
+          1);
       return ret;
     }
+    log_counter_metrics(android::bluetooth::CodePathCounterKeyEnum::
+                            HIDD_ERR_NO_CONNECTION_AT_DISCONNECT,
+                        1);
     return HID_ERR_NO_CONNECTION;
   }
 
@@ -536,6 +585,9 @@ tHID_STATUS HID_DevGetDevice(RawAddress* addr) {
   if (hd_cb.device.in_use) {
     *addr = hd_cb.device.addr;
   } else {
+    log_counter_metrics(android::bluetooth::CodePathCounterKeyEnum::
+                            HIDD_ERR_NOT_REGISTERED_AT_GET_DEVICE,
+                        1);
     return HID_ERR_NOT_REGISTERED;
   }
 

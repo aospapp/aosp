@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 #
 # Copyright 2015 The Android Open Source Project
 #
@@ -16,6 +16,7 @@
 
 # pylint: disable=g-bad-todo,g-bad-file-header,wildcard-import
 from errno import *  # pylint: disable=wildcard-import
+import binascii
 import os
 import random
 import select
@@ -36,42 +37,12 @@ import tcp_test
 TcpInfo = cstruct.Struct("TcpInfo", "64xI", "tcpi_rcv_ssthresh")
 
 NUM_SOCKETS = 30
-NO_BYTECODE = ""
-LINUX_4_9_OR_ABOVE = net_test.LINUX_VERSION >= (4, 9, 0)
+NO_BYTECODE = b""
 LINUX_4_19_OR_ABOVE = net_test.LINUX_VERSION >= (4, 19, 0)
 
 IPPROTO_SCTP = 132
 
-def HaveUdpDiag():
-  """Checks if the current kernel has config CONFIG_INET_UDP_DIAG enabled.
-
-  This config is required for device running 4.9 kernel that ship with P, In
-  this case always assume the config is there and use the tests to check if the
-  config is enabled as required.
-
-  For all ther other kernel version, there is no way to tell whether a dump
-  succeeded: if the appropriate handler wasn't found, __inet_diag_dump just
-  returns an empty result instead of an error. So, just check to see if a UDP
-  dump returns no sockets when we know it should return one. If not, some tests
-  will be skipped.
-
-  Returns:
-    True if the kernel is 4.9 or above, or the CONFIG_INET_UDP_DIAG is enabled.
-    False otherwise.
-  """
-  if LINUX_4_9_OR_ABOVE:
-      return True;
-  s = socket(AF_INET6, SOCK_DGRAM, 0)
-  s.bind(("::", 0))
-  s.connect((s.getsockname()))
-  sd = sock_diag.SockDiag()
-  have_udp_diag = len(sd.DumpAllInetSockets(IPPROTO_UDP, "")) > 0
-  s.close()
-  return have_udp_diag
-
 def HaveSctp():
-  if net_test.LINUX_VERSION < (4, 7, 0):
-    return False
   try:
     s = socket(AF_INET, SOCK_STREAM, IPPROTO_SCTP)
     s.close()
@@ -79,7 +50,6 @@ def HaveSctp():
   except IOError:
     return False
 
-HAVE_UDP_DIAG = HaveUdpDiag()
 HAVE_SCTP = HaveSctp()
 
 
@@ -251,10 +221,16 @@ class SockDiagTest(SockDiagBaseTest):
         info = self.sock_diag.GetSockInfo(req)
         self.assertSockInfoMatchesSocket(sock, info)
 
+  def assertItemsEqual(self, expected, actual):
+    try:
+      super(SockDiagTest, self).assertItemsEqual(expected, actual)
+    except AttributeError:
+      # This was renamed in python3 but has the same behaviour.
+      super(SockDiagTest, self).assertCountEqual(expected, actual)
+
   def testFindsAllMySocketsTcp(self):
     self.CheckFindsAllMySockets(SOCK_STREAM, IPPROTO_TCP)
 
-  @unittest.skipUnless(HAVE_UDP_DIAG, "INET_UDP_DIAG not enabled")
   def testFindsAllMySocketsUdp(self):
     self.CheckFindsAllMySockets(SOCK_DGRAM, IPPROTO_UDP)
 
@@ -274,16 +250,16 @@ class SockDiagTest(SockDiagBaseTest):
     # pylint: enable=bad-whitespace
     bytecode = self.PackAndCheckBytecode(instructions)
     expected = (
-        "0208500000000000"
-        "050848000000ffff"
-        "071c20000a800000ffffffff00000000000000000000000000000001"
-        "01041c00"
-        "0718200002200000ffffffff7f000001"
-        "0508100000006566"
-        "00040400"
+        b"0208500000000000"
+        b"050848000000ffff"
+        b"071c20000a800000ffffffff00000000000000000000000000000001"
+        b"01041c00"
+        b"0718200002200000ffffffff7f000001"
+        b"0508100000006566"
+        b"00040400"
     )
     states = 1 << tcp_test.TCP_ESTABLISHED
-    self.assertMultiLineEqual(expected, bytecode.encode("hex"))
+    self.assertEqual(expected, binascii.hexlify(bytecode))
     self.assertEqual(76, len(bytecode))
     self.socketpairs = self._CreateLotsOfSockets(SOCK_STREAM)
     filteredsockets = self.sock_diag.DumpAllInetSockets(IPPROTO_TCP, bytecode,
@@ -322,7 +298,7 @@ class SockDiagTest(SockDiagBaseTest):
     # sockets other than the ones it creates itself. Make the bytecode more
     # specific and remove it.
     states = 1 << tcp_test.TCP_ESTABLISHED
-    self.assertFalse(self.sock_diag.DumpAllInetSockets(IPPROTO_TCP, "",
+    self.assertFalse(self.sock_diag.DumpAllInetSockets(IPPROTO_TCP, NO_BYTECODE,
                                                        states=states))
 
     unused_pair4 = net_test.CreateSocketPair(AF_INET, SOCK_STREAM, "127.0.0.1")
@@ -376,7 +352,7 @@ class SockDiagTest(SockDiagBaseTest):
       sock_id = self.sock_diag._EmptyInetDiagSockId()
       req = sock_diag.InetDiagReqV2((AF_INET6, IPPROTO_TCP, 0, 0xffffffff,
                                      sock_id))
-      self.sock_diag._Dump(code, req, sock_diag.InetDiagMsg, "")
+      self.sock_diag._Dump(code, req, sock_diag.InetDiagMsg)
 
     op = sock_diag.SOCK_DIAG_BY_FAMILY
     DiagDump(op)  # No errors? Good.
@@ -390,12 +366,10 @@ class SockDiagTest(SockDiagBaseTest):
       cookie = sock.getsockopt(net_test.SOL_SOCKET, net_test.SO_COOKIE, 8)
       self.assertEqual(diag_msg.id.cookie, cookie)
 
-  @unittest.skipUnless(LINUX_4_9_OR_ABOVE, "SO_COOKIE not supported")
   def testGetsockoptcookie(self):
     self.CheckSocketCookie(AF_INET, "127.0.0.1")
     self.CheckSocketCookie(AF_INET6, "::1")
 
-  @unittest.skipUnless(HAVE_UDP_DIAG, "INET_UDP_DIAG not enabled")
   def testDemonstrateUdpGetSockIdBug(self):
     # TODO: this is because udp_dump_one mistakenly uses __udp[46]_lib_lookup
     # by passing the source address as the source address argument.
@@ -414,10 +388,7 @@ class SockDiagTest(SockDiagBaseTest):
       # Create a fully-specified diag req from our socket, including cookie if
       # we can get it.
       req = self.sock_diag.DiagReqFromSocket(s)
-      if LINUX_4_9_OR_ABOVE:
-        req.id.cookie = s.getsockopt(net_test.SOL_SOCKET, net_test.SO_COOKIE, 8)
-      else:
-        req.id.cookie = "\xff" * 16  # INET_DIAG_NOCOOKIE[2]
+      req.id.cookie = s.getsockopt(net_test.SOL_SOCKET, net_test.SO_COOKIE, 8)
 
       # As is, this request does not find anything.
       with self.assertRaisesErrno(ENOENT):
@@ -580,6 +551,7 @@ class TcpRcvWindowTest(tcp_test.TcpBaseTest, SockDiagBaseTest):
       return
 
     f.write("60")
+    f.close()
 
   def checkInitRwndSize(self, version, netid):
     self.IncomingConnection(version, tcp_test.TCP_ESTABLISHED, netid)
@@ -684,21 +656,19 @@ class SockDestroyTcpTest(tcp_test.TcpBaseTest, SockDiagBaseTest):
       diag_msg, attrs = self.sock_diag.GetSockInfo(diag_req)
       self.ReceivePacketOn(self.netid, finack)
 
-      # See if we can find the resulting FIN_WAIT2 socket. This does not appear
-      # to work on 3.10.
-      if net_test.LINUX_VERSION >= (3, 18):
-        diag_req.states = 1 << tcp_test.TCP_FIN_WAIT2
-        infos = self.sock_diag.Dump(diag_req, "")
-        self.assertTrue(any(diag_msg.state == tcp_test.TCP_FIN_WAIT2
-                            for diag_msg, attrs in infos),
-                        "Expected to find FIN_WAIT2 socket in %s" % infos)
+      # See if we can find the resulting FIN_WAIT2 socket.
+      diag_req.states = 1 << tcp_test.TCP_FIN_WAIT2
+      infos = self.sock_diag.Dump(diag_req, NO_BYTECODE)
+      self.assertTrue(any(diag_msg.state == tcp_test.TCP_FIN_WAIT2
+                          for diag_msg, attrs in infos),
+                      "Expected to find FIN_WAIT2 socket in %s" % infos)
 
   def FindChildSockets(self, s):
     """Finds the SYN_RECV child sockets of a given listening socket."""
     d = self.sock_diag.FindSockDiagFromFd(self.s)
     req = self.sock_diag.DiagReqFromDiagMsg(d, IPPROTO_TCP)
     req.states = 1 << tcp_test.TCP_SYN_RECV | 1 << tcp_test.TCP_ESTABLISHED
-    req.id.cookie = "\x00" * 8
+    req.id.cookie = b"\x00" * 8
 
     bad_bytecode = self.PackAndCheckBytecode(
         [(sock_diag.INET_DIAG_BC_MARK_COND, 1, 2, (0xffff, 0xffff))])
@@ -723,19 +693,10 @@ class SockDestroyTcpTest(tcp_test.TcpBaseTest, SockDiagBaseTest):
     is_established = (state == tcp_test.TCP_NOT_YET_ACCEPTED)
     expected_state = tcp_test.TCP_ESTABLISHED if is_established else state
 
-    # The new TCP listener code in 4.4 makes SYN_RECV sockets live in the
-    # regular TCP hash tables, and inet_diag_find_one_icsk can find them.
-    # Before 4.4, we can see those sockets in dumps, but we can't fetch
-    # or close them.
-    can_close_children = is_established or net_test.LINUX_VERSION >= (4, 4)
-
     for child in children:
-      if can_close_children:
-        diag_msg, attrs = self.sock_diag.GetSockInfo(child)
-        self.assertEqual(diag_msg.state, expected_state)
-        self.assertMarkIs(self.netid, attrs)
-      else:
-        self.assertRaisesErrno(ENOENT, self.sock_diag.GetSockInfo, child)
+      diag_msg, attrs = self.sock_diag.GetSockInfo(child)
+      self.assertEqual(diag_msg.state, expected_state)
+      self.assertMarkIs(self.netid, attrs)
 
     def CloseParent(expect_reset):
       msg = "Closing parent IPv%d %s socket %s child" % (
@@ -762,13 +723,12 @@ class SockDestroyTcpTest(tcp_test.TcpBaseTest, SockDiagBaseTest):
       CloseParent(is_established)
       if is_established:
         CheckChildrenClosed()
-      elif can_close_children:
+      else:
         CloseChildren()
         CheckChildrenClosed()
       self.s.close()
     else:
-      if can_close_children:
-        CloseChildren()
+      CloseChildren()
       CloseParent(False)
       self.s.close()
 
@@ -785,10 +745,10 @@ class SockDestroyTcpTest(tcp_test.TcpBaseTest, SockDiagBaseTest):
       self.IncomingConnection(version, tcp_test.TCP_LISTEN, self.netid)
       self.assertRaisesErrno(ENOTCONN, self.s.recv, 4096)
       self.CloseDuringBlockingCall(self.s, lambda sock: sock.accept(), EINVAL)
-      self.assertRaisesErrno(ECONNABORTED, self.s.send, "foo")
+      self.assertRaisesErrno(ECONNABORTED, self.s.send, b"foo")
       self.assertRaisesErrno(EINVAL, self.s.accept)
       # TODO: this should really return an error such as ENOTCONN...
-      self.assertEqual("", self.s.recv(4096))
+      self.assertEqual(b"", self.s.recv(4096))
 
   def testReadInterrupted(self):
     """Tests that read() is interrupted by SOCK_DESTROY."""
@@ -797,9 +757,9 @@ class SockDestroyTcpTest(tcp_test.TcpBaseTest, SockDiagBaseTest):
       self.CloseDuringBlockingCall(self.accepted, lambda sock: sock.recv(4096),
                                    ECONNABORTED)
       # Writing returns EPIPE, and reading returns EOF.
-      self.assertRaisesErrno(EPIPE, self.accepted.send, "foo")
-      self.assertEqual("", self.accepted.recv(4096))
-      self.assertEqual("", self.accepted.recv(4096))
+      self.assertRaisesErrno(EPIPE, self.accepted.send, b"foo")
+      self.assertEqual(b"", self.accepted.recv(4096))
+      self.assertEqual(b"", self.accepted.recv(4096))
 
   def testConnectInterrupted(self):
     """Tests that connect() is interrupted by SOCK_DESTROY."""
@@ -867,9 +827,9 @@ class PollOnCloseTest(tcp_test.TcpBaseTest, SockDiagBaseTest):
     self.assertRaisesErrno(errno, self.accepted.recv, 4096)
 
     # Subsequent operations behave as normal.
-    self.assertRaisesErrno(EPIPE, self.accepted.send, "foo")
-    self.assertEqual("", self.accepted.recv(4096))
-    self.assertEqual("", self.accepted.recv(4096))
+    self.assertRaisesErrno(EPIPE, self.accepted.send, b"foo")
+    self.assertEqual(b"", self.accepted.recv(4096))
+    self.assertEqual(b"", self.accepted.recv(4096))
 
   def CheckPollDestroy(self, mask, expected, ignoremask):
     """Interrupts a poll() with SOCK_DESTROY."""
@@ -892,15 +852,7 @@ class PollOnCloseTest(tcp_test.TcpBaseTest, SockDiagBaseTest):
       self.assertSocketErrors(ECONNRESET)
 
   def testReadPollRst(self):
-    # Until 3d4762639d ("tcp: remove poll() flakes when receiving RST"), poll()
-    # would sometimes return POLLERR and sometimes POLLIN|POLLERR|POLLHUP. This
-    # is due to a race inside the kernel and thus is not visible on the VM, only
-    # on physical hardware.
-    if net_test.LINUX_VERSION < (4, 14, 0):
-      ignoremask = select.POLLIN | select.POLLHUP
-    else:
-      ignoremask = 0
-    self.CheckPollRst(select.POLLIN, self.POLLIN_ERR_HUP, ignoremask)
+    self.CheckPollRst(select.POLLIN, self.POLLIN_ERR_HUP, 0)
 
   def testWritePollRst(self):
     self.CheckPollRst(select.POLLOUT, select.POLLOUT, 0)
@@ -920,7 +872,6 @@ class PollOnCloseTest(tcp_test.TcpBaseTest, SockDiagBaseTest):
     self.CheckPollDestroy(self.POLLIN_OUT, select.POLLOUT, 0)
 
 
-@unittest.skipUnless(HAVE_UDP_DIAG, "INET_UDP_DIAG not enabled")
 class SockDestroyUdpTest(SockDiagBaseTest):
 
   """Tests SOCK_DESTROY on UDP sockets.
@@ -1005,13 +956,13 @@ class SockDestroyUdpTest(SockDiagBaseTest):
 
       # Check that reads on connected sockets are interrupted.
       s.connect((addr, 53))
-      self.assertEqual(3, s.send("foo"))
+      self.assertEqual(3, s.send(b"foo"))
       self.CloseDuringBlockingCall(s, lambda sock: sock.recv(4096),
                                    ECONNABORTED)
 
       # A destroyed socket is no longer connected, but still usable.
-      self.assertRaisesErrno(EDESTADDRREQ, s.send, "foo")
-      self.assertEqual(3, s.sendto("foo", (addr, 53)))
+      self.assertRaisesErrno(EDESTADDRREQ, s.send, b"foo")
+      self.assertEqual(3, s.sendto(b"foo", (addr, 53)))
 
       # Check that reads on unconnected sockets are also interrupted.
       self.CloseDuringBlockingCall(s, lambda sock: sock.recv(4096),
@@ -1037,7 +988,6 @@ class SockDestroyPermissionTest(SockDiagBaseTest):
     self.assertRaises(ValueError, self.sock_diag.CloseSocketFromFd, s)
 
 
-  @unittest.skipUnless(HAVE_UDP_DIAG, "INET_UDP_DIAG not enabled")
   def testUdp(self):
     self.CheckPermissions(SOCK_DGRAM)
 
@@ -1170,12 +1120,11 @@ class SockDiagMarkTest(tcp_test.TcpBaseTest, SockDiagBaseTest):
       # Other TCP states are tested in SockDestroyTcpTest.
 
       # UDP sockets.
-      if HAVE_UDP_DIAG:
-        s = socket(family, SOCK_DGRAM, 0)
-        mark = self.SetRandomMark(s)
-        s.connect(("", 53))
-        self.assertSocketMarkIs(s, mark)
-        s.close()
+      s = socket(family, SOCK_DGRAM, 0)
+      mark = self.SetRandomMark(s)
+      s.connect(("", 53))
+      self.assertSocketMarkIs(s, mark)
+      s.close()
 
       # Basic test for SCTP. sctp_diag was only added in 4.7.
       if HAVE_SCTP:

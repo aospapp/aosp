@@ -34,6 +34,8 @@
 #define SDP_MAX_ELEM_LEN 1024
 #define SDP_MAX_ATTRS 1024
 
+constexpr int32_t kMaxVectorSize = 1000;
+
 struct SDP_Sequence_Helper {
   uint8_t num_elem;
   std::shared_ptr<uint8_t> type;
@@ -113,7 +115,8 @@ tSDP_DISC_ATVAL generateArbitrarySdpDiscAttrVal(FuzzedDataProvider* fdp) {
 std::shared_ptr<tSDP_DISC_ATTR> generateArbitrarySdpDiscAttr(
     FuzzedDataProvider* fdp, bool allow_null) {
   // Give it a chance to return a nullptr
-  if (allow_null && !fdp->ConsumeBool()) {
+  if ((allow_null && !fdp->ConsumeBool()) ||
+      sdp_disc_attr_vect.size() > kMaxVectorSize) {
     return nullptr;
   }
 
@@ -121,7 +124,8 @@ std::shared_ptr<tSDP_DISC_ATTR> generateArbitrarySdpDiscAttr(
   sdp_disc_attr_vect.push_back(new_attr);
 
   new_attr->p_next_attr = generateArbitrarySdpDiscAttr(fdp, true).get();
-  new_attr->attr_id = fdp->ConsumeIntegral<uint16_t>();
+  new_attr->attr_id = fdp->ConsumeBool() ? ATTR_ID_BT_PROFILE_DESC_LIST
+                                         : fdp->ConsumeIntegral<uint16_t>();
   new_attr->attr_len_type =
       fdp->ConsumeBool() ? 16 : fdp->ConsumeIntegral<uint16_t>();
   new_attr->attr_value = generateArbitrarySdpDiscAttrVal(fdp);

@@ -24,7 +24,8 @@ class firmware_CorruptFwBodyB(FirmwareTest):
     def initialize(self, host, cmdline_args, dev_mode=False):
         super(firmware_CorruptFwBodyB, self).initialize(host, cmdline_args)
         self.backup_firmware()
-        self.switcher.setup_mode('dev' if dev_mode else 'normal')
+        self.switcher.setup_mode('dev' if dev_mode else 'normal',
+                                 allow_gbb_force=True)
         self.setup_usbkey(usbkey=False)
 
     def cleanup(self):
@@ -41,7 +42,8 @@ class firmware_CorruptFwBodyB(FirmwareTest):
                       vboot.PREAMBLE_USE_RO_NORMAL)
         logging.info("Corrupt firmware body B.")
         self.check_state((self.checkers.fw_tries_checker, 'A'))
-        self.faft_client.bios.corrupt_body('b')
+        offset_b, byte_b = self.faft_client.bios.get_body_one_byte('b')
+        self.faft_client.bios.modify_body('b', offset_b, byte_b + 1)
         self.switcher.mode_aware_reboot()
 
         logging.info("Expected firmware A boot and set try_fwb flag.")
@@ -55,7 +57,7 @@ class firmware_CorruptFwBodyB(FirmwareTest):
             self.check_state((self.checkers.fw_tries_checker, 'B'))
         else:
             self.check_state((self.checkers.fw_tries_checker, ('A', False)))
-        self.faft_client.bios.restore_body('b')
+        self.faft_client.bios.modify_body('b', offset_b, byte_b)
         self.switcher.mode_aware_reboot()
 
         logging.info("Final check and done.")

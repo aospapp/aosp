@@ -1,0 +1,10 @@
+pixel_bugreport(dump_gps)
+
+userdebug_or_eng(`
+  allow dump_gps radio_vendor_data_file:dir create_dir_perms;
+  allow dump_gps radio_vendor_data_file:file create_file_perms;
+  allow dump_gps vendor_gps_file:dir r_dir_perms;
+  allow dump_gps vendor_gps_file:file r_file_perms;
+
+  get_prop(dump_gps, vendor_gps_prop)
+')

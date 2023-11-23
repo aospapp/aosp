@@ -61,4 +61,14 @@ public final class Preconditions {
     }
     throw new IllegalStateException(whichMethod + " must be called from the UI thread.");
   }
+  /**
+   * Ensure that this method is not called from the main thread, otherwise an exception will be
+   * thrown.
+   */
+  public static void ensureNotOnMainThread(String whichMethod) {
+    if (Looper.myLooper() != Looper.getMainLooper()) {
+      return;
+    }
+    throw new IllegalThreadStateException(whichMethod + " cannot be called from the UI thread.");
+  }
 }

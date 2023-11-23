@@ -32,6 +32,7 @@ import com.android.dx.rop.cst.CstString;
 import com.android.dx.rop.cst.CstType;
 import com.android.dx.rop.type.StdTypeList;
 
+import java.io.BufferedOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -46,8 +47,8 @@ import java.util.jar.JarEntry;
 import java.util.jar.JarOutputStream;
 
 import static com.android.dx.rop.code.AccessFlags.ACC_CONSTRUCTOR;
-import static java.lang.reflect.Modifier.PRIVATE;
-import static java.lang.reflect.Modifier.STATIC;
+import static java.lang.reflect.Modifier.*;
+;
 
 /**
  * Generates a <strong>D</strong>alvik <strong>EX</strong>ecutable (dex)
@@ -230,7 +231,7 @@ public final class DexMaker {
      *     Modifier#FINAL} and {@link Modifier#ABSTRACT}.
      */
     public void declare(TypeId<?> type, String sourceFile, int flags,
-            TypeId<?> supertype, TypeId<?>... interfaces) {
+                        TypeId<?> supertype, TypeId<?>... interfaces) {
         TypeDeclaration declaration = getTypeDeclaration(type);
         int supportedFlags = Modifier.PUBLIC | Modifier.FINAL | Modifier.ABSTRACT
                 | AccessFlags.ACC_SYNTHETIC;
@@ -265,7 +266,7 @@ public final class DexMaker {
             throw new IllegalStateException("already declared: " + method);
         }
 
-        int supportedFlags = Modifier.PUBLIC | Modifier.PRIVATE | Modifier.PROTECTED
+        int supportedFlags = Modifier.ABSTRACT | Modifier.NATIVE | Modifier.PUBLIC | Modifier.PRIVATE | Modifier.PROTECTED
                 | Modifier.STATIC | Modifier.FINAL | Modifier.SYNCHRONIZED
                 | AccessFlags.ACC_SYNTHETIC | AccessFlags.ACC_BRIDGE;
         if ((flags & ~supportedFlags) != 0) {
@@ -515,7 +516,12 @@ public final class DexMaker {
         // Check that the file exists. If it does, return a DexClassLoader and skip all
         // the dex bytecode generation.
         if (result.exists()) {
-            return generateClassLoader(result, dexCache, parent);
+            if (!result.canWrite()) {
+                return generateClassLoader(result, dexCache, parent);
+            } else {
+                // Old writable files should be ignored and re-generated
+                result.delete();
+            }
         }
 
         byte[] dex = generate();
@@ -527,14 +533,23 @@ public final class DexMaker {
          *
          * TODO: load the dex from memory where supported.
          */
-        result.createNewFile();
-        JarOutputStream jarOut = new JarOutputStream(new FileOutputStream(result));
-        JarEntry entry = new JarEntry(DexFormat.DEX_IN_JAR_NAME);
-        entry.setSize(dex.length);
-        jarOut.putNextEntry(entry);
-        jarOut.write(dex);
-        jarOut.closeEntry();
-        jarOut.close();
+
+        JarOutputStream jarOut =
+                new JarOutputStream(new BufferedOutputStream(new FileOutputStream(result)));
+        result.setReadOnly();
+        try {
+            JarEntry entry = new JarEntry(DexFormat.DEX_IN_JAR_NAME);
+            entry.setSize(dex.length);
+            jarOut.putNextEntry(entry);
+            try {
+                jarOut.write(dex);
+            } finally {
+                jarOut.closeEntry();
+            }
+        } finally {
+            jarOut.close();
+        }
+
         return generateClassLoader(result, dexCache, parent);
     }
 
@@ -645,6 +660,10 @@ public final class DexMaker {
         }
 
         EncodedMethod toEncodedMethod(DexOptions dexOptions) {
+            if((flags & ABSTRACT) != 0 || (flags & NATIVE) != 0){
+                return new EncodedMethod(method.constant, flags, null, StdTypeList.EMPTY);
+            }
+
             RopMethod ropMethod = new RopMethod(code.toBasicBlocks(), 0);
             LocalVariableInfo locals = null;
             DalvCode dalvCode = RopTranslator.translate(

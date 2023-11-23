@@ -137,9 +137,9 @@ bool InitializeNetworkConfiguration(const CuttlefishConfig& cuttlefish_config,
   // newer version of cuttlefish-common, and we can use the tap device
   // directly instead.
   if (!netconfig.ObtainConfig(instance.mobile_bridge_name(),
-                              cuttlefish_config.ril_dns())) {
+                              instance.ril_dns())) {
     if (!netconfig.ObtainConfig(instance.mobile_tap_name(),
-                                cuttlefish_config.ril_dns())) {
+                                instance.ril_dns())) {
       LOG(ERROR) << "Unable to obtain the network configuration";
       return false;
     }
@@ -157,7 +157,8 @@ bool InitializeNetworkConfiguration(const CuttlefishConfig& cuttlefish_config,
 
 void InitializeScreenConfiguration(const CuttlefishConfig& cuttlefish_config,
                                    DeviceConfig* device_config) {
-  for (const auto& cuttlefish_display_config : cuttlefish_config.display_configs()) {
+  auto instance = cuttlefish_config.ForDefaultInstance();
+  for (const auto& cuttlefish_display_config : instance.display_configs()) {
     DeviceConfig::DisplayConfig* device_display_config =
       device_config->add_display_config();
 

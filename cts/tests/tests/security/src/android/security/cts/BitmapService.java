@@ -40,6 +40,11 @@ public class BitmapService extends Service {
         public boolean ping() {
             return true;
         }
+
+        @Override
+        public void exit() {
+            System.exit(0);
+        }
     };
 
     @Nullable

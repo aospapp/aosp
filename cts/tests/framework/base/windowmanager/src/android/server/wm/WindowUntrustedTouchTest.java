@@ -16,9 +16,9 @@
 
 package android.server.wm;
 
+import static android.Manifest.permission.ACCESS_SURFACE_FLINGER;
 import static android.app.AppOpsManager.MODE_ALLOWED;
 import static android.app.AppOpsManager.OPSTR_SYSTEM_ALERT_WINDOW;
-import static android.provider.Settings.Secure.IMMERSIVE_MODE_CONFIRMATIONS;
 import static android.server.wm.UiDeviceUtils.pressUnlockButton;
 import static android.server.wm.UiDeviceUtils.pressWakeupButton;
 import static android.server.wm.WindowManagerState.STATE_RESUMED;
@@ -33,6 +33,7 @@ import static junit.framework.Assert.assertEquals;
 import static junit.framework.Assert.assertTrue;
 import static junit.framework.Assert.fail;
 
+import static org.junit.Assume.assumeFalse;
 import static org.junit.Assume.assumeTrue;
 
 import android.app.Activity;
@@ -48,6 +49,7 @@ import android.content.Intent;
 import android.content.res.Resources;
 import android.graphics.Rect;
 import android.hardware.input.InputManager;
+import android.hardware.input.InputSettings;
 import android.os.Bundle;
 import android.os.ConditionVariable;
 import android.os.Handler;
@@ -55,10 +57,8 @@ import android.os.IBinder;
 import android.os.Looper;
 import android.os.SystemClock;
 import android.platform.test.annotations.Presubmit;
-import android.provider.Settings;
 import android.server.wm.overlay.Components;
 import android.server.wm.overlay.R;
-import android.server.wm.settings.SettingsSession;
 import android.server.wm.shared.BlockingResultReceiver;
 import android.server.wm.shared.IUntrustedTouchTestService;
 import android.util.ArrayMap;
@@ -76,18 +76,19 @@ import androidx.annotation.Nullable;
 import androidx.test.ext.junit.rules.ActivityScenarioRule;
 
 import com.android.compatibility.common.util.AppOpsUtils;
+import com.android.compatibility.common.util.FeatureUtil;
 import com.android.compatibility.common.util.SystemUtil;
 
 import org.junit.After;
-import org.junit.AfterClass;
 import org.junit.Before;
-import org.junit.BeforeClass;
+import org.junit.ClassRule;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TestName;
 
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 @Presubmit
@@ -117,10 +118,6 @@ public class WindowUntrustedTouchTest {
     private static final int OVERLAY_COLOR = 0xFFFF0000;
     private static final int ACTIVITY_COLOR = 0xFFFFFFFF;
 
-    private static final int FEATURE_MODE_DISABLED = 0;
-    private static final int FEATURE_MODE_PERMISSIVE = 1;
-    private static final int FEATURE_MODE_BLOCK = 2;
-
     private static final String APP_SELF =
             WindowUntrustedTouchTest.class.getPackage().getName() + ".cts";
     private static final String APP_A =
@@ -134,8 +131,6 @@ public class WindowUntrustedTouchTest {
 
     private static final String SETTING_MAXIMUM_OBSCURING_OPACITY =
             "maximum_obscuring_opacity_for_touch";
-
-    private static SettingsSession<String> sImmersiveModeConfirmationSetting;
 
     private final WindowManagerStateHelper mWmState = new WindowManagerStateHelper();
     private final Map<String, FutureConnection<IUntrustedTouchTestService>> mConnections =
@@ -154,10 +149,14 @@ public class WindowUntrustedTouchTest {
     private View mContainer;
     private Toast mToast;
     private float mPreviousTouchOpacity;
-    private int mPreviousMode;
     private int mPreviousSawAppOp;
     private final Set<String> mSawWindowsAdded = new ArraySet<>();
     private final AtomicInteger mTouchesReceived = new AtomicInteger(0);
+
+    @ClassRule
+    public static ActivityManagerTestBase.DisableImmersiveModeConfirmationRule
+            mDisableImmersiveModeConfirmationRule =
+            new ActivityManagerTestBase.DisableImmersiveModeConfirmationRule();
 
     @Rule
     public TestName testNameRule = new TestName();
@@ -165,21 +164,6 @@ public class WindowUntrustedTouchTest {
     @Rule
     public ActivityScenarioRule<TestActivity> activityRule =
             new ActivityScenarioRule<>(TestActivity.class, createLaunchActivityOptionsBundle());
-
-    @BeforeClass
-    public static void setUpClass() {
-        sImmersiveModeConfirmationSetting = new SettingsSession<>(
-                Settings.Secure.getUriFor(IMMERSIVE_MODE_CONFIRMATIONS),
-                Settings.Secure::getString, Settings.Secure::putString);
-        sImmersiveModeConfirmationSetting.set("confirmed");
-    }
-
-    @AfterClass
-    public static void tearDownClass() {
-        if (sImmersiveModeConfirmationSetting != null) {
-            sImmersiveModeConfirmationSetting.close();
-        }
-    }
 
     @Before
     public void setUp() throws Exception {
@@ -205,7 +189,6 @@ public class WindowUntrustedTouchTest {
         mPreviousSawAppOp = AppOpsUtils.getOpMode(APP_SELF, OPSTR_SYSTEM_ALERT_WINDOW);
         AppOpsUtils.setOpMode(APP_SELF, OPSTR_SYSTEM_ALERT_WINDOW, MODE_ALLOWED);
         mPreviousTouchOpacity = setMaximumObscuringOpacityForTouch(MAXIMUM_OBSCURING_OPACITY);
-        mPreviousMode = setBlockUntrustedTouchesMode(FEATURE_MODE_BLOCK);
         SystemUtil.runWithShellPermissionIdentity(
                 () -> mNotificationManager.setToastRateLimitingEnabled(false));
 
@@ -227,42 +210,8 @@ public class WindowUntrustedTouchTest {
         }
         SystemUtil.runWithShellPermissionIdentity(
                 () -> mNotificationManager.setToastRateLimitingEnabled(true));
-        setBlockUntrustedTouchesMode(mPreviousMode);
         setMaximumObscuringOpacityForTouch(mPreviousTouchOpacity);
         AppOpsUtils.setOpMode(APP_SELF, OPSTR_SYSTEM_ALERT_WINDOW, mPreviousSawAppOp);
-    }
-
-    @Test
-    public void testWhenFeatureInDisabledModeAndActivityWindowAbove_allowsTouch()
-            throws Throwable {
-        setBlockUntrustedTouchesMode(FEATURE_MODE_DISABLED);
-        addActivityOverlay(APP_A, /* opacity */ .9f);
-
-        mTouchHelper.tapOnViewCenter(mContainer);
-
-        assertTouchReceived();
-    }
-
-    @Test
-    public void testWhenFeatureInPermissiveModeAndActivityWindowAbove_allowsTouch()
-            throws Throwable {
-        setBlockUntrustedTouchesMode(FEATURE_MODE_PERMISSIVE);
-        addActivityOverlay(APP_A, /* opacity */ .9f);
-
-        mTouchHelper.tapOnViewCenter(mContainer);
-
-        assertTouchReceived();
-    }
-
-    @Test
-    public void testWhenFeatureInBlockModeAndActivityWindowAbove_blocksTouch()
-            throws Throwable {
-        setBlockUntrustedTouchesMode(FEATURE_MODE_BLOCK);
-        addActivityOverlay(APP_A, /* opacity */ .9f);
-
-        mTouchHelper.tapOnViewCenter(mContainer);
-
-        assertTouchNotReceived();
     }
 
     @Test
@@ -282,17 +231,6 @@ public class WindowUntrustedTouchTest {
         assertEquals(threshold, mInputManager.getMaximumObscuringOpacityForTouch());
     }
 
-    @Test
-    public void testAfterSettingFeatureMode_returnsModeSet()
-            throws Throwable {
-        // Make sure the previous mode is different
-        setBlockUntrustedTouchesMode(FEATURE_MODE_BLOCK);
-        assertEquals(FEATURE_MODE_BLOCK, mInputManager.getBlockUntrustedTouchesMode(mContext));
-        setBlockUntrustedTouchesMode(FEATURE_MODE_PERMISSIVE);
-
-        assertEquals(FEATURE_MODE_PERMISSIVE, mInputManager.getBlockUntrustedTouchesMode(mContext));
-    }
-
     @Test(expected = IllegalArgumentException.class)
     public void testAfterSettingThresholdLessThan0_throws() throws Throwable {
         setMaximumObscuringOpacityForTouch(-.5f);
@@ -301,40 +239,6 @@ public class WindowUntrustedTouchTest {
     @Test(expected = IllegalArgumentException.class)
     public void testAfterSettingThresholdGreaterThan1_throws() throws Throwable {
         setMaximumObscuringOpacityForTouch(1.5f);
-    }
-
-    /** This is testing what happens if setting is overridden manually */
-    @Test
-    public void testAfterSettingThresholdGreaterThan1ViaSettings_previousThresholdIsUsed()
-            throws Throwable {
-        setMaximumObscuringOpacityForTouch(.8f);
-        assertEquals(.8f, mInputManager.getMaximumObscuringOpacityForTouch());
-        SystemUtil.runWithShellPermissionIdentity(() -> {
-            Settings.Global.putFloat(mContentResolver, SETTING_MAXIMUM_OBSCURING_OPACITY, 1.5f);
-        });
-        addSawOverlay(APP_A, WINDOW_1, 9.f);
-
-        mTouchHelper.tapOnViewCenter(mContainer);
-
-        // Blocks because it's using previous maximum of .8
-        assertTouchNotReceived();
-    }
-
-    /** This is testing what happens if setting is overridden manually */
-    @Test
-    public void testAfterSettingThresholdLessThan0ViaSettings_previousThresholdIsUsed()
-            throws Throwable {
-        setMaximumObscuringOpacityForTouch(.8f);
-        assertEquals(.8f, mInputManager.getMaximumObscuringOpacityForTouch());
-        SystemUtil.runWithShellPermissionIdentity(() -> {
-            Settings.Global.putFloat(mContentResolver, SETTING_MAXIMUM_OBSCURING_OPACITY, -.5f);
-        });
-        addSawOverlay(APP_A, WINDOW_1, .7f);
-
-        mTouchHelper.tapOnViewCenter(mContainer);
-
-        // Allows because it's using previous maximum of .8
-        assertTouchReceived();
     }
 
     /** SAWs */
@@ -805,6 +709,7 @@ public class WindowUntrustedTouchTest {
 
     @Test
     public void testWhenTextToastWindow_allowsTouch() throws Throwable {
+        assumeFalse("Watch does not support new Toast behavior yet.", FeatureUtil.isWatch());
         addToastOverlay(APP_A, /* custom */ false);
         Rect toast = mWmState.waitForResult("toast bounds",
                 state -> state.findFirstWindowWithType(LayoutParams.TYPE_TOAST).getFrame());
@@ -1041,9 +946,26 @@ public class WindowUntrustedTouchTest {
         String activity = ComponentNameUtils.getActivityName(component);
         if (!mWmState.waitFor("activity window " + activity,
                 state -> activity.equals(state.getFocusedActivity())
-                        && state.hasActivityState(component, STATE_RESUMED))) {
+                        && state.hasActivityState(component, STATE_RESUMED)
+                        && state.isWindowSurfaceShown(activity))) {
             fail("Activity from app " + packageName + " did not appear on time");
         }
+
+        // We need to make sure that InputFlinger has populated window info with correct bounds
+        // before proceeding.
+        // Note that com.android.server.wm.WindowState computes InputWindowHandle's name by
+        // concatenating its hash and title.
+        WindowManagerState.WindowState focusedWindowState = mWmState.getWindowState(component);
+        Rect expectedBounds = mWmState.getActivity(component).getBounds();
+        SystemUtil.runWithShellPermissionIdentity(() -> {
+            if (!CtsWindowInfoUtils.waitForWindowInfos(windows -> windows.stream().anyMatch(w ->
+                    w.name.contains(focusedWindowState.getToken())
+                            && w.name.contains(focusedWindowState.getName())
+                            && w.bounds.equals(expectedBounds)), 3, TimeUnit.SECONDS)) {
+                fail("Window " + focusedWindowState.getName() + " did not appear in InputFlinger "
+                        + "with an expected bounds " + expectedBounds);
+            }
+        }, ACCESS_SURFACE_FLINGER);
     }
 
     private void removeActivityOverlays() {
@@ -1107,18 +1029,10 @@ public class WindowUntrustedTouchTest {
                 () -> mActivityManager.forceStopPackage(packageName));
     }
 
-    private int setBlockUntrustedTouchesMode(int mode) throws Exception {
-        return SystemUtil.callWithShellPermissionIdentity(() -> {
-            int previous = mInputManager.getBlockUntrustedTouchesMode(mContext);
-            mInputManager.setBlockUntrustedTouchesMode(mContext, mode);
-            return previous;
-        });
-    }
-
     private float setMaximumObscuringOpacityForTouch(float opacity) throws Exception {
         return SystemUtil.callWithShellPermissionIdentity(() -> {
             float previous = mInputManager.getMaximumObscuringOpacityForTouch();
-            mInputManager.setMaximumObscuringOpacityForTouch(opacity);
+            InputSettings.setMaximumObscuringOpacityForTouch(mContext, opacity);
             return previous;
         });
     }

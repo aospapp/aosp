@@ -15,6 +15,39 @@
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 
 #############################
+# Upgrade java_tools version
+#############################
+
+# These targets added per instructions at
+# https://github.com/bazelbuild/java_tools/releases/tag/javac11_v10.7
+http_archive(
+    name = "remote_java_tools_linux",
+    sha256 = "cf57fc238ed5c24c718436ab4178ade5eb838fe56e7c32c4fafe0b6fbdaec51f",
+    urls = [
+        "https://mirror.bazel.build/bazel_java_tools/releases/javac11/v10.7/java_tools_javac11_linux-v10.7.zip",
+        "https://github.com/bazelbuild/java_tools/releases/download/javac11_v10.7/java_tools_javac11_linux-v10.7.zip",
+    ],
+)
+
+http_archive(
+    name = "remote_java_tools_windows",
+    sha256 = "a0fc3a3be3ea01a4858d12f56892dd663c02f218104e8c1dc9f3e90d5e583bcb",
+    urls = [
+        "https://mirror.bazel.build/bazel_java_tools/releases/javac11/v10.7/java_tools_javac11_windows-v10.7.zip",
+        "https://github.com/bazelbuild/java_tools/releases/download/javac11_v10.7/java_tools_javac11_windows-v10.7.zip",
+    ],
+)
+
+http_archive(
+    name = "remote_java_tools_darwin",
+    sha256 = "51a4cf424d3b26d6c42703cf2d80002f1489ba0d28c939519c3bb9c3d6ee3720",
+    urls = [
+        "https://mirror.bazel.build/bazel_java_tools/releases/javac11/v10.7/java_tools_javac11_darwin-v10.7.zip",
+        "https://github.com/bazelbuild/java_tools/releases/download/javac11_v10.7/java_tools_javac11_darwin-v10.7.zip",
+    ],
+)
+
+#############################
 # Load nested repository
 #############################
 
@@ -31,9 +64,9 @@ local_repository(
 
 http_archive(
     name = "google_bazel_common",
-    sha256 = "d8aa0ef609248c2a494d5dbdd4c89ef2a527a97c5a87687e5a218eb0b77ff640",
-    strip_prefix = "bazel-common-4a8d451e57fb7e1efecbf9495587a10684a19eb2",
-    urls = ["https://github.com/google/bazel-common/archive/4a8d451e57fb7e1efecbf9495587a10684a19eb2.zip"],
+    sha256 = "8b6aebdc095c8448b2f6a72bb8eae4a563891467e2d20c943f21940b1c444e38",
+    strip_prefix = "bazel-common-3d0e5005cfcbee836e31695d4ab91b5328ccc506",
+    urls = ["https://github.com/google/bazel-common/archive/3d0e5005cfcbee836e31695d4ab91b5328ccc506.zip"],
 )
 
 load("@google_bazel_common//:workspace_defs.bzl", "google_common_workspace_rules")
@@ -87,36 +120,41 @@ robolectric_repositories()
 # Load Kotlin repository
 #############################
 
-RULES_KOTLIN_COMMIT = "2c283821911439e244285b5bfec39148e7d90e21"
+RULES_KOTLIN_COMMIT = "686f0f1cf3e1cc8c750688bb082316b3eadb3cb6"
 
-RULES_KOTLIN_SHA = "b04cd539e7e3571745179da95069586b6fa76a64306b24bb286154e652010608"
+RULES_KOTLIN_SHA = "1d8758bbf27400a5f9d40f01e4337f6834d2b7864df34e9aa5cf0a9ab6cc9241"
 
 http_archive(
-    name = "io_bazel_rules_kotlin",
+    name = "io_bazel_rules_kotlin_head",
     sha256 = RULES_KOTLIN_SHA,
     strip_prefix = "rules_kotlin-%s" % RULES_KOTLIN_COMMIT,
     type = "zip",
     urls = ["https://github.com/bazelbuild/rules_kotlin/archive/%s.zip" % RULES_KOTLIN_COMMIT],
 )
 
-load("@io_bazel_rules_kotlin//kotlin:dependencies.bzl", "kt_download_local_dev_dependencies")
+load("@io_bazel_rules_kotlin_head//src/main/starlark/release_archive:repository.bzl", "archive_repository")
 
-kt_download_local_dev_dependencies()
+archive_repository(
+    name = "io_bazel_rules_kotlin",
+    source_repository_name = "io_bazel_rules_kotlin_head",
+)
 
-load("@io_bazel_rules_kotlin//kotlin:kotlin.bzl", "kotlin_repositories")
+load("@io_bazel_rules_kotlin//kotlin:repositories.bzl", "kotlin_repositories", "kotlinc_version")
 
-KOTLIN_VERSION = "1.4.20"
+KOTLIN_VERSION = "1.5.32"
 
-KOTLINC_RELEASE_SHA = "11db93a4d6789e3406c7f60b9f267eba26d6483dcd771eff9f85bb7e9837011f"
+KOTLINC_RELEASE_SHA = "2e728c43ee0bf819eae06630a4cbbc28ba2ed5b19a55ee0af96d2c0ab6b6c2a5"
 
-KOTLINC_RELEASE = {
-    "sha256": KOTLINC_RELEASE_SHA,
-    "urls": ["https://github.com/JetBrains/kotlin/releases/download/v{v}/kotlin-compiler-{v}.zip".format(v = KOTLIN_VERSION)],
-}
+kotlin_repositories(
+    compiler_release = kotlinc_version(
+        release = KOTLIN_VERSION,
+        sha256 = KOTLINC_RELEASE_SHA,
+    ),
+)
 
-kotlin_repositories(compiler_release = KOTLINC_RELEASE)
+load("@io_bazel_rules_kotlin//kotlin:core.bzl", "kt_register_toolchains")
 
-register_toolchains("//:kotlin_toolchain")
+kt_register_toolchains()
 
 #############################
 # Load Maven dependencies
@@ -135,23 +173,39 @@ http_archive(
 
 load("@rules_jvm_external//:defs.bzl", "maven_install")
 
-ANDROID_LINT_VERSION = "26.6.2"
+ANDROID_LINT_VERSION = "30.1.0"
+
+AUTO_COMMON_VERSION = "1.2.1"
+
+# NOTE(bcorso): Even though we set the version here, our Guava version in
+#  processor code will use whatever version is built into JavaBuilder, which is
+#  tied to the version of Bazel we're using.
+GUAVA_VERSION = "27.1"
+
+GRPC_VERSION = "1.2.0"
+
+INCAP_VERSION = "0.2"
+
+BYTE_BUDDY_VERSION = "1.9.10"
+
+CHECKER_FRAMEWORK_VERSION = "2.5.3"
+
+ERROR_PRONE_VERSION = "2.3.2"
 
 maven_install(
     artifacts = [
         "androidx.annotation:annotation:1.1.0",
-        "androidx.appcompat:appcompat:1.2.0",
-        "androidx.activity:activity:1.2.2",
-        "androidx.fragment:fragment:1.3.2",
+        "androidx.appcompat:appcompat:1.3.1",
+        "androidx.activity:activity:1.3.1",
+        "androidx.fragment:fragment:1.3.6",
         "androidx.lifecycle:lifecycle-common:2.3.1",
         "androidx.lifecycle:lifecycle-viewmodel:2.3.1",
         "androidx.lifecycle:lifecycle-viewmodel-savedstate:2.3.1",
         "androidx.multidex:multidex:2.0.1",
         "androidx.savedstate:savedstate:1.0.0",
-        "androidx.test:monitor:1.1.1",
-        "androidx.test:core:1.1.0",
-        "androidx.test.ext:junit:1.1.2",
-        "com.google.auto:auto-common:0.11",
+        "androidx.test:monitor:1.4.0",
+        "androidx.test:core:1.4.0",
+        "androidx.test.ext:junit:1.1.3",
         "com.android.support:appcompat-v7:25.0.0",
         "com.android.support:support-annotations:25.0.0",
         "com.android.support:support-fragment:25.0.0",
@@ -164,17 +218,54 @@ maven_install(
         "com.android.tools.lint:lint-tests:%s" % ANDROID_LINT_VERSION,
         "com.android.tools:testutils:%s" % ANDROID_LINT_VERSION,
         "com.github.tschuchortdev:kotlin-compile-testing:1.2.8",
-        "com.google.guava:guava:27.1-android",
+        "com.google.auto:auto-common:%s" % AUTO_COMMON_VERSION,
+        "com.google.auto.factory:auto-factory:1.0",
+        "com.google.auto.service:auto-service:1.0",
+        "com.google.auto.service:auto-service-annotations:1.0",
+        "com.google.auto.value:auto-value:1.6",
+        "com.google.auto.value:auto-value-annotations:1.6",
+        "com.google.code.findbugs:jsr305:3.0.1",
+        "com.google.devtools.ksp:symbol-processing-api:1.5.30-1.0.0",
+        "com.google.errorprone:error_prone_annotation:%s" % ERROR_PRONE_VERSION,
+        "com.google.errorprone:error_prone_annotations:%s" % ERROR_PRONE_VERSION,
+        "com.google.errorprone:error_prone_check_api:%s" % ERROR_PRONE_VERSION,
+        "com.google.googlejavaformat:google-java-format:1.5",
+        "com.google.guava:guava:%s-jre" % GUAVA_VERSION,
+        "com.google.guava:guava-testlib:%s-jre" % GUAVA_VERSION,
+        "com.google.guava:failureaccess:1.0.1",
+        "com.google.guava:guava-beta-checker:1.0",
+        "com.google.protobuf:protobuf-java:3.7.0",
+        "com.google.testing.compile:compile-testing:0.18",
+        "com.google.truth:truth:1.1",
+        "com.squareup:javapoet:1.13.0",
+        "io.grpc:grpc-context:%s" % GRPC_VERSION,
+        "io.grpc:grpc-core:%s" % GRPC_VERSION,
+        "io.grpc:grpc-netty:%s" % GRPC_VERSION,
+        "io.grpc:grpc-protobuf:%s" % GRPC_VERSION,
+        "jakarta.inject:jakarta.inject-api:2.0.1",
+        "javax.annotation:jsr250-api:1.0",
+        "javax.inject:javax.inject:1",
+        "javax.inject:javax.inject-tck:1",
         "junit:junit:4.13",
+        "net.bytebuddy:byte-buddy:%s" % BYTE_BUDDY_VERSION,
+        "net.bytebuddy:byte-buddy-agent:%s" % BYTE_BUDDY_VERSION,
+        "net.ltgt.gradle.incap:incap:%s" % INCAP_VERSION,
+        "net.ltgt.gradle.incap:incap-processor:%s" % INCAP_VERSION,
+        "org.checkerframework:checker-compat-qual:%s" % CHECKER_FRAMEWORK_VERSION,
+        "org.checkerframework:dataflow:%s" % CHECKER_FRAMEWORK_VERSION,
+        "org.checkerframework:javacutil:%s" % CHECKER_FRAMEWORK_VERSION,
+        "org.hamcrest:hamcrest-core:1.3",
         "org.jetbrains.kotlin:kotlin-stdlib:%s" % KOTLIN_VERSION,
-        "org.jetbrains.kotlinx:kotlinx-metadata-jvm:0.2.0",
+        "org.jetbrains.kotlin:kotlin-stdlib-jdk8:%s" % KOTLIN_VERSION,
+        "org.jetbrains.kotlinx:kotlinx-metadata-jvm:0.3.0",
+        "org.mockito:mockito-core:2.28.2",
+        "org.objenesis:objenesis:1.0",
         "org.robolectric:robolectric:4.4",
         "org.robolectric:shadows-framework:4.4",  # For ActivityController
     ],
     repositories = [
         "https://repo1.maven.org/maven2",
         "https://maven.google.com",
-        "https://jcenter.bintray.com/",  # Lint has one trove4j dependency in jCenter
     ],
 )
 

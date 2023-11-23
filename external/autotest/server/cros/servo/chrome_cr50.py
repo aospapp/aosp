@@ -83,7 +83,7 @@ class ChromeCr50(chrome_ec.ChromeConsole):
     GETTIME = ['= (\S+)']
     FWMP_LOCKED_PROD = ["Managed device console can't be unlocked"]
     FWMP_LOCKED_DBG = ['Ignoring FWMP unlock setting']
-    MAX_RETRY_COUNT = 5
+    MAX_RETRY_COUNT = 10
     CCDSTATE_MAX_RETRY_COUNT = 20
     START_STR = ['((Havn|UART).*Console is enabled;)']
     REBOOT_DELAY_WITH_CCD = 60
@@ -95,15 +95,16 @@ class ChromeCr50(chrome_ec.ChromeConsole):
     CAP_SETTING = 1
     CAP_REQ = 2
     GET_CAP_TRIES = 20
+    CAP_ALWAYS = 'Always'
     # Regex to match the valid capability settings.
-    CAP_STATES = '(Always|Default|IfOpened|UnlessLocked)'
+    CAP_STATES = '(%s|Default|IfOpened|UnlessLocked)' % CAP_ALWAYS
     # List of all cr50 ccd capabilities. Same order of 'ccd' output
     CAP_NAMES = [
-        'UartGscRxAPTx', 'UartGscTxAPRx', 'UartGscRxECTx', 'UartGscTxECRx',
-        'FlashAP', 'FlashEC', 'OverrideWP', 'RebootECAP', 'GscFullConsole',
-        'UnlockNoReboot', 'UnlockNoShortPP', 'OpenNoTPMWipe', 'OpenNoLongPP',
-        'BatteryBypassPP', 'UpdateNoTPMWipe', 'I2C', 'FlashRead',
-        'OpenNoDevMode', 'OpenFromUSB', 'OverrideBatt'
+            'UartGscRxAPTx', 'UartGscTxAPRx', 'UartGscRxECTx', 'UartGscTxECRx',
+            'FlashAP', 'FlashEC', 'OverrideWP', 'RebootECAP', 'GscFullConsole',
+            'UnlockNoReboot', 'UnlockNoShortPP', 'OpenNoTPMWipe',
+            'OpenNoLongPP', 'BatteryBypassPP', '(UpdateNoTPMWipe|Unused)',
+            'I2C', 'FlashRead', 'OpenNoDevMode', 'OpenFromUSB', 'OverrideBatt'
     ]
     # There are two capability formats. Match both.
     #  UartGscRxECTx   Y 3=IfOpened
@@ -131,26 +132,29 @@ class ChromeCr50(chrome_ec.ChromeConsole):
 
     # CR50 Board Properties as defined in platform/ec/board/cr50/scratch-reg1.h
     BOARD_PROP = {
-           'BOARD_SLAVE_CONFIG_SPI'      : 1 << 0,
-           'BOARD_SLAVE_CONFIG_I2C'      : 1 << 1,
-           'BOARD_NEEDS_SYS_RST_PULL_UP' : 1 << 5,
-           'BOARD_USE_PLT_RESET'         : 1 << 6,
-           'BOARD_WP_ASSERTED'           : 1 << 8,
-           'BOARD_FORCING_WP'            : 1 << 9,
-           'BOARD_NO_RO_UART'            : 1 << 10,
-           'BOARD_CCD_STATE_MASK'        : 3 << 11,
-           'BOARD_DEEP_SLEEP_DISABLED'   : 1 << 13,
-           'BOARD_DETECT_AP_WITH_UART'   : 1 << 14,
-           'BOARD_ITE_EC_SYNC_NEEDED'    : 1 << 15,
-           'BOARD_WP_DISABLE_DELAY'      : 1 << 16,
-           'BOARD_CLOSED_SOURCE_SET1'    : 1 << 17,
-           'BOARD_CLOSED_LOOP_RESET'     : 1 << 18,
-           'BOARD_NO_INA_SUPPORT'        : 1 << 19,
-           'BOARD_ALLOW_CHANGE_TPM_MODE' : 1 << 20,
-           'BOARD_EC_CR50_COMM_SUPPORT'  : 1 << 21,
-           'BOARD_CCD_REC_LID_PIN_DIOA1' : 0x01 << 22,
-           'BOARD_CCD_REC_LID_PIN_DIOA9' : 0x02 << 22,
-           'BOARD_CCD_REC_LID_PIN_DIOA12': 0x03 << 22,
+            'BOARD_PERIPH_CONFIG_SPI': (1 << 0, None),
+            'BOARD_PERIPH_CONFIG_SPI': (1 << 0, None),
+            'BOARD_PERIPH_CONFIG_I2C': (1 << 1, None),
+            'BOARD_PERIPH_CONFIG_I2C': (1 << 1, None),
+            'BOARD_NEEDS_SYS_RST_PULL_UP': (1 << 5, None),
+            'BOARD_USE_PLT_RESET': (1 << 6, None),
+            'BOARD_WP_ASSERTED': (1 << 8, None),
+            'BOARD_FORCING_WP': (1 << 9, None),
+            'BOARD_NO_RO_UART': (1 << 10, None),
+            'BOARD_CCD_UNLOCKED': (1 << 11, 3 << 11),
+            'BOARD_CCD_OPENED': (2 << 11, 3 << 11),
+            'BOARD_DEEP_SLEEP_DISABLED': (1 << 13, None),
+            'BOARD_DETECT_AP_WITH_UART': (1 << 14, None),
+            'BOARD_ITE_EC_SYNC_NEEDED': (1 << 15, None),
+            'BOARD_WP_DISABLE_DELAY': (1 << 16, None),
+            'BOARD_CLOSED_SOURCE_SET1': (1 << 17, None),
+            'BOARD_CLOSED_LOOP_RESET': (1 << 18, None),
+            'BOARD_NO_INA_SUPPORT': (1 << 19, None),
+            'BOARD_ALLOW_CHANGE_TPM_MODE': (1 << 20, None),
+            'BOARD_EC_CR50_COMM_SUPPORT': (1 << 21, None),
+            'BOARD_CCD_REC_LID_PIN_DIOA1': (1 << 22, 3 << 22),
+            'BOARD_CCD_REC_LID_PIN_DIOA9': (2 << 22, 3 << 22),
+            'BOARD_CCD_REC_LID_PIN_DIOA12': (3 << 22, 3 << 22)
     }
 
     # CR50 reset flags as defined in platform ec_commands.h. These are only the
@@ -169,6 +173,38 @@ class ChromeCr50(chrome_ec.ChromeConsole):
            'RESET_FLAG_RBOX'             : 1 << 16,
            'RESET_FLAG_SECURITY'         : 1 << 17,
     }
+    FIPS_RE = r' ([^ ]*)approved.*allowed: (1|0)'
+    # CCD Capabilities used for c2d2 control drivers.
+    SERVO_DRV_CAPS = ['OverrideWP', 'GscFullConsole', 'RebootECAP']
+    # Cr50 may have flash operation errors during the test. Here's an example
+    # of one error message.
+    # do_flash_op:245 errors 20 fsh_pe_control 40720004
+    # The stuff after the ':' may change, but all flash operation errors
+    # contain do_flash_op. do_flash_op is only ever printed if there is an
+    # error during the flash operation. Just search for do_flash_op to simplify
+    # the search string and make it applicable to all flash op errors.
+    FLASH_OP_ERROR_MSG = 'do_flash_op'
+    # USB issues may show up with the timer sof calibration overflow interrupt.
+    # Count these during cleanup.
+    USB_ERROR = 'timer_sof_calibration_overflow_int'
+    # Message printed during watchdog reset.
+    WATCHDOG_RST = 'WATCHDOG PC'
+    # ===============================================================
+    # AP_RO strings
+    # Cr50 only supports v2
+    AP_RO_VERSIONS = [1]
+    AP_RO_HASH_RE = r'sha256 (hash) ([0-9a-f]{64})'
+    AP_RO_UNSUPPORTED_UNPROGRAMMED = 'RO verification not programmed'
+    AP_RO_UNSUPPORTED_BID_BLOCKED = 'BID blocked'
+    AP_RO_REASON_RE = r'(ap_ro_check_unsupported): (.*)\]'
+    AP_RO_RESULT_RE = r'(result)\s*: (\d)'
+    AP_RO_SUPPORTED_RE = r'(supported)\s*: (yes|no)'
+    AP_RO_UNSUPPORTED_OUTPUT = [
+            AP_RO_REASON_RE, AP_RO_RESULT_RE, AP_RO_SUPPORTED_RE
+    ]
+    AP_RO_SAVED_OUTPUT = [AP_RO_RESULT_RE, AP_RO_SUPPORTED_RE, AP_RO_HASH_RE]
+
+    # ===============================================================
 
     def __init__(self, servo, faft_config):
         """Initializes a ChromeCr50 object.
@@ -178,7 +214,6 @@ class ChromeCr50(chrome_ec.ChromeConsole):
         """
         super(ChromeCr50, self).__init__(servo, 'cr50_uart')
         self.faft_config = faft_config
-
 
     def wake_cr50(self):
         """Wake up cr50 by sending some linebreaks and wait for the response"""
@@ -198,7 +233,7 @@ class ChromeCr50(chrome_ec.ChromeConsole):
         """Send command through UART.
 
         Cr50 will drop characters input to the UART when it resumes from sleep.
-        If servo is not using ccd, send some dummy characters before sending the
+        If servo is not using ccd, send some characters before sending the
         real command to make sure cr50 is awake.
 
         @param commands: the command string to send to cr50
@@ -394,7 +429,7 @@ class ChromeCr50(chrome_ec.ChromeConsole):
         """Send command through UART and wait for response.
 
         Cr50 will drop characters input to the UART when it resumes from sleep.
-        If servo is not using ccd, send some dummy characters before sending the
+        If servo is not using ccd, send some characters before sending the
         real command to make sure cr50 is awake.
 
         @param command: the command to send
@@ -503,14 +538,18 @@ class ChromeCr50(chrome_ec.ChromeConsole):
         @param prop_name: a property name in string type.
         """
         brdprop = self.get_board_properties()
-        prop = self.BOARD_PROP[prop_name]
-        return (brdprop & prop) == prop
+        (prop, mask) = self.BOARD_PROP[prop_name]
+        # Use the board property value for the mask if no mask is given.
+        mask = mask or prop
+        return (brdprop & mask) == prop
 
 
     def has_command(self, cmd):
         """Returns 1 if cr50 has the command 0 if it doesn't"""
         try:
-            self.send_safe_command_get_output('help', [cmd])
+            self.send_command_retry_get_output('help', [cmd],
+                                               safe=True,
+                                               retries=3)
         except:
             logging.info("Image does not include '%s' command", cmd)
             return 0
@@ -930,6 +969,7 @@ class ChromeCr50(chrome_ec.ChromeConsole):
                         ensure_ap_on=ap_is_on)
 
         if level != self.get_ccd_level():
+            self.check_for_console_errors('Running console ccd %s' % level)
             raise error.TestFail('Could not set privilege level to %s' % level)
 
         logging.info('Successfully set CCD privelege level to %s', level)
@@ -1082,7 +1122,12 @@ class ChromeCr50(chrome_ec.ChromeConsole):
             line = line.strip()
             if ':' in line:
                 k, v = line.split(':', 1)
-                ccdstate[k.strip()] = v.strip()
+                k = k.strip()
+                v = v.strip()
+                if '(' in v:
+                    ccdstate[k + ' full'] = v
+                    v = v.split('(')[0].strip()
+                ccdstate[k] = v
         logging.info('Current CCD state:\n%s', pprint.pformat(ccdstate))
         return ccdstate
 
@@ -1093,9 +1138,9 @@ class ChromeCr50(chrome_ec.ChromeConsole):
         @return: True if the AP is on; False otherwise.
         """
         ap_state = self.get_ccdstate()['AP']
-        if ap_state == 'on':
+        if ap_state.lower() == 'on':
             return True
-        elif ap_state == 'off':
+        elif ap_state.lower() == 'off':
             return False
         else:
             raise error.TestFail('Read unusable AP state from ccdstate: %r' %
@@ -1229,7 +1274,7 @@ class ChromeCr50(chrome_ec.ChromeConsole):
 
     def check_servo_monitor(self):
         """Returns True if cr50 can detect servo connect/disconnect"""
-        orig_dts = self._servo.get('servo_v4_dts_mode')
+        orig_dts = self._servo.get('servo_dts_mode')
         # Detach ccd so EC uart won't interfere with servo detection
         self._servo.set_dts_mode('off')
         self._servo.set('ec_uart_en', 'off')
@@ -1245,3 +1290,147 @@ class ChromeCr50(chrome_ec.ChromeConsole):
             return False
         self._servo.set_dts_mode(orig_dts)
         return True
+
+    def fips_crypto_allowed(self):
+        """Return 1 if fips crypto is enabled."""
+        if not self.has_command('fips'):
+            return 0
+
+        rv = self.send_command_retry_get_output('fips', [self.FIPS_RE])
+        logging.info('FIPS: %r', rv)
+        _, approved, allowed = rv[0]
+        if int(approved == '') != int(allowed):
+            raise error.TestFail('Approved does not match allowed %r' % rv)
+        return int(allowed)
+
+    def unlock_is_supported(self):
+        """Returns True if GSC supports the ccd unlock state."""
+        return True
+
+    def cap_is_always_on(self, cap):
+        """Returns True if the capability is set to Always"""
+        rv = self.send_command_retry_get_output('ccd',
+                                                [cap + self.CAP_FORMAT])[0]
+        # The third field could be Default or "Always". If it's Default,
+        # "Always" must show up in the third field.
+        return self.CAP_ALWAYS in rv[2] or self.CAP_ALWAYS in rv[3]
+
+    def servo_drv_enabled(self):
+        """Check if the caps  are accessible on boards wigh gsc controls."""
+        if not self._servo.main_device_uses_gsc_drv():
+            return True
+        for cap in self.SERVO_DRV_CAPS:
+            # If any capability isn't accessible, return False.
+            if not self.cap_is_always_on(cap):
+                return False
+        return True
+
+    def enable_servo_control_caps(self):
+        """Set all servo control capabilities to Always."""
+        # Nothing do do if servo doesn't use gsc for any controls.
+        if not self._servo.main_device_uses_gsc_drv():
+            return
+        logging.info('Setting servo caps to Always')
+        self.send_command('ccd testlab open')
+        for cap in self.SERVO_DRV_CAPS:
+            self.send_command('ccd set %s Always' % cap)
+        return self.servo_drv_enabled()
+
+    def ccd_reset_factory(self):
+        """Enable factory mode."""
+        self.send_command('ccd reset factory')
+
+    def ccd_reset(self, servo_en=True):
+        """Reset ccd capabilities."""
+        servo_uses_gsc = self._servo.main_device_uses_gsc_drv()
+        # If testlab mode is enabled, capabilities can be restored. It's
+        # ok to reset ccd.
+        if not servo_en and servo_uses_gsc and not self.testlab_is_on():
+            raise error.TestError(
+                    'Board uses ccd drivers. Enable testlab mode '
+                    'before ccd reset')
+        self.send_command('ccd reset')
+        if servo_en:
+            self.enable_servo_control_caps()
+
+    def check_for_console_errors(self, desc):
+        """Check cr50 uart output for errors.
+
+        Use the logs captured during firmware_test cleanup to check for cr50
+        errors. Flash operation issues aren't obvious unless you check the logs.
+        All flash op errors print do_flash_op and it isn't printed during normal
+        operation. Open the cr50 uart file and count the number of times this is
+        printed. Log the number of errors.
+        """
+        self._servo.record_uart_capture()
+        cr50_uart_file = self._servo.get_uart_logfile('cr50')
+        if not cr50_uart_file:
+            logging.info('There is not a cr50 uart file')
+            return
+
+        flash_error_count = 0
+        usb_error_count = 0
+        watchdog_count = 0
+        with open(cr50_uart_file, 'r') as f:
+            for line in f:
+                if self.FLASH_OP_ERROR_MSG in line:
+                    flash_error_count += 1
+                if self.USB_ERROR in line:
+                    usb_error_count += 1
+                if self.WATCHDOG_RST in line:
+                    watchdog_count += 1
+
+        # Log any flash operation errors.
+        logging.info('do_flash_op count: %d', flash_error_count)
+        logging.info('usb error count: %d', usb_error_count)
+        logging.info('watchdog count: %d', watchdog_count)
+        if watchdog_count:
+            raise error.TestFail('Found %r %d times in logs after %s' %
+                                 (self.WATCHDOG_RST, watchdog_count, desc))
+
+    def ap_ro_version_is_supported(self, version):
+        """Returns True if GSC supports the given version."""
+        return version in self.AP_RO_VERSIONS
+
+    def ap_ro_supported(self):
+        """Returns True if the hash is saved and AP RO is supported."""
+        return self.send_command_retry_get_output(
+                'ap_ro_info', [self.AP_RO_SUPPORTED_RE])[0][2] == 'yes'
+
+    def get_ap_ro_info(self):
+        """Returns a dictionary of the AP RO info.
+
+        Get the ap_ro_info output. Convert it to a usable dictionary.
+
+        Returns:
+            A dictionary with the following key value pairs.
+                'reason': String of unsupported reason or None if ap ro is
+                          supported.
+                'hash': 64 char hash or None if it isn't supported.
+                'supported': bool whether AP RO verification is supported.
+                'result': int of the AP RO verification result.
+        """
+        # Cr50 prints different output based on whether ap ro verification is
+        # supported.
+        if self.ap_ro_supported():
+            output = self.AP_RO_SAVED_OUTPUT
+        else:
+            output = self.AP_RO_UNSUPPORTED_OUTPUT
+        # The reason and hash output is optional. Make sure it's in the
+        # dictionary even if it isn't in the output.
+        info = {'hash': None, 'reason': None}
+        rv = self.send_command_retry_get_output('ap_ro_info',
+                                                output,
+                                                compare_output=True)
+        for _, k, v in rv:
+            # Make key more usable.
+            if k == 'ap_ro_check_unsupported':
+                k = 'reason'
+            # Convert digit strings to ints
+            if v.isdigit():
+                v = int(v)
+            # Convert yes or no to bool
+            if k == 'supported':
+                v = v == 'yes'
+            info[k] = v
+        return info

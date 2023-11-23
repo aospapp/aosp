@@ -420,6 +420,21 @@ enum TOperator : uint16_t
     EOpImageAtomicExchange,
     EOpImageAtomicCompSwap,
 
+    // Group PixelLocal
+
+    // Group PixelLocalLoad
+    EOpPixelLocalLoadANGLE,
+
+    // Group PixelLocalStore
+    EOpPixelLocalStoreANGLE,
+
+    // Group FragmentSynchronization
+    EOpBeginInvocationInterlockNV,
+    EOpEndInvocationInterlockNV,
+    EOpBeginFragmentShaderOrderingINTEL,
+    EOpBeginInvocationInterlockARB,
+    EOpEndInvocationInterlockARB,
+
     // Group Noise
     EOpNoise1,
     EOpNoise2,
@@ -453,6 +468,13 @@ enum TOperator : uint16_t
     EOpAnyInvocation,
     EOpAllInvocations,
     EOpAllInvocationsEqual,
+
+    // Group MetalFragmentSample
+    EOpNumSamples,
+    EOpSamplePosition,
+
+    // Group MetalCommon
+    EOpSaturate,
 };
 
 // Returns the string corresponding to the operator in GLSL.  For built-in functions use the
@@ -543,6 +565,18 @@ static inline bool IsImageAtomic(TOperator op)
 static inline bool IsImage(TOperator op)
 {
     return op >= EOpImageSize && op <= EOpImageAtomicCompSwap;
+}
+static inline bool IsPixelLocalLoad(TOperator op)
+{
+    return op >= EOpPixelLocalLoadANGLE && op <= EOpPixelLocalLoadANGLE;
+}
+static inline bool IsPixelLocalStore(TOperator op)
+{
+    return op >= EOpPixelLocalStoreANGLE && op <= EOpPixelLocalStoreANGLE;
+}
+static inline bool IsPixelLocal(TOperator op)
+{
+    return op >= EOpPixelLocalLoadANGLE && op <= EOpPixelLocalStoreANGLE;
 }
 }  // namespace BuiltInGroup
 

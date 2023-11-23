@@ -36,6 +36,7 @@ __pragma(warning(push))
 #include "llvm/Support/Host.h"
 #include "llvm/Support/TargetSelect.h"
 #include "llvm/Transforms/InstCombine/InstCombine.h"
+#include "llvm/Transforms/Instrumentation/AddressSanitizer.h"
 #include "llvm/Transforms/Instrumentation/MemorySanitizer.h"
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Transforms/Scalar/GVN.h"
@@ -62,6 +63,19 @@ __pragma(warning(push))
     __pragma(warning(pop))
 #endif
 
+#if defined(__unix__) || defined(__APPLE__) || defined(__Fuchsia__)
+#	define ADDRESS_SANITIZER_INSTRUMENTATION_SUPPORTED true
+#	if __has_feature(memory_sanitizer) || __has_feature(address_sanitizer)
+#		include <dlfcn.h>  // dlsym()
+#	endif
+#else
+#	define ADDRESS_SANITIZER_INSTRUMENTATION_SUPPORTED false
+#endif
+
+#ifndef REACTOR_ASM_EMIT_DIR
+#	define REACTOR_ASM_EMIT_DIR "./"
+#endif
+
 #if defined(_WIN64)
         extern "C" void __chkstk();
 #elif defined(_WIN32)
@@ -73,11 +87,7 @@ extern "C" signed __aeabi_idivmod();
 #endif
 
 #if __has_feature(memory_sanitizer)
-
-// TODO(b/155148722): Remove when we no longer unpoison any writes.
 #	include "sanitizer/msan_interface.h"
-
-#	include <dlfcn.h>  // dlsym()
 
 // MemorySanitizer uses thread-local storage (TLS) data arrays for passing around
 // the 'shadow' values of function arguments and return values. The LLVM JIT can't
@@ -94,18 +104,26 @@ extern "C" signed __aeabi_idivmod();
 // Forward declare the real TLS variables used by MemorySanitizer. These are
 // defined in llvm-project/compiler-rt/lib/msan/msan.cpp.
 extern __thread unsigned long long __msan_param_tls[];
+extern __thread unsigned int __msan_param_origin_tls[];
 extern __thread unsigned long long __msan_retval_tls[];
+extern __thread unsigned int __msan_retval_origin_tls;
 extern __thread unsigned long long __msan_va_arg_tls[];
+extern __thread unsigned int __msan_va_arg_origin_tls[];
 extern __thread unsigned long long __msan_va_arg_overflow_size_tls;
+extern __thread unsigned int __msan_origin_tls;
 
 namespace rr {
 
 enum class MSanTLS
 {
-	param = 1,            // __msan_param_tls
-	retval,               // __msan_retval_tls
-	va_arg,               // __msan_va_arg_tls
-	va_arg_overflow_size  // __msan_va_arg_overflow_size_tls
+	param = 1,             // __msan_param_tls
+	param_origin,          //__msan_param_origin_tls
+	retval,                // __msan_retval_tls
+	retval_origin,         //__msan_retval_origin_tls
+	va_arg,                // __msan_va_arg_tls
+	va_arg_origin,         // __msan_va_arg_origin_tls
+	va_arg_overflow_size,  // __msan_va_arg_overflow_size_tls
+	origin,                //__msan_origin_tls
 };
 
 static void *getTLSAddress(void *control)
@@ -113,11 +131,15 @@ static void *getTLSAddress(void *control)
 	auto tlsIndex = static_cast<MSanTLS>(reinterpret_cast<uintptr_t>(control));
 	switch(tlsIndex)
 	{
-
 	case MSanTLS::param: return reinterpret_cast<void *>(&__msan_param_tls);
+	case MSanTLS::param_origin: return reinterpret_cast<void *>(&__msan_param_origin_tls);
 	case MSanTLS::retval: return reinterpret_cast<void *>(&__msan_retval_tls);
+	case MSanTLS::retval_origin: return reinterpret_cast<void *>(&__msan_retval_origin_tls);
 	case MSanTLS::va_arg: return reinterpret_cast<void *>(&__msan_va_arg_tls);
+	case MSanTLS::va_arg_origin: return reinterpret_cast<void *>(&__msan_va_arg_origin_tls);
 	case MSanTLS::va_arg_overflow_size: return reinterpret_cast<void *>(&__msan_va_arg_overflow_size_tls);
+	case MSanTLS::origin: return reinterpret_cast<void *>(&__msan_origin_tls);
+
 	default:
 		UNSUPPORTED("MemorySanitizer used an unrecognized TLS variable: %d", tlsIndex);
 		return nullptr;
@@ -147,14 +169,14 @@ class JITGlobals
 public:
 	static JITGlobals *get();
 
-	llvm::orc::JITTargetMachineBuilder getTargetMachineBuilder(rr::Optimization::Level optLevel) const;
+	llvm::orc::JITTargetMachineBuilder getTargetMachineBuilder() const;
 	const llvm::DataLayout &getDataLayout() const;
 	const llvm::Triple &getTargetTriple() const;
 
 private:
 	JITGlobals(llvm::orc::JITTargetMachineBuilder &&jitTargetMachineBuilder, llvm::DataLayout &&dataLayout);
 
-	static llvm::CodeGenOpt::Level toLLVM(rr::Optimization::Level level);
+	static llvm::CodeGenOpt::Level toLLVM(int level);
 
 	const llvm::orc::JITTargetMachineBuilder jitTargetMachineBuilder;
 	const llvm::DataLayout dataLayout;
@@ -169,7 +191,7 @@ JITGlobals *JITGlobals::get()
 			"-x86-asm-syntax=intel",  // Use Intel syntax rather than the default AT&T
 #endif
 #if LLVM_VERSION_MAJOR <= 12
-			"-warn-stack-size=524288"  // Warn when a function uses more than 512 KiB of stack memory
+			"-warn-stack-size=524288",  // Warn when a function uses more than 512 KiB of stack memory
 #endif
 		};
 
@@ -219,10 +241,10 @@ JITGlobals *JITGlobals::get()
 	return &instance;
 }
 
-llvm::orc::JITTargetMachineBuilder JITGlobals::getTargetMachineBuilder(rr::Optimization::Level optLevel) const
+llvm::orc::JITTargetMachineBuilder JITGlobals::getTargetMachineBuilder() const
 {
 	llvm::orc::JITTargetMachineBuilder out = jitTargetMachineBuilder;
-	out.setCodeGenOptLevel(toLLVM(optLevel));
+	out.setCodeGenOptLevel(toLLVM(rr::getPragmaState(rr::OptimizationLevel)));
 
 	return out;
 }
@@ -243,7 +265,7 @@ JITGlobals::JITGlobals(llvm::orc::JITTargetMachineBuilder &&jitTargetMachineBuil
 {
 }
 
-llvm::CodeGenOpt::Level JITGlobals::toLLVM(rr::Optimization::Level level)
+llvm::CodeGenOpt::Level JITGlobals::toLLVM(int level)
 {
 	// TODO(b/173257647): MemorySanitizer instrumentation produces IR which takes
 	// a lot longer to process by the machine code optimization passes. Disabling
@@ -255,10 +277,10 @@ llvm::CodeGenOpt::Level JITGlobals::toLLVM(rr::Optimization::Level level)
 
 	switch(level)
 	{
-	case rr::Optimization::Level::None: return llvm::CodeGenOpt::None;
-	case rr::Optimization::Level::Less: return llvm::CodeGenOpt::Less;
-	case rr::Optimization::Level::Default: return llvm::CodeGenOpt::Default;
-	case rr::Optimization::Level::Aggressive: return llvm::CodeGenOpt::Aggressive;
+	case 0: return llvm::CodeGenOpt::None;
+	case 1: return llvm::CodeGenOpt::Less;
+	case 2: return llvm::CodeGenOpt::Default;
+	case 3: return llvm::CodeGenOpt::Aggressive;
 	default: UNREACHABLE("Unknown Optimization Level %d", int(level));
 	}
 
@@ -529,17 +551,17 @@ class ExternalSymbolGenerator : public llvm::orc::JITDylib::DefinitionGenerator
 			functions.try_emplace("memset", reinterpret_cast<void *>(memset));
 
 #ifdef __APPLE__
-			functions.try_emplace("sincosf_stret", reinterpret_cast<void *>(__sincosf_stret));
+			functions.try_emplace("__sincosf_stret", reinterpret_cast<void *>(__sincosf_stret));
 #elif defined(__linux__)
 			functions.try_emplace("sincosf", reinterpret_cast<void *>(sincosf));
 #elif defined(_WIN64)
-			functions.try_emplace("chkstk", reinterpret_cast<void *>(__chkstk));
+			functions.try_emplace("__chkstk", reinterpret_cast<void *>(__chkstk));
 #elif defined(_WIN32)
-			functions.try_emplace("chkstk", reinterpret_cast<void *>(_chkstk));
+			functions.try_emplace("_chkstk", reinterpret_cast<void *>(_chkstk));
 #endif
 
 #ifdef __ARM_EABI__
-			functions.try_emplace("aeabi_idivmod", reinterpret_cast<void *>(__aeabi_idivmod));
+			functions.try_emplace("__aeabi_idivmod", reinterpret_cast<void *>(__aeabi_idivmod));
 #endif
 #ifdef __ANDROID__
 			functions.try_emplace("aeabi_unwind_cpp_pr0", reinterpret_cast<void *>(neverCalled));
@@ -564,15 +586,18 @@ class ExternalSymbolGenerator : public llvm::orc::JITDylib::DefinitionGenerator
 #	endif
 #endif
 #if __has_feature(memory_sanitizer)
-			functions.try_emplace("emutls_get_address", reinterpret_cast<void *>(rr::getTLSAddress));
-			functions.try_emplace("emutls_v.__msan_retval_tls", reinterpret_cast<void *>(static_cast<uintptr_t>(rr::MSanTLS::retval)));
-			functions.try_emplace("emutls_v.__msan_param_tls", reinterpret_cast<void *>(static_cast<uintptr_t>(rr::MSanTLS::param)));
-			functions.try_emplace("emutls_v.__msan_va_arg_tls", reinterpret_cast<void *>(static_cast<uintptr_t>(rr::MSanTLS::va_arg)));
-			functions.try_emplace("emutls_v.__msan_va_arg_overflow_size_tls", reinterpret_cast<void *>(static_cast<uintptr_t>(rr::MSanTLS::va_arg_overflow_size)));
+			functions.try_emplace("__emutls_get_address", reinterpret_cast<void *>(rr::getTLSAddress));
+			functions.try_emplace("__emutls_v.__msan_param_tls", reinterpret_cast<void *>(static_cast<uintptr_t>(rr::MSanTLS::param)));
+			functions.try_emplace("__emutls_v.__msan_param_origin_tls", reinterpret_cast<void *>(static_cast<uintptr_t>(rr::MSanTLS::param_origin)));
+			functions.try_emplace("__emutls_v.__msan_retval_tls", reinterpret_cast<void *>(static_cast<uintptr_t>(rr::MSanTLS::retval)));
+			functions.try_emplace("__emutls_v.__msan_retval_origin_tls", reinterpret_cast<void *>(static_cast<uintptr_t>(rr::MSanTLS::retval_origin)));
+			functions.try_emplace("__emutls_v.__msan_va_arg_tls", reinterpret_cast<void *>(static_cast<uintptr_t>(rr::MSanTLS::va_arg)));
+			functions.try_emplace("__emutls_v.__msan_va_arg_origin_tls", reinterpret_cast<void *>(static_cast<uintptr_t>(rr::MSanTLS::va_arg_origin)));
+			functions.try_emplace("__emutls_v.__msan_va_arg_overflow_size_tls", reinterpret_cast<void *>(static_cast<uintptr_t>(rr::MSanTLS::va_arg_overflow_size)));
+			functions.try_emplace("__emutls_v.__msan_origin_tls", reinterpret_cast<void *>(static_cast<uintptr_t>(rr::MSanTLS::origin)));
 
-			// TODO(b/155148722): Remove when we no longer unpoison any writes.
-			functions.try_emplace("msan_unpoison", reinterpret_cast<void *>(__msan_unpoison));
-			functions.try_emplace("msan_unpoison_param", reinterpret_cast<void *>(__msan_unpoison_param));
+			functions.try_emplace("__msan_unpoison", reinterpret_cast<void *>(__msan_unpoison));
+			functions.try_emplace("__msan_unpoison_param", reinterpret_cast<void *>(__msan_unpoison_param));
 #endif
 		}
 	};
@@ -598,11 +623,15 @@ class ExternalSymbolGenerator : public llvm::orc::JITDylib::DefinitionGenerator
 		{
 			auto name = symbol.first;
 
-			// Trim off any underscores from the start of the symbol. LLVM likes
-			// to append these on macOS.
-			auto trimmed = (*name).drop_while([](char c) { return c == '_'; });
+#if defined(__APPLE__)
+			// Trim the underscore from the start of the symbol. LLVM adds it for Mach-O mangling convention.
+			ASSERT((*name)[0] == '_');
+			auto unmangled = (*name).drop_front(1);
+#else
+			auto unmangled = *name;
+#endif
 
-			auto it = resolver.functions.find(trimmed.str());
+			auto it = resolver.functions.find(unmangled.str());
 			if(it != resolver.functions.end())
 			{
 				symbols[name] = llvm::JITEvaluatedSymbol(
@@ -612,14 +641,14 @@ class ExternalSymbolGenerator : public llvm::orc::JITDylib::DefinitionGenerator
 				continue;
 			}
 
-#if __has_feature(memory_sanitizer)
-			// MemorySanitizer uses a dynamically linked runtime. Instrumented routines reference
-			// some symbols from this library. Look them up dynamically in the default namespace.
+#if __has_feature(memory_sanitizer) || (__has_feature(address_sanitizer) && ADDRESS_SANITIZER_INSTRUMENTATION_SUPPORTED)
+			// Sanitizers use a dynamically linked runtime. Instrumented routines reference some
+			// symbols from this library. Look them up dynamically in the default namespace.
 			// Note this approach should not be used for other symbols, since they might not be
 			// visible (e.g. due to static linking), we may wish to provide an alternate
 			// implementation, and/or it would be a security vulnerability.
 
-			void *address = dlsym(RTLD_DEFAULT, (*symbol.first).data());
+			void *address = dlsym(RTLD_DEFAULT, unmangled.data());
 
 			if(address)
 			{
@@ -632,7 +661,7 @@ class ExternalSymbolGenerator : public llvm::orc::JITDylib::DefinitionGenerator
 #endif
 
 #if !defined(NDEBUG) || defined(DCHECK_ALWAYS_ON)
-			missing += (missing.empty() ? "'" : ", '") + (*name).str() + "'";
+			missing += (missing.empty() ? "'" : ", '") + unmangled.str() + "'";
 #endif
 		}
 
@@ -712,8 +741,7 @@ public:
 	    std::unique_ptr<llvm::LLVMContext> context,
 	    const char *name,
 	    llvm::Function **funcs,
-	    size_t count,
-	    const rr::Config &config)
+	    size_t count)
 	    : name(name)
 #if LLVM_VERSION_MAJOR >= 13
 	    , session(std::move(Unwrap(llvm::orc::SelfExecutorProcessControl::Create())))
@@ -774,15 +802,15 @@ public:
 		}
 
 #ifdef ENABLE_RR_EMIT_ASM_FILE
-		const auto asmFilename = rr::AsmFile::generateFilename(config.getDebugConfig().asmEmitDir, name);
-		rr::AsmFile::emitAsmFile(asmFilename, JITGlobals::get()->getTargetMachineBuilder(config.getOptimization().getLevel()), *module);
+		const auto asmFilename = rr::AsmFile::generateFilename(REACTOR_ASM_EMIT_DIR, name);
+		rr::AsmFile::emitAsmFile(asmFilename, JITGlobals::get()->getTargetMachineBuilder(), *module);
 #endif
 
 		// Once the module is passed to the compileLayer, the llvm::Functions are freed.
 		// Make sure funcs are not referenced after this point.
 		funcs = nullptr;
 
-		llvm::orc::IRCompileLayer compileLayer(session, objectLayer, std::make_unique<llvm::orc::ConcurrentIRCompiler>(JITGlobals::get()->getTargetMachineBuilder(config.getOptimization().getLevel())));
+		llvm::orc::IRCompileLayer compileLayer(session, objectLayer, std::make_unique<llvm::orc::ConcurrentIRCompiler>(JITGlobals::get()->getTargetMachineBuilder()));
 		llvm::orc::JITDylib &dylib(Unwrap(session.createJITDylib("<routine>")));
 		dylib.addGenerator(std::make_unique<ExternalSymbolGenerator>());
 
@@ -841,55 +869,19 @@ private:
 
 namespace rr {
 
-JITBuilder::JITBuilder(const rr::Config &config)
-    : config(config)
-    , context(new llvm::LLVMContext())
+JITBuilder::JITBuilder()
+    : context(new llvm::LLVMContext())
     , module(new llvm::Module("", *context))
     , builder(new llvm::IRBuilder<>(*context))
 {
 	module->setTargetTriple(LLVM_DEFAULT_TARGET_TRIPLE);
 	module->setDataLayout(JITGlobals::get()->getDataLayout());
 
-	if(REACTOR_ENABLE_MEMORY_SANITIZER_INSTRUMENTATION ||
-	   getPragmaState(MemorySanitizerInstrumentation))
-	{
-		msanInstrumentation = true;
-	}
+	msanInstrumentation = getPragmaState(MemorySanitizerInstrumentation);
 }
 
-void JITBuilder::runPasses(const rr::Config &cfg)
+void JITBuilder::runPasses()
 {
-	if(coroutine.id)  // Run manadory coroutine transforms.
-	{
-#if LLVM_VERSION_MAJOR >= 13  // New pass manager
-		llvm::PassBuilder pb;
-		llvm::LoopAnalysisManager lam;
-		llvm::FunctionAnalysisManager fam;
-		llvm::CGSCCAnalysisManager cgam;
-		llvm::ModuleAnalysisManager mam;
-
-		pb.registerModuleAnalyses(mam);
-		pb.registerCGSCCAnalyses(cgam);
-		pb.registerFunctionAnalyses(fam);
-		pb.registerLoopAnalyses(lam);
-		pb.crossRegisterProxies(lam, fam, cgam, mam);
-
-		llvm::ModulePassManager mpm =
-		    pb.buildO0DefaultPipeline(llvm::OptimizationLevel::O0);
-		mpm.run(*module, mam);
-#else  // Legacy pass manager
-		llvm::legacy::PassManager pm;
-
-		pm.add(llvm::createCoroEarlyLegacyPass());
-		pm.add(llvm::createCoroSplitLegacyPass());
-		pm.add(llvm::createCoroElideLegacyPass());
-		pm.add(llvm::createBarrierNoopPass());
-		pm.add(llvm::createCoroCleanupLegacyPass());
-
-		pm.run(*module);
-#endif
-	}
-
 #if defined(ENABLE_RR_LLVM_IR_VERIFICATION) || !defined(NDEBUG)
 	if(llvm::verifyModule(*module, &llvm::errs()))
 	{
@@ -897,10 +889,12 @@ void JITBuilder::runPasses(const rr::Config &cfg)
 	}
 #endif
 
+	int optimizationLevel = getPragmaState(OptimizationLevel);
+
 #ifdef ENABLE_RR_DEBUG_INFO
 	if(debugInfo != nullptr)
 	{
-		return;  // Don't optimize if we're generating debug info.
+		optimizationLevel = 0;  // Don't optimize if we're generating debug info.
 	}
 #endif  // ENABLE_RR_DEBUG_INFO
 
@@ -920,34 +914,16 @@ void JITBuilder::runPasses(const rr::Config &cfg)
 	llvm::ModulePassManager pm;
 	llvm::FunctionPassManager fpm;
 
-	if(__has_feature(memory_sanitizer) && msanInstrumentation)
+	if(coroutine.id)
 	{
-		llvm::MemorySanitizerOptions msanOpts;
-		pm.addPass(llvm::ModuleMemorySanitizerPass(msanOpts));
-		pm.addPass(llvm::createModuleToFunctionPassAdaptor(llvm::MemorySanitizerPass(msanOpts)));
+		// Adds mandatory coroutine transforms.
+		pm = pb.buildO0DefaultPipeline(llvm::OptimizationLevel::O0);
 	}
 
-	for(auto pass : cfg.getOptimization().getPasses())
+	if(optimizationLevel > 0)
 	{
-		switch(pass)
-		{
-		case rr::Optimization::Pass::Disabled: break;
-		case rr::Optimization::Pass::CFGSimplification: fpm.addPass(llvm::SimplifyCFGPass()); break;
-		case rr::Optimization::Pass::LICM:
-			fpm.addPass(llvm::createFunctionToLoopPassAdaptor(
-			    llvm::LICMPass(llvm::SetLicmMssaOptCap, llvm::SetLicmMssaNoAccForPromotionCap, true)));
-			break;
-		case rr::Optimization::Pass::AggressiveDCE: fpm.addPass(llvm::ADCEPass()); break;
-		case rr::Optimization::Pass::GVN: fpm.addPass(llvm::GVNPass()); break;
-		case rr::Optimization::Pass::InstructionCombining: fpm.addPass(llvm::InstCombinePass()); break;
-		case rr::Optimization::Pass::Reassociate: fpm.addPass(llvm::ReassociatePass()); break;
-		case rr::Optimization::Pass::DeadStoreElimination: fpm.addPass(llvm::DSEPass()); break;
-		case rr::Optimization::Pass::SCCP: fpm.addPass(llvm::SCCPPass()); break;
-		case rr::Optimization::Pass::ScalarReplAggregates: fpm.addPass(llvm::SROAPass()); break;
-		case rr::Optimization::Pass::EarlyCSEPass: fpm.addPass(llvm::EarlyCSEPass()); break;
-		default:
-			UNREACHABLE("pass: %d", int(pass));
-		}
+		fpm.addPass(llvm::SROAPass(llvm::SROAOptions::PreserveCFG));
+		fpm.addPass(llvm::InstCombinePass());
 	}
 
 	if(!fpm.isEmpty())
@@ -955,43 +931,56 @@ void JITBuilder::runPasses(const rr::Config &cfg)
 		pm.addPass(llvm::createModuleToFunctionPassAdaptor(std::move(fpm)));
 	}
 
+	if(__has_feature(memory_sanitizer) && msanInstrumentation)
+	{
+		llvm::MemorySanitizerOptions msanOpts(0 /* TrackOrigins */, false /* Recover */, false /* Kernel */, true /* EagerChecks */);
+		pm.addPass(llvm::MemorySanitizerPass(msanOpts));
+	}
+
+	if(__has_feature(address_sanitizer) && ADDRESS_SANITIZER_INSTRUMENTATION_SUPPORTED)
+	{
+		pm.addPass(llvm::AddressSanitizerPass(llvm::AddressSanitizerOptions{}));
+	}
+
 	pm.run(*module, mam);
 #else  // Legacy pass manager
 	llvm::legacy::PassManager passManager;
 
-	if(__has_feature(memory_sanitizer) && msanInstrumentation)
+	if(coroutine.id)
 	{
-		passManager.add(llvm::createMemorySanitizerLegacyPassPass());
+		// Run mandatory coroutine transforms.
+		passManager.add(llvm::createCoroEarlyLegacyPass());
+		passManager.add(llvm::createCoroSplitLegacyPass());
+		passManager.add(llvm::createCoroElideLegacyPass());
+		passManager.add(llvm::createBarrierNoopPass());
+		passManager.add(llvm::createCoroCleanupLegacyPass());
 	}
 
-	for(auto pass : cfg.getOptimization().getPasses())
+	if(optimizationLevel > 0)
 	{
-		switch(pass)
-		{
-		case rr::Optimization::Pass::Disabled: break;
-		case rr::Optimization::Pass::CFGSimplification: passManager.add(llvm::createCFGSimplificationPass()); break;
-		case rr::Optimization::Pass::LICM: passManager.add(llvm::createLICMPass()); break;
-		case rr::Optimization::Pass::AggressiveDCE: passManager.add(llvm::createAggressiveDCEPass()); break;
-		case rr::Optimization::Pass::GVN: passManager.add(llvm::createGVNPass()); break;
-		case rr::Optimization::Pass::InstructionCombining: passManager.add(llvm::createInstructionCombiningPass()); break;
-		case rr::Optimization::Pass::Reassociate: passManager.add(llvm::createReassociatePass()); break;
-		case rr::Optimization::Pass::DeadStoreElimination: passManager.add(llvm::createDeadStoreEliminationPass()); break;
-		case rr::Optimization::Pass::SCCP: passManager.add(llvm::createSCCPPass()); break;
-		case rr::Optimization::Pass::ScalarReplAggregates: passManager.add(llvm::createSROAPass()); break;
-		case rr::Optimization::Pass::EarlyCSEPass: passManager.add(llvm::createEarlyCSEPass()); break;
-		default:
-			UNREACHABLE("pass: %d", int(pass));
-		}
+		passManager.add(llvm::createSROAPass());
+		passManager.add(llvm::createInstructionCombiningPass());
+	}
+
+	if(__has_feature(memory_sanitizer) && msanInstrumentation)
+	{
+		llvm::MemorySanitizerOptions msanOpts(0 /* TrackOrigins */, false /* Recover */, false /* Kernel */);
+		passManager.add(llvm::createMemorySanitizerLegacyPassPass(msanOpts));
+	}
+
+	if(__has_feature(address_sanitizer) && ADDRESS_SANITIZER_INSTRUMENTATION_SUPPORTED)
+	{
+		passManager.add(llvm::createAddressSanitizerFunctionPass());
 	}
 
 	passManager.run(*module);
 #endif
 }
 
-std::shared_ptr<rr::Routine> JITBuilder::acquireRoutine(const char *name, llvm::Function **funcs, size_t count, const rr::Config &cfg)
+std::shared_ptr<rr::Routine> JITBuilder::acquireRoutine(const char *name, llvm::Function **funcs, size_t count)
 {
 	ASSERT(module);
-	return std::make_shared<JITRoutine>(std::move(module), std::move(context), name, funcs, count, cfg);
+	return std::make_shared<JITRoutine>(std::move(module), std::move(context), name, funcs, count);
 }
 
 }  // namespace rr

@@ -9,12 +9,12 @@ or
 
 ## Option 1) Using pre-built binaries and headers
 
-Oboe is distributed as a [prefab](https://github.com/google/prefab) package via [Google Maven](https://maven.google.com/web/index.html) (search for "oboe"). [Prefab support was added](https://android-developers.googleblog.com/2020/02/native-dependencies-in-android-studio-40.html) to [Android Studio Preview 4.0 Canary 9](https://developer.android.com/studio/preview) so you'll need to be using this version of Android Studio or above. 
+Oboe is distributed as a [prefab](https://github.com/google/prefab) package via [Google Maven](https://maven.google.com/web/index.html) (search for "oboe"). [Prefab support was added](https://android-developers.googleblog.com/2020/02/native-dependencies-in-android-studio-40.html) to [Android Studio 4.0](https://developer.android.com/studio) so you'll need to be using this version of Android Studio or above. 
 
-Add the oboe dependency to your app's `build.gradle` file. Replace "1.4.3" with the [latest stable version](https://github.com/google/oboe/releases/) of Oboe:
+Add the oboe dependency to your app's `build.gradle` file. Replace "X.X.X" with the [latest stable version](https://github.com/google/oboe/releases/) of Oboe:
 
     dependencies {
-        implementation 'com.google.oboe:oboe:1.4.3'
+        implementation 'com.google.oboe:oboe:X.X.X'
     }
 
 Also enable prefab by adding:
@@ -28,7 +28,7 @@ Also enable prefab by adding:
 Include and link to oboe by updating your `CMakeLists.txt`: 
 
     find_package (oboe REQUIRED CONFIG)
-    target_link_libraries(app oboe::oboe) # You may have other libraries here such as `log`.
+    target_link_libraries(native-lib oboe::oboe) # You may have other libraries here such as `log`.
 
 Here's a complete example `CMakeLists.txt` file:
 
@@ -41,7 +41,7 @@ Here's a complete example `CMakeLists.txt` file:
     find_package (oboe REQUIRED CONFIG)
 
     # Specify the libraries which our native library is dependent on, including Oboe
-    target_link_libraries(app log oboe::oboe)
+    target_link_libraries(native-lib log oboe::oboe)
 
 Configure your app to use the shared STL by updating your `app/build.gradle`: 
 
@@ -52,7 +52,7 @@ Configure your app to use the shared STL by updating your `app/build.gradle`:
                     arguments "-DANDROID_STL=c++_shared"
                 }
 	        }
-	    }
+        }
     }
 
 ## Option 2) Building from source
@@ -60,7 +60,7 @@ Configure your app to use the shared STL by updating your `app/build.gradle`:
 ### 1. Clone the github repository
 Start by cloning the [latest stable release](https://github.com/google/oboe/releases/) of the Oboe repository, for example:
 
-    git clone -b 1.4-stable https://github.com/google/oboe
+    git clone -b 1.6-stable https://github.com/google/oboe
 
 **Make a note of the path which you cloned oboe into - you will need it shortly**
 
@@ -159,8 +159,9 @@ Define an `AudioStreamDataCallback` class to receive callbacks whenever the stre
         oboe::DataCallbackResult
         onAudioReady(oboe::AudioStream *audioStream, void *audioData, int32_t numFrames) {
             
-            // We requested AudioFormat::Float so we assume we got it.
-            // For production code always check what format
+            // We requested AudioFormat::Float. So if the stream opens
+	    // we know we got the Float format.
+            // If you do not specify a format then you should check what format
             // the stream has and cast to the appropriate type.
             auto *outputData = static_cast<float *>(audioData);
 	    
@@ -184,10 +185,10 @@ Supply this callback class to the builder:
 
     builder.setDataCallback(&myCallback);
     
-Declare a shared pointer for the stream. Make sure it is declared in an appropriate scope (e.g.the member of a managing class). Avoid declaring it as a global.
-```
-std::shared_ptr<oboe::AudioStream> mStream;
-```
+Declare a shared pointer for the stream. Make sure it is declared with the appropriate scope. The best place is as a member variable in a managing class or as a global. Avoid declaring it as a local variable because the stream may get deleted when the function returns.
+
+    std::shared_ptr<oboe::AudioStream> mStream;
+
 Open the stream:
 
     oboe::Result result = builder.openStream(mStream);
@@ -247,6 +248,7 @@ renders a sine wave.
 ```
 #include <oboe/Oboe.h>
 #include <math.h>
+using namespace oboe;
 
 class OboeSinePlayer: public oboe::AudioStreamDataCallback {
 public:
@@ -262,7 +264,7 @@ public:
                 ->setPerformanceMode(oboe::PerformanceMode::LowLatency)
                 ->setChannelCount(kChannelCount)
                 ->setSampleRate(kSampleRate)
-		->setSampleRateConversionQuality(oboe::SampleRateConversionQuality::Medium);
+		->setSampleRateConversionQuality(oboe::SampleRateConversionQuality::Medium)
                 ->setFormat(oboe::AudioFormat::Float)
                 ->setDataCallback(this)
                 ->openStream(mStream);
@@ -319,7 +321,7 @@ rather than pre-computing them.
 Additionally, best practice is to implement a separate data callback class, rather
 than managing the stream and defining its data callback in the same class.
 
-For more examples on how to use Oboe look in the [samples](https://github.com/google/oboe/tree/master/samples) folder.
+For more examples on how to use Oboe look in the [samples](https://github.com/google/oboe/tree/main/samples) folder.
 
 ## Obtaining optimal latency
 One of the goals of the Oboe library is to provide low latency audio streams on the widest range of hardware configurations.
@@ -355,5 +357,5 @@ Here's a code sample showing how to set these default values.
 Note that the values from Java are for built-in audio devices. Peripheral devices, such as Bluetooth may need larger framesPerBurst.
 
 # Further information
-- [Code samples](https://github.com/google/oboe/tree/master/samples)
+- [Code samples](https://github.com/google/oboe/tree/main/samples)
 - [Full guide to Oboe](FullGuide.md)

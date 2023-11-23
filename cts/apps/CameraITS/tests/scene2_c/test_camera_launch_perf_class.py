@@ -21,15 +21,15 @@ import camera_properties_utils
 import its_session_utils
 
 # This must match MPC12_CAMERA_LAUNCH_THRESHOLD in ItsTestActivity.java
-CAMERA_LAUNCH_S_PERFORMANCE_CLASS_THRESHOLD = 600  # ms
+_CAMERA_LAUNCH_S_PERFORMANCE_CLASS_THRESHOLD = 600  # ms
 
 
 class CameraLaunchSPerfClassTest(its_base_test.ItsBaseTest):
   """Test camera launch latency for S performance class as specified in CDD.
 
-  [7.5/H-1-6] MUST have camera2 startup latency (open camera to first preview
-  frame) < 600ms as measured by the CTS camera PerformanceTest under ITS
-  lighting conditions (3000K) for both primary cameras.
+  [2.2.7.2/7.5/H-1-6] MUST have camera2 startup latency (open camera to first
+  preview frame) < 600ms as measured by the CTS camera PerformanceTest under
+  ITS lighting conditions (3000K) for both primary cameras.
   """
 
   def test_camera_launch(self):
@@ -57,9 +57,9 @@ class CameraLaunchSPerfClassTest(its_base_test.ItsBaseTest):
 
     # Assert launch time if device claims performance class
     if (cam.is_performance_class() and
-        launch_ms >= CAMERA_LAUNCH_S_PERFORMANCE_CLASS_THRESHOLD):
+        launch_ms >= _CAMERA_LAUNCH_S_PERFORMANCE_CLASS_THRESHOLD):
       raise AssertionError(f'camera_launch_time_ms: {launch_ms}, THRESH: '
-                           f'{CAMERA_LAUNCH_S_PERFORMANCE_CLASS_THRESHOLD}')
+                           f'{_CAMERA_LAUNCH_S_PERFORMANCE_CLASS_THRESHOLD}')
 
     # Log launch time, so that the corresponding MPC level can be written to
     # report log. Text must match MPC12_CAMERA_LAUNCH_PATTERN in

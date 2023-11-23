@@ -1,6 +1,6 @@
 name: "jackson-core"
 description:
-    "This project contains core low-level incremental ("streaming") parser and "
+    "This project contains core low-level incremental (\"streaming\") parser and "
     "generator abstractions used by Jackson Data Processor. It also includes "
     "the default implementation of handler types (parser, generator) that "
     "handle JSON format. The core abstractions are not JSON specific, although "

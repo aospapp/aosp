@@ -14,19 +14,18 @@
  * limitations under the License.
  */
 
-#include <ctype.h>
+#include "src/perfetto_cmd/pbtxt_to_pb.h"
 
+#include <ctype.h>
 #include <limits>
 #include <map>
+#include <optional>
 #include <set>
 #include <stack>
 #include <string>
 
-#include "src/perfetto_cmd/pbtxt_to_pb.h"
-
 #include "perfetto/base/logging.h"
 #include "perfetto/ext/base/file_utils.h"
-#include "perfetto/ext/base/optional.h"
 #include "perfetto/ext/base/string_utils.h"
 #include "perfetto/ext/base/string_view.h"
 #include "perfetto/ext/base/utils.h"
@@ -377,20 +376,23 @@ class ParserDelegate {
     }
   }
 
-  void BeginNestedMessage(Token key, Token value) {
+  bool BeginNestedMessage(Token key, Token value) {
     const FieldDescriptorProto* field =
         FindFieldByName(key, value,
                         {
                             FieldDescriptorProto::TYPE_MESSAGE,
                         });
-    if (!field)
-      return;
+    if (!field) {
+      // FindFieldByName adds an error.
+      return false;
+    }
     uint32_t field_id = static_cast<uint32_t>(field->number());
     const std::string& type_name = field->type_name();
     const DescriptorProto* nested_descriptor = name_to_descriptor_[type_name];
     PERFETTO_CHECK(nested_descriptor);
     auto* nested_msg = msg()->BeginNestedMessage<protozero::Message>(field_id);
     ctx_.push(ParserDelegateContext{nested_descriptor, nested_msg, {}});
+    return true;
   }
 
   void EndNestedMessage() {
@@ -439,7 +441,7 @@ class ParserDelegate {
   template <typename T>
   void FixedFloatField(const FieldDescriptorProto* field, Token t) {
     uint32_t field_id = static_cast<uint32_t>(field->number());
-    base::Optional<double> opt_n = base::StringToDouble(t.ToStdString());
+    std::optional<double> opt_n = base::StringToDouble(t.ToStdString());
     msg()->AppendFixed<T>(field_id, static_cast<T>(opt_n.value_or(0l)));
   }
 
@@ -615,7 +617,9 @@ void Parse(const std::string& input, ParserDelegate* delegate) {
           state = kWaitingForKey;
           depth++;
           value.txt = base::StringView(input.data() + value.offset, 1);
-          delegate->BeginNestedMessage(key, value);
+          if (!delegate->BeginNestedMessage(key, value)) {
+            return;
+          }
           continue;
         }
         break;
@@ -668,7 +672,11 @@ void Parse(const std::string& input, ParserDelegate* delegate) {
         }
         break;
     }
-    PERFETTO_FATAL("Unexpected char %c", c);
+    delegate->AddError(row, column, "Unexpected character '$c'",
+                       std::map<std::string, std::string>{
+                           {"$c", std::string(1, c)},
+                       });
+    return;
   }  // for
   if (depth > 0)
     delegate->AddError(row, column, "Nested message not closed", {});

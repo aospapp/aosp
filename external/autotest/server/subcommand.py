@@ -47,8 +47,10 @@ def parallel(tasklist, timeout=None, return_results=False):
             if status != 0:
                 run_error = True
 
-        results.append(six.moves.cPickle.load(task.result_pickle))
-        task.result_pickle.close()
+        results.append(
+                six.moves.cPickle.load(task.result_pickle, encoding='utf-8'))
+        if hasattr(task.result_pickle, 'close'):
+            task.result_pickle.close()
 
     if return_results:
         return results
@@ -169,7 +171,7 @@ class subcommand(object):
 
         if self.pid:                            # I am the parent
             os.close(w)
-            self.result_pickle = os.fdopen(r, 'r')
+            self.result_pickle = os.fdopen(r, 'rb')
             return
         else:
             os.close(r)

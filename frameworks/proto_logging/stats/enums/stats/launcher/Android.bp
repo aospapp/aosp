@@ -42,3 +42,10 @@ java_library {
         "*.proto",
     ],
 }
+
+filegroup {
+    name: "launcher_proto",
+    srcs: [
+        "*.proto",
+    ],
+}

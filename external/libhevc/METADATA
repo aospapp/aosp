@@ -1,3 +1,16 @@
+name: "libhevc"
+description: "Android fork of the libhevc library."
+
 third_party {
+  url {
+    type: GIT
+    value: "https://github.com/ittiam-systems/libhevc.git"
+  }
+  version: "a3cac8c9d79968772272fff97a98d4edaf3132c1"
   license_type: NOTICE
+  last_upgrade_date {
+    year: 2023
+    month: 03
+    day: 04
+  }
 }

@@ -32,7 +32,7 @@ android_test {
     static_libs: [
         "compatibility-device-util-axt",
         "ctstestrunner-axt",
-        "ub-uiautomator",
+        "androidx.test.uiautomator_uiautomator",
         "androidx.test.janktesthelper",
     ],
     libs: ["android.test.base"],

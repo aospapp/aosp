@@ -16,6 +16,7 @@
 
 #include "lang_id/features/char-ngram-feature.h"
 
+#include <mutex>
 #include <string>
 #include <utility>
 #include <vector>
@@ -64,8 +65,8 @@ bool ContinuousBagOfNgramsFunction::Init(TaskContext *context) {
 
 int ContinuousBagOfNgramsFunction::ComputeNgramCounts(
     const LightSentence &sentence) const {
-  SAFTM_CHECK_EQ(counts_.size(), ngram_id_dimension_);
-  SAFTM_CHECK_EQ(non_zero_count_indices_.size(), 0);
+  SAFTM_CHECK_EQ(static_cast<int>(counts_.size()), ngram_id_dimension_);
+  SAFTM_CHECK_EQ(non_zero_count_indices_.size(), 0u);
 
   int total_count = 0;
 

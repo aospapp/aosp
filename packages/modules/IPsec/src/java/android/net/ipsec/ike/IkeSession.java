@@ -15,6 +15,14 @@
  */
 package android.net.ipsec.ike;
 
+import static android.net.ipsec.ike.IkeSessionParams.ESP_ENCAP_TYPE_NONE;
+import static android.net.ipsec.ike.IkeSessionParams.ESP_ENCAP_TYPE_UDP;
+import static android.net.ipsec.ike.IkeSessionParams.ESP_IP_VERSION_IPV4;
+import static android.net.ipsec.ike.IkeSessionParams.ESP_IP_VERSION_IPV6;
+import static android.net.ipsec.ike.IkeSessionParams.IKE_NATT_KEEPALIVE_DELAY_SEC_MAX;
+import static android.net.ipsec.ike.IkeSessionParams.IKE_NATT_KEEPALIVE_DELAY_SEC_MIN;
+
+import android.annotation.IntRange;
 import android.annotation.NonNull;
 import android.annotation.SuppressLint;
 import android.annotation.SystemApi;
@@ -29,6 +37,7 @@ import android.util.CloseGuard;
 import com.android.internal.annotations.VisibleForTesting;
 import com.android.internal.net.ipsec.ike.IkeSessionStateMachine;
 
+import java.util.Objects;
 import java.util.concurrent.Executor;
 
 /**
@@ -269,6 +278,19 @@ public final class IkeSession implements AutoCloseable {
     /**
      * Update the IkeSession's underlying Network to use the specified Network.
      *
+     * @see #setNetwork(Network, int, int)
+     * @hide
+     */
+    @SystemApi
+    public void setNetwork(@NonNull Network network) {
+        setNetwork(network, IkeSessionParams.ESP_IP_VERSION_AUTO,
+                IkeSessionParams.ESP_ENCAP_TYPE_AUTO,
+                IkeSessionParams.NATT_KEEPALIVE_INTERVAL_AUTO);
+    }
+
+    /**
+     * Update the IkeSession's underlying Network, protocol preference and keepalive delay.
+     *
      * <p>Updating the IkeSession's Network also updates the Network for any Child Sessions created
      * with this IkeSession. To perform the update, callers must implement:
      *
@@ -276,11 +298,11 @@ public final class IkeSession implements AutoCloseable {
      *   <li>{@link IkeSessionCallback#onIkeSessionConnectionInfoChanged(IkeSessionConnectionInfo)}:
      *       This call will be triggered once the IKE Session has been updated. The implementation
      *       MUST migrate all IpSecTunnelInterface instances associated with this IkeSession via
-     *       {@link android.net.IpSecManager#IpSecTunnelInterface#setUnderlyingNetwork(Network)}
+     *       {@link android.net.IpSecManager.IpSecTunnelInterface#setUnderlyingNetwork(Network)}
      *   <li>{@link ChildSessionCallback#onIpSecTransformsMigrated(android.net.IpSecTransform,
      *       android.net.IpSecTransform)}: This call will be triggered once a Child Session has been
      *       updated. The implementation MUST re-apply the migrated transforms to the {@link
-     *       android.net.IpSecManager#IpSecTunnelInterface} associated with this
+     *       android.net.IpSecManager.IpSecTunnelInterface} associated with this
      *       ChildSessionCallback, via {@link android.net.IpSecManager#applyTunnelModeTransform(
      *       android.net.IpSecManager.IpSecTunnelInterface, int, android.net.IpSecTransform)}.
      * </ul>
@@ -292,22 +314,59 @@ public final class IkeSession implements AutoCloseable {
      *       IkeSessionParams#IKE_OPTION_MOBIKE} (set via {@link
      *       IkeSessionParams.Builder#addIkeOption(int)}), and
      *   <li>the IkeSession must have been started with the Network specified via {@link
-     *       IkeSessionParams.Builder#setConfiguredNetwork(Network)}.
+     *       IkeSessionParams.Builder#setNetwork(Network)}.
      * </ul>
      *
      * <p>As MOBIKE support is negotiated, callers are advised to check for MOBIKE support in {@link
-     * IkeSessionConfiguration} before calling this method. Failure to do so may cause this call to
-     * be ignored.
+     * IkeSessionConfiguration} before calling this method to update the network. Failure to do so
+     * may cause this call to be ignored.
      *
      * @see <a href="https://tools.ietf.org/html/rfc4555">RFC 4555, IKEv2 Mobility and Multihoming
      *     Protocol (MOBIKE)</a>
      * @param network the Network to use for this IkeSession
+     * @param ipVersion the IP version to use for ESP packets
+     * @param encapType the encapsulation type to use for ESP packets
+     * @param keepaliveDelaySeconds the keepalive delay in seconds, or NATT_KEEPALIVE_INTERVAL_AUTO
+     *                              to choose the value automatically based on the network.
      * @throws IllegalStateException if {@link IkeSessionParams#IKE_OPTION_MOBIKE} is not configured
      *     in IkeSessionParams, or if the Network was not specified in IkeSessionParams.
+     * @throws UnsupportedOperationException if the provided option is not supported.
+     * @see IkeSessionParams#getNattKeepAliveDelaySeconds()
      * @hide
      */
-    @SystemApi
-    public void setNetwork(@NonNull Network network) {
-        mIkeSessionStateMachine.setNetwork(network);
+    @SystemApi(client = SystemApi.Client.MODULE_LIBRARIES)
+    public void setNetwork(
+            @NonNull Network network,
+            @IkeSessionParams.EspIpVersion int ipVersion,
+            @IkeSessionParams.EspEncapType int encapType,
+            // Is there a way to specify an intrange + a sentinel value ?
+            @IntRange(
+                    from = IKE_NATT_KEEPALIVE_DELAY_SEC_MIN,
+                    to = IKE_NATT_KEEPALIVE_DELAY_SEC_MAX)
+            int keepaliveDelaySeconds) {
+        if ((ipVersion ==  ESP_IP_VERSION_IPV4 && encapType == ESP_ENCAP_TYPE_NONE)
+                || (ipVersion == ESP_IP_VERSION_IPV6 && encapType == ESP_ENCAP_TYPE_UDP)) {
+            throw new UnsupportedOperationException("Sending packets with IPv4 ESP or IPv6 UDP"
+                    + " are not supported");
+        }
+
+        mIkeSessionStateMachine.setNetwork(Objects.requireNonNull(network),
+                ipVersion, encapType, keepaliveDelaySeconds);
+    }
+
+    /**
+     * Inform the session that it is used to supply the passed network.
+     *
+     * This will be used by the session when it needs to perform actions that depend on what
+     * network this session is underpinning. In particular, this can be used to turn off
+     * keepalives when there are no connections open on the underpinned network, if the
+     * {@link IkeSessionParams#IKE_OPTION_AUTOMATIC_KEEPALIVE_ON_OFF} option is turned on.
+     *
+     * @param underpinnedNetwork the network underpinned by this session.
+     * @hide
+     */
+    @SystemApi(client = SystemApi.Client.MODULE_LIBRARIES)
+    public void setUnderpinnedNetwork(@NonNull Network underpinnedNetwork) {
+        mIkeSessionStateMachine.setUnderpinnedNetwork(Objects.requireNonNull(underpinnedNetwork));
     }
 }

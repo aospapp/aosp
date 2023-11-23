@@ -16,23 +16,32 @@
 
 package com.android.cts.core.runner.support;
 
-import java.lang.reflect.Method;
-
 import org.junit.runner.Runner;
 import org.junit.runners.model.RunnerBuilder;
-
 import org.testng.annotations.Test;
+
+import java.lang.reflect.Method;
 
 /**
  * A {@link RunnerBuilder} that can handle TestNG tests.
  */
 public class TestNgRunnerBuilder extends RunnerBuilder {
-  // Returns a TestNG runner for this class, only if it is a class
-  // annotated with testng's @Test or has any methods with @Test in it.
+  // Returns a TestNG runner for this class, only if the class
+  // 1. is annotated with testng's @Test, or
+  // 2. has any methods with @Test in it, or
+  // 3. has a `public static void main(String[])` method
+  // Note: If the class has any @Test annotation, the main method will not get executed, because
+  // JUnit is using the TestNgRunner. It works as intended because we could have added @Test
+  // annotations to avoid executing the main method from the upstream.
   @Override
   public Runner runnerForClass(Class<?> testClass) {
     if (isTestNgTestClass(testClass)) {
       return new TestNgRunner(testClass);
+    }
+    // MainMethodRunner.createRunner returns null if no main method is found.
+    MainMethodRunner mainRunner = MainMethodRunner.createRunner(testClass);
+    if (mainRunner != null) {
+      return mainRunner;
     }
 
     return null;

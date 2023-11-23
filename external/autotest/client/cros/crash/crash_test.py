@@ -16,6 +16,32 @@ from autotest_lib.client.common_lib import error
 from autotest_lib.client.cros import constants, cros_logging
 
 
+_CRASH_RUN_STATE_DIR = '/run/crash_reporter'
+
+
+class FilterOut:
+    """contextmanager-compatible class to block certain crashes during tests."""
+
+    def __init__(self, name):
+        self._FILTER_OUT = _CRASH_RUN_STATE_DIR + '/filter-out'
+        self.name = name
+
+    def __enter__(self):
+        """Writes the given parameter to the filter-out file.
+
+        This is used to ignore crashes in which we have no interest.
+        """
+        utils.open_write_close(self._FILTER_OUT, self.name)
+
+    def __exit__(self, ex_type, value, traceback):
+        """Remove the filter-out file.
+
+        Next time the crash reporter is invoked, it will not filter crashes."""
+        os.remove(self._FILTER_OUT)
+        # Do *not* handle any exception
+        return False
+
+
 class CrashTest(test.test):
     """
     This class deals with running crash tests, which are tests which crash a
@@ -78,7 +104,6 @@ class CrashTest(test.test):
     _CRASH_SENDER_PATH = '/sbin/crash_sender'
     _CRASH_SENDER_RATE_DIR = '/var/lib/crash_sender'
     _CRASH_SENDER_LOCK_PATH = '/run/lock/crash_sender'
-    _CRASH_RUN_STATE_DIR = '/run/crash_reporter'
     _CRASH_TEST_IN_PROGRESS = _CRASH_RUN_STATE_DIR + '/crash-test-in-progress'
     _MOCK_CRASH_SENDING = _CRASH_RUN_STATE_DIR + '/mock-crash-sending'
     _FILTER_IN = _CRASH_RUN_STATE_DIR + '/filter-in'
@@ -178,7 +203,7 @@ class CrashTest(test.test):
         """
         autotest_cros_dir = os.path.join(os.path.dirname(__file__), '..')
         if has_consent:
-            if os.path.isdir(constants.ALLOWLIST_DIR):
+            if os.path.isdir(constants.DEVICESETTINGS_DIR):
                 # Create policy file that enables metrics/consent.
                 shutil.copy('%s/mock_metrics_on.policy' % autotest_cros_dir,
                             constants.SIGNED_POLICY_FILE)
@@ -196,7 +221,7 @@ class CrashTest(test.test):
             shutil.move(temp_file, self._CONSENT_FILE)
             logging.info('Created %s', self._CONSENT_FILE)
         else:
-            if os.path.isdir(constants.ALLOWLIST_DIR):
+            if os.path.isdir(constants.DEVICESETTINGS_DIR):
                 # Create policy file that disables metrics/consent.
                 shutil.copy('%s/mock_metrics_off.policy' % autotest_cros_dir,
                             constants.SIGNED_POLICY_FILE)
@@ -325,13 +350,18 @@ class CrashTest(test.test):
         This writes a file to _SYSTEM_CRASH_DIR with the given name. This is
         used to insert new crash dump files for testing purposes.
 
+        If contents is not a string, binary data is assumed.
+
         @param name: Name of file to write.
-        @param contents: String to write to the file.
+        @param contents: String/binary data to write to the file.
         """
         entry = self.get_crash_dir_name(name)
         if not os.path.exists(self._SYSTEM_CRASH_DIR):
             os.makedirs(self._SYSTEM_CRASH_DIR)
-        utils.open_write_close(entry, contents)
+
+        is_binary = not isinstance(contents, str)
+        utils.open_write_close(entry, contents, is_binary)
+
         return entry
 
 
@@ -382,8 +412,10 @@ class CrashTest(test.test):
         if report is None:
             # Use the same file format as crash does normally:
             # <basename>.#.#.#.meta
-            payload = self.write_crash_dir_entry(
-                '%s.dmp' % self._FAKE_TEST_BASENAME, self._get_dmp_contents())
+            payload = os.path.basename(
+                    self.write_crash_dir_entry(
+                            '%s.dmp' % self._FAKE_TEST_BASENAME,
+                            self._get_dmp_contents()))
             report = self.write_fake_meta(
                 '%s.meta' % self._FAKE_TEST_BASENAME, 'fake', payload)
         return report
@@ -592,7 +624,7 @@ class CrashTest(test.test):
     def enable_crash_filtering(self, name):
         """Writes the given parameter to the filter-in file.
 
-        This is used to ignore crashes in which we have no interest.
+        This is used to collect only crashes in which we have an interest.
 
         @param new_parameter: The filter to write to the file, if any.
         """
@@ -666,7 +698,7 @@ class CrashTest(test.test):
             self._push_consent()
 
         if must_run_all:
-            # Sanity check test_names is complete
+            # Check test_names is complete
             for attr in dir(self):
                 if attr.find('_test_') == 0:
                     test_name = attr[6:]

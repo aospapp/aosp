@@ -30,6 +30,7 @@ namespace {
 
 using ::testing::_;
 using ::testing::AtLeast;
+using ::testing::NiceMock;
 using ::testing::Return;
 using ::testing::StrictMock;
 
@@ -42,10 +43,7 @@ void RunBasicSetupAndApiCallTest(int sample_rate_hz, int num_iterations) {
   std::unique_ptr<BlockProcessor> block_processor(
       BlockProcessor::Create(EchoCanceller3Config(), sample_rate_hz,
                              kNumRenderChannels, kNumCaptureChannels));
-  std::vector<std::vector<std::vector<float>>> block(
-      NumBandsForRate(sample_rate_hz),
-      std::vector<std::vector<float>>(kNumRenderChannels,
-                                      std::vector<float>(kBlockSize, 1000.f)));
+  Block block(NumBandsForRate(sample_rate_hz), kNumRenderChannels, 1000.f);
   for (int k = 0; k < num_iterations; ++k) {
     block_processor->BufferRender(block);
     block_processor->ProcessCapture(false, false, nullptr, &block);
@@ -61,28 +59,9 @@ void RunRenderBlockSizeVerificationTest(int sample_rate_hz) {
   std::unique_ptr<BlockProcessor> block_processor(
       BlockProcessor::Create(EchoCanceller3Config(), sample_rate_hz,
                              kNumRenderChannels, kNumCaptureChannels));
-  std::vector<std::vector<std::vector<float>>> block(
-      NumBandsForRate(sample_rate_hz),
-      std::vector<std::vector<float>>(kNumRenderChannels,
-                                      std::vector<float>(kBlockSize - 1, 0.f)));
+  Block block(NumBandsForRate(sample_rate_hz), kNumRenderChannels);
 
   EXPECT_DEATH(block_processor->BufferRender(block), "");
-}
-
-void RunCaptureBlockSizeVerificationTest(int sample_rate_hz) {
-  constexpr size_t kNumRenderChannels = 1;
-  constexpr size_t kNumCaptureChannels = 1;
-
-  std::unique_ptr<BlockProcessor> block_processor(
-      BlockProcessor::Create(EchoCanceller3Config(), sample_rate_hz,
-                             kNumRenderChannels, kNumCaptureChannels));
-  std::vector<std::vector<std::vector<float>>> block(
-      NumBandsForRate(sample_rate_hz),
-      std::vector<std::vector<float>>(kNumRenderChannels,
-                                      std::vector<float>(kBlockSize - 1, 0.f)));
-
-  EXPECT_DEATH(block_processor->ProcessCapture(false, false, nullptr, &block),
-               "");
 }
 
 void RunRenderNumBandsVerificationTest(int sample_rate_hz) {
@@ -95,10 +74,7 @@ void RunRenderNumBandsVerificationTest(int sample_rate_hz) {
   std::unique_ptr<BlockProcessor> block_processor(
       BlockProcessor::Create(EchoCanceller3Config(), sample_rate_hz,
                              kNumRenderChannels, kNumCaptureChannels));
-  std::vector<std::vector<std::vector<float>>> block(
-      wrong_num_bands,
-      std::vector<std::vector<float>>(kNumRenderChannels,
-                                      std::vector<float>(kBlockSize, 0.f)));
+  Block block(wrong_num_bands, kNumRenderChannels);
 
   EXPECT_DEATH(block_processor->BufferRender(block), "");
 }
@@ -113,10 +89,7 @@ void RunCaptureNumBandsVerificationTest(int sample_rate_hz) {
   std::unique_ptr<BlockProcessor> block_processor(
       BlockProcessor::Create(EchoCanceller3Config(), sample_rate_hz,
                              kNumRenderChannels, kNumCaptureChannels));
-  std::vector<std::vector<std::vector<float>>> block(
-      wrong_num_bands,
-      std::vector<std::vector<float>>(kNumRenderChannels,
-                                      std::vector<float>(kBlockSize, 0.f)));
+  Block block(wrong_num_bands, kNumRenderChannels);
 
   EXPECT_DEATH(block_processor->ProcessCapture(false, false, nullptr, &block),
                "");
@@ -127,6 +100,14 @@ std::string ProduceDebugText(int sample_rate_hz) {
   rtc::StringBuilder ss;
   ss << "Sample rate: " << sample_rate_hz;
   return ss.Release();
+}
+
+void FillSampleVector(int call_counter,
+                      int delay,
+                      rtc::ArrayView<float> samples) {
+  for (size_t i = 0; i < samples.size(); ++i) {
+    samples[i] = (call_counter - delay) * 10000.0f + i;
+  }
 }
 
 }  // namespace
@@ -161,18 +142,14 @@ TEST(BlockProcessor, DISABLED_DelayControllerIntegration) {
         EchoCanceller3Config(), rate, kNumRenderChannels, kNumCaptureChannels,
         std::move(render_delay_buffer_mock)));
 
-    std::vector<std::vector<std::vector<float>>> render_block(
-        NumBandsForRate(rate),
-        std::vector<std::vector<float>>(kNumRenderChannels,
-                                        std::vector<float>(kBlockSize, 0.f)));
-    std::vector<std::vector<std::vector<float>>> capture_block(
-        NumBandsForRate(rate),
-        std::vector<std::vector<float>>(kNumCaptureChannels,
-                                        std::vector<float>(kBlockSize, 0.f)));
+    Block render_block(NumBandsForRate(rate), kNumRenderChannels);
+    Block capture_block(NumBandsForRate(rate), kNumCaptureChannels);
     DelayBuffer<float> signal_delay_buffer(kDelayInSamples);
     for (size_t k = 0; k < kNumBlocks; ++k) {
-      RandomizeSampleVector(&random_generator, render_block[0][0]);
-      signal_delay_buffer.Delay(render_block[0][0], capture_block[0][0]);
+      RandomizeSampleVector(&random_generator,
+                            render_block.View(/*band=*/0, /*capture=*/0));
+      signal_delay_buffer.Delay(render_block.View(/*band=*/0, /*capture=*/0),
+                                capture_block.View(/*band=*/0, /*capture=*/0));
       block_processor->BufferRender(render_block);
       block_processor->ProcessCapture(false, false, nullptr, &capture_block);
     }
@@ -219,18 +196,14 @@ TEST(BlockProcessor, DISABLED_SubmoduleIntegration) {
         std::move(render_delay_buffer_mock),
         std::move(render_delay_controller_mock), std::move(echo_remover_mock)));
 
-    std::vector<std::vector<std::vector<float>>> render_block(
-        NumBandsForRate(rate),
-        std::vector<std::vector<float>>(kNumRenderChannels,
-                                        std::vector<float>(kBlockSize, 0.f)));
-    std::vector<std::vector<std::vector<float>>> capture_block(
-        NumBandsForRate(rate),
-        std::vector<std::vector<float>>(kNumCaptureChannels,
-                                        std::vector<float>(kBlockSize, 0.f)));
+    Block render_block(NumBandsForRate(rate), kNumRenderChannels);
+    Block capture_block(NumBandsForRate(rate), kNumCaptureChannels);
     DelayBuffer<float> signal_delay_buffer(640);
     for (size_t k = 0; k < kNumBlocks; ++k) {
-      RandomizeSampleVector(&random_generator, render_block[0][0]);
-      signal_delay_buffer.Delay(render_block[0][0], capture_block[0][0]);
+      RandomizeSampleVector(&random_generator,
+                            render_block.View(/*band=*/0, /*capture=*/0));
+      signal_delay_buffer.Delay(render_block.View(/*band=*/0, /*capture=*/0),
+                                capture_block.View(/*band=*/0, /*capture=*/0));
       block_processor->BufferRender(render_block);
       block_processor->ProcessCapture(false, false, nullptr, &capture_block);
       block_processor->UpdateEchoLeakageStatus(false);
@@ -256,13 +229,6 @@ TEST(BlockProcessorDeathTest, DISABLED_VerifyRenderBlockSizeCheck) {
   for (auto rate : {16000, 32000, 48000}) {
     SCOPED_TRACE(ProduceDebugText(rate));
     RunRenderBlockSizeVerificationTest(rate);
-  }
-}
-
-TEST(BlockProcessorDeathTest, VerifyCaptureBlockSizeCheck) {
-  for (auto rate : {16000, 32000, 48000}) {
-    SCOPED_TRACE(ProduceDebugText(rate));
-    RunCaptureBlockSizeVerificationTest(rate);
   }
 }
 
@@ -300,5 +266,76 @@ TEST(BlockProcessor, DISABLED_WrongSampleRate) {
 }
 
 #endif
+
+// Verifies that external delay estimator delays are applied correctly when a
+// call begins with a sequence of capture blocks.
+TEST(BlockProcessor, ExternalDelayAppliedCorrectlyWithInitialCaptureCalls) {
+  constexpr int kNumRenderChannels = 1;
+  constexpr int kNumCaptureChannels = 1;
+  constexpr int kSampleRateHz = 16000;
+
+  EchoCanceller3Config config;
+  config.delay.use_external_delay_estimator = true;
+
+  std::unique_ptr<RenderDelayBuffer> delay_buffer(
+      RenderDelayBuffer::Create(config, kSampleRateHz, kNumRenderChannels));
+
+  std::unique_ptr<testing::NiceMock<webrtc::test::MockEchoRemover>>
+      echo_remover_mock(new NiceMock<webrtc::test::MockEchoRemover>());
+  webrtc::test::MockEchoRemover* echo_remover_mock_pointer =
+      echo_remover_mock.get();
+
+  std::unique_ptr<BlockProcessor> block_processor(BlockProcessor::Create(
+      config, kSampleRateHz, kNumRenderChannels, kNumCaptureChannels,
+      std::move(delay_buffer), /*delay_controller=*/nullptr,
+      std::move(echo_remover_mock)));
+
+  Block render_block(NumBandsForRate(kSampleRateHz), kNumRenderChannels);
+  Block capture_block(NumBandsForRate(kSampleRateHz), kNumCaptureChannels);
+
+  // Process...
+  // - 10 capture calls, where no render data is available,
+  // - 10 render calls, populating the buffer,
+  // - 2 capture calls, verifying that the delay was applied correctly.
+  constexpr int kDelayInBlocks = 5;
+  constexpr int kDelayInMs = 20;
+  block_processor->SetAudioBufferDelay(kDelayInMs);
+
+  int capture_call_counter = 0;
+  int render_call_counter = 0;
+  for (size_t k = 0; k < 10; ++k) {
+    FillSampleVector(++capture_call_counter, kDelayInBlocks,
+                     capture_block.View(/*band=*/0, /*capture=*/0));
+    block_processor->ProcessCapture(false, false, nullptr, &capture_block);
+  }
+  for (size_t k = 0; k < 10; ++k) {
+    FillSampleVector(++render_call_counter, 0,
+                     render_block.View(/*band=*/0, /*capture=*/0));
+    block_processor->BufferRender(render_block);
+  }
+
+  EXPECT_CALL(*echo_remover_mock_pointer, ProcessCapture)
+      .WillRepeatedly(
+          [](EchoPathVariability /*echo_path_variability*/,
+             bool /*capture_signal_saturation*/,
+             const absl::optional<DelayEstimate>& /*external_delay*/,
+             RenderBuffer* render_buffer, Block* /*linear_output*/,
+             Block* capture) {
+            const auto& render = render_buffer->GetBlock(0);
+            const auto render_view = render.View(/*band=*/0, /*channel=*/0);
+            const auto capture_view = capture->View(/*band=*/0, /*channel=*/0);
+            for (size_t i = 0; i < kBlockSize; ++i) {
+              EXPECT_FLOAT_EQ(render_view[i], capture_view[i]);
+            }
+          });
+
+  FillSampleVector(++capture_call_counter, kDelayInBlocks,
+                   capture_block.View(/*band=*/0, /*capture=*/0));
+  block_processor->ProcessCapture(false, false, nullptr, &capture_block);
+
+  FillSampleVector(++capture_call_counter, kDelayInBlocks,
+                   capture_block.View(/*band=*/0, /*capture=*/0));
+  block_processor->ProcessCapture(false, false, nullptr, &capture_block);
+}
 
 }  // namespace webrtc

@@ -6,7 +6,7 @@ infrastructure.
 
 This allows to get fine grained scheduling events such as:
 
-* Which threads were scheduling on which CPU cores at any point in time, with
+* Which threads were scheduled on which CPU core at any point in time, with
   nanosecond accuracy.
 * The reason why a running thread got descheduled (e.g. pre-emption, blocked on
   a mutex, blocking syscall or any other wait queue).
@@ -16,12 +16,7 @@ This allows to get fine grained scheduling events such as:
 
 ## UI
 
-When zoomed out, the UI shows a quantized view of CPU usage, which collapses the
-scheduling information:
-
-![](/docs/images/cpu-bar-graphs.png "Quantized view of CPU run queues")
-
-However, by zooming in, the individual scheduling events become visible:
+The UI represents individual scheduling events as slices:
 
 ![](/docs/images/cpu-zoomed.png "Detailed view of CPU run queues")
 
@@ -34,19 +29,6 @@ create one track for each thread, which allows to follow the evolution of the
 state of individual threads:
 
 ![](/docs/images/thread-states.png "States of individual threads")
-
-
-```protobuf
-data_sources {
-  config {
-    name: "linux.ftrace"
-    ftrace_config {
-      ftrace_events: "sched/sched_switch"
-      ftrace_events: "sched/sched_waking"
-    }
-  }
-}
-```
 
 ## SQL
 
@@ -73,25 +55,32 @@ ts | dur | cpu | end_state | priority | process.name, | thread.name
 
 ## TraceConfig
 
+To collect this data, include the following data sources:
+
 ```protobuf
+# Scheduling data from the kernel.
 data_sources: {
-    config {
-        name: "linux.ftrace"
-        ftrace_config {
-            ftrace_events: "sched/sched_switch"
-            ftrace_events: "sched/sched_process_exit"
-            ftrace_events: "sched/sched_process_free"
-            ftrace_events: "task/task_newtask"
-            ftrace_events: "task/task_rename"
-        }
+  config {
+    name: "linux.ftrace"
+    ftrace_config {
+      compact_sched: {
+        enabled: true
+      }
+      ftrace_events: "sched/sched_switch"
+      # optional: precise thread lifetime tracking:
+      ftrace_events: "sched/sched_process_exit"
+      ftrace_events: "sched/sched_process_free"
+      ftrace_events: "task/task_newtask"
+      ftrace_events: "task/task_rename"
     }
+  }
 }
 
-# This is to get full process name and thread<>process relationships.
+# Adds full process names and thread<>process relationships:
 data_sources: {
-    config {
-        name: "linux.process_stats"
-    }
+  config {
+    name: "linux.process_stats"
+  }
 }
 ```
 
@@ -169,19 +158,19 @@ text:
 | end_state  | Translation            |
 |------------|------------------------|
 | R          | Runnable               |
+| R+         | Runnable (Preempted)   |
 | S          | Sleeping               |
-| D          | Uninterruptible Sleep |
+| D          | Uninterruptible Sleep  |
 | T          | Stopped                |
 | t          | Traced                 |
 | X          | Exit (Dead)            |
 | Z          | Exit (Zombie)          |
 | x          | Task Dead              |
-| I          | Task Dead              |
+| I          | Idle                   |
 | K          | Wake Kill              |
 | W          | Waking                 |
 | P          | Parked                 |
 | N          | No Load                |
-| +          | (Preempted)            |
 
 Not all combinations of characters are meaningful.
 

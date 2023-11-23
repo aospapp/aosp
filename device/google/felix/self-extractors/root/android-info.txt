@@ -1,0 +1,8 @@
+require board=felix
+require partition-exists=vendor_kernel_boot
+
+require version-bootloader=felix-1.0-9477737
+
+
+
+require version-baseband=g5300n-230112-230118-B-9502391

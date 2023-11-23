@@ -1,0 +1,27 @@
+package {
+    default_applicable_licenses: [
+        "device_generic_vulkan-cereal_third-party_stb_license",
+    ],
+}
+
+// See: http://go/android-license-faq
+license {
+    name: "device_generic_vulkan-cereal_third-party_stb_license",
+    visibility: [":__subpackages__"],
+    license_kinds: [
+        "SPDX-license-identifier-Apache-2.0",
+        "SPDX-license-identifier-MIT",
+    ],
+}
+
+cc_library {
+    name: "libgfxstream_stb",
+    defaults: [ "gfxstream_defaults" ],
+    srcs: [
+        "src/stb_image.cpp",
+        "src/stb_image_write.cpp",
+    ],
+    export_include_dirs: [
+        "include",
+    ]
+}

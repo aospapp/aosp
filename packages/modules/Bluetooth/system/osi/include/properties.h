@@ -19,6 +19,7 @@
 #pragma once
 
 #include <cstdint>
+#include <vector>
 
 #ifndef PROPERTY_VALUE_MAX
 #define PROPERTY_VALUE_MAX 92
@@ -51,3 +52,8 @@ int32_t osi_property_get_int32(const char* key, int32_t default_value);
 // returns the value of |key| coerced into a bool. If the property is not set,
 // then the |default_value| is used.
 bool osi_property_get_bool(const char* key, bool default_value);
+
+// Helper function that returns the value of |key| coerced into a vector of
+// uint32_t. If the property is not set, then the |default_value| is used.
+std::vector<uint32_t> osi_property_get_uintlist(
+    const char* key, std::vector<uint32_t> default_value);

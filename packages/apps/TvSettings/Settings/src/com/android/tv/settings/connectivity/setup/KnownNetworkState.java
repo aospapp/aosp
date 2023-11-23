@@ -30,9 +30,9 @@ import androidx.lifecycle.ViewModelProviders;
 import com.android.settingslib.RestrictedLockUtils;
 import com.android.settingslib.RestrictedLockUtils.EnforcedAdmin;
 import com.android.tv.settings.R;
+import com.android.tv.settings.connectivity.WifiConfigHelper;
 import com.android.tv.settings.connectivity.util.State;
 import com.android.tv.settings.connectivity.util.StateMachine;
-import com.android.tv.settings.library.network.WifiHelper;
 
 import java.util.List;
 
@@ -139,7 +139,7 @@ public class KnownNetworkState implements State {
         }
 
         private boolean canForgetNetwork() {
-            return !WifiHelper.isNetworkLockedDown(getContext(),
+            return !WifiConfigHelper.isNetworkLockedDown(getContext(),
                     mUserChoiceInfo.getWifiConfiguration());
         }
     }

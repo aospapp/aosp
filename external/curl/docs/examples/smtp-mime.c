@@ -5,7 +5,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 1998 - 2021, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
@@ -18,10 +18,12 @@
  * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
  * KIND, either express or implied.
  *
+ * SPDX-License-Identifier: curl
+ *
  ***************************************************************************/
 
 /* <DESC>
- * SMTP example showing how to send mime e-mails
+ * Send SMTP mime emails
  * </DESC>
  */
 
@@ -52,17 +54,17 @@ static const char *headers_text[] = {
 };
 
 static const char inline_text[] =
-  "This is the inline text message of the e-mail.\r\n"
+  "This is the inline text message of the email.\r\n"
   "\r\n"
-  "  It could be a lot of lines that would be displayed in an e-mail\r\n"
+  "  It could be a lot of lines that would be displayed in an email\r\n"
   "viewer that is not able to handle HTML.\r\n";
 
 static const char inline_html[] =
   "<html><body>\r\n"
-  "<p>This is the inline <b>HTML</b> message of the e-mail.</p>"
+  "<p>This is the inline <b>HTML</b> message of the email.</p>"
   "<br />\r\n"
   "<p>It could be a lot of HTML data that would be displayed by "
-  "e-mail viewers able to handle HTML.</p>"
+  "email viewers able to handle HTML.</p>"
   "</body></html>\r\n";
 
 
@@ -109,7 +111,7 @@ int main(void)
     mime = curl_mime_init(curl);
 
     /* The inline part is an alternative proposing the html and the text
-       versions of the e-mail. */
+       versions of the email. */
     alt = curl_mime_init(curl);
 
     /* HTML message. */

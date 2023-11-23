@@ -20,6 +20,12 @@
 
     <uses-sdk android:targetSdkVersion="32" />
 
+    <queries>
+        <intent>
+            <action android:name="android.view.InputMethod" />
+        </intent>
+    </queries>
+
     <application android:label="CtsInputMethodSdk28TestCases" />
 
     <instrumentation

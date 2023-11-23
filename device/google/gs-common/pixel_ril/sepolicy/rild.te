@@ -1,0 +1,7 @@
+add_service(rild, hal_ril_ext_service)
+binder_call(rild, rilextensionservice_app)
+
+# Allow rild to ptrace for memory leak detection
+userdebug_or_eng(`
+allow rild self:process ptrace;
+')

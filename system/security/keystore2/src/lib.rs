@@ -28,6 +28,7 @@ pub mod globals;
 pub mod id_rotation;
 /// Internal Representation of Key Parameter and convenience functions.
 pub mod key_parameter;
+pub mod ks_err;
 pub mod legacy_blob;
 pub mod legacy_importer;
 pub mod maintenance;
@@ -37,6 +38,7 @@ pub mod operation;
 pub mod permission;
 pub mod raw_device;
 pub mod remote_provisioning;
+pub mod rkpd_client;
 pub mod security_level;
 pub mod service;
 pub mod shared_secret_negotiation;

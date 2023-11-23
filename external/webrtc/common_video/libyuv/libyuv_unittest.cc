@@ -31,6 +31,38 @@ void Calc16ByteAlignedStride(int width, int* stride_y, int* stride_uv) {
   *stride_uv = 16 * ((width + 31) / 32);
 }
 
+int PrintPlane(const uint8_t* buf,
+               int width,
+               int height,
+               int stride,
+               FILE* file) {
+  for (int i = 0; i < height; i++, buf += stride) {
+    if (fwrite(buf, 1, width, file) != static_cast<unsigned int>(width))
+      return -1;
+  }
+  return 0;
+}
+
+int PrintVideoFrame(const I420BufferInterface& frame, FILE* file) {
+  int width = frame.width();
+  int height = frame.height();
+  int chroma_width = frame.ChromaWidth();
+  int chroma_height = frame.ChromaHeight();
+
+  if (PrintPlane(frame.DataY(), width, height, frame.StrideY(), file) < 0) {
+    return -1;
+  }
+  if (PrintPlane(frame.DataU(), chroma_width, chroma_height, frame.StrideU(),
+                 file) < 0) {
+    return -1;
+  }
+  if (PrintPlane(frame.DataV(), chroma_width, chroma_height, frame.StrideV(),
+                 file) < 0) {
+    return -1;
+  }
+  return 0;
+}
+
 }  // Anonymous namespace
 
 class TestLibYuv : public ::testing::Test {
@@ -80,10 +112,6 @@ void TestLibYuv::TearDown() {
     ASSERT_EQ(0, fclose(source_file_));
   }
   source_file_ = NULL;
-}
-
-TEST_F(TestLibYuv, ConvertSanityTest) {
-  // TODO(mikhal)
 }
 
 TEST_F(TestLibYuv, ConvertTest) {
@@ -334,6 +362,25 @@ TEST_F(TestLibYuv, NV12Scale4x4to2x2) {
                          Average(8, 9, 12, 13), Average(10, 11, 14, 15)));
   EXPECT_THAT(dst_uv,
               ::testing::ElementsAre(Average(0, 2, 4, 6), Average(1, 3, 5, 7)));
+}
+
+TEST(I420WeightedPSNRTest, SmokeTest) {
+  uint8_t ref_y[] = {0, 0, 0, 0};
+  uint8_t ref_uv[] = {0};
+  rtc::scoped_refptr<I420Buffer> ref_buffer =
+      I420Buffer::Copy(/*width=*/2, /*height=*/2, ref_y, /*stride_y=*/2, ref_uv,
+                       /*stride_u=*/1, ref_uv, /*stride_v=*/1);
+
+  uint8_t test_y[] = {1, 1, 1, 1};
+  uint8_t test_uv[] = {2};
+  rtc::scoped_refptr<I420Buffer> test_buffer = I420Buffer::Copy(
+      /*width=*/2, /*height=*/2, test_y, /*stride_y=*/2, test_uv,
+      /*stride_u=*/1, test_uv, /*stride_v=*/1);
+
+  auto psnr = [](double mse) { return 10.0 * log10(255.0 * 255.0 / mse); };
+  EXPECT_NEAR(I420WeightedPSNR(*ref_buffer, *test_buffer),
+              (6.0 * psnr(1.0) + psnr(4.0) + psnr(4.0)) / 8.0,
+              /*abs_error=*/0.001);
 }
 
 }  // namespace webrtc

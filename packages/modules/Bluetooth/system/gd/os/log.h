@@ -18,6 +18,8 @@
 
 #pragma once
 
+#include <inttypes.h>
+
 #include <cstdlib>
 
 #ifndef LOG_TAG
@@ -26,11 +28,13 @@
 
 static_assert(LOG_TAG != nullptr, "LOG_TAG should never be NULL");
 
-#if defined(OS_ANDROID)
+#include "os/log_tags.h"
+#include "os/logging/log_adapter.h"
+
+#if defined(__ANDROID__)
 
 #include <log/log.h>
-
-#include "common/init_flags.h"
+#include <log/log_event_list.h>
 
 #ifdef FUZZ_TARGET
 #define LOG_VERBOSE(...)
@@ -41,19 +45,24 @@ static_assert(LOG_TAG != nullptr, "LOG_TAG should never be NULL");
 
 static_assert(LOG_TAG != nullptr, "LOG_TAG is null after header inclusion");
 
-#define LOG_VERBOSE(fmt, args...)                                             \
-  do {                                                                        \
-    if (bluetooth::common::InitFlags::IsDebugLoggingEnabledForTag(LOG_TAG)) { \
-      ALOGV("%s:%d %s: " fmt, __FILE__, __LINE__, __func__, ##args);          \
-    }                                                                         \
+#if __has_include("src/init_flags.rs.h")
+
+#include "common/init_flags.h"
+
+#define LOG_VERBOSE(fmt, args...)                                                      \
+  do {                                                                                 \
+    if (bluetooth::common::InitFlags::GetLogLevelForTag(LOG_TAG) >= LOG_TAG_VERBOSE) { \
+      ALOGV("%s:%d %s: " fmt, __FILE__, __LINE__, __func__, ##args);                   \
+    }                                                                                  \
   } while (false)
 
-#define LOG_DEBUG(fmt, args...)                                               \
-  do {                                                                        \
-    if (bluetooth::common::InitFlags::IsDebugLoggingEnabledForTag(LOG_TAG)) { \
-      ALOGD("%s:%d %s: " fmt, __FILE__, __LINE__, __func__, ##args);          \
-    }                                                                         \
+#define LOG_DEBUG(fmt, args...)                                                      \
+  do {                                                                               \
+    if (bluetooth::common::InitFlags::GetLogLevelForTag(LOG_TAG) >= LOG_TAG_DEBUG) { \
+      ALOGD("%s:%d %s: " fmt, __FILE__, __LINE__, __func__, ##args);                 \
+    }                                                                                \
   } while (false)
+#endif /* __has_include("src/init_flags.rs.h") */
 
 #define LOG_INFO(fmt, args...) ALOGI("%s:%d %s: " fmt, __FILE__, __LINE__, __func__, ##args)
 #define LOG_WARN(fmt, args...) ALOGW("%s:%d %s: " fmt, __FILE__, __LINE__, __func__, ##args)
@@ -78,6 +87,7 @@ static_assert(LOG_TAG != nullptr, "LOG_TAG is null after header inclusion");
     abort();                                                                        \
   } while (false)
 #elif defined(TARGET_FLOSS)
+#include "gd/common/init_flags.h"
 #include "gd/os/syslog.h"
 
 // Prefix the log with tag, file, line and function
@@ -90,17 +100,17 @@ static_assert(LOG_TAG != nullptr, "LOG_TAG is null after header inclusion");
 #define LOG_INFO(...)
 #define LOG_WARN(...)
 #else
-#define LOG_VERBOSE(...)                                                      \
-  do {                                                                        \
-    if (bluetooth::common::InitFlags::IsDebugLoggingEnabledForTag(LOG_TAG)) { \
-      LOGWRAPPER(LOG_TAG_VERBOSE, __VA_ARGS__);                               \
-    }                                                                         \
+#define LOG_VERBOSE(...)                                                               \
+  do {                                                                                 \
+    if (bluetooth::common::InitFlags::GetLogLevelForTag(LOG_TAG) >= LOG_TAG_VERBOSE) { \
+      LOGWRAPPER(LOG_TAG_VERBOSE, __VA_ARGS__);                                        \
+    }                                                                                  \
   } while (false)
-#define LOG_DEBUG(...)                                                        \
-  do {                                                                        \
-    if (bluetooth::common::InitFlags::IsDebugLoggingEnabledForTag(LOG_TAG)) { \
-      LOGWRAPPER(LOG_TAG_DEBUG, __VA_ARGS__);                                 \
-    }                                                                         \
+#define LOG_DEBUG(...)                                                               \
+  do {                                                                               \
+    if (bluetooth::common::InitFlags::GetLogLevelForTag(LOG_TAG) >= LOG_TAG_DEBUG) { \
+      LOGWRAPPER(LOG_TAG_DEBUG, __VA_ARGS__);                                        \
+    }                                                                                \
   } while (false)
 #define LOG_INFO(...) LOGWRAPPER(LOG_TAG_INFO, __VA_ARGS__)
 #define LOG_WARN(...) LOGWRAPPER(LOG_TAG_WARN, __VA_ARGS__)
@@ -112,19 +122,6 @@ static_assert(LOG_TAG != nullptr, "LOG_TAG is null after header inclusion");
     LOGWRAPPER(LOG_TAG_FATAL, __VA_ARGS__); \
     abort();                                \
   } while (false)
-
-#ifndef android_errorWriteLog
-#define android_errorWriteLog(tag, subTag) LOG_ERROR("ERROR tag: 0x%x, sub_tag: %s", tag, subTag)
-#endif
-
-#ifndef android_errorWriteWithInfoLog
-#define android_errorWriteWithInfoLog(tag, subTag, uid, data, dataLen) \
-  LOG_ERROR("ERROR tag: 0x%x, sub_tag: %s", tag, subTag)
-#endif
-
-#ifndef LOG_EVENT_INT
-#define LOG_EVENT_INT(...)
-#endif
 
 #else
 /* syslog didn't work well here since we would be redefining LOG_DEBUG. */
@@ -166,17 +163,17 @@ static_assert(LOG_TAG != nullptr, "LOG_TAG is null after header inclusion");
 #define LOG_INFO(...)
 #define LOG_WARN(...)
 #else
-#define LOG_VERBOSE(fmt, args...)                                             \
-  do {                                                                        \
-    if (bluetooth::common::InitFlags::IsDebugLoggingEnabledForTag(LOG_TAG)) { \
-      LOGWRAPPER(fmt, ##args);                                                \
-    }                                                                         \
+#define LOG_VERBOSE(fmt, args...)                                                      \
+  do {                                                                                 \
+    if (bluetooth::common::InitFlags::GetLogLevelForTag(LOG_TAG) >= LOG_TAG_VERBOSE) { \
+      LOGWRAPPER(fmt, ##args);                                                         \
+    }                                                                                  \
   } while (false)
-#define LOG_DEBUG(fmt, args...)                                               \
-  do {                                                                        \
-    if (bluetooth::common::InitFlags::IsDebugLoggingEnabledForTag(LOG_TAG)) { \
-      LOGWRAPPER(fmt, ##args);                                                \
-    }                                                                         \
+#define LOG_DEBUG(fmt, args...)                                                      \
+  do {                                                                               \
+    if (bluetooth::common::InitFlags::GetLogLevelForTag(LOG_TAG) >= LOG_TAG_DEBUG) { \
+      LOGWRAPPER(fmt, ##args);                                                       \
+    }                                                                                \
   } while (false)
 #define LOG_INFO(...) LOGWRAPPER(__VA_ARGS__)
 #define LOG_WARN(...) LOGWRAPPER(__VA_ARGS__)
@@ -191,20 +188,7 @@ static_assert(LOG_TAG != nullptr, "LOG_TAG is null after header inclusion");
   } while (false)
 #endif
 
-#ifndef android_errorWriteLog
-#define android_errorWriteLog(tag, subTag) LOG_ERROR("ERROR tag: 0x%x, sub_tag: %s", tag, subTag)
-#endif
-
-#ifndef android_errorWriteWithInfoLog
-#define android_errorWriteWithInfoLog(tag, subTag, uid, data, dataLen) \
-  LOG_ERROR("ERROR tag: 0x%x, sub_tag: %s", tag, subTag)
-#endif
-
-#ifndef LOG_EVENT_INT
-#define LOG_EVENT_INT(...)
-#endif
-
-#endif /* defined(OS_ANDROID) */
+#endif /* defined(__ANDROID__) */
 
 #define ASSERT(condition)                                    \
   do {                                                       \

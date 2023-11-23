@@ -16,6 +16,7 @@
 
 package android.cts.statsdatom.binderstats;
 
+import com.android.tradefed.util.RunUtil;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 
@@ -45,7 +46,7 @@ public final class BinderStatsTests extends DeviceTestCase implements IBuildRece
         ConfigUtils.removeConfig(getDevice());
         ReportUtils.clearReports(getDevice());
         DeviceUtils.installStatsdTestApp(getDevice(), mCtsBuild);
-        Thread.sleep(AtomTestUtils.WAIT_TIME_LONG);
+        RunUtil.getDefault().sleep(AtomTestUtils.WAIT_TIME_LONG);
     }
 
     @Override
@@ -64,7 +65,7 @@ public final class BinderStatsTests extends DeviceTestCase implements IBuildRece
     public void testBinderStats() throws Exception {
         try {
             DeviceUtils.unplugDevice(getDevice());
-            Thread.sleep(AtomTestUtils.WAIT_TIME_SHORT);
+            RunUtil.getDefault().sleep(AtomTestUtils.WAIT_TIME_SHORT);
 
             enableBinderStats();
             binderStatsNoSampling();
@@ -79,7 +80,7 @@ public final class BinderStatsTests extends DeviceTestCase implements IBuildRece
             DeviceUtils.runActivity(getDevice(), DeviceUtils.STATSD_ATOM_TEST_PKG,
                     "StatsdCtsForegroundActivity", "action", "action.show_notification", 3_000);
             AtomTestUtils.sendAppBreadcrumbReportedAtom(getDevice());
-            Thread.sleep(AtomTestUtils.WAIT_TIME_SHORT);
+            RunUtil.getDefault().sleep(AtomTestUtils.WAIT_TIME_SHORT);
 
             boolean found = false;
             int appUid = DeviceUtils.getAppUid(getDevice(), DeviceUtils.STATSD_ATOM_TEST_PKG);

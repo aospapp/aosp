@@ -99,6 +99,7 @@ private:
 
     void writePastBucketAggregateToProto(const int aggIndex,
                                          const std::unique_ptr<KllQuantile>& kll,
+                                         const int sampleSize,
                                          ProtoOutputStream* const protoOutput) const override;
 
     bool aggregateFields(const int64_t eventTimeNs, const MetricDimensionKey& eventKey,

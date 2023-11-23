@@ -67,6 +67,8 @@ typedef enum camera_metadata_section {
     ANDROID_HEIC_INFO,
     ANDROID_AUTOMOTIVE,
     ANDROID_AUTOMOTIVE_LENS,
+    ANDROID_EXTENSION,
+    ANDROID_JPEGR,
     ANDROID_SECTION_COUNT,
 
     VENDOR_SECTION = 0x8000
@@ -113,6 +115,8 @@ typedef enum camera_metadata_section_start {
     ANDROID_HEIC_INFO_START        = ANDROID_HEIC_INFO         << 16,
     ANDROID_AUTOMOTIVE_START       = ANDROID_AUTOMOTIVE        << 16,
     ANDROID_AUTOMOTIVE_LENS_START  = ANDROID_AUTOMOTIVE_LENS   << 16,
+    ANDROID_EXTENSION_START        = ANDROID_EXTENSION         << 16,
+    ANDROID_JPEGR_START            = ANDROID_JPEGR             << 16,
     VENDOR_SECTION_START           = VENDOR_SECTION            << 16
 } camera_metadata_section_start_t;
 
@@ -190,6 +194,12 @@ typedef enum camera_metadata_tag {
     ANDROID_CONTROL_AF_REGIONS_SET,                   // enum         | fwk_only
     ANDROID_CONTROL_AE_REGIONS_SET,                   // enum         | fwk_only
     ANDROID_CONTROL_AWB_REGIONS_SET,                  // enum         | fwk_only
+    ANDROID_CONTROL_SETTINGS_OVERRIDE,                // enum         | public       | HIDL v3.9
+    ANDROID_CONTROL_AVAILABLE_SETTINGS_OVERRIDES,     // int32[]      | public       | HIDL v3.9
+    ANDROID_CONTROL_SETTINGS_OVERRIDING_FRAME_NUMBER, // int32        | system       | HIDL v3.9
+    ANDROID_CONTROL_AUTOFRAMING,                      // enum         | public       | HIDL v3.9
+    ANDROID_CONTROL_AUTOFRAMING_AVAILABLE,            // enum         | public       | HIDL v3.9
+    ANDROID_CONTROL_AUTOFRAMING_STATE,                // enum         | public       | HIDL v3.9
     ANDROID_CONTROL_END,
 
     ANDROID_DEMOSAIC_MODE =                           // enum         | system       | HIDL v3.2
@@ -308,6 +318,8 @@ typedef enum camera_metadata_tag {
                                                       // enum[]       | ndk_public   | HIDL v3.8
     ANDROID_REQUEST_RECOMMENDED_TEN_BIT_DYNAMIC_RANGE_PROFILE,
                                                       // int64        | java_public  | HIDL v3.8
+    ANDROID_REQUEST_AVAILABLE_COLOR_SPACE_PROFILES_MAP,
+                                                      // enum[]       | ndk_public   | HIDL v3.9
     ANDROID_REQUEST_END,
 
     ANDROID_SCALER_CROP_REGION =                      // int32[]      | public       | HIDL v3.2
@@ -345,6 +357,7 @@ typedef enum camera_metadata_tag {
     ANDROID_SCALER_MULTI_RESOLUTION_STREAM_SUPPORTED, // enum         | ndk_public   | HIDL v3.6
     ANDROID_SCALER_CROP_REGION_SET,                   // enum         | fwk_only
     ANDROID_SCALER_AVAILABLE_STREAM_USE_CASES,        // enum[]       | public       | HIDL v3.8
+    ANDROID_SCALER_RAW_CROP_REGION,                   // int32[]      | public       | HIDL v3.9
     ANDROID_SCALER_END,
 
     ANDROID_SENSOR_EXPOSURE_TIME =                    // int64        | public       | HIDL v3.2
@@ -382,6 +395,7 @@ typedef enum camera_metadata_tag {
     ANDROID_SENSOR_OPAQUE_RAW_SIZE_MAXIMUM_RESOLUTION,// int32[]      | system       | HIDL v3.6
     ANDROID_SENSOR_PIXEL_MODE,                        // enum         | public       | HIDL v3.6
     ANDROID_SENSOR_RAW_BINNING_FACTOR_USED,           // enum         | public       | HIDL v3.6
+    ANDROID_SENSOR_READOUT_TIMESTAMP,                 // enum         | fwk_java_public
     ANDROID_SENSOR_END,
 
     ANDROID_SENSOR_INFO_ACTIVE_ARRAY_SIZE =           // int32[]      | public       | HIDL v3.2
@@ -553,6 +567,25 @@ typedef enum camera_metadata_tag {
     ANDROID_AUTOMOTIVE_LENS_FACING =                  // enum[]       | public       | HIDL v3.8
             ANDROID_AUTOMOTIVE_LENS_START,
     ANDROID_AUTOMOTIVE_LENS_END,
+
+    ANDROID_EXTENSION_STRENGTH =                      // int32        | fwk_java_public
+            ANDROID_EXTENSION_START,
+    ANDROID_EXTENSION_CURRENT_TYPE,                   // int32        | fwk_java_public
+    ANDROID_EXTENSION_END,
+
+    ANDROID_JPEGR_AVAILABLE_JPEG_R_STREAM_CONFIGURATIONS = 
+                                                      // enum[]       | ndk_public   | HIDL v3.9
+            ANDROID_JPEGR_START,
+    ANDROID_JPEGR_AVAILABLE_JPEG_R_MIN_FRAME_DURATIONS,
+                                                      // int64[]      | ndk_public   | HIDL v3.9
+    ANDROID_JPEGR_AVAILABLE_JPEG_R_STALL_DURATIONS,   // int64[]      | ndk_public   | HIDL v3.9
+    ANDROID_JPEGR_AVAILABLE_JPEG_R_STREAM_CONFIGURATIONS_MAXIMUM_RESOLUTION,
+                                                      // enum[]       | ndk_public   | HIDL v3.9
+    ANDROID_JPEGR_AVAILABLE_JPEG_R_MIN_FRAME_DURATIONS_MAXIMUM_RESOLUTION,
+                                                      // int64[]      | ndk_public   | HIDL v3.9
+    ANDROID_JPEGR_AVAILABLE_JPEG_R_STALL_DURATIONS_MAXIMUM_RESOLUTION,
+                                                      // int64[]      | ndk_public   | HIDL v3.9
+    ANDROID_JPEGR_END,
 
 } camera_metadata_tag_t;
 
@@ -788,6 +821,33 @@ typedef enum camera_metadata_enum_android_control_awb_regions_set {
     ANDROID_CONTROL_AWB_REGIONS_SET_TRUE                            ,
 } camera_metadata_enum_android_control_awb_regions_set_t;
 
+// ANDROID_CONTROL_SETTINGS_OVERRIDE
+typedef enum camera_metadata_enum_android_control_settings_override {
+    ANDROID_CONTROL_SETTINGS_OVERRIDE_OFF                           , // HIDL v3.9
+    ANDROID_CONTROL_SETTINGS_OVERRIDE_ZOOM                          , // HIDL v3.9
+    ANDROID_CONTROL_SETTINGS_OVERRIDE_VENDOR_START                   = 0x4000, // HIDL v3.9
+} camera_metadata_enum_android_control_settings_override_t;
+
+// ANDROID_CONTROL_AUTOFRAMING
+typedef enum camera_metadata_enum_android_control_autoframing {
+    ANDROID_CONTROL_AUTOFRAMING_OFF                                 , // HIDL v3.9
+    ANDROID_CONTROL_AUTOFRAMING_ON                                  , // HIDL v3.9
+    ANDROID_CONTROL_AUTOFRAMING_AUTO                                , // HIDL v3.9
+} camera_metadata_enum_android_control_autoframing_t;
+
+// ANDROID_CONTROL_AUTOFRAMING_AVAILABLE
+typedef enum camera_metadata_enum_android_control_autoframing_available {
+    ANDROID_CONTROL_AUTOFRAMING_AVAILABLE_FALSE                     , // HIDL v3.9
+    ANDROID_CONTROL_AUTOFRAMING_AVAILABLE_TRUE                      , // HIDL v3.9
+} camera_metadata_enum_android_control_autoframing_available_t;
+
+// ANDROID_CONTROL_AUTOFRAMING_STATE
+typedef enum camera_metadata_enum_android_control_autoframing_state {
+    ANDROID_CONTROL_AUTOFRAMING_STATE_INACTIVE                      , // HIDL v3.9
+    ANDROID_CONTROL_AUTOFRAMING_STATE_FRAMING                       , // HIDL v3.9
+    ANDROID_CONTROL_AUTOFRAMING_STATE_CONVERGED                     , // HIDL v3.9
+} camera_metadata_enum_android_control_autoframing_state_t;
+
 
 // ANDROID_DEMOSAIC_MODE
 typedef enum camera_metadata_enum_android_demosaic_mode {
@@ -927,6 +987,7 @@ typedef enum camera_metadata_enum_android_request_available_capabilities {
     ANDROID_REQUEST_AVAILABLE_CAPABILITIES_REMOSAIC_REPROCESSING    , // HIDL v3.6
     ANDROID_REQUEST_AVAILABLE_CAPABILITIES_DYNAMIC_RANGE_TEN_BIT    , // HIDL v3.8
     ANDROID_REQUEST_AVAILABLE_CAPABILITIES_STREAM_USE_CASE          , // HIDL v3.8
+    ANDROID_REQUEST_AVAILABLE_CAPABILITIES_COLOR_SPACE_PROFILES     , // HIDL v3.9
 } camera_metadata_enum_android_request_available_capabilities_t;
 
 // ANDROID_REQUEST_AVAILABLE_DYNAMIC_RANGE_PROFILES_MAP
@@ -953,6 +1014,14 @@ typedef enum camera_metadata_enum_android_request_available_dynamic_range_profil
                                                                       = 0x800, // HIDL v3.8
     ANDROID_REQUEST_AVAILABLE_DYNAMIC_RANGE_PROFILES_MAP_MAX         = 0x1000, // HIDL v3.8
 } camera_metadata_enum_android_request_available_dynamic_range_profiles_map_t;
+
+// ANDROID_REQUEST_AVAILABLE_COLOR_SPACE_PROFILES_MAP
+typedef enum camera_metadata_enum_android_request_available_color_space_profiles_map {
+    ANDROID_REQUEST_AVAILABLE_COLOR_SPACE_PROFILES_MAP_UNSPECIFIED   = -1, // HIDL v3.9
+    ANDROID_REQUEST_AVAILABLE_COLOR_SPACE_PROFILES_MAP_SRGB          = 0, // HIDL v3.9
+    ANDROID_REQUEST_AVAILABLE_COLOR_SPACE_PROFILES_MAP_DISPLAY_P3    = 7, // HIDL v3.9
+    ANDROID_REQUEST_AVAILABLE_COLOR_SPACE_PROFILES_MAP_BT2020_HLG    = 16, // HIDL v3.9
+} camera_metadata_enum_android_request_available_color_space_profiles_map_t;
 
 
 // ANDROID_SCALER_AVAILABLE_FORMATS
@@ -1050,6 +1119,7 @@ typedef enum camera_metadata_enum_android_scaler_available_stream_use_cases {
     ANDROID_SCALER_AVAILABLE_STREAM_USE_CASES_VIDEO_RECORD           = 0x3, // HIDL v3.8
     ANDROID_SCALER_AVAILABLE_STREAM_USE_CASES_PREVIEW_VIDEO_STILL    = 0x4, // HIDL v3.8
     ANDROID_SCALER_AVAILABLE_STREAM_USE_CASES_VIDEO_CALL             = 0x5, // HIDL v3.8
+    ANDROID_SCALER_AVAILABLE_STREAM_USE_CASES_CROPPED_RAW            = 0x6, // HIDL v3.9
     ANDROID_SCALER_AVAILABLE_STREAM_USE_CASES_VENDOR_START           = 0x10000, // HIDL v3.8
 } camera_metadata_enum_android_scaler_available_stream_use_cases_t;
 
@@ -1099,6 +1169,12 @@ typedef enum camera_metadata_enum_android_sensor_raw_binning_factor_used {
     ANDROID_SENSOR_RAW_BINNING_FACTOR_USED_TRUE                     , // HIDL v3.6
     ANDROID_SENSOR_RAW_BINNING_FACTOR_USED_FALSE                    , // HIDL v3.6
 } camera_metadata_enum_android_sensor_raw_binning_factor_used_t;
+
+// ANDROID_SENSOR_READOUT_TIMESTAMP
+typedef enum camera_metadata_enum_android_sensor_readout_timestamp {
+    ANDROID_SENSOR_READOUT_TIMESTAMP_NOT_SUPPORTED                  ,
+    ANDROID_SENSOR_READOUT_TIMESTAMP_HARDWARE                       ,
+} camera_metadata_enum_android_sensor_readout_timestamp_t;
 
 
 // ANDROID_SENSOR_INFO_COLOR_FILTER_ARRANGEMENT
@@ -1351,5 +1427,21 @@ typedef enum camera_metadata_enum_android_automotive_lens_facing {
     ANDROID_AUTOMOTIVE_LENS_FACING_INTERIOR_SEAT_ROW_3_CENTER       , // HIDL v3.8
     ANDROID_AUTOMOTIVE_LENS_FACING_INTERIOR_SEAT_ROW_3_RIGHT        , // HIDL v3.8
 } camera_metadata_enum_android_automotive_lens_facing_t;
+
+
+
+// ANDROID_JPEGR_AVAILABLE_JPEG_R_STREAM_CONFIGURATIONS
+typedef enum camera_metadata_enum_android_jpegr_available_jpeg_r_stream_configurations {
+    ANDROID_JPEGR_AVAILABLE_JPEG_R_STREAM_CONFIGURATIONS_OUTPUT     , // HIDL v3.9
+    ANDROID_JPEGR_AVAILABLE_JPEG_R_STREAM_CONFIGURATIONS_INPUT      , // HIDL v3.9
+} camera_metadata_enum_android_jpegr_available_jpeg_r_stream_configurations_t;
+
+// ANDROID_JPEGR_AVAILABLE_JPEG_R_STREAM_CONFIGURATIONS_MAXIMUM_RESOLUTION
+typedef enum camera_metadata_enum_android_jpegr_available_jpeg_r_stream_configurations_maximum_resolution {
+    ANDROID_JPEGR_AVAILABLE_JPEG_R_STREAM_CONFIGURATIONS_MAXIMUM_RESOLUTION_OUTPUT
+                                                                     , // HIDL v3.9
+    ANDROID_JPEGR_AVAILABLE_JPEG_R_STREAM_CONFIGURATIONS_MAXIMUM_RESOLUTION_INPUT
+                                                                     , // HIDL v3.9
+} camera_metadata_enum_android_jpegr_available_jpeg_r_stream_configurations_maximum_resolution_t;
 
 

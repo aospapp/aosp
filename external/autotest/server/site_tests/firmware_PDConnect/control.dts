@@ -4,15 +4,17 @@
 
 from autotest_lib.server import utils
 
-AUTHOR = "Chrome OS Team"
+AUTHOR = "ChromeOS Team"
 NAME = "firmware_PDConnect.dts"
 PURPOSE = "Servo based PD Connect/Disconnect test"
 ATTRIBUTES = "suite:faft_pd"
 CRITERIA = "This test will fail if PD connection is not successful each attempt"
+DEPENDENCIES = "servo_state:WORKING"
 TIME = "MEDIUM"
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "firmware"
 TEST_TYPE = "server"
+PY_VERSION = 3
 
 DOC = """
 This test checks:

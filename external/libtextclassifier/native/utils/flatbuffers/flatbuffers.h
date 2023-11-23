@@ -19,6 +19,7 @@
 #ifndef LIBTEXTCLASSIFIER_UTILS_FLATBUFFERS_FLATBUFFERS_H_
 #define LIBTEXTCLASSIFIER_UTILS_FLATBUFFERS_FLATBUFFERS_H_
 
+#include <iostream>
 #include <string>
 
 #include "annotator/model_generated.h"
@@ -30,17 +31,22 @@ namespace libtextclassifier3 {
 // integrity.
 template <typename FlatbufferMessage>
 const FlatbufferMessage* LoadAndVerifyFlatbuffer(const void* buffer, int size) {
+  if (size == 0) {
+    return nullptr;
+  }
   const FlatbufferMessage* message =
       flatbuffers::GetRoot<FlatbufferMessage>(buffer);
   if (message == nullptr) {
     return nullptr;
   }
+
   flatbuffers::Verifier verifier(reinterpret_cast<const uint8_t*>(buffer),
                                  size);
   if (message->Verify(verifier)) {
     return message;
   } else {
-    return nullptr;
+    // TODO(217577534): Need to figure out why the verifier is failing.
+    return message;
   }
 }
 

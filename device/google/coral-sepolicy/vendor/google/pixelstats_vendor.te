@@ -20,5 +20,8 @@ r_dir_file(pixelstats_vendor, sysfs_typec_info)
 allow pixelstats_vendor sysfs_wlc:dir search;
 
 # OrientationCollector
+# HIDL sensorservice
 allow pixelstats_vendor fwk_sensor_hwservice:hwservice_manager find;
+# AIDL sensorservice
+allow pixelstats_vendor fwk_sensor_service:service_manager find;
 binder_call(pixelstats_vendor, system_server)

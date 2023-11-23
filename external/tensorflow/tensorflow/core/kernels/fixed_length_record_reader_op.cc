@@ -69,12 +69,12 @@ class FixedLengthRecordReader : public ReaderBase {
     // header_bytes_ is always skipped.
     TF_RETURN_IF_ERROR(buffered_inputstream_->SkipNBytes(header_bytes_));
 
-    return Status::OK();
+    return OkStatus();
   }
 
   Status OnWorkFinishedLocked() override {
     buffered_inputstream_.reset(nullptr);
-    return Status::OK();
+    return OkStatus();
   }
 
   Status ReadLocked(tstring* key, tstring* value, bool* produced,
@@ -98,7 +98,7 @@ class FixedLengthRecordReader : public ReaderBase {
             return s;
           }
           *at_end = true;
-          return Status::OK();
+          return OkStatus();
         }
       }
     }
@@ -112,7 +112,7 @@ class FixedLengthRecordReader : public ReaderBase {
         return s;
       }
       *at_end = true;
-      return Status::OK();
+      return OkStatus();
     }
     lookahead_cache_.append(*value, 0, bytes_to_read);
     value->clear();
@@ -124,7 +124,7 @@ class FixedLengthRecordReader : public ReaderBase {
     *produced = true;
     ++record_number_;
 
-    return Status::OK();
+    return OkStatus();
   }
 
   Status ResetLocked() override {
@@ -138,10 +138,10 @@ class FixedLengthRecordReader : public ReaderBase {
 
  private:
   enum { kBufferSize = 256 << 10 /* 256 kB */ };
-  const int64 header_bytes_;
-  const int64 record_bytes_;
-  const int64 footer_bytes_;
-  const int64 hop_bytes_;
+  const int64_t header_bytes_;
+  const int64_t record_bytes_;
+  const int64_t footer_bytes_;
+  const int64_t hop_bytes_;
   // The purpose of lookahead_cache_ is to allows "one-pass" processing
   // without revisit previous processed data of the stream. This is needed
   // because certain compression like zlib does not allow random access
@@ -150,7 +150,7 @@ class FixedLengthRecordReader : public ReaderBase {
   // record_bytes_ + footer_bytes_
   string lookahead_cache_;
   Env* const env_;
-  int64 record_number_;
+  int64_t record_number_;
   string encoding_;
   // must outlive buffered_inputstream_
   std::unique_ptr<RandomAccessFile> file_;

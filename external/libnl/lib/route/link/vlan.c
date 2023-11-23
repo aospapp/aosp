@@ -1,11 +1,5 @@
+/* SPDX-License-Identifier: LGPL-2.1-only */
 /*
- * lib/route/link/vlan.c	VLAN Link Info
- *
- *	This library is free software; you can redistribute it and/or
- *	modify it under the terms of the GNU Lesser General Public
- *	License as published by the Free Software Foundation version 2.1
- *	of the License.
- *
  * Copyright (c) 2003-2013 Thomas Graf <tgraf@suug.ch>
  */
 
@@ -392,12 +386,11 @@ static struct rtnl_link_info_ops vlan_info_ops = {
 struct rtnl_link *rtnl_link_vlan_alloc(void)
 {
 	struct rtnl_link *link;
-	int err;
 
 	if (!(link = rtnl_link_alloc()))
 		return NULL;
 
-	if ((err = rtnl_link_set_type(link, "vlan")) < 0) {
+	if (rtnl_link_set_type(link, "vlan") < 0) {
 		rtnl_link_put(link);
 		return NULL;
 	}
@@ -647,6 +640,7 @@ static const struct trans_tbl vlan_flags[] = {
 	__ADD(VLAN_FLAG_GVRP, gvrp),
 	__ADD(VLAN_FLAG_LOOSE_BINDING, loose_binding),
 	__ADD(VLAN_FLAG_MVRP, mvrp),
+	__ADD(VLAN_FLAG_BRIDGE_BINDING, bridge_binding),
 };
 
 /**

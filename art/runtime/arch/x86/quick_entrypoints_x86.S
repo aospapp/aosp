@@ -794,12 +794,9 @@ MACRO3(ONE_ARG_SAVE_EVERYTHING_DOWNCALL, c_name, cxx_name, runtime_method_offset
     call CALLVAR(cxx_name)                            // cxx_name(arg1, Thread*)
     addl MACRO_LITERAL(16), %esp                      // pop arguments
     CFI_ADJUST_CFA_OFFSET(-16)
-    testl %eax, %eax                                  // If result is null, deliver the OOME.
+    testl %eax, %eax                                  // If result is null deliver pending exception
     jz 1f
-    CFI_REMEMBER_STATE
-    RESTORE_SAVE_EVERYTHING_FRAME_KEEP_EAX            // restore frame up to return address
-    ret                                               // return
-    CFI_RESTORE_STATE_AND_DEF_CFA esp, FRAME_SIZE_SAVE_EVERYTHING
+    DEOPT_OR_RESTORE_SAVE_EVERYTHING_FRAME_AND_RETURN_EAX ebx,  /* is_ref= */1  // Check for deopt
 1:
     DELIVER_PENDING_EXCEPTION_FRAME_READY
     END_FUNCTION VAR(c_name)
@@ -809,18 +806,72 @@ MACRO2(ONE_ARG_SAVE_EVERYTHING_DOWNCALL_FOR_CLINIT, c_name, cxx_name)
     ONE_ARG_SAVE_EVERYTHING_DOWNCALL \c_name, \cxx_name, RUNTIME_SAVE_EVERYTHING_FOR_CLINIT_METHOD_OFFSET
 END_MACRO
 
-MACRO0(RETURN_IF_RESULT_IS_NON_ZERO_OR_DELIVER)
-    testl %eax, %eax               // eax == 0 ?
-    jz  1f                         // if eax == 0 goto 1
-    ret                            // return
-1:                                 // deliver exception on current thread
+MACRO0(RETURN_IF_RESULT_IS_NON_ZERO_OR_DEOPT_OR_DELIVER)
+    testl %eax, %eax                  // eax == 0 ?
+    jz  1f                            // if eax == 0 goto 1
+    DEOPT_OR_RETURN ebx, /*is_ref=*/1 // check if deopt is required
+1:                                    // deliver exception on current thread
     DELIVER_PENDING_EXCEPTION
 END_MACRO
+
+MACRO0(RETURN_OR_DEOPT_OR_DELIVER_PENDING_EXCEPTION)
+    cmpl MACRO_LITERAL(0),%fs:THREAD_EXCEPTION_OFFSET // exception field == 0 ?
+    jne 1f                                            // if exception field != 0 goto 1
+    DEOPT_OR_RETURN ebx                               // check if deopt is required
+1:                                                    // deliver exception on current thread
+    DELIVER_PENDING_EXCEPTION
+END_MACRO
+
+MACRO2(DEOPT_OR_RETURN, temp, is_ref = 0)
+  cmpl LITERAL(0), %fs:THREAD_DEOPT_CHECK_REQUIRED_OFFSET
+  jne 2f
+  ret
+2:
+  SETUP_SAVE_EVERYTHING_FRAME \temp
+  subl MACRO_LITERAL(4), %esp       // alignment padding
+  CFI_ADJUST_CFA_OFFSET(4)
+  pushl MACRO_LITERAL(\is_ref)      // is_ref
+  CFI_ADJUST_CFA_OFFSET(4)
+  PUSH_ARG eax                      // result
+  pushl %fs:THREAD_SELF_OFFSET      // Pass Thread::Current
+  CFI_ADJUST_CFA_OFFSET(4)
+  call SYMBOL(artDeoptimizeIfNeeded)
+  addl LITERAL(16), %esp             // pop arguments
+  CFI_REMEMBER_STATE
+  RESTORE_SAVE_EVERYTHING_FRAME
+  ret
+  CFI_RESTORE_STATE_AND_DEF_CFA esp, FRAME_SIZE_SAVE_EVERYTHING
+END_MACRO
+
+MACRO2(DEOPT_OR_RESTORE_SAVE_EVERYTHING_FRAME_AND_RETURN_EAX, temp, is_ref = 0)
+  cmpl LITERAL(0), %fs:THREAD_DEOPT_CHECK_REQUIRED_OFFSET
+  jne 2f
+  CFI_REMEMBER_STATE
+  RESTORE_SAVE_EVERYTHING_FRAME_KEEP_EAX
+  ret
+  CFI_RESTORE_STATE_AND_DEF_CFA esp, FRAME_SIZE_SAVE_EVERYTHING
+2:
+  movl %eax, SAVE_EVERYTHING_FRAME_EAX_OFFSET(%esp) // update eax in the frame
+  subl MACRO_LITERAL(4), %esp                       // alignment padding
+  CFI_ADJUST_CFA_OFFSET(4)
+  pushl MACRO_LITERAL(\is_ref)                      // is_ref
+  CFI_ADJUST_CFA_OFFSET(4)
+  PUSH_ARG eax                                      // result
+  pushl %fs:THREAD_SELF_OFFSET                      // Pass Thread::Current
+  CFI_ADJUST_CFA_OFFSET(4)
+  call SYMBOL(artDeoptimizeIfNeeded)
+  addl LITERAL(16), %esp                            // pop arguments
+  CFI_REMEMBER_STATE
+  RESTORE_SAVE_EVERYTHING_FRAME
+  ret
+  CFI_RESTORE_STATE_AND_DEF_CFA esp, FRAME_SIZE_SAVE_EVERYTHING
+END_MACRO
+
 
 MACRO0(RETURN_IF_EAX_ZERO)
     testl %eax, %eax               // eax == 0 ?
     jnz  1f                        // if eax != 0 goto 1
-    ret                            // return
+    DEOPT_OR_RETURN ebx            // check if deopt is needed
 1:                                 // deliver exception on current thread
     DELIVER_PENDING_EXCEPTION
 END_MACRO
@@ -927,7 +978,7 @@ MACRO2(ART_QUICK_ALLOC_OBJECT_ROSALLOC, c_name, cxx_name)
     addl LITERAL(16), %esp                       // pop arguments
     CFI_ADJUST_CFA_OFFSET(-16)
     RESTORE_SAVE_REFS_ONLY_FRAME                 // restore frame up to return address
-    RETURN_IF_RESULT_IS_NON_ZERO_OR_DELIVER      // return or deliver exception
+    RETURN_IF_RESULT_IS_NON_ZERO_OR_DEOPT_OR_DELIVER      // return or deliver exception
     END_FUNCTION VAR(c_name)
 END_MACRO
 
@@ -974,7 +1025,7 @@ MACRO1(ALLOC_OBJECT_RESOLVED_TLAB_SLOW_PATH, cxx_name)
     addl LITERAL(16), %esp
     CFI_ADJUST_CFA_OFFSET(-16)
     RESTORE_SAVE_REFS_ONLY_FRAME                        // restore frame up to return address
-    RETURN_IF_RESULT_IS_NON_ZERO_OR_DELIVER             // return or deliver exception
+    RETURN_IF_RESULT_IS_NON_ZERO_OR_DEOPT_OR_DELIVER    // return or deliver exception
 END_MACRO
 
 MACRO2(ART_QUICK_ALLOC_OBJECT_TLAB, c_name, cxx_name)
@@ -1107,7 +1158,7 @@ MACRO3(GENERATE_ALLOC_ARRAY_TLAB, c_entrypoint, cxx_name, size_setup)
     addl LITERAL(16), %esp                              // pop arguments
     CFI_ADJUST_CFA_OFFSET(-16)
     RESTORE_SAVE_REFS_ONLY_FRAME                        // restore frame up to return address
-    RETURN_IF_RESULT_IS_NON_ZERO_OR_DELIVER             // return or deliver exception
+    RETURN_IF_RESULT_IS_NON_ZERO_OR_DEOPT_OR_DELIVER    // return or deliver exception
     END_FUNCTION VAR(c_entrypoint)
 END_MACRO
 
@@ -1254,126 +1305,102 @@ MACRO2(POP_REG_NE, reg, exclude_reg)
     .endif
 END_MACRO
 
-    /*
-     * Macro to insert read barrier, only used in art_quick_aput_obj.
-     * obj_reg and dest_reg are registers, offset is a defined literal such as
-     * MIRROR_OBJECT_CLASS_OFFSET.
-     * pop_eax is a boolean flag, indicating if eax is popped after the call.
-     * TODO: When read barrier has a fast path, add heap unpoisoning support for the fast path.
-     */
-MACRO4(READ_BARRIER, obj_reg, offset, dest_reg, pop_eax)
-#ifdef USE_READ_BARRIER
-    PUSH eax                        // save registers used in art_quick_aput_obj
-    PUSH ebx
-    PUSH edx
-    PUSH ecx
-    // Outgoing argument set up
-    pushl MACRO_LITERAL((RAW_VAR(offset)))  // pass offset, double parentheses are necessary
-    CFI_ADJUST_CFA_OFFSET(4)
-    PUSH RAW_VAR(obj_reg)           // pass obj_reg
-    PUSH eax                        // pass ref, just pass eax for now since parameter ref is unused
-    call SYMBOL(artReadBarrierSlow) // artReadBarrierSlow(ref, obj_reg, offset)
-    // No need to unpoison return value in eax, artReadBarrierSlow() would do the unpoisoning.
-    .ifnc RAW_VAR(dest_reg), eax
-      movl %eax, REG_VAR(dest_reg)  // save loaded ref in dest_reg
-    .endif
-    addl MACRO_LITERAL(12), %esp    // pop arguments
-    CFI_ADJUST_CFA_OFFSET(-12)
-    POP_REG_NE ecx, RAW_VAR(dest_reg) // Restore args except dest_reg
-    POP_REG_NE edx, RAW_VAR(dest_reg)
-    POP_REG_NE ebx, RAW_VAR(dest_reg)
-    .ifc RAW_VAR(pop_eax), true
-      POP_REG_NE eax, RAW_VAR(dest_reg)
-    .endif
-#else
-    movl RAW_VAR(offset)(REG_VAR(obj_reg)), REG_VAR(dest_reg)
-    UNPOISON_HEAP_REF RAW_VAR(dest_reg)
-#endif  // USE_READ_BARRIER
-END_MACRO
-
 DEFINE_FUNCTION art_quick_aput_obj
     test %edx, %edx              // store of null
-    jz .Ldo_aput_null
-    READ_BARRIER eax, MIRROR_OBJECT_CLASS_OFFSET, ebx, true
-    READ_BARRIER ebx, MIRROR_CLASS_COMPONENT_TYPE_OFFSET, ebx, true
-    // value's type == array's component type - trivial assignability
-#if defined(USE_READ_BARRIER)
-    READ_BARRIER edx, MIRROR_OBJECT_CLASS_OFFSET, eax, false
-    cmpl %eax, %ebx
-    POP eax                      // restore eax from the push in the beginning of READ_BARRIER macro
-    // This asymmetric push/pop saves a push of eax and maintains stack alignment.
-#elif defined(USE_HEAP_POISONING)
-    PUSH eax                     // save eax
-    movl MIRROR_OBJECT_CLASS_OFFSET(%edx), %eax
-    UNPOISON_HEAP_REF eax
-    cmpl %eax, %ebx
-    POP eax                      // restore eax
-#else
-    cmpl MIRROR_OBJECT_CLASS_OFFSET(%edx), %ebx
-#endif
-    jne .Lcheck_assignability
-.Ldo_aput:
+    jz .Laput_obj_null
+    movl MIRROR_OBJECT_CLASS_OFFSET(%eax), %ebx
+    UNPOISON_HEAP_REF ebx
+#ifdef USE_READ_BARRIER
+    cmpl LITERAL(0), %fs:THREAD_IS_GC_MARKING_OFFSET
+    jnz .Laput_obj_gc_marking
+#endif  // USE_READ_BARRIER
+    movl MIRROR_CLASS_COMPONENT_TYPE_OFFSET(%ebx), %ebx
+    cmpl MIRROR_OBJECT_CLASS_OFFSET(%edx), %ebx  // Both poisoned if heap poisoning is enabled.
+    jne .Laput_obj_check_assignability
+.Laput_obj_store:
     POISON_HEAP_REF edx
     movl %edx, MIRROR_OBJECT_ARRAY_DATA_OFFSET(%eax, %ecx, 4)
     movl %fs:THREAD_CARD_TABLE_OFFSET, %edx
     shrl LITERAL(CARD_TABLE_CARD_SHIFT), %eax
     movb %dl, (%edx, %eax)
     ret
-.Ldo_aput_null:
+
+.Laput_obj_null:
     movl %edx, MIRROR_OBJECT_ARRAY_DATA_OFFSET(%eax, %ecx, 4)
     ret
-.Lcheck_assignability:
-    PUSH eax                      // save arguments
-    PUSH ecx
-    PUSH edx
-#if defined(USE_READ_BARRIER)
-    subl LITERAL(4), %esp         // alignment padding
-    CFI_ADJUST_CFA_OFFSET(4)
-    READ_BARRIER edx, MIRROR_OBJECT_CLASS_OFFSET, eax, true
-    subl LITERAL(4), %esp         // alignment padding
-    CFI_ADJUST_CFA_OFFSET(4)
-    PUSH eax                      // pass arg2 - type of the value to be stored
-#elif defined(USE_HEAP_POISONING)
-    subl LITERAL(8), %esp         // alignment padding
-    CFI_ADJUST_CFA_OFFSET(8)
+
+.Laput_obj_check_assignability:
+    UNPOISON_HEAP_REF ebx         // Unpoison array component type if poisoning is enabled.
+    PUSH_ARG eax                  // Save `art_quick_aput_obj()` arguments.
+    PUSH_ARG ecx
+    PUSH_ARG edx
+    INCREASE_FRAME 8              // Alignment padding.
+    // Pass arg2 - type of the value to be stored.
+#if defined(USE_HEAP_POISONING)
     movl MIRROR_OBJECT_CLASS_OFFSET(%edx), %eax
     UNPOISON_HEAP_REF eax
-    PUSH eax                      // pass arg2 - type of the value to be stored
+    PUSH_ARG eax
 #else
-    subl LITERAL(8), %esp         // alignment padding
-    CFI_ADJUST_CFA_OFFSET(8)
-    pushl MIRROR_OBJECT_CLASS_OFFSET(%edx)  // pass arg2 - type of the value to be stored
+    pushl MIRROR_OBJECT_CLASS_OFFSET(%edx)
     CFI_ADJUST_CFA_OFFSET(4)
 #endif
-    PUSH ebx                      // pass arg1 - component type of the array
+.Laput_obj_check_assignability_call:
+    PUSH_ARG ebx                  // Pass arg1 - component type of the array.
     call SYMBOL(artIsAssignableFromCode)  // (Class* a, Class* b)
-    addl LITERAL(16), %esp        // pop arguments
-    CFI_ADJUST_CFA_OFFSET(-16)
+    DECREASE_FRAME 16             // Pop `artIsAssignableFromCode()` arguments
     testl %eax, %eax
+    POP_ARG edx                   // Pop `art_quick_aput_obj()` arguments; flags unaffected.
+    POP_ARG ecx
+    POP_ARG eax
     jz   .Lthrow_array_store_exception
-    POP  edx
-    POP  ecx
-    POP  eax
     POISON_HEAP_REF edx
-    movl %edx, MIRROR_OBJECT_ARRAY_DATA_OFFSET(%eax, %ecx, 4)  // do the aput
+    movl %edx, MIRROR_OBJECT_ARRAY_DATA_OFFSET(%eax, %ecx, 4)  // Do the aput.
     movl %fs:THREAD_CARD_TABLE_OFFSET, %edx
     shrl LITERAL(CARD_TABLE_CARD_SHIFT), %eax
     movb %dl, (%edx, %eax)
     ret
-    CFI_ADJUST_CFA_OFFSET(12)     // 3 POP after the jz for unwinding.
+
 .Lthrow_array_store_exception:
-    POP  edx
-    POP  ecx
-    POP  eax
-    SETUP_SAVE_ALL_CALLEE_SAVES_FRAME ebx // save all registers as basis for long jump context
-    // Outgoing argument set up
-    PUSH eax                      // alignment padding
-    pushl %fs:THREAD_SELF_OFFSET  // pass Thread::Current()
-    CFI_ADJUST_CFA_OFFSET(4)
-    PUSH edx                      // pass arg2 - value
-    PUSH eax                      // pass arg1 - array
+#ifdef USE_READ_BARRIER
+    CFI_REMEMBER_STATE
+#endif  // USE_READ_BARRIER
+    SETUP_SAVE_ALL_CALLEE_SAVES_FRAME ebx // Save all registers as basis for long jump context.
+    // Outgoing argument set up.
+    PUSH_ARG eax                  // Alignment padding.
+    PUSH_ARG fs:THREAD_SELF_OFFSET  // Pass Thread::Current()
+    PUSH_ARG edx                  // Pass arg2 - value.
+    PUSH_ARG eax                  // Pass arg1 - array.
     call SYMBOL(artThrowArrayStoreException) // (array, value, Thread*)
     UNREACHABLE
+
+#ifdef USE_READ_BARRIER
+    CFI_RESTORE_STATE_AND_DEF_CFA esp, 4
+.Laput_obj_gc_marking:
+    PUSH_ARG eax                  // Save `art_quick_aput_obj()` arguments.
+    PUSH_ARG ecx                  // We need to align stack for `art_quick_read_barrier_mark_regNN`
+    PUSH_ARG edx                  // and use a register (EAX) as a temporary for the object class.
+    call SYMBOL(art_quick_read_barrier_mark_reg03)  // Mark EBX.
+    movl MIRROR_CLASS_COMPONENT_TYPE_OFFSET(%ebx), %ebx
+    UNPOISON_HEAP_REF ebx
+    call SYMBOL(art_quick_read_barrier_mark_reg03)  // Mark EBX.
+    movl MIRROR_OBJECT_CLASS_OFFSET(%edx), %eax
+    UNPOISON_HEAP_REF eax
+    call SYMBOL(art_quick_read_barrier_mark_reg00)  // Mark EAX.
+    cmpl %eax, %ebx
+    jne .Laput_obj_check_assignability_gc_marking
+    POP_ARG edx                   // Restore `art_quick_aput_obj()` arguments.
+    POP_ARG ecx
+    POP_ARG eax
+    jmp .Laput_obj_store
+
+.Laput_obj_check_assignability_gc_marking:
+    // Prepare arguments in line with `.Laput_obj_check_assignability_call` and jump there.
+    // (EAX, ECX and EDX were already saved in the right stack slots.)
+    INCREASE_FRAME 8              // Alignment padding.
+    PUSH_ARG eax                  // Pass arg2 - type of the value to be stored.
+    // The arg1 shall be pushed at `.Laput_obj_check_assignability_call`.
+    jmp .Laput_obj_check_assignability_call
+#endif  // USE_READ_BARRIER
 END_FUNCTION art_quick_aput_obj
 
 DEFINE_FUNCTION art_quick_memcpy
@@ -1501,21 +1528,21 @@ END_FUNCTION art_quick_lushr
 // Note: Functions `art{Get,Set}<Kind>{Static,Instance}FromCompiledCode` are
 // defined with a macro in runtime/entrypoints/quick/quick_field_entrypoints.cc.
 
-ONE_ARG_REF_DOWNCALL art_quick_get_boolean_static, artGetBooleanStaticFromCompiledCode, RETURN_OR_DELIVER_PENDING_EXCEPTION
-ONE_ARG_REF_DOWNCALL art_quick_get_byte_static, artGetByteStaticFromCompiledCode, RETURN_OR_DELIVER_PENDING_EXCEPTION
-ONE_ARG_REF_DOWNCALL art_quick_get_char_static, artGetCharStaticFromCompiledCode, RETURN_OR_DELIVER_PENDING_EXCEPTION
-ONE_ARG_REF_DOWNCALL art_quick_get_short_static, artGetShortStaticFromCompiledCode, RETURN_OR_DELIVER_PENDING_EXCEPTION
-ONE_ARG_REF_DOWNCALL art_quick_get32_static, artGet32StaticFromCompiledCode, RETURN_OR_DELIVER_PENDING_EXCEPTION
-ONE_ARG_REF_DOWNCALL art_quick_get64_static, artGet64StaticFromCompiledCode, RETURN_OR_DELIVER_PENDING_EXCEPTION
-ONE_ARG_REF_DOWNCALL art_quick_get_obj_static, artGetObjStaticFromCompiledCode, RETURN_OR_DELIVER_PENDING_EXCEPTION
+ONE_ARG_REF_DOWNCALL art_quick_get_boolean_static, artGetBooleanStaticFromCompiledCode, RETURN_OR_DEOPT_OR_DELIVER_PENDING_EXCEPTION
+ONE_ARG_REF_DOWNCALL art_quick_get_byte_static, artGetByteStaticFromCompiledCode, RETURN_OR_DEOPT_OR_DELIVER_PENDING_EXCEPTION
+ONE_ARG_REF_DOWNCALL art_quick_get_char_static, artGetCharStaticFromCompiledCode, RETURN_OR_DEOPT_OR_DELIVER_PENDING_EXCEPTION
+ONE_ARG_REF_DOWNCALL art_quick_get_short_static, artGetShortStaticFromCompiledCode, RETURN_OR_DEOPT_OR_DELIVER_PENDING_EXCEPTION
+ONE_ARG_REF_DOWNCALL art_quick_get32_static, artGet32StaticFromCompiledCode, RETURN_OR_DEOPT_OR_DELIVER_PENDING_EXCEPTION
+ONE_ARG_REF_DOWNCALL art_quick_get64_static, artGet64StaticFromCompiledCode, RETURN_OR_DEOPT_OR_DELIVER_PENDING_EXCEPTION
+ONE_ARG_REF_DOWNCALL art_quick_get_obj_static, artGetObjStaticFromCompiledCode, RETURN_OR_DEOPT_OR_DELIVER_PENDING_EXCEPTION
 
-TWO_ARG_REF_DOWNCALL art_quick_get_boolean_instance, artGetBooleanInstanceFromCompiledCode, RETURN_OR_DELIVER_PENDING_EXCEPTION
-TWO_ARG_REF_DOWNCALL art_quick_get_byte_instance, artGetByteInstanceFromCompiledCode, RETURN_OR_DELIVER_PENDING_EXCEPTION
-TWO_ARG_REF_DOWNCALL art_quick_get_char_instance, artGetCharInstanceFromCompiledCode, RETURN_OR_DELIVER_PENDING_EXCEPTION
-TWO_ARG_REF_DOWNCALL art_quick_get_short_instance, artGetShortInstanceFromCompiledCode, RETURN_OR_DELIVER_PENDING_EXCEPTION
-TWO_ARG_REF_DOWNCALL art_quick_get32_instance, artGet32InstanceFromCompiledCode, RETURN_OR_DELIVER_PENDING_EXCEPTION
-TWO_ARG_REF_DOWNCALL art_quick_get64_instance, artGet64InstanceFromCompiledCode, RETURN_OR_DELIVER_PENDING_EXCEPTION
-TWO_ARG_REF_DOWNCALL art_quick_get_obj_instance, artGetObjInstanceFromCompiledCode, RETURN_OR_DELIVER_PENDING_EXCEPTION
+TWO_ARG_REF_DOWNCALL art_quick_get_boolean_instance, artGetBooleanInstanceFromCompiledCode, RETURN_OR_DEOPT_OR_DELIVER_PENDING_EXCEPTION
+TWO_ARG_REF_DOWNCALL art_quick_get_byte_instance, artGetByteInstanceFromCompiledCode, RETURN_OR_DEOPT_OR_DELIVER_PENDING_EXCEPTION
+TWO_ARG_REF_DOWNCALL art_quick_get_char_instance, artGetCharInstanceFromCompiledCode, RETURN_OR_DEOPT_OR_DELIVER_PENDING_EXCEPTION
+TWO_ARG_REF_DOWNCALL art_quick_get_short_instance, artGetShortInstanceFromCompiledCode, RETURN_OR_DEOPT_OR_DELIVER_PENDING_EXCEPTION
+TWO_ARG_REF_DOWNCALL art_quick_get32_instance, artGet32InstanceFromCompiledCode, RETURN_OR_DEOPT_OR_DELIVER_PENDING_EXCEPTION
+TWO_ARG_REF_DOWNCALL art_quick_get64_instance, artGet64InstanceFromCompiledCode, RETURN_OR_DEOPT_OR_DELIVER_PENDING_EXCEPTION
+TWO_ARG_REF_DOWNCALL art_quick_get_obj_instance, artGetObjInstanceFromCompiledCode, RETURN_OR_DEOPT_OR_DELIVER_PENDING_EXCEPTION
 
 TWO_ARG_REF_DOWNCALL art_quick_set8_static, artSet8StaticFromCompiledCode, RETURN_IF_EAX_ZERO
 TWO_ARG_REF_DOWNCALL art_quick_set16_static, artSet16StaticFromCompiledCode, RETURN_IF_EAX_ZERO
@@ -1616,7 +1643,7 @@ DEFINE_FUNCTION art_quick_resolution_trampoline
     movl %eax, %edi               // remember code pointer in EDI
     addl LITERAL(16), %esp        // pop arguments
     CFI_ADJUST_CFA_OFFSET(-16)
-    test %eax, %eax               // if code pointer is null goto deliver pending exception
+    test %eax, %eax               // if code pointer is null goto deliver the OOME.
     jz 1f
     RESTORE_SAVE_REFS_AND_ARGS_FRAME_AND_JUMP
 1:
@@ -1628,7 +1655,7 @@ DEFINE_FUNCTION art_quick_generic_jni_trampoline
     SETUP_SAVE_REFS_AND_ARGS_FRAME_WITH_METHOD_IN_EAX
     movl %esp, %ebp               // save SP at callee-save frame
     CFI_DEF_CFA_REGISTER(ebp)
-    subl LITERAL(5120), %esp
+    subl LITERAL(GENERIC_JNI_TRAMPOLINE_RESERVED_AREA), %esp
     // prepare for artQuickGenericJniTrampoline call
     // (Thread*, managed_sp, reserved_area)
     //   (esp)    4(esp)        8(esp)  <= C calling convention
@@ -1683,29 +1710,36 @@ DEFINE_FUNCTION art_quick_generic_jni_trampoline
 
     // Tear down the alloca.
     movl %ebp, %esp
-    CFI_REMEMBER_STATE
-    CFI_DEF_CFA_REGISTER(esp)
 
-    // Tear down the callee-save frame.
-    // Remove space for FPR args and EAX
-    addl LITERAL(4 + 4 * 8), %esp
-    CFI_ADJUST_CFA_OFFSET(-(4 + 4 * 8))
-
-    POP ecx
-    addl LITERAL(4), %esp         // Avoid edx, as it may be part of the result.
-    CFI_ADJUST_CFA_OFFSET(-4)
-    POP ebx
-    POP ebp  // Restore callee saves
-    POP esi
-    POP edi
     // Quick expects the return value to be in xmm0.
     movd %eax, %xmm0
     movd %edx, %xmm1
     punpckldq %xmm1, %xmm0
+
+    LOAD_RUNTIME_INSTANCE ebx
+    cmpb MACRO_LITERAL(0), RUN_EXIT_HOOKS_OFFSET_FROM_RUNTIME_INSTANCE(%ebx)
+    jne .Lcall_method_exit_hook
+.Lcall_method_exit_hook_done:
+
+    // Tear down the callee-save frame.
+    CFI_REMEMBER_STATE
+    CFI_DEF_CFA_REGISTER(esp)
+    // Remove space for the method, FPR and GPR args
+    DECREASE_FRAME 4 + 4 * 8 + 3*4
+    // Restore callee saves and return.
+    POP ebp
+    POP esi
+    POP edi
     ret
 
     // Undo the unwinding information from above since it doesn't apply below.
     CFI_RESTORE_STATE_AND_DEF_CFA ebp, 64
+
+.Lcall_method_exit_hook:
+    movl LITERAL(FRAME_SIZE_SAVE_REFS_AND_ARGS), %ebx
+    call art_quick_method_exit_hook
+    jmp .Lcall_method_exit_hook_done
+
 .Lexception_in_native:
     pushl %fs:THREAD_TOP_QUICK_FRAME_OFFSET
     addl LITERAL(-1), (%esp)  // Remove the GenericJNI tag.
@@ -1749,115 +1783,6 @@ END_FUNCTION art_quick_to_interpreter_bridge
      * Called by managed code, saves callee saves and then calls artInvokeObsoleteMethod
      */
 ONE_ARG_RUNTIME_EXCEPTION art_invoke_obsolete_method_stub, artInvokeObsoleteMethod
-
-    /*
-     * Routine that intercepts method calls and returns.
-     */
-DEFINE_FUNCTION art_quick_instrumentation_entry
-    SETUP_SAVE_REFS_AND_ARGS_FRAME edx
-    PUSH eax                      // Save eax which will be clobbered by the callee-save method.
-    subl LITERAL(16), %esp        // Align stack (12 bytes) and reserve space for the SP argument
-    CFI_ADJUST_CFA_OFFSET(16)     // (4 bytes). We lack the scratch registers to calculate the SP
-                                  // right now, so we will just fill it in later.
-    pushl %fs:THREAD_SELF_OFFSET  // Pass Thread::Current().
-    CFI_ADJUST_CFA_OFFSET(4)
-    PUSH ecx                      // Pass receiver.
-    PUSH eax                      // Pass Method*.
-    leal 32(%esp), %eax           // Put original SP into eax
-    movl %eax, 12(%esp)           // set SP
-    call SYMBOL(artInstrumentationMethodEntryFromCode) // (Method*, Object*, Thread*, SP)
-
-    addl LITERAL(28), %esp        // Pop arguments upto saved Method*.
-    CFI_ADJUST_CFA_OFFSET(-28)
-
-    testl %eax, %eax
-    jz 1f                         // Test for null return (indicating exception) and handle it.
-
-    movl 60(%esp), %edi           // Restore edi.
-    movl %eax, 60(%esp)           // Place code* over edi, just under return pc.
-    SETUP_PC_REL_BASE ebx, .Linstrumentation_entry_pc_rel_base
-    leal SYMBOL(art_quick_instrumentation_exit) - .Linstrumentation_entry_pc_rel_base(%ebx), %ebx
-    // Place instrumentation exit as return pc. ebx holds the GOT computed on entry.
-    movl %ebx, 64(%esp)
-    movl 0(%esp), %eax           // Restore eax.
-    // Restore FPRs (extra 4 bytes of offset due to EAX push at top).
-    movsd 8(%esp), %xmm0
-    movsd 16(%esp), %xmm1
-    movsd 24(%esp), %xmm2
-    movsd 32(%esp), %xmm3
-
-    // Restore GPRs.
-    movl 40(%esp), %ecx           // Restore ecx.
-    movl 44(%esp), %edx           // Restore edx.
-    movl 48(%esp), %ebx           // Restore ebx.
-    movl 52(%esp), %ebp           // Restore ebp.
-    movl 56(%esp), %esi           // Restore esi.
-    addl LITERAL(60), %esp        // Wind stack back upto code*.
-    CFI_ADJUST_CFA_OFFSET(-60)
-    ret                           // Call method (and pop).
-1:
-    // Make caller handle exception
-    addl LITERAL(4), %esp
-    CFI_ADJUST_CFA_OFFSET(-4)
-    RESTORE_SAVE_REFS_AND_ARGS_FRAME
-    DELIVER_PENDING_EXCEPTION
-END_FUNCTION art_quick_instrumentation_entry
-
-DEFINE_FUNCTION_CUSTOM_CFA art_quick_instrumentation_exit, 0
-    pushl LITERAL(0)              // Push a fake return PC as there will be none on the stack.
-    CFI_ADJUST_CFA_OFFSET(4)
-    SETUP_SAVE_EVERYTHING_FRAME ebx
-
-    movl %esp, %ecx               // Remember SP
-    subl LITERAL(8), %esp         // Align stack.
-    CFI_ADJUST_CFA_OFFSET(8)
-    PUSH edx                      // Save gpr return value. edx and eax need to be together,
-                                  // which isn't the case in kSaveEverything frame.
-    PUSH eax
-    leal 32(%esp), %eax           // Get pointer to fpr_result, in kSaveEverything frame
-    movl %esp, %edx               // Get pointer to gpr_result
-    PUSH eax                      // Pass fpr_result
-    PUSH edx                      // Pass gpr_result
-    PUSH ecx                      // Pass SP
-    pushl %fs:THREAD_SELF_OFFSET  // Pass Thread::Current.
-    CFI_ADJUST_CFA_OFFSET(4)
-
-    call SYMBOL(artInstrumentationMethodExitFromCode)  // (Thread*, SP, gpr_result*, fpr_result*)
-    // Return result could have been changed if it's a reference.
-    movl 16(%esp), %ecx
-    movl %ecx, (80+32)(%esp)
-    addl LITERAL(32), %esp        // Pop arguments and grp_result.
-    CFI_ADJUST_CFA_OFFSET(-32)
-
-    testl %eax, %eax              // Check if we returned error.
-    jz .Ldo_deliver_instrumentation_exception
-    testl %edx, %edx
-    jnz .Ldeoptimize
-    // Normal return.
-    movl %eax, FRAME_SIZE_SAVE_EVERYTHING-4(%esp)   // Set return pc.
-    RESTORE_SAVE_EVERYTHING_FRAME
-    ret
-.Ldeoptimize:
-    mov %edx, (FRAME_SIZE_SAVE_EVERYTHING-4)(%esp)  // Set return pc.
-    RESTORE_SAVE_EVERYTHING_FRAME
-    jmp SYMBOL(art_quick_deoptimize)
-.Ldo_deliver_instrumentation_exception:
-    DELIVER_PENDING_EXCEPTION_FRAME_READY
-END_FUNCTION art_quick_instrumentation_exit
-
-    /*
-     * Instrumentation has requested that we deoptimize into the interpreter. The deoptimization
-     * will long jump to the upcall with a special exception of -1.
-     */
-DEFINE_FUNCTION art_quick_deoptimize
-    SETUP_SAVE_EVERYTHING_FRAME ebx
-    subl LITERAL(12), %esp        // Align stack.
-    CFI_ADJUST_CFA_OFFSET(12)
-    pushl %fs:THREAD_SELF_OFFSET  // Pass Thread::Current().
-    CFI_ADJUST_CFA_OFFSET(4)
-    call SYMBOL(artDeoptimize)    // (Thread*)
-    UNREACHABLE
-END_FUNCTION art_quick_deoptimize
 
     /*
      * Compiled code has requested that we deoptimize into the interpreter. The deoptimization
@@ -1974,34 +1899,29 @@ DEFINE_FUNCTION art_quick_string_builder_append
     SETUP_SAVE_REFS_ONLY_FRAME ebx            // save ref containing registers for GC
     // Outgoing argument set up
     leal FRAME_SIZE_SAVE_REFS_ONLY + __SIZEOF_POINTER__(%esp), %edi  // prepare args
-    push %eax                                 // push padding
+    push %eax                                         // push padding
     CFI_ADJUST_CFA_OFFSET(4)
-    pushl %fs:THREAD_SELF_OFFSET              // pass Thread::Current()
+    pushl %fs:THREAD_SELF_OFFSET                      // pass Thread::Current()
     CFI_ADJUST_CFA_OFFSET(4)
-    push %edi                                 // pass args
+    push %edi                                         // pass args
     CFI_ADJUST_CFA_OFFSET(4)
-    push %eax                                 // pass format
+    push %eax                                         // pass format
     CFI_ADJUST_CFA_OFFSET(4)
-    call SYMBOL(artStringBuilderAppend)       // (uint32_t, const unit32_t*, Thread*)
-    addl MACRO_LITERAL(16), %esp              // pop arguments
+    call SYMBOL(artStringBuilderAppend)               // (uint32_t, const unit32_t*, Thread*)
+    addl MACRO_LITERAL(16), %esp                      // pop arguments
     CFI_ADJUST_CFA_OFFSET(-16)
-    RESTORE_SAVE_REFS_ONLY_FRAME              // restore frame up to return address
-    RETURN_IF_RESULT_IS_NON_ZERO_OR_DELIVER   // return or deliver exception
+    RESTORE_SAVE_REFS_ONLY_FRAME                      // restore frame up to return address
+    RETURN_IF_RESULT_IS_NON_ZERO_OR_DEOPT_OR_DELIVER  // return or deliver exception
 END_FUNCTION art_quick_string_builder_append
 
 // Create a function `name` calling the ReadBarrier::Mark routine,
 // getting its argument and returning its result through register
 // `reg`, saving and restoring all caller-save registers.
 //
-// If `reg` is different from `eax`, the generated function follows a
-// non-standard runtime calling convention:
-// - register `reg` is used to pass the (sole) argument of this function
-//   (instead of EAX);
-// - register `reg` is used to return the result of this function
-//   (instead of EAX);
-// - EAX is treated like a normal (non-argument) caller-save register;
-// - everything else is the same as in the standard runtime calling
-//   convention (e.g. standard callee-save registers are preserved).
+// The generated function follows a non-standard runtime calling convention:
+// - register `reg` (which may differ from EAX) is used to pass the (sole) argument,
+// - register `reg` (which may differ from EAX) is used to return the result,
+// - all other registers are callee-save (the values they hold are preserved).
 MACRO2(READ_BARRIER_MARK_REG, name, reg)
     DEFINE_FUNCTION VAR(name)
     // Null check so that we can load the lock word.
@@ -2313,15 +2233,18 @@ END_FUNCTION art_quick_compile_optimized
 DEFINE_FUNCTION art_quick_method_entry_hook
     SETUP_SAVE_EVERYTHING_FRAME edx
     mov FRAME_SIZE_SAVE_EVERYTHING(%esp), %eax // Fetch ArtMethod
-    subl LITERAL(8), %esp
-    CFI_ADJUST_CFA_OFFSET(8)
+    mov %esp, %edx  // Store esp before pushing anything on stack.
+    subl LITERAL(4), %esp
+    CFI_ADJUST_CFA_OFFSET(4)
 
+    push %edx                       // Pass SP
+    CFI_ADJUST_CFA_OFFSET(4)
     pushl %fs:THREAD_SELF_OFFSET    // Pass Thread::Current().
     CFI_ADJUST_CFA_OFFSET(4)
     pushl %eax                      // Pass Method*.
     CFI_ADJUST_CFA_OFFSET(4)
 
-    call SYMBOL(artMethodEntryHook) // (Method*, Thread*)
+    call SYMBOL(artMethodEntryHook) // (Method*, Thread*, SP)
 
     addl LITERAL(16), %esp          // Pop arguments.
     CFI_ADJUST_CFA_OFFSET(-16)
@@ -2331,40 +2254,34 @@ DEFINE_FUNCTION art_quick_method_entry_hook
 END_FUNCTION art_quick_method_entry_hook
 
 DEFINE_FUNCTION art_quick_method_exit_hook
-    SETUP_SAVE_EVERYTHING_FRAME ebx
+    PUSH edi
+    SETUP_SAVE_EVERYTHING_FRAME_EDI_SAVED edi
 
-    mov FRAME_SIZE_SAVE_EVERYTHING(%esp), %ebx // Remember ArtMethod*
-    subl LITERAL(8), %esp                      // Align stack.
-    CFI_ADJUST_CFA_OFFSET(8)
+    leal FRAME_SIZE_SAVE_EVERYTHING(%esp), %edi // Remember ArtMethod**
+    subl LITERAL(4), %esp                      // Align stack.
+    CFI_ADJUST_CFA_OFFSET(4)
+
     PUSH_ARG edx                   // Save gpr return value. edx and eax need to be together
                                    // which isn't the case in kSaveEverything frame.
     PUSH_ARG eax
     movl %esp, %edx                // Get pointer to gpr_result
-    leal 32(%esp), %eax            // Get pointer to fpr_result, in kSaveEverything frame
+    leal 28(%esp), %eax            // Get pointer to fpr_result, in kSaveEverything frame
+    PUSH_ARG ebx                   // push frame_size
     PUSH_ARG eax                   // Pass fpr_result
     PUSH_ARG edx                   // Pass gpr_result
-    PUSH_ARG ebx                   // Pass ArtMethod*
+    PUSH_ARG edi                   // Pass ArtMethod**
     pushl %fs:THREAD_SELF_OFFSET   // Pass Thread::Current.
     CFI_ADJUST_CFA_OFFSET(4)
-    call SYMBOL(artMethodExitHook) // (Thread*, ArtMethod*, gpr_result*, fpr_result*)
+    call SYMBOL(artMethodExitHook) // (Thread*, ArtMethod**, gpr_result*, fpr_result*,
+                                   // frame_size)
 
     // Return result could have been changed if it's a reference.
-    movl 16(%esp), %ecx
+    movl 20(%esp), %ecx
     movl %ecx, (80+32)(%esp)
     addl LITERAL(32), %esp         // Pop arguments and grp_result.
     CFI_ADJUST_CFA_OFFSET(-32)
 
-    cmpl LITERAL(1), %eax          // Check if we returned error.
-    CFI_REMEMBER_STATE
-    je .Ldo_deliver_instrumentation_exception_exit
-
     // Normal return.
     RESTORE_SAVE_EVERYTHING_FRAME
     ret
-.Ldo_deliver_instrumentation_exception_exit:
-    CFI_RESTORE_STATE_AND_DEF_CFA esp, FRAME_SIZE_SAVE_EVERYTHING
-    DELIVER_PENDING_EXCEPTION_FRAME_READY
 END_FUNCTION art_quick_method_exit_hook
-
-
-

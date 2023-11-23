@@ -22,26 +22,44 @@ import static junit.framework.Assert.assertEquals;
 import static junit.framework.Assert.assertNotNull;
 import static junit.framework.Assert.assertTrue;
 
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.eq;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 
+import android.content.Context;
 import android.net.Uri;
+import android.os.RemoteException;
+import android.telephony.BinderCacheManager;
+import android.telephony.ims.ImsException;
+import android.telephony.ims.SipDelegateManager;
+import android.telephony.ims.SipDialogState;
+import android.telephony.ims.SipDialogStateCallback;
 import android.telephony.ims.SipMessage;
+import android.telephony.ims.aidl.IImsRcsController;
+import android.util.ArraySet;
 import android.util.Base64;
 
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 
+import com.android.internal.telephony.ISipDialogStateCallback;
+import com.android.internal.telephony.ITelephony;
+import com.android.internal.telephony.PhoneFactory;
 import com.android.internal.telephony.metrics.RcsStats;
 
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
 import java.nio.ByteBuffer;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -103,14 +121,29 @@ public class SipSessionTrackerTest {
     private static final String TEST_INVITE_SIP_METHOD = "INVITE";
     private static final int TEST_SIP_RESPONSE_CODE = 200;
     private static final int TEST_SIP_CLOSE_RESPONSE_CODE = 0;
-    @Mock
-    private RcsStats mRcsStats;
+
+    @Mock private RcsStats mRcsStats;
+    private boolean mUpdatedState = false;
+    private SipDialogStateCallback mCallback;
+    private SipDelegateManager mSipManager;
+    private ISipDialogStateCallback mCbBinder;
+    IImsRcsController mMockImsRcsInterface;
+    BinderCacheManager<ITelephony> mBinderCache;
+    BinderCacheManager<IImsRcsController> mRcsBinderCache;
 
     @Before
-    public void setUp() {
+    public void setUp() throws Exception {
         mStringEntryCounter = 0;
         MockitoAnnotations.initMocks(this);
         mTrackerUT = new SipSessionTracker(TEST_SUB_ID, mRcsStats);
+        mMockImsRcsInterface = mock(IImsRcsController.class);
+        mBinderCache = mock(BinderCacheManager.class);
+        mRcsBinderCache = mock(BinderCacheManager.class);
+        doReturn(mMockImsRcsInterface).when(mRcsBinderCache)
+                .listenOnBinder(any(), any(Runnable.class));
+        doReturn(mMockImsRcsInterface).when(mRcsBinderCache)
+                .removeRunnable(any(SipDialogStateCallback.class));
+        doReturn(mMockImsRcsInterface).when(mRcsBinderCache).getBinder();
     }
 
     @Test
@@ -423,6 +456,143 @@ public class SipSessionTrackerTest {
         mTrackerUT.acknowledgePendingMessage(attr.branchId);
         assertTrue(mTrackerUT.getEarlyDialogs().isEmpty());
         verifyContainsCallIds(mTrackerUT.getConfirmedDialogs(), attr);
+    }
+
+    @Test
+    public void testActiveDialogsChanged() throws ImsException {
+        sipDialogStateCallback();
+
+        // first dialog
+        DialogAttributes attr1 = new DialogAttributes();
+        createConfirmedDialog(attr1);
+        assertTrue(mTrackerUT.getEarlyDialogs().isEmpty());
+        verifyContainsCallIds(mTrackerUT.getConfirmedDialogs(), attr1);
+
+        verifyConfirmedStates(true);
+
+        // add a second dialog
+        DialogAttributes attr2 = new DialogAttributes();
+        createConfirmedDialog(attr2);
+        assertTrue(mTrackerUT.getEarlyDialogs().isEmpty());
+        verifyContainsCallIds(mTrackerUT.getConfirmedDialogs(), attr1, attr2);
+        verifyConfirmedStates(true);
+
+        // Send BYE request on first dialog
+        SipMessage byeRequest = generateSipRequest(SipMessageUtils.BYE_SIP_METHOD, attr1);
+        filterMessage(byeRequest, attr1);
+        assertTrue(mTrackerUT.getEarlyDialogs().isEmpty());
+        verifyContainsCallIds(mTrackerUT.getConfirmedDialogs(), attr2);
+        verifyContainsCallIds(mTrackerUT.getClosedDialogs(), attr1);
+        mTrackerUT.cleanupSession(attr1.callId);
+        verifyConfirmedStates(true);
+
+        // Send BYE request on second dialog
+        byeRequest = generateSipRequest(SipMessageUtils.BYE_SIP_METHOD, attr2);
+        filterMessage(byeRequest, attr2);
+        assertTrue(mTrackerUT.getEarlyDialogs().isEmpty());
+        assertTrue(mTrackerUT.getConfirmedDialogs().isEmpty());
+        verifyContainsCallIds(mTrackerUT.getClosedDialogs(), attr2);
+        mTrackerUT.cleanupSession(attr2.callId);
+        assertTrue(mTrackerUT.getEarlyDialogs().isEmpty());
+        assertTrue(mTrackerUT.getConfirmedDialogs().isEmpty());
+        assertTrue(mTrackerUT.getClosedDialogs().isEmpty());
+        verifyConfirmedStates(false);
+        unRegisterCallback();
+    }
+
+    @Test
+    public void testActiveSipDialogsChangedClearAll() throws ImsException {
+        sipDialogStateCallback();
+
+        // first dialog
+        DialogAttributes attr1 = new DialogAttributes();
+        createConfirmedDialog(attr1);
+        assertTrue(mTrackerUT.getEarlyDialogs().isEmpty());
+        verifyContainsCallIds(mTrackerUT.getConfirmedDialogs(), attr1);
+        verifyConfirmedStates(true);
+
+        // add a second dialog
+        DialogAttributes attr2 = new DialogAttributes();
+        createConfirmedDialog(attr2);
+        assertTrue(mTrackerUT.getEarlyDialogs().isEmpty());
+        verifyContainsCallIds(mTrackerUT.getConfirmedDialogs(), attr1, attr2);
+        verifyConfirmedStates(true);
+
+        // cleanAllSessions
+        mTrackerUT.clearAllSessions();
+        assertTrue(mTrackerUT.getEarlyDialogs().isEmpty());
+        assertTrue(mTrackerUT.getConfirmedDialogs().isEmpty());
+        assertTrue(mTrackerUT.getClosedDialogs().isEmpty());
+        verifyConfirmedStates(false);
+        unRegisterCallback();
+    }
+
+    private void sipDialogStateCallback() throws ImsException {
+        mCallback = new SipDialogStateCallback() {
+            @Override
+            public void onActiveSipDialogsChanged(List<SipDialogState> dialogs) {
+                mUpdatedState = isSipDialogActiveState(dialogs);
+            }
+
+            @Override
+            public void onError() { }
+        };
+        registerCallback();
+    }
+
+    private void verifyConfirmedStates(boolean currentState) {
+        List<SipDialogState> dialogStates = new ArrayList<>();
+        for (SipDialog d : (ArraySet<SipDialog>) mTrackerUT.getTrackedDialogs()) {
+            SipDialogState dialog = new SipDialogState.Builder(d.getState()).build();
+            dialogStates.add(dialog);
+        }
+        try {
+            mCbBinder.onActiveSipDialogsChanged(dialogStates);
+        } catch (RemoteException e) {
+            //onActiveSipDialogsChanged error
+        }
+        assertEquals(currentState, mUpdatedState);
+    }
+
+    private void registerCallback() throws ImsException {
+        // Capture the Runnable that was registered.
+        ArgumentCaptor<Runnable> runnableCaptor = ArgumentCaptor.forClass(Runnable.class);
+        // Capture the ISipDialogStateCallback that was registered.
+        ArgumentCaptor<ISipDialogStateCallback> callbackCaptor =
+                ArgumentCaptor.forClass(ISipDialogStateCallback.class);
+
+        Context context = PhoneFactory.getDefaultPhone().getContext();
+        mSipManager = new SipDelegateManager(context,
+                        TEST_SUB_ID, mRcsBinderCache, mBinderCache);
+
+        mSipManager.registerSipDialogStateCallback(Runnable::run, mCallback);
+
+        verify(mRcsBinderCache).listenOnBinder(any(), runnableCaptor.capture());
+        try {
+            verify(mMockImsRcsInterface).registerSipDialogStateCallback(
+                    eq(TEST_SUB_ID), callbackCaptor.capture());
+        } catch (RemoteException e) {
+            //registerSipDialogStateCallback error
+        }
+        mCbBinder = callbackCaptor.getValue();
+    }
+
+    private void unRegisterCallback() {
+        try {
+            mSipManager.unregisterSipDialogStateCallback(mCallback);
+        } catch (ImsException e) {
+            //unregisterSipDialogStateCallback error
+        }
+    }
+
+    private boolean isSipDialogActiveState(List<SipDialogState> dialogs) {
+        int confirmedSize = dialogs.stream().filter(
+                d -> d.getState() == SipDialogState.STATE_CONFIRMED)
+                .collect(Collectors.toSet()).size();
+        if (confirmedSize > 0) {
+            return true;
+        }
+        return false;
     }
 
     private void filterMessage(SipMessage m, DialogAttributes attr) {

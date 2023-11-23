@@ -35,6 +35,7 @@ import java.util.StringJoiner;
 import java.util.Locale;
 import java.util.Formatter;
 import java.util.Comparator;
+import java.util.function.Function;
 import java.util.stream.Stream;
 
 @SuppressWarnings({"unchecked", "deprecation", "all"})
@@ -182,6 +183,14 @@ public boolean isBlank() { throw new RuntimeException("Stub!"); }
 
 @libcore.util.NonNull public java.util.stream.Stream<String> lines() { throw new RuntimeException("Stub!"); }
 
+@libcore.util.NonNull public java.lang.String indent(int n) { throw new RuntimeException("Stub!"); }
+
+@libcore.util.NonNull public java.lang.String stripIndent() { throw new RuntimeException("Stub!"); }
+
+@libcore.util.NonNull public java.lang.String translateEscapes() { throw new RuntimeException("Stub!"); }
+
+@libcore.util.NullFromTypeParam public <R> R transform(@libcore.util.NonNull Function<? super java.lang.String, ? extends @libcore.util.NullFromTypeParam R> f) { throw new RuntimeException("Stub"); }
+
 @libcore.util.NonNull public java.lang.String toString() { throw new RuntimeException("Stub!"); }
 
 public native char[] toCharArray();
@@ -189,6 +198,8 @@ public native char[] toCharArray();
 @libcore.util.NonNull public static java.lang.String format(@libcore.util.NonNull java.lang.String format, java.lang.@libcore.util.Nullable Object @libcore.util.NonNull ... args) { throw new RuntimeException("Stub!"); }
 
 @libcore.util.NonNull public static java.lang.String format(@libcore.util.NonNull java.util.Locale l, @libcore.util.NonNull java.lang.String format, java.lang.@libcore.util.Nullable Object @libcore.util.NonNull ... args) { throw new RuntimeException("Stub!"); }
+
+@libcore.util.NonNull public java.lang.String formatted(java.lang.@libcore.util.Nullable Object @libcore.util.NonNull ... args) { throw new RuntimeException("Stub!"); }
 
 @libcore.util.NonNull public static java.lang.String valueOf(@libcore.util.Nullable java.lang.Object obj) { throw new RuntimeException("Stub!"); }
 

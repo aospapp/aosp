@@ -50,4 +50,7 @@ android_test_helper_app {
         "vts10",
     ],
     sdk_version: "current",
+    errorprone: {
+        enabled: false,
+    },
 }

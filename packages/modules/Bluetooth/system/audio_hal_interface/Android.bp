@@ -13,12 +13,12 @@ cc_library_static {
     defaults: ["fluoride_defaults"],
     include_dirs: [
         "packages/modules/Bluetooth/system",
-        "packages/modules/Bluetooth/system/gd",
         "packages/modules/Bluetooth/system/bta/include",
         "packages/modules/Bluetooth/system/bta/sys",
         "packages/modules/Bluetooth/system/btif/include",
-        "packages/modules/Bluetooth/system/stack/include",
+        "packages/modules/Bluetooth/system/gd",
         "packages/modules/Bluetooth/system/gd/rust/shim",
+        "packages/modules/Bluetooth/system/stack/include",
     ],
     shared_libs: [
         "android.hardware.bluetooth.audio@2.0",
@@ -26,40 +26,40 @@ cc_library_static {
         "libhidlbase",
     ],
     static_libs: [
-        "libosi",
         "libbt-common",
+        "libosi",
     ],
     target: {
         android: {
             shared_libs: [
-                "libfmq",
+                "android.hardware.bluetooth.audio-V3-ndk",
                 "libbinder_ndk",
-                "android.hardware.bluetooth.audio-V2-ndk",
+                "libfmq",
             ],
             srcs: [
+                "a2dp_encoding.cc",
                 "aidl/a2dp_encoding_aidl.cc",
                 "aidl/bluetooth_audio_port_impl.cc",
                 "aidl/client_interface_aidl.cc",
                 "aidl/codec_status_aidl.cc",
                 "aidl/hearing_aid_software_encoding_aidl.cc",
                 "aidl/le_audio_software_aidl.cc",
+                "hal_version_manager.cc",
+                "hearing_aid_software_encoding.cc",
                 "hidl/a2dp_encoding_hidl.cc",
                 "hidl/client_interface_hidl.cc",
                 "hidl/codec_status_hidl.cc",
                 "hidl/hearing_aid_software_encoding_hidl.cc",
                 "hidl/le_audio_software_hidl.cc",
-                "a2dp_encoding.cc",
-                "hearing_aid_software_encoding.cc",
                 "le_audio_software.cc",
-                "hal_version_manager.cc",
             ],
         },
         host: {
             srcs: [
                 "a2dp_encoding_host.cc",
+                "hal_version_manager_host.cc",
                 "hearing_aid_software_encoding_host.cc",
                 "le_audio_software_host.cc",
-                "hal_version_manager_host.cc",
             ],
         },
     },
@@ -67,7 +67,10 @@ cc_library_static {
     cflags: [
         "-DBUILDCFG",
     ],
-    min_sdk_version: "Tiramisu"
+    apex_available: [
+        "com.android.btservices",
+    ],
+    min_sdk_version: "Tiramisu",
 }
 
 // Bluetooth Audio client interface library unit tests for target and host
@@ -83,9 +86,9 @@ cc_test {
         "hidl/client_interface_hidl_unittest.cc",
     ],
     shared_libs: [
+        "android.hardware.bluetooth.audio-V3-ndk",
         "android.hardware.bluetooth.audio@2.0",
         "android.hardware.bluetooth.audio@2.1",
-        "android.hardware.bluetooth.audio-V2-ndk",
         "libbinder_ndk",
         "libcutils",
         "libfmq",
@@ -96,6 +99,7 @@ cc_test {
     static_libs: [
         "libbt-audio-hal-interface",
         "libbt-common",
+        "libchrome",
     ],
     cflags: [
         "-DBUILDCFG",

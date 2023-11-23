@@ -39,7 +39,6 @@ constexpr hci::EventCode SecurityEvents[] = {
     hci::EventCode::KEYPRESS_NOTIFICATION,
     hci::EventCode::USER_CONFIRMATION_REQUEST,
     hci::EventCode::USER_PASSKEY_REQUEST,
-    hci::EventCode::REMOTE_HOST_SUPPORTED_FEATURES_NOTIFICATION,
 };
 
 typedef CommandInterface<SecurityCommandBuilder> SecurityInterface;

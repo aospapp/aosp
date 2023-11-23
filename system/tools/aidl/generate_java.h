@@ -21,6 +21,7 @@
 #include "io_delegate.h"
 #include "options.h"
 
+#include <optional>
 #include <string>
 
 namespace android {
@@ -45,6 +46,8 @@ std::string GenerateComments(const AidlCommentable& node);
 std::string GenerateAnnotations(const AidlNode& node);
 
 std::vector<std::string> JavaAnnotationsFor(const AidlNode& a);
+
+std::optional<std::string> JavaPermissionAnnotation(const AidlAnnotatable& a);
 
 }  // namespace java
 }  // namespace aidl

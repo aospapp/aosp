@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # Copyright (c) 2013 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -69,13 +70,14 @@ class autoupdate_Rollback(update_engine_test.UpdateEngineTest):
 
         """
         self._powerwash_attempted = False
-        update_url = self.get_update_url_for_test(job_repo_url, stateful=True)
+        payload_url = self.get_payload_for_nebraska(job_repo_url)
         active, inactive = kernel_utils.get_kernel_state(self._host)
         logging.info('Initial device state: active kernel %s, '
                      'inactive kernel %s.', active, inactive)
 
         logging.info('Performing an update.')
-        self._check_for_update(update_url, wait_for_completion=True)
+        self._run_client_test_and_check_result('autoupdate_CannedOmahaUpdate',
+                                               payload_url=payload_url)
         self._host.reboot()
         # Ensure the update completed successfully.
         rootfs_hostlog, _ = self._create_hostlog_files()

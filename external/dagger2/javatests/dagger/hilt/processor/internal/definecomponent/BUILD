@@ -34,9 +34,9 @@ GenJavaTests(
         "//java/dagger/hilt/processor/internal/definecomponent:define_components",
         "//java/dagger/hilt/processor/internal/definecomponent:processor_lib",
         "//javatests/dagger/hilt/processor/internal:generated_import",
-        "@google_bazel_common//third_party/java/compile_testing",
-        "@google_bazel_common//third_party/java/junit",
-        "@google_bazel_common//third_party/java/truth",
+        "//third_party/java/compile_testing",
+        "//third_party/java/junit",
+        "//third_party/java/truth",
     ],
 )
 

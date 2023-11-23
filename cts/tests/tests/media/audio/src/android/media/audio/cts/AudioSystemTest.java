@@ -20,12 +20,13 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
 import android.media.AudioSystem;
-import android.media.cts.NonMediaMainlineTest;
 import android.platform.test.annotations.AppModeFull;
 import android.platform.test.annotations.Presubmit;
 
 import androidx.test.filters.SmallTest;
 import androidx.test.runner.AndroidJUnit4;
+
+import com.android.compatibility.common.util.NonMainlineTest;
 
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -37,7 +38,7 @@ import org.junit.runner.RunWith;
  */
 
 @Presubmit
-@NonMediaMainlineTest
+@NonMainlineTest
 @RunWith(AndroidJUnit4.class)
 @SmallTest
 @AppModeFull(reason = "Instant applications do not have permission MODIFY_AUDIO_SETTINGS")

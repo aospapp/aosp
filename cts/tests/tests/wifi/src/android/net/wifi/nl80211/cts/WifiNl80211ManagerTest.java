@@ -21,15 +21,19 @@ import static android.net.wifi.nl80211.WifiNl80211Manager.OemSecurityType;
 import static com.google.common.truth.Truth.assertThat;
 
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.fail;
 import static org.junit.Assume.assumeTrue;
 
 import android.content.Context;
 import android.net.wifi.ScanResult;
 import android.net.wifi.WifiManager;
+import android.net.wifi.WifiScanner;
 import android.net.wifi.cts.WifiFeature;
 import android.net.wifi.nl80211.WifiNl80211Manager;
+import android.os.Binder;
 import android.os.Build;
+import android.os.IBinder;
 import android.platform.test.annotations.AppModeFull;
 
 import androidx.test.ext.junit.runners.AndroidJUnit4;
@@ -82,6 +86,42 @@ public class WifiNl80211ManagerTest {
         @Override
         public void onCountryCodeChanged(String country) {
             mCurrentCountryCode = country;
+        }
+    }
+
+    private class NormalScanEventCallback implements WifiNl80211Manager.ScanEventCallback {
+        private String mIfaceName;
+
+        NormalScanEventCallback(String ifaceName) {
+            mIfaceName = ifaceName;
+        }
+
+        @Override
+        public void onScanResultReady() {
+        }
+
+        @Override
+        public void onScanFailed() {
+        }
+
+        @Override
+        public void onScanFailed(int errorCode) {
+        }
+    }
+
+    private class PnoScanEventCallback implements WifiNl80211Manager.ScanEventCallback {
+        private String mIfaceName;
+
+        PnoScanEventCallback(String ifaceName) {
+            mIfaceName = ifaceName;
+        }
+
+        @Override
+        public void onScanResultReady() {
+        }
+
+        @Override
+        public void onScanFailed() {
         }
     }
 
@@ -140,6 +180,16 @@ public class WifiNl80211ManagerTest {
         } catch (Exception ignore) { }
     }
 
+    @SdkSuppress(minSdkVersion = Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
+    @Test
+    public void testStartScan2() {
+        try {
+            WifiNl80211Manager manager = mContext.getSystemService(WifiNl80211Manager.class);
+            manager.startScan2("wlan0", WifiScanner.SCAN_TYPE_HIGH_ACCURACY,
+                    null, null, null);
+        } catch (Exception ignore) { }
+    }
+
     @Test
     public void testSetOnServiceDeadCallback() {
         try {
@@ -178,5 +228,24 @@ public class WifiNl80211ManagerTest {
             fail("notifyCountryCodeChanged doesn't throws RuntimeException");
         } catch (RuntimeException re) {
         }
+    }
+
+    @SdkSuppress(minSdkVersion = Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
+    @Test
+    public void testWifiNl80211ManagerConstructor() {
+        IBinder testBinder = new Binder();
+        WifiNl80211Manager manager = new WifiNl80211Manager(mContext, testBinder);
+        assertNotNull(manager);
+    }
+
+    @SdkSuppress(minSdkVersion = Build.VERSION_CODES.UPSIDE_DOWN_CAKE)
+    @Test
+    public void testScanEventCallback() {
+        try {
+            WifiNl80211Manager manager = mContext.getSystemService(WifiNl80211Manager.class);
+            manager.setupInterfaceForClientMode("wlan0", Runnable::run,
+                    new NormalScanEventCallback("wlan0"),
+                    new PnoScanEventCallback("wlan0"));
+        } catch (Exception ignore) { }
     }
 }

@@ -24,7 +24,6 @@ import android.graphics.drawable.GradientDrawable;
 import android.util.AttributeSet;
 import android.util.Log;
 import android.view.View;
-import android.widget.TextView;
 
 import androidx.annotation.Nullable;
 import androidx.annotation.VisibleForTesting;
@@ -41,7 +40,6 @@ public class BackgroundAdjustingTemperatureControlView extends TemperatureContro
     private final static String TAG = "BgAdjTemperatureCtlView";
 
     private View mTemperatureBarView;
-    private TextView mTempTextView;
     private int[] mUpperLimits;
     private @ColorInt int[] mTempColors;
     private int mOffColor;
@@ -55,7 +53,6 @@ public class BackgroundAdjustingTemperatureControlView extends TemperatureContro
     public void onFinishInflate() {
         super.onFinishInflate();
         mTemperatureBarView = findViewById(R.id.hvac_temperature_bar);
-        mTempTextView = findViewById(R.id.hvac_temperature_text);
 
         Resources res = getResources();
         mUpperLimits = res.getIntArray(R.array.hvac_temperature_control_levels);

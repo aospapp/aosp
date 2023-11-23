@@ -15,3 +15,8 @@ BE_TO_LE_SCRIPT = $(CHRE_PREFIX)/build/be_to_le.sh
 ifneq ($(CHRE_BUILD_VERBOSE),true)
 V=@
 endif
+
+# Default tools definitions ####################################################
+
+PYTHON ?= python3
+

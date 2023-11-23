@@ -42,10 +42,8 @@ class MockHttpFetcher : public HttpFetcher {
  public:
   // The data passed in here is copied and then passed to the delegate after
   // the transfer begins.
-  MockHttpFetcher(const uint8_t* data,
-                  size_t size,
-                  ProxyResolver* proxy_resolver)
-      : HttpFetcher(proxy_resolver),
+  MockHttpFetcher(const uint8_t* data, size_t size)
+      : HttpFetcher(),
         sent_offset_(0),
         timeout_id_(brillo::MessageLoop::kTaskIdNull),
         paused_(false),
@@ -55,9 +53,8 @@ class MockHttpFetcher : public HttpFetcher {
   }
 
   // Constructor overload for string data.
-  MockHttpFetcher(const char* data, size_t size, ProxyResolver* proxy_resolver)
-      : MockHttpFetcher(
-            reinterpret_cast<const uint8_t*>(data), size, proxy_resolver) {}
+  MockHttpFetcher(const char* data, size_t size)
+      : MockHttpFetcher(reinterpret_cast<const uint8_t*>(data), size) {}
 
   // Cleans up all internal state. Does not notify delegate
   ~MockHttpFetcher() override;

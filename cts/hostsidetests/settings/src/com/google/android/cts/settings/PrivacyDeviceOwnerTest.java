@@ -29,6 +29,7 @@ import com.android.tradefed.result.TestResult;
 import com.android.tradefed.result.TestRunResult;
 import com.android.tradefed.testtype.DeviceTestCase;
 import com.android.tradefed.testtype.IBuildReceiver;
+
 import java.io.FileNotFoundException;
 import java.util.HashSet;
 import java.util.LinkedList;
@@ -36,6 +37,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
+
 import javax.annotation.Nullable;
 
 /** Set of tests for Device Owner use cases. */
@@ -271,16 +273,12 @@ public class PrivacyDeviceOwnerTest extends DeviceTestCase implements IBuildRece
                 + " android.permission.INTERACT_ACROSS_USERS");
     }
 
-    // TODO (b/174775905) remove after exposing the check from ITestDevice.
     boolean isHeadlessSystemUserMode() throws DeviceNotAvailableException {
         return isHeadlessSystemUserMode(getDevice());
     }
 
-    // TODO (b/174775905) remove after exposing the check from ITestDevice.
     public static boolean isHeadlessSystemUserMode(ITestDevice device)
             throws DeviceNotAvailableException {
-        final String result = device
-                .executeShellCommand("getprop ro.fw.mu.headless_system_user").trim();
-        return "true".equalsIgnoreCase(result);
+        return device.isHeadlessSystemUserMode();
     }
 }

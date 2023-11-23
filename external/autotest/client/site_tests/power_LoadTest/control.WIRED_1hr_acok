@@ -2,15 +2,17 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-AUTHOR = "Chrome OS Team"
+AUTHOR = "ChromeOS Team"
 NAME = "power_LoadTest.WIRED_1hr_acok"
-ATTRIBUTES = "suite:power_daily, suite:debug_kernel_testing"
+ATTRIBUTES = "suite:debug_kernel_testing"
 PURPOSE = "Measure power draw when system is under load."
 CRITERIA = "This test is a benchmark."
-TIME = "LONG"
+TIME = "LENGTHY"
 TEST_CATEGORY = "Benchmark"
 TEST_CLASS = "power"
 TEST_TYPE = "client"
+EXTENDED_TIMEOUT = 4500
+PY_VERSION = 3
 
 DOC = """
 This test runs a load test consisting of cycling though web pages, playing

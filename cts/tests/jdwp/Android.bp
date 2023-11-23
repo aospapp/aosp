@@ -35,4 +35,5 @@ java_test {
         enabled: false,
     },
     data: [":cts-dalvik-device-test-runner"],
+    host_required: ["cts-dalvik-host-test-runner"],
 }

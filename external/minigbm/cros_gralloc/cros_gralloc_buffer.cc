@@ -19,14 +19,14 @@ cros_gralloc_buffer::create(struct bo *acquire_bo,
 	auto acquire_hnd =
 	    reinterpret_cast<struct cros_gralloc_handle *>(native_handle_clone(borrowed_handle));
 	if (!acquire_hnd) {
-		drv_log("Failed to create cros_gralloc_buffer: failed to clone handle.\n");
+		ALOGE("Failed to create cros_gralloc_buffer: failed to clone handle.");
 		return {};
 	}
 
 	std::unique_ptr<cros_gralloc_buffer> buffer(
 	    new cros_gralloc_buffer(acquire_bo, acquire_hnd));
 	if (!buffer) {
-		drv_log("Failed to create cros_gralloc_buffer: failed to allocate.\n");
+		ALOGE("Failed to create cros_gralloc_buffer: failed to allocate.");
 		native_handle_close(acquire_hnd);
 		native_handle_delete(acquire_hnd);
 		return {};
@@ -63,6 +63,11 @@ uint32_t cros_gralloc_buffer::get_id() const
 uint32_t cros_gralloc_buffer::get_width() const
 {
 	return hnd_->width;
+}
+
+uint32_t cros_gralloc_buffer::get_pixel_stride() const
+{
+	return hnd_->pixel_stride;
 }
 
 uint32_t cros_gralloc_buffer::get_height() const
@@ -138,7 +143,7 @@ int32_t cros_gralloc_buffer::lock(const struct rectangle *rect, uint32_t map_fla
 	 * just use the first kernel buffer.
 	 */
 	if (drv_num_buffers_per_bo(bo_) != 1) {
-		drv_log("Can only support one buffer per bo.\n");
+		ALOGE("Can only support one buffer per bo.");
 		return -EINVAL;
 	}
 
@@ -162,7 +167,7 @@ int32_t cros_gralloc_buffer::lock(const struct rectangle *rect, uint32_t map_fla
 		}
 
 		if (vaddr == MAP_FAILED) {
-			drv_log("Mapping failed.\n");
+			ALOGE("Mapping failed.");
 			return -EFAULT;
 		}
 	}
@@ -177,7 +182,7 @@ int32_t cros_gralloc_buffer::lock(const struct rectangle *rect, uint32_t map_fla
 int32_t cros_gralloc_buffer::unlock()
 {
 	if (lockcount_ <= 0) {
-		drv_log("Buffer was not locked.\n");
+		ALOGE("Buffer was not locked.");
 		return -EINVAL;
 	}
 
@@ -201,7 +206,7 @@ int32_t cros_gralloc_buffer::resource_info(uint32_t strides[DRV_MAX_PLANES],
 int32_t cros_gralloc_buffer::invalidate()
 {
 	if (lockcount_ <= 0) {
-		drv_log("Buffer was not locked.\n");
+		ALOGE("Buffer was not locked.");
 		return -EINVAL;
 	}
 
@@ -214,7 +219,7 @@ int32_t cros_gralloc_buffer::invalidate()
 int32_t cros_gralloc_buffer::flush()
 {
 	if (lockcount_ <= 0) {
-		drv_log("Buffer was not locked.\n");
+		ALOGE("Buffer was not locked.");
 		return -EINVAL;
 	}
 
@@ -228,7 +233,7 @@ int32_t cros_gralloc_buffer::get_reserved_region(void **addr, uint64_t *size) co
 {
 	int32_t reserved_region_fd = hnd_->fds[hnd_->num_planes];
 	if (reserved_region_fd < 0) {
-		drv_log("Buffer does not have reserved region.\n");
+		ALOGE("Buffer does not have reserved region.");
 		return -EINVAL;
 	}
 
@@ -237,7 +242,7 @@ int32_t cros_gralloc_buffer::get_reserved_region(void **addr, uint64_t *size) co
 		    mmap(nullptr, hnd_->reserved_region_size, PROT_WRITE | PROT_READ, MAP_SHARED,
 			 reserved_region_fd, 0);
 		if (reserved_region_addr_ == MAP_FAILED) {
-			drv_log("Failed to mmap reserved region: %s.\n", strerror(errno));
+			ALOGE("Failed to mmap reserved region: %s.", strerror(errno));
 			return -errno;
 		}
 	}

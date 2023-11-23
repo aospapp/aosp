@@ -14,11 +14,12 @@
  * limitations under the License.
  */
 
+import com.google.common.truth.Truth.assertThat
 import java.io.DataInputStream
 import java.io.FileInputStream
 import javassist.bytecode.ByteArray
 import javassist.bytecode.ClassFile
-import junit.framework.Assert.assertEquals
+import javassist.bytecode.SignatureAttribute
 import org.gradle.testkit.runner.TaskOutcome
 import org.junit.Assert
 import org.junit.Before
@@ -278,12 +279,12 @@ class TransformTest {
 
     gradleRunner.build().let {
       val assembleTask = it.getTask(TRANSFORM_TASK_NAME)
-      assertEquals(TaskOutcome.SUCCESS, assembleTask.outcome)
+      assertThat(assembleTask.outcome).isEqualTo(TaskOutcome.SUCCESS)
     }
 
     gradleRunner.build().let {
       val assembleTask = it.getTask(TRANSFORM_TASK_NAME)
-      assertEquals(TaskOutcome.UP_TO_DATE, assembleTask.outcome)
+      assertThat(assembleTask.outcome).isEqualTo(TaskOutcome.UP_TO_DATE)
     }
 
     gradleRunner.addSrc(
@@ -303,7 +304,94 @@ class TransformTest {
 
     val result = gradleRunner.build()
     val assembleTask = result.getTask(TRANSFORM_TASK_NAME)
-    assertEquals(TaskOutcome.SUCCESS, assembleTask.outcome)
+    assertThat(assembleTask.outcome).isEqualTo(TaskOutcome.SUCCESS)
+  }
+
+  // Verifies the Signature attribute in the ClassFile is updated when the superclass uses type
+  // variables or parameterized types.
+  // See: https://docs.oracle.com/javase/specs/jvms/se8/html/jvms-4.html#jvms-4.7.9
+  @Test
+  fun testTransform_genericSuperclass() {
+    gradleRunner.addDependencies(
+      "implementation 'androidx.appcompat:appcompat:1.1.0'",
+      "implementation 'com.google.dagger:hilt-android:LOCAL-SNAPSHOT'",
+      "annotationProcessor 'com.google.dagger:hilt-compiler:LOCAL-SNAPSHOT'"
+    )
+
+    gradleRunner.addSrc(
+      srcPath = "minimal/BaseActivity.java",
+      srcContent =
+      """
+        package minimal;
+
+        import androidx.appcompat.app.AppCompatActivity;
+
+        public abstract class BaseActivity<T> extends AppCompatActivity {
+        }
+        """.trimIndent()
+    )
+
+    gradleRunner.addSrc(
+      srcPath = "minimal/SimpleActivity.java",
+      srcContent =
+      """
+        package minimal;
+
+        @dagger.hilt.android.AndroidEntryPoint
+        public class SimpleActivity extends BaseActivity<String> {
+        }
+        """.trimIndent()
+    )
+
+    gradleRunner.addSrc(
+      srcPath = "minimal/BasicActivityThing.java",
+      srcContent =
+      """
+        package minimal;
+
+        public class BasicActivityThing {
+        }
+        """.trimIndent()
+    )
+
+    gradleRunner.addSrc(
+      srcPath = "minimal/BasicActivity.java",
+      srcContent =
+      """
+        package minimal;
+
+        @dagger.hilt.android.AndroidEntryPoint
+        public class BasicActivity extends BaseActivity<BasicActivityThing> {
+        }
+        """.trimIndent()
+    )
+
+    val result = gradleRunner.build()
+    val assembleTask = result.getTask(":assembleDebug")
+    Assert.assertEquals(TaskOutcome.SUCCESS, assembleTask.outcome)
+
+    val transformedClass1 = result.getTransformedFile("minimal/SimpleActivity.class")
+    FileInputStream(transformedClass1).use { fileInput ->
+      ClassFile(DataInputStream(fileInput)).let { classFile ->
+        Assert.assertEquals("minimal.Hilt_SimpleActivity", classFile.superclass)
+        val signatureAttr = classFile.getAttribute(SignatureAttribute.tag) as SignatureAttribute
+        Assert.assertEquals(
+          "Lminimal/Hilt_SimpleActivity<Ljava/lang/String;>;",
+          signatureAttr.signature
+        )
+      }
+    }
+
+    val transformedClass2 = result.getTransformedFile("minimal/BasicActivity.class")
+    FileInputStream(transformedClass2).use { fileInput ->
+      ClassFile(DataInputStream(fileInput)).let { classFile ->
+        val signatureAttr = classFile.getAttribute(SignatureAttribute.tag) as SignatureAttribute
+        Assert.assertEquals(
+          "Lminimal/Hilt_BasicActivity<Lminimal/BasicActivityThing;>;",
+          signatureAttr.signature
+        )
+      }
+    }
   }
 
   companion object {

@@ -30,7 +30,7 @@ public class OldListIteratorTest extends TestCase {
     {
         objArray = new Object[100];
         for (int i = 0; i < objArray.length; i++)
-            objArray[i] = new Integer(i);
+            objArray[i] = Integer.valueOf(i);
     }
 
     public void testHasNext() {
@@ -172,7 +172,7 @@ public class OldListIteratorTest extends TestCase {
 
     public void testSet() {
         try {
-            l.set(new Integer(1));
+            l.set(Integer.valueOf(1));
             fail("IllegalStateException expected");
         } catch (IllegalStateException e) {
             //expected
@@ -185,7 +185,7 @@ public class OldListIteratorTest extends TestCase {
 
         l.remove();
         try {
-            l.set(new Integer(1));
+            l.set(Integer.valueOf(1));
             fail("IllegalStateException expected");
         } catch (IllegalStateException e) {
             //expected
@@ -216,7 +216,7 @@ public class OldListIteratorTest extends TestCase {
     }
 
     public void testAdd() {
-        l.add(new Integer(33));
+        l.add(Integer.valueOf(33));
 
         Mock_ListIterator ml = new Mock_ListIterator();
         ml.next();

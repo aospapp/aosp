@@ -74,7 +74,7 @@ public class OtherProfileManualListenableFutureTest {
   @Test
   public void
       other_listenableFuture_manualConnection_workProfileIsTurnedOff_doesSetUnavailableProfileExceptionImmediately() {
-    testUtilities.startConnectingAndWait();
+    testUtilities.addDefaultConnectionHolderAndWait();
     testUtilities.turnOffWorkProfile();
 
     testUtilities.assertFutureHasException(
@@ -86,7 +86,7 @@ public class OtherProfileManualListenableFutureTest {
   public void other_listenableFuture_manualConnection_isBound_callsMethod()
       throws ExecutionException, InterruptedException {
     testUtilities.turnOnWorkProfile();
-    testUtilities.startConnectingAndWait();
+    testUtilities.addDefaultConnectionHolderAndWait();
 
     profileTestCrossProfileType.other().listenableFutureVoidMethod().get();
 

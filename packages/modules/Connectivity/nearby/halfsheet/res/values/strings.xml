@@ -35,8 +35,22 @@
       [CHAR LIMIT=30]
     -->
     <string name="fast_pair_device_ready">Device connected</string>
+    <string name="fast_pair_device_ready_with_device_name" description="Notification title combined with device name after we successfully pair with the audio device. For example: Connected to &quot;Tommy's Bose QC35.&quot; [BACKUP_MESSAGE_ID: 6018442069058338390]">Connected to \u201c%s\u201d</string>
     <!-- Title text shown when peripheral device fail to connect to phone. [CHAR_LIMIT=30] -->
     <string name="fast_pair_title_fail">Couldn\'t connect</string>
+    <string name="fast_pair_unable_to_connect" description="Notification title after a pairing has failed. [CHAR LIMIT=30]">Unable to connect</string>
+    <string name="fast_pair_unable_to_connect_description" description="Notification body after a pairing has failed. [CHAR LIMIT=120]">Try manually pairing to the device</string>
+    <string name="fast_pair_turn_on_bt_device_pairing_mode" description="Notification body after a pairing has failed. [CHAR LIMIT=120]">Try putting the device into pairing mode</string>
+
+    <!--
+      ============================================================
+      PAIRING NOTIFICATION
+      ============================================================
+    -->
+
+    <string name="devices_within_reach_channel_name" description="Notification channel for devices within reach. [CHAR LIMIT=37]">Devices within reach</string>
+    <string name="devices_with_your_account_channel_name" description="Notification channel for devices that are connected to the user's account. [CHAR LIMIT=37]">Devices with your account</string>
+    <string name="fast_pair_your_device" description="Notification title for devices that are recognized as being owned by you. [CHAR LIMIT=30]">Your saved device is available</string>
 
     <!--
       ============================================================
@@ -44,6 +58,14 @@
       ============================================================
     -->
 
+    <!-- Title for Nearby component [CHAR LIMIT=40] -->
+    <string name="common_nearby_title">Nearby</string>
+    <!-- The product name for devices notification and list view. [CHAR LIMIT=37]-->
+    <string name="common_devices">Devices</string>
+    <!-- Text used to indicate that a connection attempt is ongoing [CHAR LIMIT=20] -->
+    <string name="common_connecting">Connecting&#8230;</string>
+    <!-- Label describing the battery level, for example "Battery: 72%". [CHAR LIMIT=60] -->
+    <string name="common_battery_level">Battery: %d%%</string>
     <!--
       A button shown after paring process to dismiss the current activity.
       [CHAR LIMIT=30]

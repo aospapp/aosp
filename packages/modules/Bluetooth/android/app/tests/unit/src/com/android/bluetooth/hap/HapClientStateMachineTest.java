@@ -20,7 +20,10 @@ package com.android.bluetooth.hap;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.after;
+import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.timeout;
+import static org.mockito.Mockito.verify;
 
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
@@ -28,20 +31,24 @@ import android.bluetooth.BluetoothProfile;
 import android.content.Context;
 import android.content.Intent;
 import android.os.HandlerThread;
+import android.os.Message;
 import android.test.suitebuilder.annotation.MediumTest;
 
 import androidx.test.InstrumentationRegistry;
 import androidx.test.runner.AndroidJUnit4;
 
-import com.android.bluetooth.R;
 import com.android.bluetooth.TestUtils;
 import com.android.bluetooth.btservice.AdapterService;
 
 import org.hamcrest.core.IsInstanceOf;
-import org.junit.*;
+import org.junit.After;
+import org.junit.Assert;
+import org.junit.Before;
+import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
+import org.mockito.Mockito;
 import org.mockito.MockitoAnnotations;
 
 @MediumTest
@@ -256,5 +263,119 @@ public class HapClientStateMachineTest {
         Assert.assertThat(mHapClientStateMachine.getCurrentState(),
                 IsInstanceOf.instanceOf(HapClientStateMachine.Disconnected.class));
         verify(mHearingAccessGattClientInterface).disconnectHapClient(eq(mTestDevice));
+    }
+
+    @Test
+    public void testStatesChangesWithMessages() {
+        allowConnection(true);
+        doReturn(true).when(mHearingAccessGattClientInterface).connectHapClient(any(
+                BluetoothDevice.class));
+
+        // Check that we are in Disconnected state
+        Assert.assertThat(mHapClientStateMachine.getCurrentState(),
+                IsInstanceOf.instanceOf(HapClientStateMachine.Disconnected.class));
+
+        mHapClientStateMachine.sendMessage(HapClientStateMachine.DISCONNECT);
+        // verify disconnectHapClient was called
+        verify(mHearingAccessGattClientInterface, timeout(TIMEOUT_MS).times(1))
+                .disconnectHapClient(any(BluetoothDevice.class));
+
+        // disconnected -> connecting
+        sendMessageAndVerifyTransition(
+                mHapClientStateMachine.obtainMessage(HapClientStateMachine.CONNECT),
+                HapClientStateMachine.Connecting.class);
+        // connecting -> disconnected
+        sendMessageAndVerifyTransition(
+                mHapClientStateMachine.obtainMessage(HapClientStateMachine.CONNECT_TIMEOUT),
+                HapClientStateMachine.Disconnected.class);
+
+        // disconnected -> connecting
+        sendMessageAndVerifyTransition(
+                mHapClientStateMachine.obtainMessage(HapClientStateMachine.CONNECT),
+                HapClientStateMachine.Connecting.class);
+        // connecting -> disconnected
+        sendMessageAndVerifyTransition(
+                mHapClientStateMachine.obtainMessage(HapClientStateMachine.DISCONNECT),
+                HapClientStateMachine.Disconnected.class);
+
+        // disconnected -> connecting
+        sendMessageAndVerifyTransition(
+                mHapClientStateMachine.obtainMessage(HapClientStateMachine.CONNECT),
+                HapClientStateMachine.Connecting.class);
+        // connecting -> disconnecting
+        HapClientStackEvent connStCh = new HapClientStackEvent(
+                HapClientStackEvent.EVENT_TYPE_CONNECTION_STATE_CHANGED);
+        connStCh.device = mTestDevice;
+        connStCh.valueInt1 = HapClientStackEvent.CONNECTION_STATE_DISCONNECTING;
+        sendMessageAndVerifyTransition(
+                mHapClientStateMachine.obtainMessage(HapClientStateMachine.STACK_EVENT, connStCh),
+                HapClientStateMachine.Disconnecting.class);
+        // disconnecting -> connecting
+        connStCh = new HapClientStackEvent(
+                HapClientStackEvent.EVENT_TYPE_CONNECTION_STATE_CHANGED);
+        connStCh.device = mTestDevice;
+        connStCh.valueInt1 = HapClientStackEvent.CONNECTION_STATE_CONNECTING;
+        sendMessageAndVerifyTransition(
+                mHapClientStateMachine.obtainMessage(HapClientStateMachine.STACK_EVENT, connStCh),
+                HapClientStateMachine.Connecting.class);
+        // connecting -> connected
+        connStCh = new HapClientStackEvent(
+                HapClientStackEvent.EVENT_TYPE_CONNECTION_STATE_CHANGED);
+        connStCh.device = mTestDevice;
+        connStCh.valueInt1 = HapClientStackEvent.CONNECTION_STATE_CONNECTED;
+        sendMessageAndVerifyTransition(
+                mHapClientStateMachine.obtainMessage(HapClientStateMachine.STACK_EVENT, connStCh),
+                HapClientStateMachine.Connected.class);
+        // connected -> disconnecting
+        connStCh = new HapClientStackEvent(
+                HapClientStackEvent.EVENT_TYPE_CONNECTION_STATE_CHANGED);
+        connStCh.device = mTestDevice;
+        connStCh.valueInt1 = HapClientStackEvent.CONNECTION_STATE_DISCONNECTING;
+        sendMessageAndVerifyTransition(
+                mHapClientStateMachine.obtainMessage(HapClientStateMachine.STACK_EVENT, connStCh),
+                HapClientStateMachine.Disconnecting.class);
+        // disconnecting -> disconnected
+        sendMessageAndVerifyTransition(
+                mHapClientStateMachine.obtainMessage(HapClientStateMachine.CONNECT_TIMEOUT),
+                HapClientStateMachine.Disconnected.class);
+
+        // disconnected -> connected
+        connStCh = new HapClientStackEvent(
+                HapClientStackEvent.EVENT_TYPE_CONNECTION_STATE_CHANGED);
+        connStCh.device = mTestDevice;
+        connStCh.valueInt1 = HapClientStackEvent.CONNECTION_STATE_CONNECTED;
+        sendMessageAndVerifyTransition(
+                mHapClientStateMachine.obtainMessage(HapClientStateMachine.STACK_EVENT, connStCh),
+                HapClientStateMachine.Connected.class);
+        // connected -> disconnected
+        sendMessageAndVerifyTransition(
+                mHapClientStateMachine.obtainMessage(HapClientStateMachine.DISCONNECT),
+                HapClientStateMachine.Disconnected.class);
+
+        // disconnected -> connected
+        connStCh = new HapClientStackEvent(
+                HapClientStackEvent.EVENT_TYPE_CONNECTION_STATE_CHANGED);
+        connStCh.device = mTestDevice;
+        connStCh.valueInt1 = HapClientStackEvent.CONNECTION_STATE_CONNECTED;
+        sendMessageAndVerifyTransition(
+                mHapClientStateMachine.obtainMessage(HapClientStateMachine.STACK_EVENT, connStCh),
+                HapClientStateMachine.Connected.class);
+        // connected -> disconnected
+        connStCh = new HapClientStackEvent(
+                HapClientStackEvent.EVENT_TYPE_CONNECTION_STATE_CHANGED);
+        connStCh.device = mTestDevice;
+        connStCh.valueInt1 = HapClientStackEvent.CONNECTION_STATE_DISCONNECTED;
+        sendMessageAndVerifyTransition(
+                mHapClientStateMachine.obtainMessage(HapClientStateMachine.STACK_EVENT, connStCh),
+                HapClientStateMachine.Disconnected.class);
+    }
+
+    private <T> void sendMessageAndVerifyTransition(Message msg, Class<T> type) {
+        Mockito.clearInvocations(mHapClientService);
+        mHapClientStateMachine.sendMessage(msg);
+        // Verify that one connection state broadcast is executed
+        verify(mHapClientService, timeout(TIMEOUT_MS).times(1)).sendBroadcast(
+                any(Intent.class), anyString());
+        Assert.assertThat(mHapClientStateMachine.getCurrentState(), IsInstanceOf.instanceOf(type));
     }
 }

@@ -56,6 +56,7 @@ import android.net.NetworkStack;
 import android.net.wifi.WifiConfiguration;
 import android.net.wifi.WifiSsid;
 import android.os.Build;
+import android.os.Process;
 import android.os.UserHandle;
 import android.os.UserManager;
 import android.permission.PermissionManager;
@@ -174,6 +175,7 @@ public class WifiPermissionsUtilTest extends WifiBaseTest {
         setupTestCase();
         WifiPermissionsUtil codeUnderTest = new WifiPermissionsUtil(mMockPermissionsWrapper,
                 mMockContext, mMockUserManager, mWifiInjector);
+        codeUnderTest.enableVerboseLogging(true);
         when(mMockPermissionsWrapper.getOverrideWifiConfigPermission(anyInt()))
                 .thenReturn(PackageManager.PERMISSION_GRANTED);
         assertTrue(codeUnderTest.checkConfigOverridePermission(mUid));
@@ -188,6 +190,7 @@ public class WifiPermissionsUtilTest extends WifiBaseTest {
         setupTestCase();
         WifiPermissionsUtil codeUnderTest = new WifiPermissionsUtil(mMockPermissionsWrapper,
                 mMockContext, mMockUserManager, mWifiInjector);
+        codeUnderTest.enableVerboseLogging(true);
         when(mMockPermissionsWrapper.getOverrideWifiConfigPermission(anyInt()))
                 .thenReturn(PackageManager.PERMISSION_DENIED);
         assertFalse(codeUnderTest.checkConfigOverridePermission(mUid));
@@ -213,6 +216,7 @@ public class WifiPermissionsUtilTest extends WifiBaseTest {
         setupTestCase();
         WifiPermissionsUtil codeUnderTest = new WifiPermissionsUtil(mMockPermissionsWrapper,
                 mMockContext, mMockUserManager, mWifiInjector);
+        codeUnderTest.enableVerboseLogging(true);
         codeUnderTest.enforceCanAccessScanResults(TEST_PACKAGE_NAME, TEST_FEATURE_ID, mUid, null);
     }
 
@@ -235,6 +239,7 @@ public class WifiPermissionsUtilTest extends WifiBaseTest {
         setupTestCase();
         WifiPermissionsUtil codeUnderTest = new WifiPermissionsUtil(mMockPermissionsWrapper,
                 mMockContext, mMockUserManager, mWifiInjector);
+        codeUnderTest.enableVerboseLogging(true);
         codeUnderTest.enforceCanAccessScanResults(TEST_PACKAGE_NAME, TEST_FEATURE_ID, mUid, null);
     }
 
@@ -251,6 +256,7 @@ public class WifiPermissionsUtilTest extends WifiBaseTest {
         setupTestCase();
         WifiPermissionsUtil codeUnderTest = new WifiPermissionsUtil(mMockPermissionsWrapper,
                 mMockContext, mMockUserManager, mWifiInjector);
+        codeUnderTest.enableVerboseLogging(true);
         try {
             codeUnderTest.enforceCanAccessScanResults(TEST_PACKAGE_NAME, TEST_FEATURE_ID, mUid,
                     null);
@@ -280,6 +286,7 @@ public class WifiPermissionsUtilTest extends WifiBaseTest {
         setupTestCase();
         WifiPermissionsUtil codeUnderTest = new WifiPermissionsUtil(mMockPermissionsWrapper,
                 mMockContext, mMockUserManager, mWifiInjector);
+        codeUnderTest.enableVerboseLogging(true);
         codeUnderTest.enforceCanAccessScanResults(TEST_PACKAGE_NAME, TEST_FEATURE_ID, mUid, null);
     }
 
@@ -300,6 +307,7 @@ public class WifiPermissionsUtilTest extends WifiBaseTest {
         setupTestCase();
         WifiPermissionsUtil codeUnderTest = new WifiPermissionsUtil(mMockPermissionsWrapper,
                 mMockContext, mMockUserManager, mWifiInjector);
+        codeUnderTest.enableVerboseLogging(true);
         try {
             codeUnderTest.enforceCanAccessScanResults(TEST_PACKAGE_NAME, TEST_FEATURE_ID, mUid,
                     null);
@@ -325,6 +333,7 @@ public class WifiPermissionsUtilTest extends WifiBaseTest {
         setupTestCase();
         WifiPermissionsUtil codeUnderTest = new WifiPermissionsUtil(mMockPermissionsWrapper,
                 mMockContext, mMockUserManager, mWifiInjector);
+        codeUnderTest.enableVerboseLogging(true);
         try {
             codeUnderTest.enforceCanAccessScanResults(TEST_PACKAGE_NAME, TEST_FEATURE_ID, mUid,
                     null);
@@ -353,6 +362,7 @@ public class WifiPermissionsUtilTest extends WifiBaseTest {
         setupTestCase();
         WifiPermissionsUtil codeUnderTest = new WifiPermissionsUtil(mMockPermissionsWrapper,
                 mMockContext, mMockUserManager, mWifiInjector);
+        codeUnderTest.enableVerboseLogging(true);
         codeUnderTest.enforceCanAccessScanResults(TEST_PACKAGE_NAME, TEST_FEATURE_ID, mUid, null);
     }
 
@@ -373,6 +383,7 @@ public class WifiPermissionsUtilTest extends WifiBaseTest {
         setupTestCase();
         WifiPermissionsUtil codeUnderTest = new WifiPermissionsUtil(mMockPermissionsWrapper,
                 mMockContext, mMockUserManager, mWifiInjector);
+        codeUnderTest.enableVerboseLogging(true);
         try {
             codeUnderTest.enforceCanAccessScanResults(TEST_PACKAGE_NAME, TEST_FEATURE_ID, mUid,
                     null);
@@ -402,6 +413,7 @@ public class WifiPermissionsUtilTest extends WifiBaseTest {
 
         WifiPermissionsUtil codeUnderTest = new WifiPermissionsUtil(mMockPermissionsWrapper,
                 mMockContext, mMockUserManager, mWifiInjector);
+        codeUnderTest.enableVerboseLogging(true);
         try {
             codeUnderTest.enforceCanAccessScanResults(TEST_PACKAGE_NAME, TEST_FEATURE_ID, mUid,
                     null);
@@ -435,6 +447,7 @@ public class WifiPermissionsUtilTest extends WifiBaseTest {
 
         WifiPermissionsUtil codeUnderTest = new WifiPermissionsUtil(mMockPermissionsWrapper,
                 mMockContext, mMockUserManager, mWifiInjector);
+        codeUnderTest.enableVerboseLogging(true);
         try {
             codeUnderTest.enforceCanAccessScanResults(TEST_PACKAGE_NAME, TEST_FEATURE_ID, mUid,
                     null);
@@ -469,6 +482,7 @@ public class WifiPermissionsUtilTest extends WifiBaseTest {
 
         WifiPermissionsUtil codeUnderTest = new WifiPermissionsUtil(mMockPermissionsWrapper,
                 mMockContext, mMockUserManager, mWifiInjector);
+        codeUnderTest.enableVerboseLogging(true);
         try {
             codeUnderTest.enforceCanAccessScanResults(TEST_PACKAGE_NAME, TEST_FEATURE_ID, mUid,
                     null);
@@ -506,6 +520,7 @@ public class WifiPermissionsUtilTest extends WifiBaseTest {
 
         WifiPermissionsUtil codeUnderTest = new WifiPermissionsUtil(mMockPermissionsWrapper,
                 mMockContext, mMockUserManager, mWifiInjector);
+        codeUnderTest.enableVerboseLogging(true);
         try {
             codeUnderTest.enforceCanAccessScanResults(TEST_PACKAGE_NAME, TEST_FEATURE_ID, mUid,
                     null);
@@ -543,6 +558,7 @@ public class WifiPermissionsUtilTest extends WifiBaseTest {
 
         WifiPermissionsUtil codeUnderTest = new WifiPermissionsUtil(mMockPermissionsWrapper,
                 mMockContext, mMockUserManager, mWifiInjector);
+        codeUnderTest.enableVerboseLogging(true);
         codeUnderTest.enforceCanAccessScanResults(TEST_PACKAGE_NAME, TEST_FEATURE_ID, mUid, null);
     }
 
@@ -575,6 +591,7 @@ public class WifiPermissionsUtilTest extends WifiBaseTest {
 
         WifiPermissionsUtil codeUnderTest = new WifiPermissionsUtil(mMockPermissionsWrapper,
                 mMockContext, mMockUserManager, mWifiInjector);
+        codeUnderTest.enableVerboseLogging(true);
         try {
             codeUnderTest.enforceCanAccessScanResults(TEST_PACKAGE_NAME, TEST_FEATURE_ID, mUid,
                     null);
@@ -612,6 +629,7 @@ public class WifiPermissionsUtilTest extends WifiBaseTest {
 
         WifiPermissionsUtil codeUnderTest = new WifiPermissionsUtil(mMockPermissionsWrapper,
                 mMockContext, mMockUserManager, mWifiInjector);
+        codeUnderTest.enableVerboseLogging(true);
         codeUnderTest.enforceCanAccessScanResults(TEST_PACKAGE_NAME, TEST_FEATURE_ID, mUid, null);
     }
 
@@ -644,6 +662,7 @@ public class WifiPermissionsUtilTest extends WifiBaseTest {
 
         WifiPermissionsUtil codeUnderTest = new WifiPermissionsUtil(mMockPermissionsWrapper,
                 mMockContext, mMockUserManager, mWifiInjector);
+        codeUnderTest.enableVerboseLogging(true);
         codeUnderTest.enforceCanAccessScanResults(TEST_PACKAGE_NAME, TEST_FEATURE_ID, mUid, null);
     }
 
@@ -676,6 +695,7 @@ public class WifiPermissionsUtilTest extends WifiBaseTest {
 
         WifiPermissionsUtil codeUnderTest = new WifiPermissionsUtil(mMockPermissionsWrapper,
                 mMockContext, mMockUserManager, mWifiInjector);
+        codeUnderTest.enableVerboseLogging(true);
         codeUnderTest.enforceCanAccessScanResults(TEST_PACKAGE_NAME, TEST_FEATURE_ID, mUid, null);
     }
 
@@ -708,6 +728,7 @@ public class WifiPermissionsUtilTest extends WifiBaseTest {
 
         WifiPermissionsUtil codeUnderTest = new WifiPermissionsUtil(mMockPermissionsWrapper,
                 mMockContext, mMockUserManager, mWifiInjector);
+        codeUnderTest.enableVerboseLogging(true);
         codeUnderTest.enforceCanAccessScanResults(TEST_PACKAGE_NAME, TEST_FEATURE_ID, mUid, null);
     }
 
@@ -720,6 +741,7 @@ public class WifiPermissionsUtilTest extends WifiBaseTest {
         setupTestCase();
         WifiPermissionsUtil codeUnderTest = new WifiPermissionsUtil(mMockPermissionsWrapper,
                 mMockContext, mMockUserManager, mWifiInjector);
+        codeUnderTest.enableVerboseLogging(true);
         try {
             codeUnderTest.enforceCanAccessScanResults(TEST_PACKAGE_NAME, TEST_FEATURE_ID, mUid,
                     null);
@@ -744,6 +766,7 @@ public class WifiPermissionsUtilTest extends WifiBaseTest {
         setupTestCase();
         WifiPermissionsUtil codeUnderTest = new WifiPermissionsUtil(mMockPermissionsWrapper,
                 mMockContext, mMockUserManager, mWifiInjector);
+        codeUnderTest.enableVerboseLogging(true);
         codeUnderTest.enforceLocationPermission(TEST_PACKAGE_NAME, TEST_FEATURE_ID, mUid);
 
         // verify that checking FINE for legacy apps!
@@ -767,6 +790,7 @@ public class WifiPermissionsUtilTest extends WifiBaseTest {
         setupTestCase();
         WifiPermissionsUtil codeUnderTest = new WifiPermissionsUtil(mMockPermissionsWrapper,
                 mMockContext, mMockUserManager, mWifiInjector);
+        codeUnderTest.enableVerboseLogging(true);
         codeUnderTest.enforceLocationPermission(TEST_PACKAGE_NAME, TEST_FEATURE_ID, mUid);
         verify(mMockAppOps)
                 .noteOp(eq(AppOpsManager.OPSTR_FINE_LOCATION), anyInt(), anyString(), any(), any());
@@ -790,6 +814,7 @@ public class WifiPermissionsUtilTest extends WifiBaseTest {
         setupTestCase();
         WifiPermissionsUtil codeUnderTest = new WifiPermissionsUtil(mMockPermissionsWrapper,
                 mMockContext, mMockUserManager, mWifiInjector);
+        codeUnderTest.enableVerboseLogging(true);
         try {
             codeUnderTest.enforceLocationPermission(TEST_PACKAGE_NAME, TEST_FEATURE_ID, mUid);
             fail("Expected SecurityException not thrown");
@@ -807,6 +832,7 @@ public class WifiPermissionsUtilTest extends WifiBaseTest {
         setupMocks();
         WifiPermissionsUtil wifiPermissionsUtil = new WifiPermissionsUtil(mMockPermissionsWrapper,
                 mMockContext, mMockUserManager, mWifiInjector);
+        wifiPermissionsUtil.enableVerboseLogging(true);
 
         when(mMockPermissionsWrapper.getUidPermission(
                 android.Manifest.permission.NETWORK_SETUP_WIZARD, MANAGED_PROFILE_UID))
@@ -827,6 +853,7 @@ public class WifiPermissionsUtilTest extends WifiBaseTest {
         setupMocks();
         WifiPermissionsUtil wifiPermissionsUtil = new WifiPermissionsUtil(mMockPermissionsWrapper,
                 mMockContext, mMockUserManager, mWifiInjector);
+        wifiPermissionsUtil.enableVerboseLogging(true);
 
         when(mMockPermissionsWrapper.getUidPermission(
                 android.Manifest.permission.NETWORK_MANAGED_PROVISIONING, MANAGED_PROFILE_UID))
@@ -849,6 +876,7 @@ public class WifiPermissionsUtilTest extends WifiBaseTest {
         setupMocks();
         WifiPermissionsUtil wifiPermissionsUtil = new WifiPermissionsUtil(mMockPermissionsWrapper,
                 mMockContext, mMockUserManager, mWifiInjector);
+        wifiPermissionsUtil.enableVerboseLogging(true);
 
         when(mMockAppOps.noteOp(AppOpsManager.OPSTR_SYSTEM_ALERT_WINDOW, MANAGED_PROFILE_UID,
                 TEST_PACKAGE_NAME, null, null))
@@ -877,6 +905,7 @@ public class WifiPermissionsUtilTest extends WifiBaseTest {
         setupMocks();
         WifiPermissionsUtil wifiPermissionsUtil = new WifiPermissionsUtil(mMockPermissionsWrapper,
                 mMockContext, mMockUserManager, mWifiInjector);
+        wifiPermissionsUtil.enableVerboseLogging(true);
 
         when(mMockAppOps.noteOp(
                 AppOpsManager.OP_SYSTEM_ALERT_WINDOW, MANAGED_PROFILE_UID, TEST_PACKAGE_NAME))
@@ -893,6 +922,7 @@ public class WifiPermissionsUtilTest extends WifiBaseTest {
         setupMocks();
         WifiPermissionsUtil wifiPermissionsUtil = new WifiPermissionsUtil(mMockPermissionsWrapper,
                 mMockContext, mMockUserManager, mWifiInjector);
+        wifiPermissionsUtil.enableVerboseLogging(true);
 
         when(mMockContext.getSystemService(DevicePolicyManager.class))
                 .thenReturn(mDevicePolicyManager);
@@ -942,6 +972,7 @@ public class WifiPermissionsUtilTest extends WifiBaseTest {
         setupMocks();
         WifiPermissionsUtil wifiPermissionsUtil = new WifiPermissionsUtil(mMockPermissionsWrapper,
                 mMockContext, mMockUserManager, mWifiInjector);
+        wifiPermissionsUtil.enableVerboseLogging(true);
 
         when(mMockContext.getSystemService(DevicePolicyManager.class))
                 .thenReturn(mDevicePolicyManager);
@@ -998,6 +1029,7 @@ public class WifiPermissionsUtilTest extends WifiBaseTest {
         setupMocks();
         WifiPermissionsUtil wifiPermissionsUtil = new WifiPermissionsUtil(mMockPermissionsWrapper,
                 mMockContext, mMockUserManager, mWifiInjector);
+        wifiPermissionsUtil.enableVerboseLogging(true);
 
         when(mMockContext.createPackageContextAsUser(
                 TEST_WIFI_STACK_APK_NAME, 0, UserHandle.getUserHandleForUid(MANAGED_PROFILE_UID)))
@@ -1030,6 +1062,44 @@ public class WifiPermissionsUtilTest extends WifiBaseTest {
                 MANAGED_PROFILE_UID, TEST_PACKAGE_NAME));
     }
 
+    @Test
+    public void testIsLegacyDeviceAdmin() throws Exception {
+        setupMocks();
+        WifiPermissionsUtil wifiPermissionsUtil = new WifiPermissionsUtil(mMockPermissionsWrapper,
+                mMockContext, mMockUserManager, mWifiInjector);
+        wifiPermissionsUtil.enableVerboseLogging(true);
+
+        when(mMockContext.createPackageContextAsUser(
+                TEST_WIFI_STACK_APK_NAME, 0, UserHandle.getUserHandleForUid(MANAGED_PROFILE_UID)))
+                .thenReturn(mMockContext);
+        when(mMockContext.getSystemService(DevicePolicyManager.class))
+                .thenReturn(mDevicePolicyManager);
+
+        when(mDevicePolicyManager.packageHasActiveAdmins(TEST_PACKAGE_NAME))
+                .thenReturn(true);
+        assertTrue(wifiPermissionsUtil.isLegacyDeviceAdmin(
+                MANAGED_PROFILE_UID, TEST_PACKAGE_NAME));
+
+        when(mDevicePolicyManager.packageHasActiveAdmins(TEST_PACKAGE_NAME))
+                .thenReturn(false);
+        assertFalse(wifiPermissionsUtil.isLegacyDeviceAdmin(
+                MANAGED_PROFILE_UID, TEST_PACKAGE_NAME));
+
+        // DevicePolicyManager does not exist.
+        when(mMockContext.getSystemService(Context.DEVICE_POLICY_SERVICE))
+                .thenReturn(null);
+        assertFalse(wifiPermissionsUtil.isLegacyDeviceAdmin(
+                MANAGED_PROFILE_UID, TEST_PACKAGE_NAME));
+
+        // Invalid package name.
+        doThrow(new PackageManager.NameNotFoundException())
+                .when(mMockContext).createPackageContextAsUser(
+                        TEST_WIFI_STACK_APK_NAME, 0,
+                        UserHandle.getUserHandleForUid(MANAGED_PROFILE_UID));
+        assertFalse(wifiPermissionsUtil.isLegacyDeviceAdmin(
+                MANAGED_PROFILE_UID, TEST_PACKAGE_NAME));
+    }
+
     /**
      * Verifies the helper method exposed for checking if the calling uid is a ProfileOwner
      * of an organization owned device.
@@ -1039,6 +1109,7 @@ public class WifiPermissionsUtilTest extends WifiBaseTest {
         setupMocks();
         WifiPermissionsUtil wifiPermissionsUtil = new WifiPermissionsUtil(mMockPermissionsWrapper,
                 mMockContext, mMockUserManager, mWifiInjector);
+        wifiPermissionsUtil.enableVerboseLogging(true);
 
         when(mMockContext.createPackageContextAsUser(
                 TEST_WIFI_STACK_APK_NAME, 0, UserHandle.getUserHandleForUid(MANAGED_PROFILE_UID)))
@@ -1085,6 +1156,7 @@ public class WifiPermissionsUtilTest extends WifiBaseTest {
         setupTestCase();
         WifiPermissionsUtil codeUnderTest = new WifiPermissionsUtil(mMockPermissionsWrapper,
                 mMockContext, mMockUserManager, mWifiInjector);
+        codeUnderTest.enableVerboseLogging(true);
         codeUnderTest.enforceLocationPermission(TEST_PACKAGE_NAME, TEST_FEATURE_ID, mUid);
     }
 
@@ -1108,6 +1180,7 @@ public class WifiPermissionsUtilTest extends WifiBaseTest {
         setupTestCase();
         WifiPermissionsUtil codeUnderTest = new WifiPermissionsUtil(mMockPermissionsWrapper,
                 mMockContext, mMockUserManager, mWifiInjector);
+        codeUnderTest.enableVerboseLogging(true);
         codeUnderTest.enforceCanAccessScanResultsForWifiScanner(TEST_PACKAGE_NAME, TEST_FEATURE_ID,
                 mUid, CHECK_LOCATION_SETTINGS, DONT_HIDE_FROM_APP_OPS);
 
@@ -1116,6 +1189,104 @@ public class WifiPermissionsUtilTest extends WifiBaseTest {
         verify(mMockAppOps).noteOp(AppOpsManager.OPSTR_FINE_LOCATION, mUid, TEST_PACKAGE_NAME,
                 TEST_FEATURE_ID, null);
     }
+
+    /**
+     * Test case setting: Package is valid
+     *                    Location Mode Disabled
+     *                    Caller has location permisson
+     *                    Caller does not have NETWORK_SETTINGS or NETWORK_SETUP_WIZARD
+     * Validate Exception is thrown
+     * - Doesn't have Peer Mac Address read permission
+     * - Uid is not an active network scorer
+     * - Location Mode is disabled
+     * - doesn't have Coarse Location Access
+     * - which implies no scan result access
+     */
+    @Test
+    public void testAccessScanResultsForWifiScanner_LocationModeDisabledHasNoNetworkSettingsOrSuw()
+            throws Exception {
+        mThrowSecurityException = false;
+        mUid = MANAGED_PROFILE_UID;
+        mPermissionsList.put(mMacAddressPermission, mUid);
+        mWifiScanAllowApps = AppOpsManager.MODE_ALLOWED;
+        mPermissionsList.put(mInteractAcrossUsersFullPermission, mUid);
+        mIsLocationEnabled = false;
+
+        setupTestCase();
+        when(mMockPermissionsWrapper.getUidPermission(
+                Manifest.permission.NETWORK_SETTINGS, MANAGED_PROFILE_UID))
+                .thenReturn(PackageManager.PERMISSION_DENIED);
+        when(mMockPermissionsWrapper.getUidPermission(
+                Manifest.permission.NETWORK_SETUP_WIZARD, MANAGED_PROFILE_UID))
+                .thenReturn(PackageManager.PERMISSION_DENIED);
+
+        WifiPermissionsUtil codeUnderTest = new WifiPermissionsUtil(mMockPermissionsWrapper,
+                mMockContext, mMockUserManager, mWifiInjector);
+        codeUnderTest.enableVerboseLogging(true);
+        try {
+            codeUnderTest.enforceCanAccessScanResultsForWifiScanner(
+                    TEST_PACKAGE_NAME, TEST_FEATURE_ID, mUid, false, false);
+            fail("Expected SecurityException is not thrown");
+        } catch (SecurityException e) {
+        }
+    }
+
+    /**
+     * Test case setting: Package is valid
+     *                    Location Mode Disabled
+     *                    Caller has location permisson
+     *                    Caller has NETWORK_SETTINGS
+     * Validate no exception thrown.
+     */
+    @Test
+    public void testAccessScanResultsForWifiScanner_LocationModeDisabledHasNetworkSettings()
+            throws Exception {
+        mThrowSecurityException = false;
+        mUid = MANAGED_PROFILE_UID;
+        mPermissionsList.put(mMacAddressPermission, mUid);
+        mWifiScanAllowApps = AppOpsManager.MODE_ALLOWED;
+        mPermissionsList.put(mInteractAcrossUsersFullPermission, mUid);
+        mIsLocationEnabled = false;
+
+        setupTestCase();
+        when(mMockPermissionsWrapper.getUidPermission(
+                Manifest.permission.NETWORK_SETTINGS, MANAGED_PROFILE_UID))
+                .thenReturn(PackageManager.PERMISSION_GRANTED);
+
+        WifiPermissionsUtil codeUnderTest = new WifiPermissionsUtil(mMockPermissionsWrapper,
+                mMockContext, mMockUserManager, mWifiInjector);
+        codeUnderTest.enableVerboseLogging(true);
+        codeUnderTest.enforceCanAccessScanResultsForWifiScanner(
+                TEST_PACKAGE_NAME, TEST_FEATURE_ID, mUid, false, false);
+    }
+
+    /**
+     * Test case setting: Package is valid
+     *                    Location Mode Disabled
+     *                    Caller has location permisson
+     *                    Caller has NETWORK_SETUP_WIZARD
+     * Validate no exception thrown.
+     */
+    @Test
+    public void testAccessScanResultsForWifiScanner_LocationModeDisabledHasNetworkSuw()
+            throws Exception {
+        mThrowSecurityException = false;
+        mUid = MANAGED_PROFILE_UID;
+        mPermissionsList.put(mMacAddressPermission, mUid);
+        mWifiScanAllowApps = AppOpsManager.MODE_ALLOWED;
+        mPermissionsList.put(mInteractAcrossUsersFullPermission, mUid);
+        mIsLocationEnabled = false;
+
+        setupTestCase();
+        when(mMockPermissionsWrapper.getUidPermission(
+                Manifest.permission.NETWORK_SETUP_WIZARD, MANAGED_PROFILE_UID))
+                .thenReturn(PackageManager.PERMISSION_GRANTED);
+
+        WifiPermissionsUtil codeUnderTest = new WifiPermissionsUtil(mMockPermissionsWrapper,
+                mMockContext, mMockUserManager, mWifiInjector);
+        codeUnderTest.enableVerboseLogging(true);
+        codeUnderTest.enforceCanAccessScanResultsForWifiScanner(
+                TEST_PACKAGE_NAME, TEST_FEATURE_ID, mUid, false, false);    }
 
     /**
      * Test case setting: Package is valid
@@ -1138,6 +1309,7 @@ public class WifiPermissionsUtilTest extends WifiBaseTest {
         setupTestCase();
         WifiPermissionsUtil codeUnderTest = new WifiPermissionsUtil(mMockPermissionsWrapper,
                 mMockContext, mMockUserManager, mWifiInjector);
+        codeUnderTest.enableVerboseLogging(true);
         codeUnderTest.enforceCanAccessScanResultsForWifiScanner(TEST_PACKAGE_NAME, TEST_FEATURE_ID,
                 mUid, IGNORE_LOCATION_SETTINGS, HIDE_FROM_APP_OPS);
 
@@ -1169,6 +1341,7 @@ public class WifiPermissionsUtilTest extends WifiBaseTest {
         setupTestCase();
         WifiPermissionsUtil codeUnderTest = new WifiPermissionsUtil(mMockPermissionsWrapper,
                 mMockContext, mMockUserManager, mWifiInjector);
+        codeUnderTest.enableVerboseLogging(true);
         try {
             codeUnderTest.enforceCanAccessScanResultsForWifiScanner(TEST_PACKAGE_NAME,
                     TEST_FEATURE_ID, mUid, CHECK_LOCATION_SETTINGS, DONT_HIDE_FROM_APP_OPS);
@@ -1197,6 +1370,7 @@ public class WifiPermissionsUtilTest extends WifiBaseTest {
         setupTestCase();
         WifiPermissionsUtil codeUnderTest = new WifiPermissionsUtil(mMockPermissionsWrapper,
                 mMockContext, mMockUserManager, mWifiInjector);
+        codeUnderTest.enableVerboseLogging(true);
         try {
             codeUnderTest.enforceCanAccessScanResultsForWifiScanner(TEST_PACKAGE_NAME,
                     TEST_FEATURE_ID, mUid, CHECK_LOCATION_SETTINGS, DONT_HIDE_FROM_APP_OPS);
@@ -1226,6 +1400,7 @@ public class WifiPermissionsUtilTest extends WifiBaseTest {
         setupTestCase();
         WifiPermissionsUtil codeUnderTest = new WifiPermissionsUtil(mMockPermissionsWrapper,
                 mMockContext, mMockUserManager, mWifiInjector);
+        codeUnderTest.enableVerboseLogging(true);
         try {
             codeUnderTest.enforceCanAccessScanResultsForWifiScanner(TEST_PACKAGE_NAME,
                     TEST_FEATURE_ID, mUid, CHECK_LOCATION_SETTINGS, DONT_HIDE_FROM_APP_OPS);
@@ -1254,6 +1429,7 @@ public class WifiPermissionsUtilTest extends WifiBaseTest {
         setupTestCase();
         WifiPermissionsUtil codeUnderTest = new WifiPermissionsUtil(mMockPermissionsWrapper,
                 mMockContext, mMockUserManager, mWifiInjector);
+        codeUnderTest.enableVerboseLogging(true);
         try {
             codeUnderTest.enforceCanAccessScanResultsForWifiScanner(TEST_PACKAGE_NAME,
                     TEST_FEATURE_ID, mUid, CHECK_LOCATION_SETTINGS, DONT_HIDE_FROM_APP_OPS);
@@ -1282,6 +1458,7 @@ public class WifiPermissionsUtilTest extends WifiBaseTest {
         setupTestCase();
         WifiPermissionsUtil codeUnderTest = new WifiPermissionsUtil(mMockPermissionsWrapper,
                 mMockContext, mMockUserManager, mWifiInjector);
+        codeUnderTest.enableVerboseLogging(true);
         try {
             codeUnderTest.enforceCanAccessScanResultsForWifiScanner(TEST_PACKAGE_NAME,
                     TEST_FEATURE_ID, mUid, CHECK_LOCATION_SETTINGS, DONT_HIDE_FROM_APP_OPS);
@@ -1311,6 +1488,7 @@ public class WifiPermissionsUtilTest extends WifiBaseTest {
         setupTestCase();
         WifiPermissionsUtil codeUnderTest = new WifiPermissionsUtil(mMockPermissionsWrapper,
                 mMockContext, mMockUserManager, mWifiInjector);
+        codeUnderTest.enableVerboseLogging(true);
         codeUnderTest.enforceCanAccessScanResultsForWifiScanner(TEST_PACKAGE_NAME, TEST_FEATURE_ID,
                 mUid, IGNORE_LOCATION_SETTINGS, DONT_HIDE_FROM_APP_OPS);
         verify(mMockAppOps).noteOp(AppOpsManager.OPSTR_FINE_LOCATION, mUid, TEST_PACKAGE_NAME,
@@ -1337,6 +1515,7 @@ public class WifiPermissionsUtilTest extends WifiBaseTest {
         setupTestCase();
         WifiPermissionsUtil codeUnderTest = new WifiPermissionsUtil(mMockPermissionsWrapper,
                 mMockContext, mMockUserManager, mWifiInjector);
+        codeUnderTest.enableVerboseLogging(true);
         try {
             codeUnderTest.enforceCanAccessScanResultsForWifiScanner(TEST_PACKAGE_NAME,
                     TEST_FEATURE_ID, mUid, CHECK_LOCATION_SETTINGS, DONT_HIDE_FROM_APP_OPS);
@@ -1355,6 +1534,7 @@ public class WifiPermissionsUtilTest extends WifiBaseTest {
         setupTestCase();
         WifiPermissionsUtil codeUnderTest = new WifiPermissionsUtil(mMockPermissionsWrapper,
                 mMockContext, mMockUserManager, mWifiInjector);
+        codeUnderTest.enableVerboseLogging(true);
         doThrow(new RuntimeException()).when(mLocationManager).isLocationEnabledForUser(any());
 
         when(mMockFrameworkFacade.getIntegerSetting(
@@ -1380,6 +1560,7 @@ public class WifiPermissionsUtilTest extends WifiBaseTest {
         setupTestCase();
         WifiPermissionsUtil codeUnderTest = new WifiPermissionsUtil(mMockPermissionsWrapper,
                 mMockContext, mMockUserManager, mWifiInjector);
+        codeUnderTest.enableVerboseLogging(true);
         codeUnderTest.enforceNearbyDevicesPermission(attributionSource, false, "");
     }
 
@@ -1394,6 +1575,7 @@ public class WifiPermissionsUtilTest extends WifiBaseTest {
         setupTestCase();
         WifiPermissionsUtil codeUnderTest = new WifiPermissionsUtil(mMockPermissionsWrapper,
                 mMockContext, mMockUserManager, mWifiInjector);
+        codeUnderTest.enableVerboseLogging(true);
         codeUnderTest.enforceNearbyDevicesPermission(attributionSource, false, "");
     }
 
@@ -1419,6 +1601,7 @@ public class WifiPermissionsUtilTest extends WifiBaseTest {
         setupTestCase();
         WifiPermissionsUtil codeUnderTest = new WifiPermissionsUtil(mMockPermissionsWrapper,
                 mMockContext, mMockUserManager, mWifiInjector);
+        codeUnderTest.enableVerboseLogging(true);
 
         codeUnderTest.enforceNearbyDevicesPermission(attributionSource, true, "");
     }
@@ -1439,19 +1622,23 @@ public class WifiPermissionsUtilTest extends WifiBaseTest {
         // disabled since uid1 does not have permissions to renounce permissions.
         AttributionSource attributionSource = mock(AttributionSource.class);
         when(attributionSource.getUid()).thenReturn(uid1);
+        when(attributionSource.getPackageName()).thenReturn(TEST_PACKAGE_NAME);
         when(attributionSource.checkCallingUid()).thenReturn(true);
         when(attributionSource.getRenouncedPermissions()).thenReturn(Set.of(ACCESS_FINE_LOCATION));
 
         setupTestCase();
         WifiPermissionsUtil codeUnderTest = new WifiPermissionsUtil(mMockPermissionsWrapper,
                 mMockContext, mMockUserManager, mWifiInjector);
+        codeUnderTest.enableVerboseLogging(true);
 
         assertFalse(codeUnderTest.checkNearbyDevicesPermission(attributionSource, true, ""));
+        verify(mMockAppOps).checkPackage(uid1, TEST_PACKAGE_NAME);
 
         // now attach AttributionSource2 with uid2 to the list of AttributionSource and then
         // verify the location check is now bypassed.
         AttributionSource attributionSource2 = mock(AttributionSource.class);
         when(attributionSource2.getUid()).thenReturn(uid2);
+        when(attributionSource2.getPackageName()).thenReturn(TEST_PACKAGE_NAME);
         when(attributionSource2.getRenouncedPermissions()).thenReturn(Set.of(ACCESS_FINE_LOCATION));
         when(attributionSource.getNext()).thenReturn(attributionSource2);
         codeUnderTest.enforceNearbyDevicesPermission(attributionSource, true, "");
@@ -1465,8 +1652,12 @@ public class WifiPermissionsUtilTest extends WifiBaseTest {
     @Test
     public void testEnforceNearbyDevicesPermission_LocationCheckDisavowPass() throws Exception {
         assumeTrue(SdkLevel.isAtLeastT());
+        // bypass checkPackage
+        mThrowSecurityException = false;
         AttributionSource attributionSource = mock(AttributionSource.class);
         when(attributionSource.checkCallingUid()).thenReturn(true);
+        when(attributionSource.getUid()).thenReturn(mUid);
+        when(attributionSource.getPackageName()).thenReturn(TEST_PACKAGE_NAME);
         when(attributionSource.getRenouncedPermissions()).thenReturn(Collections.EMPTY_SET);
         // mock caller disavowing location
         mPackagePermissionInfo.requestedPermissions = new String[] {NEARBY_WIFI_DEVICES};
@@ -1481,7 +1672,9 @@ public class WifiPermissionsUtilTest extends WifiBaseTest {
         setupTestCase();
         WifiPermissionsUtil codeUnderTest = new WifiPermissionsUtil(mMockPermissionsWrapper,
                 mMockContext, mMockUserManager, mWifiInjector);
+        codeUnderTest.enableVerboseLogging(true);
         codeUnderTest.enforceNearbyDevicesPermission(attributionSource, true, "");
+        verify(mMockAppOps).checkPackage(mUid, TEST_PACKAGE_NAME);
 
         // It's important to verify that ACCESS_FINE_LOCATION never gets checked so the caller
         // does not get blamed for location access when they already disavowed location.
@@ -1498,10 +1691,14 @@ public class WifiPermissionsUtilTest extends WifiBaseTest {
     public void testEnforceNearbyDevicesPermission_LocationCheckWithoutDisavowPass()
             throws Exception {
         assumeTrue(SdkLevel.isAtLeastT());
+        // bypass checkPackage
+        mThrowSecurityException = false;
         // Set location mode off and grant app location permission
         when(mLocationManager.isLocationEnabledForUser(any())).thenReturn(false);
         AttributionSource attributionSource = mock(AttributionSource.class);
+        when(attributionSource.getUid()).thenReturn(mUid);
         when(attributionSource.checkCallingUid()).thenReturn(true);
+        when(attributionSource.getPackageName()).thenReturn(TEST_PACKAGE_NAME);
         when(attributionSource.getRenouncedPermissions()).thenReturn(Collections.EMPTY_SET);
         mPackagePermissionInfo.requestedPermissions = new String[0];
         when(mPermissionManager.checkPermissionForDataDelivery(eq(NEARBY_WIFI_DEVICES),
@@ -1513,8 +1710,10 @@ public class WifiPermissionsUtilTest extends WifiBaseTest {
         setupTestCase();
         WifiPermissionsUtil codeUnderTest = new WifiPermissionsUtil(mMockPermissionsWrapper,
                 mMockContext, mMockUserManager, mWifiInjector);
+        codeUnderTest.enableVerboseLogging(true);
         // Test should fail because location mode is off
         assertFalse(codeUnderTest.checkNearbyDevicesPermission(attributionSource, true, ""));
+        verify(mMockAppOps).checkPackage(mUid, TEST_PACKAGE_NAME);
 
         // Now enable location mode and the call should pass
         when(mLocationManager.isLocationEnabledForUser(any())).thenReturn(true);
@@ -1532,8 +1731,12 @@ public class WifiPermissionsUtilTest extends WifiBaseTest {
     public void testEnforceNearbyDevicesPermission_BypassCheckWithPrivilegedPermission()
             throws Exception {
         assumeTrue(SdkLevel.isAtLeastT());
+        // bypass checkPackage
+        mThrowSecurityException = false;
         AttributionSource attributionSource = mock(AttributionSource.class);
+        when(attributionSource.getUid()).thenReturn(mUid);
         when(attributionSource.checkCallingUid()).thenReturn(true);
+        when(attributionSource.getPackageName()).thenReturn(TEST_PACKAGE_NAME);
         when(attributionSource.getUid()).thenReturn(mUid);
         // caller no nearby permission
         when(mPermissionManager.checkPermissionForDataDelivery(eq(NEARBY_WIFI_DEVICES),
@@ -1545,7 +1748,9 @@ public class WifiPermissionsUtilTest extends WifiBaseTest {
         setupTestCase();
         WifiPermissionsUtil codeUnderTest = new WifiPermissionsUtil(mMockPermissionsWrapper,
                 mMockContext, mMockUserManager, mWifiInjector);
+        codeUnderTest.enableVerboseLogging(true);
         codeUnderTest.enforceNearbyDevicesPermission(attributionSource, true, "");
+        verify(mMockAppOps).checkPackage(mUid, TEST_PACKAGE_NAME);
     }
 
     private Answer<Integer> createPermissionAnswer() {
@@ -1649,6 +1854,7 @@ public class WifiPermissionsUtilTest extends WifiBaseTest {
         setupTestCase();
         WifiPermissionsUtil codeUnderTest = new WifiPermissionsUtil(mMockPermissionsWrapper,
                 mMockContext, mMockUserManager, mWifiInjector);
+        codeUnderTest.enableVerboseLogging(true);
         codeUnderTest.enforceCoarseLocationPermission(TEST_PACKAGE_NAME, TEST_FEATURE_ID, mUid);
     }
 
@@ -1666,6 +1872,7 @@ public class WifiPermissionsUtilTest extends WifiBaseTest {
         setupTestCase();
         WifiPermissionsUtil codeUnderTest = new WifiPermissionsUtil(mMockPermissionsWrapper,
                 mMockContext, mMockUserManager, mWifiInjector);
+        codeUnderTest.enableVerboseLogging(true);
         codeUnderTest.enforceCoarseLocationPermission(TEST_PACKAGE_NAME, TEST_FEATURE_ID, mUid);
         // verify that checking Coarse for apps!
         verify(mMockAppOps).noteOp(eq(AppOpsManager.OPSTR_COARSE_LOCATION), anyInt(), anyString(),
@@ -1679,6 +1886,7 @@ public class WifiPermissionsUtilTest extends WifiBaseTest {
 
         WifiPermissionsUtil codeUnderTest = new WifiPermissionsUtil(mMockPermissionsWrapper,
                 mMockContext, mMockUserManager, mWifiInjector);
+        codeUnderTest.enableVerboseLogging(true);
 
         assertFalse(codeUnderTest.isOemPrivilegedAdmin(TEST_CALLING_UID));
     }
@@ -1690,6 +1898,7 @@ public class WifiPermissionsUtilTest extends WifiBaseTest {
 
         WifiPermissionsUtil codeUnderTest = new WifiPermissionsUtil(mMockPermissionsWrapper,
                 mMockContext, mMockUserManager, mWifiInjector);
+        codeUnderTest.enableVerboseLogging(true);
 
         assertFalse(codeUnderTest.isOemPrivilegedAdmin(TEST_CALLING_UID));
     }
@@ -1701,6 +1910,7 @@ public class WifiPermissionsUtilTest extends WifiBaseTest {
 
         WifiPermissionsUtil codeUnderTest = new WifiPermissionsUtil(mMockPermissionsWrapper,
                 mMockContext, mMockUserManager, mWifiInjector);
+        codeUnderTest.enableVerboseLogging(true);
 
         assertTrue(codeUnderTest.isOemPrivilegedAdmin(TEST_CALLING_UID));
     }
@@ -1727,6 +1937,7 @@ public class WifiPermissionsUtilTest extends WifiBaseTest {
         setupTestCase();
         WifiPermissionsUtil codeUnderTest = new WifiPermissionsUtil(mMockPermissionsWrapper,
                 mMockContext, mMockUserManager, mWifiInjector);
+        codeUnderTest.enableVerboseLogging(true);
         assertTrue(codeUnderTest.isGuestUser());
     }
 
@@ -1752,6 +1963,7 @@ public class WifiPermissionsUtilTest extends WifiBaseTest {
         setupTestCase();
         WifiPermissionsUtil codeUnderTest = new WifiPermissionsUtil(mMockPermissionsWrapper,
                 mMockContext, mMockUserManager, mWifiInjector);
+        codeUnderTest.enableVerboseLogging(true);
 
         assertTrue(codeUnderTest.isAdminRestrictedNetwork(config));
     }
@@ -1778,6 +1990,7 @@ public class WifiPermissionsUtilTest extends WifiBaseTest {
         setupTestCase();
         WifiPermissionsUtil codeUnderTest = new WifiPermissionsUtil(mMockPermissionsWrapper,
                 mMockContext, mMockUserManager, mWifiInjector);
+        codeUnderTest.enableVerboseLogging(true);
 
         assertTrue(codeUnderTest.isAdminRestrictedNetwork(config));
     }
@@ -1803,7 +2016,24 @@ public class WifiPermissionsUtilTest extends WifiBaseTest {
         setupTestCase();
         WifiPermissionsUtil codeUnderTest = new WifiPermissionsUtil(mMockPermissionsWrapper,
                 mMockContext, mMockUserManager, mWifiInjector);
+        codeUnderTest.enableVerboseLogging(true);
 
         assertTrue(codeUnderTest.isAdminRestrictedNetwork(config));
+    }
+
+    /**
+     * Test isSignedWithPlatformKey
+     */
+    @Test
+    public void testIsSignedWithPlatformKey() throws Exception {
+        setupTestCase();
+        WifiPermissionsUtil codeUnderTest = new WifiPermissionsUtil(mMockPermissionsWrapper,
+                mMockContext, mMockUserManager, mWifiInjector);
+        when(mMockPkgMgr.checkSignatures(anyInt(), eq(Process.SYSTEM_UID)))
+                .thenReturn(PackageManager.SIGNATURE_MATCH);
+        assertTrue(codeUnderTest.isSignedWithPlatformKey(TEST_CALLING_UID));
+        when(mMockPkgMgr.checkSignatures(anyInt(), eq(Process.SYSTEM_UID)))
+                .thenReturn(PackageManager.SIGNATURE_NO_MATCH);
+        assertFalse(codeUnderTest.isSignedWithPlatformKey(TEST_CALLING_UID));
     }
 }

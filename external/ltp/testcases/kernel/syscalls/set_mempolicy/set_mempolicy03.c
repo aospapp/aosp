@@ -1,6 +1,5 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
 /*
- * SPDX-License-Identifier: GPL-2.0-or-later
- *
  * Copyright (c) 2018 Cyril Hrubis <chrubis@suse.cz>
  */
 
@@ -54,12 +53,12 @@ static void verify_mempolicy(unsigned int node, int mode)
 	if (TST_RET) {
 		tst_res(TFAIL | TTERRNO,
 		        "set_mempolicy(%s) node %u",
-		        tst_numa_mode_name(mode), node);
+		        tst_mempolicy_mode_name(mode), node);
 		return;
 	}
 
 	tst_res(TPASS, "set_mempolicy(%s) node %u",
-	        tst_numa_mode_name(mode), node);
+	        tst_mempolicy_mode_name(mode), node);
 
 	numa_free_nodemask(bm);
 

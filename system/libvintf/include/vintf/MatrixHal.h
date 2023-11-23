@@ -42,6 +42,7 @@ struct MatrixHal {
     std::string name;
     std::vector<VersionRange> versionRanges;
     bool optional = false;
+    bool updatableViaApex = false;
     std::map<std::string, HalInterface> interfaces;
 
     inline const std::string& getName() const { return name; }

@@ -13,7 +13,7 @@ android_library {
         "TestApp",
     ],
     manifest: "src/main/AndroidManifest.xml",
-    min_sdk_version: "28"
+    min_sdk_version: "29"
 }
 
 android_test {
@@ -36,5 +36,5 @@ android_test {
         "testng" // for assertThrows
     ],
     manifest: "src/test/AndroidManifest.xml",
-    min_sdk_version: "28"
+    min_sdk_version: "29"
 }

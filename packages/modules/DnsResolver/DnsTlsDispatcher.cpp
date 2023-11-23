@@ -67,8 +67,7 @@ std::list<DnsTlsServer> DnsTlsDispatcher::getOrderedAndUsableServerList(
 
         for (const auto& tlsServer : tlsServers) {
             const Key key = std::make_pair(mark, tlsServer);
-            if (const Transport* xport = getTransport(key); xport != nullptr) {
-                // DoT revalidation specific feature.
+            if (Transport* xport = getTransport(key); xport != nullptr) {
                 if (!xport->usable()) {
                     // Don't use this xport. It will be removed after timeout
                     // (IDLE_TIMEOUT minutes).
@@ -112,7 +111,13 @@ DnsTlsTransport::Response DnsTlsDispatcher::query(const std::list<DnsTlsServer>&
     const std::list<DnsTlsServer> servers(
             getOrderedAndUsableServerList(tlsServers, statp->netid, statp->mark));
 
-    if (servers.empty()) LOG(WARNING) << "No usable DnsTlsServers";
+    if (servers.empty()) {
+        LOG(WARNING) << "No usable DnsTlsServers";
+
+        // Call maybeCleanup so the expired Transports can be removed as expected.
+        std::lock_guard guard(sLock);
+        maybeCleanup(std::chrono::steady_clock::now());
+    }
 
     DnsTlsTransport::Response code = DnsTlsTransport::Response::internal_error;
     int serverCount = 0;
@@ -209,9 +214,14 @@ DnsTlsTransport::Response DnsTlsDispatcher::query(const DnsTlsServer& server, un
         std::lock_guard guard(sLock);
         --xport->useCount;
         xport->lastUsed = now;
+        if (code == DnsTlsTransport::Response::network_error) {
+            xport->continuousfailureCount++;
+        } else {
+            xport->continuousfailureCount = 0;
+        }
 
         // DoT revalidation specific feature.
-        if (xport->checkRevalidationNecessary(code)) {
+        if (xport->checkRevalidationNecessary()) {
             // Even if the revalidation passes, it doesn't guarantee that DoT queries
             // to the xport can stop failing because revalidation creates a new connection
             // to probe while the xport still uses an existing connection. So far, there isn't
@@ -219,21 +229,21 @@ DnsTlsTransport::Response DnsTlsDispatcher::query(const DnsTlsServer& server, un
             // happens, the xport will be marked as unusable and DoT queries won't be sent to
             // it anymore. Eventually, after IDLE_TIMEOUT, the xport will be destroyed, and
             // a new xport will be created.
-            const auto result = PrivateDnsConfiguration::getInstance().requestValidation(
+            const auto result = PrivateDnsConfiguration::getInstance().requestDotValidation(
                     netId, PrivateDnsConfiguration::ServerIdentity{server}, mark);
             LOG(WARNING) << "Requested validation for " << server.toIpString() << " with mark 0x"
                          << std::hex << mark << ", "
                          << (result.ok() ? "succeeded" : "failed: " + result.error().message());
         }
 
-        cleanup(now);
+        maybeCleanup(now);
     }
     return code;
 }
 
 void DnsTlsDispatcher::forceCleanup(unsigned netId) {
     std::lock_guard guard(sLock);
-    forceCleanupLocked(netId);
+    cleanup(std::chrono::steady_clock::now(), netId);
 }
 
 DnsTlsTransport::Result DnsTlsDispatcher::queryInternal(Transport& xport,
@@ -265,33 +275,26 @@ DnsTlsTransport::Result DnsTlsDispatcher::queryInternal(Transport& xport,
 
 // This timeout effectively controls how long to keep SSL session tickets.
 static constexpr std::chrono::minutes IDLE_TIMEOUT(5);
-void DnsTlsDispatcher::cleanup(std::chrono::time_point<std::chrono::steady_clock> now) {
+void DnsTlsDispatcher::maybeCleanup(std::chrono::time_point<std::chrono::steady_clock> now) {
     // To avoid scanning mStore after every query, return early if a cleanup has been
     // performed recently.
     if (now - mLastCleanup < IDLE_TIMEOUT) {
         return;
     }
-    for (auto it = mStore.begin(); it != mStore.end();) {
-        auto& s = it->second;
-        if (s->useCount == 0 && now - s->lastUsed > IDLE_TIMEOUT) {
-            it = mStore.erase(it);
-        } else {
-            ++it;
-        }
-    }
+    cleanup(now, std::nullopt);
     mLastCleanup = now;
 }
 
-// TODO: unify forceCleanupLocked() and cleanup().
-void DnsTlsDispatcher::forceCleanupLocked(unsigned netId) {
-    for (auto it = mStore.begin(); it != mStore.end();) {
-        auto& s = it->second;
-        if (s->useCount == 0 && s->mNetId == netId) {
-            it = mStore.erase(it);
-        } else {
-            ++it;
+void DnsTlsDispatcher::cleanup(std::chrono::time_point<std::chrono::steady_clock> now,
+                               std::optional<unsigned> netId) {
+    std::erase_if(mStore, [&](const auto& item) REQUIRES(sLock) {
+        auto const& [_, xport] = item;
+        if (xport->useCount == 0) {
+            if (netId.has_value() && xport->mNetId == netId.value()) return true;
+            if (now - xport->lastUsed > IDLE_TIMEOUT) return true;
         }
-    }
+        return false;
+    });
 }
 
 DnsTlsDispatcher::Transport* DnsTlsDispatcher::addTransport(const DnsTlsServer& server,
@@ -308,12 +311,11 @@ DnsTlsDispatcher::Transport* DnsTlsDispatcher::addTransport(const DnsTlsServer& 
     int queryTimeout = instance->getFlag("dot_query_timeout_ms", Transport::kDotQueryTimeoutMs);
 
     // Check and adjust the parameters if they are improperly set.
-    bool revalidationEnabled = false;
     const bool isForOpportunisticMode = server.name.empty();
-    if (triggerThr > 0 && unusableThr > 0 && isForOpportunisticMode) {
-        revalidationEnabled = true;
-    } else {
+    if (triggerThr <= 0 || !isForOpportunisticMode) {
         triggerThr = -1;
+    }
+    if (unusableThr <= 0 || !isForOpportunisticMode) {
         unusableThr = -1;
     }
     if (queryTimeout < 0) {
@@ -322,11 +324,10 @@ DnsTlsDispatcher::Transport* DnsTlsDispatcher::addTransport(const DnsTlsServer& 
         queryTimeout = 1000;
     }
 
-    ret = new Transport(server, mark, netId, mFactory.get(), revalidationEnabled, triggerThr,
-                        unusableThr, queryTimeout);
-    LOG(DEBUG) << "Transport is initialized with { " << triggerThr << ", " << unusableThr << ", "
-               << queryTimeout << "ms }"
-               << " for server { " << server.toIpString() << "/" << server.name << " }";
+    ret = new Transport(server, mark, netId, mFactory.get(), triggerThr, unusableThr, queryTimeout);
+    LOG(INFO) << "Transport is initialized with { " << triggerThr << ", " << unusableThr << ", "
+              << queryTimeout << "ms }"
+              << " for server { " << server.toIpString() << "/" << server.name << " }";
 
     mStore[key].reset(ret);
 
@@ -338,26 +339,23 @@ DnsTlsDispatcher::Transport* DnsTlsDispatcher::getTransport(const Key& key) {
     return (it == mStore.end() ? nullptr : it->second.get());
 }
 
-bool DnsTlsDispatcher::Transport::checkRevalidationNecessary(DnsTlsTransport::Response code) {
-    if (!revalidationEnabled) return false;
+bool DnsTlsDispatcher::Transport::checkRevalidationNecessary() {
+    if (triggerThreshold <= 0) return false;
+    if (continuousfailureCount < triggerThreshold) return false;
+    if (isRevalidationThresholdReached) return false;
 
-    if (code == DnsTlsTransport::Response::network_error) {
-        continuousfailureCount++;
-    } else {
-        continuousfailureCount = 0;
-    }
-
-    // triggerThreshold must be greater than 0 because the value of revalidationEnabled is true.
-    if (usable() && continuousfailureCount == triggerThreshold) {
-        return true;
-    }
-    return false;
+    isRevalidationThresholdReached = true;
+    return true;
 }
 
-bool DnsTlsDispatcher::Transport::usable() const {
-    if (!revalidationEnabled) return true;
+bool DnsTlsDispatcher::Transport::usable() {
+    if (unusableThreshold <= 0) return true;
 
-    return continuousfailureCount < unusableThreshold;
+    if (continuousfailureCount >= unusableThreshold) {
+        // Once reach the threshold, mark this Transport as unusable.
+        isXportUnusableThresholdReached = true;
+    }
+    return !isXportUnusableThresholdReached;
 }
 
 }  // end of namespace net

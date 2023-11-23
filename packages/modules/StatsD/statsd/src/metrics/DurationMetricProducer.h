@@ -99,16 +99,14 @@ private:
     void onConditionChangedLocked(const bool conditionMet, const int64_t eventTime) override;
 
     // Internal interface to handle active state change.
-    void onActiveStateChangedLocked(const int64_t eventTimeNs) override;
+    void onActiveStateChangedLocked(const int64_t eventTimeNs, const bool isActive) override;
 
     // Internal interface to handle sliced condition change.
     void onSlicedConditionMayChangeLocked(bool overallCondition, const int64_t eventTime) override;
 
-    void onSlicedConditionMayChangeInternalLocked(bool overallCondition,
-                                                  const int64_t eventTimeNs);
+    void onSlicedConditionMayChangeInternalLocked(const int64_t eventTimeNs);
 
-    void onSlicedConditionMayChangeLocked_opt1(bool overallCondition, const int64_t eventTime);
-    void onSlicedConditionMayChangeLocked_opt2(bool overallCondition, const int64_t eventTime);
+    void onSlicedConditionMayChangeLocked_opt1(const int64_t eventTime);
 
     // Internal function to calculate the current used bytes.
     size_t byteSizeLocked() const override;
@@ -123,7 +121,7 @@ private:
     void flushCurrentBucketLocked(const int64_t& eventTimeNs,
                                   const int64_t& nextBucketStartTimeNs) override;
 
-    bool onConfigUpdatedLocked(
+    optional<InvalidConfigReason> onConfigUpdatedLocked(
             const StatsdConfig& config, const int configIndex, const int metricIndex,
             const std::vector<sp<AtomMatchingTracker>>& allAtomMatchingTrackers,
             const std::unordered_map<int64_t, int>& oldAtomMatchingTrackerMap,

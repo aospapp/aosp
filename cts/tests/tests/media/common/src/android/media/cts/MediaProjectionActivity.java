@@ -20,19 +20,20 @@ import static org.junit.Assert.assertTrue;
 
 import android.app.Activity;
 import android.content.ComponentName;
-import android.content.Context;
 import android.content.Intent;
-import android.content.ServiceConnection;
+import android.content.pm.PackageManager;
 import android.media.projection.MediaProjection;
 import android.media.projection.MediaProjectionManager;
 import android.os.Bundle;
-import android.os.IBinder;
 import android.support.test.uiautomator.By;
 import android.support.test.uiautomator.UiDevice;
 import android.support.test.uiautomator.UiObject2;
+import android.support.test.uiautomator.UiObjectNotFoundException;
+import android.support.test.uiautomator.UiScrollable;
+import android.support.test.uiautomator.UiSelector;
 import android.support.test.uiautomator.Until;
-import android.view.WindowManager;
 import android.util.Log;
+import android.view.WindowManager;
 
 import androidx.test.InstrumentationRegistry;
 
@@ -54,20 +55,8 @@ public class MediaProjectionActivity extends Activity {
     private CountDownLatch mCountDownLatch;
     private boolean mProjectionServiceBound;
 
-    private final ServiceConnection mConnection = new ServiceConnection() {
-        @Override
-        public void onServiceConnected(ComponentName className, IBinder service) {
-            startActivityForResult(mProjectionManager.createScreenCaptureIntent(), PERMISSION_CODE);
-            dismissPermissionDialog();
-            mProjectionServiceBound = true;
-        }
-
-        @Override
-        public void onServiceDisconnected(ComponentName arg0) {
-            mProjectionServiceBound = false;
-        }
-    };
-
+    private int mResultCode;
+    private Intent mResultData;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -76,22 +65,37 @@ public class MediaProjectionActivity extends Activity {
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         mProjectionManager = getSystemService(MediaProjectionManager.class);
         mCountDownLatch = new CountDownLatch(1);
-        bindMediaProjectionService();
+        startActivityForResult(mProjectionManager.createScreenCaptureIntent(), PERMISSION_CODE);
     }
 
     @Override
     protected void onDestroy() {
         super.onDestroy();
         if (mProjectionServiceBound) {
-            unbindService(mConnection);
             mProjectionServiceBound = false;
         }
     }
 
-    private void bindMediaProjectionService() {
-        Intent intent = new Intent(this, LocalMediaProjectionService.class);
-        startService(intent);
-        bindService(intent, mConnection, Context.BIND_AUTO_CREATE);
+    protected Intent getScreenCaptureIntent() {
+        return mProjectionManager.createScreenCaptureIntent();
+    }
+
+    /**
+     * Request to start a foreground service with type "mediaProjection",
+     * it's free to run in either the same process or a different process in the package;
+     * passing a messenger object to send signal back when the foreground service is up.
+     */
+    private void startMediaProjectionService() {
+        ForegroundServiceUtil.requestStartForegroundService(this,
+                getForegroundServiceComponentName(),
+                this::createMediaProjection, null);
+    }
+
+    /**
+     * @return The component name of the foreground service for this test.
+     */
+    public ComponentName getForegroundServiceComponentName() {
+        return new ComponentName(this, LocalMediaProjectionService.class);
     }
 
     @Override
@@ -103,13 +107,19 @@ public class MediaProjectionActivity extends Activity {
             throw new IllegalStateException("User denied screen sharing permission");
         }
         Log.d(TAG, "onActivityResult");
-        mMediaProjection = mProjectionManager.getMediaProjection(resultCode, data);
+        mResultCode = resultCode;
+        mResultData = data;
+        startMediaProjectionService();
+    }
+
+    private void createMediaProjection() {
+        mMediaProjection = mProjectionManager.getMediaProjection(mResultCode, mResultData);
         mCountDownLatch.countDown();
     }
 
     public MediaProjection waitForMediaProjection() throws InterruptedException {
-        final long timeOutMs = 125000;
-        final int retryCount = 2;
+        final long timeOutMs = 10000;
+        final int retryCount = 5;
         int count = 0;
         // Sometimes system decides to rotate the permission activity to another orientation
         // right after showing it. This results in: uiautomation thinks that accept button appears,
@@ -126,7 +136,27 @@ public class MediaProjectionActivity extends Activity {
 
     /** The permission dialog will be auto-opened by the activity - find it and accept */
     public void dismissPermissionDialog() {
-        UiDevice uiDevice = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation());
+        // Ensure the device is initialized before interacting with any UI elements.
+        final UiDevice uiDevice = UiDevice.getInstance(
+                InstrumentationRegistry.getInstrumentation());
+
+        // Scroll down the dialog; on a device with a small screen the buttons may be below the
+        // warning text.
+        final boolean isWatch = getPackageManager().hasSystemFeature(PackageManager.FEATURE_WATCH);
+        if (isWatch) {
+            final UiScrollable scrollable = new UiScrollable(new UiSelector().scrollable(true));
+            try {
+                if (!scrollable.scrollIntoView(new UiSelector().resourceId(ACCEPT_RESOURCE_ID))) {
+                    Log.e(TAG, "Didn't find the accept button when scrolling");
+                    return;
+                }
+                Log.d(TAG, "This is a watch; we finished scrolling down to the buttons");
+            } catch (UiObjectNotFoundException e) {
+                Log.d(TAG, "This is a watch, but there was no scrolling (the UI may not be "
+                        + "scrollable");
+            }
+        }
+
         UiObject2 acceptButton = uiDevice.wait(Until.findObject(By.res(ACCEPT_RESOURCE_ID)),
                 PERMISSION_DIALOG_WAIT_MS);
         if (acceptButton != null) {

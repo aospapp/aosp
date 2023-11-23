@@ -155,7 +155,7 @@ CmdEvtActivityClassification lookup_cmd(hci::OpCode opcode) {
     case hci::OpCode::WRITE_SYNCHRONOUS_FLOW_CONTROL_ENABLE:
     case hci::OpCode::SET_CONTROLLER_TO_HOST_FLOW_CONTROL:
     case hci::OpCode::HOST_BUFFER_SIZE:
-    case hci::OpCode::HOST_NUM_COMPLETED_PACKETS:
+    case hci::OpCode::HOST_NUMBER_OF_COMPLETED_PACKETS:
     case hci::OpCode::READ_NUMBER_OF_SUPPORTED_IAC:
     case hci::OpCode::READ_CURRENT_IAC_LAP:
     case hci::OpCode::WRITE_CURRENT_IAC_LAP:
@@ -181,13 +181,13 @@ CmdEvtActivityClassification lookup_cmd(hci::OpCode opcode) {
     case hci::OpCode::READ_LOCAL_SUPPORTED_CODEC_CAPABILITIES:
     case hci::OpCode::READ_LOCAL_SUPPORTED_CONTROLLER_DELAY:
     case hci::OpCode::READ_LOCAL_OOB_DATA:
-    case hci::OpCode::LE_GENERATE_DHKEY_COMMAND:
+    case hci::OpCode::LE_GENERATE_DHKEY_V2:
     case hci::OpCode::LE_MODIFY_SLEEP_CLOCK_ACCURACY:
     case hci::OpCode::LE_READ_BUFFER_SIZE_V2:
     case hci::OpCode::LE_READ_SUGGESTED_DEFAULT_DATA_LENGTH:
     case hci::OpCode::LE_WRITE_SUGGESTED_DEFAULT_DATA_LENGTH:
-    case hci::OpCode::LE_READ_LOCAL_P_256_PUBLIC_KEY_COMMAND:
-    case hci::OpCode::LE_GENERATE_DHKEY_COMMAND_V1:
+    case hci::OpCode::LE_READ_LOCAL_P_256_PUBLIC_KEY:
+    case hci::OpCode::LE_GENERATE_DHKEY_V1:
     case hci::OpCode::LE_SET_EVENT_MASK:
     case hci::OpCode::LE_READ_BUFFER_SIZE_V1:
     case hci::OpCode::LE_READ_LOCAL_SUPPORTED_FEATURES:
@@ -257,8 +257,8 @@ CmdEvtActivityClassification lookup_cmd(hci::OpCode opcode) {
     case hci::OpCode::LE_SET_SCAN_ENABLE:
     case hci::OpCode::LE_SET_DEFAULT_PERIODIC_ADVERTISING_SYNC_TRANSFER_PARAMETERS:
     case hci::OpCode::LE_SET_PERIODIC_ADVERTISING_RECEIVE_ENABLE:
-    case hci::OpCode::LE_CLEAR_PERIODIC_ADVERTISING_LIST:
-    case hci::OpCode::LE_READ_PERIODIC_ADVERTISING_LIST_SIZE:
+    case hci::OpCode::LE_CLEAR_PERIODIC_ADVERTISER_LIST:
+    case hci::OpCode::LE_READ_PERIODIC_ADVERTISER_LIST_SIZE:
     case hci::OpCode::LE_PERIODIC_ADVERTISING_TERMINATE_SYNC:
       classification = {.activity = Activity::SCAN, .connection_handle_pos = 0, .address_pos = 0};
       break;
@@ -268,16 +268,16 @@ CmdEvtActivityClassification lookup_cmd(hci::OpCode opcode) {
     case hci::OpCode::LE_SET_SCAN_RESPONSE_DATA:
     case hci::OpCode::LE_SET_ADVERTISING_ENABLE:
     case hci::OpCode::LE_SET_EXTENDED_ADVERTISING_DATA:
-    case hci::OpCode::LE_SET_EXTENDED_ADVERTISING_SCAN_RESPONSE:
+    case hci::OpCode::LE_SET_EXTENDED_SCAN_RESPONSE_DATA:
     case hci::OpCode::LE_SET_EXTENDED_ADVERTISING_ENABLE:
     case hci::OpCode::LE_READ_MAXIMUM_ADVERTISING_DATA_LENGTH:
     case hci::OpCode::LE_READ_NUMBER_OF_SUPPORTED_ADVERTISING_SETS:
     case hci::OpCode::LE_REMOVE_ADVERTISING_SET:
     case hci::OpCode::LE_CLEAR_ADVERTISING_SETS:
-    case hci::OpCode::LE_SET_PERIODIC_ADVERTISING_PARAM:
+    case hci::OpCode::LE_SET_PERIODIC_ADVERTISING_PARAMETERS:
     case hci::OpCode::LE_SET_PERIODIC_ADVERTISING_DATA:
     case hci::OpCode::LE_SET_PERIODIC_ADVERTISING_ENABLE:
-    case hci::OpCode::LE_SET_EXTENDED_ADVERTISING_RANDOM_ADDRESS:
+    case hci::OpCode::LE_SET_ADVERTISING_SET_RANDOM_ADDRESS:
       classification = {.activity = Activity::ADVERTISE, .connection_handle_pos = 0, .address_pos = 0};
       break;
 
@@ -310,8 +310,8 @@ CmdEvtActivityClassification lookup_cmd(hci::OpCode opcode) {
     case hci::OpCode::LE_PERIODIC_ADVERTISING_CREATE_SYNC:
       classification = {.activity = Activity::SCAN, .connection_handle_pos = 0, .address_pos = 6};
       break;
-    case hci::OpCode::LE_ADD_DEVICE_TO_PERIODIC_ADVERTISING_LIST:
-    case hci::OpCode::LE_REMOVE_DEVICE_FROM_PERIODIC_ADVERTISING_LIST:
+    case hci::OpCode::LE_ADD_DEVICE_TO_PERIODIC_ADVERTISER_LIST:
+    case hci::OpCode::LE_REMOVE_DEVICE_FROM_PERIODIC_ADVERTISER_LIST:
       classification = {.activity = Activity::SCAN, .connection_handle_pos = 0, .address_pos = 4};
       break;
     case hci::OpCode::LE_PERIODIC_ADVERTISING_SYNC_TRANSFER:

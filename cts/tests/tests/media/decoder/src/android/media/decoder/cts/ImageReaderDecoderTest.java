@@ -19,6 +19,13 @@ package android.media.decoder.cts;
 import static android.media.MediaCodecInfo.CodecCapabilities.COLOR_FormatYUV420Flexible;
 import static android.media.MediaCodecInfo.CodecCapabilities.COLOR_FormatYUVP010;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
+import static org.junit.Assume.assumeTrue;
+
 import android.graphics.ImageFormat;
 import android.graphics.Rect;
 import android.media.Image;
@@ -31,14 +38,12 @@ import android.media.MediaCodecInfo.VideoCapabilities;
 import android.media.MediaExtractor;
 import android.media.MediaFormat;
 import android.media.cts.CodecUtils;
-import android.media.cts.Preconditions;
 import android.media.cts.TestArgs;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.platform.test.annotations.AppModeFull;
 import android.platform.test.annotations.Presubmit;
 import android.platform.test.annotations.RequiresDevice;
-
 import android.util.Log;
 import android.util.Pair;
 import android.view.Surface;
@@ -46,6 +51,13 @@ import android.view.Surface;
 import androidx.test.filters.SmallTest;
 
 import com.android.compatibility.common.util.MediaUtils;
+import com.android.compatibility.common.util.Preconditions;
+
+import org.junit.After;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
 
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -57,20 +69,6 @@ import java.util.List;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.Parameterized;
-
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
-import static org.junit.Assume.assumeTrue;
-
 /**
  * Basic test for ImageReader APIs.
  * <p>
@@ -81,8 +79,7 @@ import static org.junit.Assume.assumeTrue;
  * test. For decoder test, hw and sw decoders are tested,
  * </p>
  */
-// TODO(b/210947256) Enable presubmit once this test works on Pixel 4
-//@Presubmit
+@Presubmit
 @SmallTest
 @RequiresDevice
 @AppModeFull(reason = "Instant apps cannot access the SD card")
@@ -127,7 +124,7 @@ public class ImageReaderDecoderTest {
         mTestId = testId;
     }
 
-    @Parameterized.Parameters(name = "{index}({0}_{1}_{4})")
+    @Parameterized.Parameters(name = "{index}_{0}_{1}_{4}")
     public static Collection<Object[]> input() {
         final List<Object[]> argsList = new ArrayList<>();
         for (MediaAssets assets : ASSETS) {
@@ -509,7 +506,7 @@ public class ImageReaderDecoderTest {
                 if (VERBOSE) Log.v(TAG, "decoder output format changed: " + outFormat);
             } else if (res < 0) {
                 // Should be decoding error.
-                fail("unexpected result from deocder.dequeueOutputBuffer: " + res);
+                fail("unexpected result from decoder.dequeueOutputBuffer: " + res);
             } else {
                 if ((info.flags & MediaCodec.BUFFER_FLAG_END_OF_STREAM) != 0) {
                     sawOutputEOS = true;

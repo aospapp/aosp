@@ -17,6 +17,9 @@
 package android.net.wifi.hotspot2;
 
 import static android.net.wifi.WifiConfiguration.METERED_OVERRIDE_NONE;
+import static android.net.wifi.hotspot2.PasspointConfiguration.MAX_NUMBER_OF_ENTRIES;
+import static android.net.wifi.hotspot2.PasspointConfiguration.MAX_NUMBER_OF_OI;
+import static android.net.wifi.hotspot2.PasspointConfiguration.MAX_STRING_LENGTH;
 
 import static junit.framework.Assert.assertNull;
 
@@ -36,6 +39,8 @@ import androidx.test.filters.SmallTest;
 
 import com.android.modules.utils.build.SdkLevel;
 
+import com.google.common.base.Strings;
+
 import org.junit.Test;
 
 import java.nio.charset.StandardCharsets;
@@ -44,8 +49,10 @@ import java.security.NoSuchAlgorithmException;
 import java.security.PrivateKey;
 import java.security.cert.CertificateEncodingException;
 import java.security.cert.X509Certificate;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -53,7 +60,7 @@ import java.util.Map;
  */
 @SmallTest
 public class PasspointConfigurationTest {
-    private static final int MAX_URL_BYTES = 1023;
+    private static final int MAX_URL_BYTES = 2048;
     private static final int CERTIFICATE_FINGERPRINT_BYTES = 32;
     private static final String TEST_DECORATED_IDENTITY_PREFIX = "androidwifi.dev!";
     private static final long SUBSCRIPTION_EXPIRATION_TIME_MS = 1643996661000L;
@@ -673,5 +680,73 @@ public class PasspointConfigurationTest {
                 .setSubscriptionExpirationTimeInMillis(SUBSCRIPTION_EXPIRATION_TIME_MS);
         assertEquals(SUBSCRIPTION_EXPIRATION_TIME_MS,
                 passpointConfiguration.getSubscriptionExpirationTimeMillis());
+    }
+
+    @Test
+    public void testValidatePasspointConfig() {
+        PasspointConfiguration passpointConfiguration = new PasspointConfiguration();
+        HomeSp homeSp = new HomeSp();
+        homeSp.setFqdn(Strings.repeat("A", MAX_STRING_LENGTH));
+        homeSp.setFriendlyName(Strings.repeat("A", MAX_STRING_LENGTH));
+        List<String> homePartnersList = new ArrayList<>();
+        for (int h = 0; h < MAX_NUMBER_OF_ENTRIES; h++) {
+            homePartnersList.add(Strings.repeat("A", MAX_STRING_LENGTH));
+        }
+        homeSp.setOtherHomePartnersList(homePartnersList);
+        homeSp.setIconUrl(Strings.repeat("A", MAX_URL_BYTES));
+
+        Credential credential = new Credential();
+        credential.setRealm("example.com");
+        Credential.UserCredential userCredential = new Credential.UserCredential();
+        userCredential.setUsername("username");
+        userCredential.setPassword("password");
+        userCredential.setEapType(21);
+        userCredential.setNonEapInnerMethod("MS-CHAP");
+        credential.setUserCredential(userCredential);
+        passpointConfiguration.setCredential(credential);
+        passpointConfiguration.setHomeSp(homeSp);
+        assertTrue(passpointConfiguration.validate());
+
+        // FQDN exceed the limit
+        homeSp.setFqdn(Strings.repeat("A", MAX_STRING_LENGTH + 1));
+        passpointConfiguration.setHomeSp(homeSp);
+        assertFalse(passpointConfiguration.validate());
+        homeSp.setFqdn(Strings.repeat("A", MAX_STRING_LENGTH));
+        // Friendly name exceed the limit
+        homeSp.setFriendlyName(Strings.repeat("A", MAX_STRING_LENGTH + 1));
+        passpointConfiguration.setHomeSp(homeSp);
+        assertFalse(passpointConfiguration.validate());
+        homeSp.setFriendlyName(Strings.repeat("A", MAX_STRING_LENGTH));
+        // Icon url exceed the limit
+        homeSp.setIconUrl(Strings.repeat("A", MAX_URL_BYTES + 1));
+        passpointConfiguration.setHomeSp(homeSp);
+        assertFalse(passpointConfiguration.validate());
+        homeSp.setIconUrl(Strings.repeat("A", MAX_URL_BYTES));
+        // AAA service trusted names exceed the limit
+        String[] aaaServerTrustedNames = new String[MAX_NUMBER_OF_ENTRIES + 1];
+        passpointConfiguration.setAaaServerTrustedNames(aaaServerTrustedNames);
+        passpointConfiguration.setHomeSp(homeSp);
+        assertFalse(passpointConfiguration.validate());
+        passpointConfiguration.setAaaServerTrustedNames(null);
+        // Match all OIs exceed the limit
+        long[] ois = new long[MAX_NUMBER_OF_OI + 1];
+        homeSp.setMatchAllOis(ois);
+        assertFalse(homeSp.validate());
+        homeSp.setMatchAllOis(null);
+        // Match any OIs exceed the limit
+        homeSp.setMatchAnyOis(ois);
+        assertFalse(homeSp.validate());
+        homeSp.setMatchAnyOis(null);
+        // Roaming Consortium OIs exceed the limit
+        homeSp.setRoamingConsortiumOis(ois);
+        assertFalse(homeSp.validate());
+        homeSp.setRoamingConsortiumOis(null);
+        // ServiceFriendlyNames exceed the limit
+        HashMap<String, String> friendlyNames = new HashMap<>();
+        for (int i = 0; i < MAX_NUMBER_OF_ENTRIES + 1; i++) {
+            friendlyNames.put(String.valueOf(i), String.valueOf(i));
+        }
+        passpointConfiguration.setServiceFriendlyNames(friendlyNames);
+        assertFalse(passpointConfiguration.validate());
     }
 }

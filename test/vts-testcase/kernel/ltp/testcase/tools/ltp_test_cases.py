@@ -23,6 +23,7 @@ import test_case
 from configs import stable_tests
 from configs import disabled_tests
 from common import filter_utils
+from typing import Set, Optional, List, Callable
 
 ltp_test_template = '        <option name="test-command-line" key="%s" value="&env_setup_cmd; ;' \
                     ' cd &ltp_bin_dir; ; %s" />'
@@ -38,18 +39,18 @@ class LtpTestCases(object):
         _ltp_config_lines: list of string: the context of the generated config
     """
 
-    def __init__(self, android_build_top, filter_func):
+    def __init__(self, android_build_top: str, filter_func: Callable):
         self._android_build_top = android_build_top
         self._filter_func = filter_func
         self._ltp_tests_filter = filter_utils.Filter(
-            [ i[0] for i in stable_tests.STABLE_TESTS ],
+            set(stable_tests.STABLE_TESTS.keys()),
             disabled_tests.DISABLED_TESTS,
             enable_regex=True)
         self._ltp_tests_filter.ExpandBitness()
         self._ltp_binaries = []
         self._ltp_config_lines = []
 
-    def ValidateDefinition(self, line):
+    def ValidateDefinition(self, line: str) -> Optional[List[str]]:
         """Validate a tab delimited test case definition.
 
         Will check whether the given line of definition has three parts
@@ -70,7 +71,7 @@ class LtpTestCases(object):
         else:
             return items
 
-    def ReadConfigTemplateFile(self):
+    def ReadConfigTemplateFile(self) -> str:
         """Read the template of the config file and return the context.
 
         Returns:
@@ -81,7 +82,7 @@ class LtpTestCases(object):
         with open(file_path, 'r') as f:
             return f.read()
 
-    def GetKernelModuleControllerOption(self, arch, n_bit, is_low_mem=False, is_hwasan=False):
+    def GetKernelModuleControllerOption(self, arch: str, n_bit: int, is_low_mem: bool = False, is_hwasan: bool = False) -> str:
         """Get the Option of KernelModuleController.
 
         Args:
@@ -98,7 +99,7 @@ class LtpTestCases(object):
         is_hwasan_template = '        <option name="is-hwasan" value="{}"/>'
         option_lines = arch_template + is_low_mem_template + is_hwasan_template
         if n_bit == '64':
-            n_bit_string = str(n_bit) if arch == 'arm' else ('_'+str(n_bit))
+            n_bit_string = str(n_bit) if arch == 'arm' or arch == 'riscv' else ('_'+str(n_bit))
         else:
             n_bit_string = ''
         arch_name = arch + n_bit_string
@@ -114,9 +115,6 @@ class LtpTestCases(object):
 
         Args:
             command: String, the test command
-
-        Returns:
-            bool: True if the binary in the gen.bp
         """
         gen_bp_path = os.path.join(self._android_build_top, ltp_configs.LTP_GEN_BINARY_BP)
         for line in open(gen_bp_path, 'r'):
@@ -127,7 +125,7 @@ class LtpTestCases(object):
                 ltp_binary = line.split('"')[1]
                 self._ltp_binaries.append(ltp_binary)
 
-    def IsLtpBinaryExist(self, commands):
+    def IsLtpBinaryExist(self, commands: str) -> bool:
         """Check the binary exist in the command.
 
         Args:
@@ -146,13 +144,13 @@ class LtpTestCases(object):
         return False
 
     def GenConfig(self,
-             arch,
-             n_bit,
-             test_filter,
-             output_file,
-             run_staging=False,
-             is_low_mem=False,
-             is_hwasan=False):
+             arch: str,
+             n_bit: int,
+             test_filter: filter_utils.Filter,
+             output_file: str,
+             run_staging: bool = False,
+             is_low_mem: bool = False,
+             is_hwasan: bool = False):
         """Read the definition file and generate the test config.
 
         Args:
@@ -172,9 +170,10 @@ class LtpTestCases(object):
         module_controller_option = self.GetKernelModuleControllerOption(arch, n_bit,
                                                                         is_low_mem,
                                                                         is_hwasan)
-        test_case_string = ''
-        run_scritp = self.GenerateLtpRunScript(scenario_groups)
-        for line in run_scritp:
+        mandatory_test_cases = []
+        skippable_test_cases = []
+        run_script = self.GenerateLtpRunScript(scenario_groups)
+        for line in run_script:
             items = self.ValidateDefinition(line)
             if not items:
                 continue
@@ -235,13 +234,11 @@ class LtpTestCases(object):
                     continue
 
             if not testcase.is_staging:
-                for x in stable_tests.STABLE_TESTS:
-                    if x[0] == test_display_name and x[1]:
-                        testcase.is_mandatory = True
-                        break
+                if stable_tests.STABLE_TESTS.get(test_display_name, False):
+                    testcase.is_mandatory = True
 
             if is_hwasan:
-                if x[0] in disabled_tests.DISABLED_TESTS_HWASAN:
+                if test_display_name in disabled_tests.DISABLED_TESTS_HWASAN:
                     continue
 
             if self.IsLtpBinaryExist(command):
@@ -253,14 +250,20 @@ class LtpTestCases(object):
                 # e.g. mm.mmapstress07
                 command = command.replace(ltp_configs.LTPDIR, '&ltp_dir;')
                 ltp_test_line = ltp_test_template % (test_display_name, command)
-                test_case_string += (ltp_test_line + '\n')
+                if testcase.is_mandatory:
+                    mandatory_test_cases.append(ltp_test_line)
+                else:
+                    skippable_test_cases.append(ltp_test_line)
         nativetest_bit_path = '64' if n_bit == '64' else ''
-        config_lines = config_lines.format(nativetest_bit_path, module_controller_option,
-                                           test_case_string)
+        config_lines = config_lines.format(
+            nativetest_bit_path=nativetest_bit_path,
+            module_controller_option=module_controller_option,
+            mandatory_test_cases='\n'.join(mandatory_test_cases),
+            skippable_test_cases='\n'.join(skippable_test_cases))
         with open(output_file, 'w') as f:
             f.write(config_lines)
 
-    def ReadCommentedTxt(self, filepath):
+    def ReadCommentedTxt(self, filepath: str) -> Optional[Set[str]]:
         '''Read a lines of a file that are not commented by #.
 
         Args:
@@ -279,7 +282,7 @@ class LtpTestCases(object):
                 line for line in lines_gen
                 if line and not line.startswith('#'))
 
-    def GenerateLtpTestCases(self, testsuite, disabled_tests_list):
+    def GenerateLtpTestCases(self, testsuite: str, disabled_tests_list: List[str]) -> List[str]:
         '''Generate test cases for each ltp test suite.
 
         Args:
@@ -306,7 +309,7 @@ class LtpTestCases(object):
                 [testsuite, testname_modified, line[len(testname):].strip()]))
         return result
 
-    def GenerateLtpRunScript(self, scenario_groups):
+    def GenerateLtpRunScript(self, scenario_groups: List[str]) -> List[str]:
         '''Given a scenario group generate test case script.
 
         Args:

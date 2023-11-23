@@ -50,6 +50,12 @@ var (
 		"broadwell": []string{
 			"-march=broadwell",
 		},
+		"goldmont": []string{
+			"-march=goldmont",
+		},
+		"goldmont-plus": []string{
+			"-march=goldmont-plus",
+		},
 		"haswell": []string{
 			"-march=core-avx2",
 		},
@@ -67,6 +73,9 @@ var (
 		},
 		"stoneyridge": []string{
 			"-march=bdver4",
+		},
+		"tremont": []string{
+			"-march=tremont",
 		},
 	}
 
@@ -88,16 +97,7 @@ var (
 	}
 )
 
-const (
-	x86GccVersion = "4.9"
-)
-
 func init() {
-	pctx.StaticVariable("x86GccVersion", x86GccVersion)
-
-	pctx.SourcePathVariable("X86GccRoot",
-		"prebuilts/gcc/${HostPrebuiltTag}/x86/x86_64-linux-android-${x86GccVersion}")
-
 	exportedVars.ExportStringListStaticVariable("X86ToolchainCflags", []string{"-m32"})
 	exportedVars.ExportStringListStaticVariable("X86ToolchainLdflags", []string{"-m32"})
 
@@ -132,18 +132,6 @@ type toolchainX86 struct {
 
 func (t *toolchainX86) Name() string {
 	return "x86"
-}
-
-func (t *toolchainX86) GccRoot() string {
-	return "${config.X86GccRoot}"
-}
-
-func (t *toolchainX86) GccTriple() string {
-	return "x86_64-linux-android"
-}
-
-func (t *toolchainX86) GccVersion() string {
-	return x86GccVersion
 }
 
 func (t *toolchainX86) IncludeFlags() string {

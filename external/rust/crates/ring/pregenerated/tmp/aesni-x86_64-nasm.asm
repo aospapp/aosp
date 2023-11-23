@@ -5,13 +5,15 @@ default	rel
 %define XMMWORD
 %define YMMWORD
 %define ZMMWORD
+
+%include "ring_core_generated/prefix_symbols_nasm.inc"
 section	.text code align=64
 
-EXTERN	GFp_ia32cap_P
-global	GFp_aes_hw_encrypt
+EXTERN	OPENSSL_ia32cap_P
+global	aes_hw_encrypt
 
 ALIGN	16
-GFp_aes_hw_encrypt:
+aes_hw_encrypt:
 
 	movups	xmm2,XMMWORD[rcx]
 	mov	eax,DWORD[240+r8]
@@ -264,14 +266,14 @@ DB	102,68,15,56,221,200
 	DB	0F3h,0C3h		;repret
 
 
-global	GFp_aes_hw_ctr32_encrypt_blocks
+global	aes_hw_ctr32_encrypt_blocks
 
 ALIGN	16
-GFp_aes_hw_ctr32_encrypt_blocks:
+aes_hw_ctr32_encrypt_blocks:
 	mov	QWORD[8+rsp],rdi	;WIN64 prologue
 	mov	QWORD[16+rsp],rsi
 	mov	rax,rsp
-$L$SEH_begin_GFp_aes_hw_ctr32_encrypt_blocks:
+$L$SEH_begin_aes_hw_ctr32_encrypt_blocks:
 	mov	rdi,rcx
 	mov	rsi,rdx
 	mov	rdx,r8
@@ -377,7 +379,7 @@ DB	102,15,58,34,232,3
 	lea	r9,[7+r8]
 	mov	DWORD[((96+12))+rsp],r10d
 	bswap	r9d
-	lea	r10,[GFp_ia32cap_P]
+	lea	r10,[OPENSSL_ia32cap_P]
 	mov	r10d,DWORD[4+r10]
 	xor	r9d,ebp
 	and	r10d,71303168
@@ -877,11 +879,11 @@ $L$ctr32_epilogue:
 	mov	rsi,QWORD[16+rsp]
 	DB	0F3h,0C3h		;repret
 
-$L$SEH_end_GFp_aes_hw_ctr32_encrypt_blocks:
-global	GFp_aes_hw_set_encrypt_key
+$L$SEH_end_aes_hw_ctr32_encrypt_blocks:
+global	aes_hw_set_encrypt_key
 
 ALIGN	16
-GFp_aes_hw_set_encrypt_key:
+aes_hw_set_encrypt_key:
 __aesni_set_encrypt_key:
 
 DB	0x48,0x83,0xEC,0x08
@@ -894,7 +896,7 @@ DB	0x48,0x83,0xEC,0x08
 
 	movups	xmm0,XMMWORD[rcx]
 	xorps	xmm4,xmm4
-	lea	r10,[GFp_ia32cap_P]
+	lea	r10,[OPENSSL_ia32cap_P]
 	mov	r10d,DWORD[4+r10]
 	and	r10d,268437504
 	lea	rax,[16+r8]
@@ -1113,7 +1115,7 @@ $L$enc_key_ret:
 
 	DB	0F3h,0C3h		;repret
 
-$L$SEH_end_GFp_set_encrypt_key:
+$L$SEH_end_set_encrypt_key:
 
 ALIGN	16
 $L$key_expansion_128:
@@ -1294,18 +1296,18 @@ $L$common_seh_tail:
 
 section	.pdata rdata align=4
 ALIGN	4
-	DD	$L$SEH_begin_GFp_aes_hw_ctr32_encrypt_blocks wrt ..imagebase
-	DD	$L$SEH_end_GFp_aes_hw_ctr32_encrypt_blocks wrt ..imagebase
-	DD	$L$SEH_info_GFp_ctr32 wrt ..imagebase
-	DD	GFp_aes_hw_set_encrypt_key wrt ..imagebase
-	DD	$L$SEH_end_GFp_set_encrypt_key wrt ..imagebase
-	DD	$L$SEH_info_GFp_key wrt ..imagebase
+	DD	$L$SEH_begin_aes_hw_ctr32_encrypt_blocks wrt ..imagebase
+	DD	$L$SEH_end_aes_hw_ctr32_encrypt_blocks wrt ..imagebase
+	DD	$L$SEH_info_ctr32 wrt ..imagebase
+	DD	aes_hw_set_encrypt_key wrt ..imagebase
+	DD	$L$SEH_end_set_encrypt_key wrt ..imagebase
+	DD	$L$SEH_info_key wrt ..imagebase
 section	.xdata rdata align=8
 ALIGN	8
-$L$SEH_info_GFp_ctr32:
+$L$SEH_info_ctr32:
 DB	9,0,0,0
 	DD	ctr_xts_se_handler wrt ..imagebase
 	DD	$L$ctr32_body wrt ..imagebase,$L$ctr32_epilogue wrt ..imagebase
-$L$SEH_info_GFp_key:
+$L$SEH_info_key:
 DB	0x01,0x04,0x01,0x00
 DB	0x04,0x02,0x00,0x00

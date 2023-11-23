@@ -1,6 +1,16 @@
 # Bug component: 760438
 
-hgchen@google.com
+# OS-wide changes in device/google/atv and Cuttlefish
+aabdagic@google.com
 rgl@google.com
-shaopengjia@google.com
+robhor@google.com
+shaopengjia@google.com #{LAST_RESORT_SUGGESTION}
+tolstykh@google.com
+
+# TV emulator and boot logo
+alpic@google.com
+kozachuk@google.com
+
+# GSI targets
+hgchen@google.com
 wyau@google.com

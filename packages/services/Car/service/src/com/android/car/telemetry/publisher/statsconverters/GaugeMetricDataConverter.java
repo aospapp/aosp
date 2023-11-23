@@ -16,6 +16,8 @@
 
 package com.android.car.telemetry.publisher.statsconverters;
 
+import static com.android.car.telemetry.publisher.Constants.STATS_BUNDLE_KEY_ELAPSED_TIMESTAMP;
+
 import android.annotation.NonNull;
 import android.annotation.Nullable;
 import android.os.PersistableBundle;
@@ -34,8 +36,6 @@ import java.util.Map;
  * Class for converting gauge metric data to {@link PersistableBundle} compatible format.
  */
 public class GaugeMetricDataConverter {
-    static final String ELAPSED_TIME_NANOS = "elapsed_timestamp_nanos";
-
     /**
      * Converts a list of {@link StatsLogProto.GaugeMetricData} to {@link PersistableBundle}
      * format such that along with the elapsed time array each field of the atom has an associated
@@ -97,7 +97,7 @@ public class GaugeMetricDataConverter {
         for (int i = 0; i < elapsedTimes.size(); ++i) {
             elapsedTimesArray[i] = elapsedTimes.get(i);
         }
-        bundle.putLongArray(ELAPSED_TIME_NANOS, elapsedTimesArray);
+        bundle.putLongArray(STATS_BUNDLE_KEY_ELAPSED_TIMESTAMP, elapsedTimesArray);
         return bundle;
     }
 }

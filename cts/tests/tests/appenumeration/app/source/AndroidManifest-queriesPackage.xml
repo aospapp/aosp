@@ -18,6 +18,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="android.appenumeration.queries.pkg">
 
+    <uses-permission android:name="android.permission.READ_SYNC_SETTINGS" />
+
     <queries>
         <package android:name="android.appenumeration.noapi" />
         <package android:name="android.appenumeration.noapi.shareduid" />
@@ -25,6 +27,8 @@
         <package android:name="android.appenumeration.appwidgetprovider" />
         <package android:name="android.appenumeration.preferred.activity" />
         <package android:name="com.android.cts.install.lib.testapp.A" />
+        <package android:name="com.android.cts.mockspellchecker" />
+        <package android:name="android.inputmethodservice.cts.ime1" />
     </queries>
 
     <application android:debuggable="true">

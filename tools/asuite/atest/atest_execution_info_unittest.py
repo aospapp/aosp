@@ -21,10 +21,10 @@
 import time
 import unittest
 
-import atest_execution_info as aei
-import result_reporter
+from atest import atest_execution_info as aei
+from atest import result_reporter
 
-from test_runners import test_runner_base
+from atest.test_runners import test_runner_base
 
 RESULT_TEST_TEMPLATE = test_runner_base.TestResult(
     runner_name='someRunner',

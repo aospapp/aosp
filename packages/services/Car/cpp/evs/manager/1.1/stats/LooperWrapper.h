@@ -47,11 +47,10 @@ protected:
     android::sp<Looper> mLooper;
 };
 
-} // namespace implementation
-} // namespace V1_1
-} // namespace evs
-} // namespace automotive
-} // namespace android
+}  // namespace implementation
+}  // namespace V1_1
+}  // namespace evs
+}  // namespace automotive
+}  // namespace android
 
 #endif  // ANDROID_AUTMOTIVE_EVS_V1_1_EVSLOOPERWRAPPER_H_
-

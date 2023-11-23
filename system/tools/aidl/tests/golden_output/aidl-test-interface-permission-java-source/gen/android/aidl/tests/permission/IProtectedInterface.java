@@ -2,7 +2,6 @@
  * This file is auto-generated.  DO NOT MODIFY.
  */
 package android.aidl.tests.permission;
-@android.annotation.EnforcePermission(android.Manifest.permission.ACCESS_FINE_LOCATION)
 public interface IProtectedInterface extends android.os.IInterface
 {
   /** Default implementation for IProtectedInterface. */
@@ -22,10 +21,21 @@ public interface IProtectedInterface extends android.os.IInterface
   /** Local-side IPC implementation stub class. */
   public static abstract class Stub extends android.os.Binder implements android.aidl.tests.permission.IProtectedInterface
   {
-    /** Construct the stub at attach it to the interface. */
-    public Stub()
+    private final android.os.PermissionEnforcer mEnforcer;
+    /** Construct the stub using the Enforcer provided. */
+    public Stub(android.os.PermissionEnforcer enforcer)
     {
       this.attachInterface(this, DESCRIPTOR);
+      if (enforcer == null) {
+        throw new IllegalArgumentException("enforcer cannot be null");
+      }
+      mEnforcer = enforcer;
+    }
+    @Deprecated
+    /** Default constructor. */
+    public Stub() {
+      this(android.os.PermissionEnforcer.fromContext(
+         android.app.ActivityThread.currentActivityThread().getSystemContext()));
     }
     /**
      * Cast an IBinder object into an android.aidl.tests.permission.IProtectedInterface interface,
@@ -46,6 +56,30 @@ public interface IProtectedInterface extends android.os.IInterface
     {
       return this;
     }
+    /** @hide */
+    public static java.lang.String getDefaultTransactionName(int transactionCode)
+    {
+      switch (transactionCode)
+      {
+        case TRANSACTION_Method1:
+        {
+          return "Method1";
+        }
+        case TRANSACTION_Method2:
+        {
+          return "Method2";
+        }
+        default:
+        {
+          return null;
+        }
+      }
+    }
+    /** @hide */
+    public java.lang.String getTransactionName(int transactionCode)
+    {
+      return this.getDefaultTransactionName(transactionCode);
+    }
     @Override public boolean onTransact(int code, android.os.Parcel data, android.os.Parcel reply, int flags) throws android.os.RemoteException
     {
       java.lang.String descriptor = DESCRIPTOR;
@@ -64,21 +98,12 @@ public interface IProtectedInterface extends android.os.IInterface
       {
         case TRANSACTION_Method1:
         {
-          if ((this.permissionCheckerWrapper(android.Manifest.permission.ACCESS_FINE_LOCATION, this.getCallingPid(), new android.content.AttributionSource(getCallingUid(), null, null))!=true)) {
-            throw new SecurityException("Access denied, requires: android.Manifest.permission.ACCESS_FINE_LOCATION");
-          }
           this.Method1();
           reply.writeNoException();
           break;
         }
         case TRANSACTION_Method2:
         {
-          if ((this.permissionCheckerWrapper(android.Manifest.permission.ACCESS_FINE_LOCATION, this.getCallingPid(), new android.content.AttributionSource(getCallingUid(), null, null))!=true)) {
-            throw new SecurityException("Access denied, requires: android.Manifest.permission.ACCESS_FINE_LOCATION");
-          }
-          if ((this.permissionCheckerWrapper(android.Manifest.permission.INTERNET, this.getCallingPid(), new android.content.AttributionSource(getCallingUid(), null, null))!=true)) {
-            throw new SecurityException("Access denied, requires: android.Manifest.permission.INTERNET");
-          }
           this.Method2();
           reply.writeNoException();
           break;
@@ -107,7 +132,7 @@ public interface IProtectedInterface extends android.os.IInterface
       }
       @Override public void Method1() throws android.os.RemoteException
       {
-        android.os.Parcel _data = android.os.Parcel.obtain();
+        android.os.Parcel _data = android.os.Parcel.obtain(asBinder());
         android.os.Parcel _reply = android.os.Parcel.obtain();
         try {
           _data.writeInterfaceToken(DESCRIPTOR);
@@ -121,7 +146,7 @@ public interface IProtectedInterface extends android.os.IInterface
       }
       @Override public void Method2() throws android.os.RemoteException
       {
-        android.os.Parcel _data = android.os.Parcel.obtain();
+        android.os.Parcel _data = android.os.Parcel.obtain(asBinder());
         android.os.Parcel _reply = android.os.Parcel.obtain();
         try {
           _data.writeInterfaceToken(DESCRIPTOR);
@@ -134,19 +159,25 @@ public interface IProtectedInterface extends android.os.IInterface
         }
       }
     }
-    private boolean permissionCheckerWrapper(
-        String permission, int pid, android.content.AttributionSource attributionSource) {
-      android.content.Context ctx =
-          android.app.ActivityThread.currentActivityThread().getSystemContext();
-      return (android.content.PermissionChecker.checkPermissionForDataDelivery(
-              ctx, permission, pid, attributionSource, "" /*message*/) ==
-          android.content.PermissionChecker.PERMISSION_GRANTED);
-    }
     static final int TRANSACTION_Method1 = (android.os.IBinder.FIRST_CALL_TRANSACTION + 0);
+    /** Helper method to enforce permissions for Method1 */
+    protected void Method1_enforcePermission() throws SecurityException {
+      mEnforcer.enforcePermission(android.Manifest.permission.ACCESS_FINE_LOCATION, getCallingPid(), getCallingUid());
+    }
     static final int TRANSACTION_Method2 = (android.os.IBinder.FIRST_CALL_TRANSACTION + 1);
+    /** Helper method to enforce permissions for Method2 */
+    protected void Method2_enforcePermission() throws SecurityException {
+      mEnforcer.enforcePermission(android.Manifest.permission.ACCESS_FINE_LOCATION, getCallingPid(), getCallingUid());
+    }
+    /** @hide */
+    public int getMaxTransactionId()
+    {
+      return 1;
+    }
   }
   public static final java.lang.String DESCRIPTOR = "android$aidl$tests$permission$IProtectedInterface".replace('$', '.');
+  @android.annotation.EnforcePermission(android.Manifest.permission.ACCESS_FINE_LOCATION)
   public void Method1() throws android.os.RemoteException;
-  @android.annotation.EnforcePermission(android.Manifest.permission.INTERNET)
+  @android.annotation.EnforcePermission(android.Manifest.permission.ACCESS_FINE_LOCATION)
   public void Method2() throws android.os.RemoteException;
 }

@@ -248,9 +248,9 @@ static void calculate_total_batch_size(void)
 	SAFE_SYSINFO(&info);
 
 	/* see linux source mm/mm_init.c mm_compute_batch() (This is in pages) */
-	long batch_size = MAX(ncpus * 2,
-	                      MAX(32,
-	                          MIN(INT32_MAX,
+	long batch_size = MAX(ncpus * 2L,
+	                      MAX(32L,
+	                          MIN((long)INT32_MAX,
 	                              (long)(info.totalram / pagesize) / ncpus / 256
 	                          )
 	                      )
@@ -265,7 +265,7 @@ static void calculate_total_batch_size(void)
 static struct tst_test test = {
 	.needs_root = 1,
 	.options = (struct tst_option[]) {
-		{"R:", &R_opt, "  -R n    Percentage of overcommitting memory"},
+		{"R:", &R_opt, "Percentage of overcommitting memory"},
 		{}
 	},
 	.setup = setup,

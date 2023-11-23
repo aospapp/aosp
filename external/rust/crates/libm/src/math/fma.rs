@@ -122,12 +122,12 @@ pub fn fma(x: f64, y: f64, z: f64) -> f64 {
         rhi += zhi + (rlo < zlo) as u64;
     } else {
         /* r -= z */
-        let t = rlo;
-        rlo = rlo.wrapping_sub(zlo);
-        rhi = rhi.wrapping_sub(zhi.wrapping_sub((t < rlo) as u64));
+        let (res, borrow) = rlo.overflowing_sub(zlo);
+        rlo = res;
+        rhi = rhi.wrapping_sub(zhi.wrapping_add(borrow as u64));
         if (rhi >> 63) != 0 {
-            rlo = (-(rlo as i64)) as u64;
-            rhi = (-(rhi as i64)) as u64 - (rlo != 0) as u64;
+            rlo = (rlo as i64).wrapping_neg() as u64;
+            rhi = (rhi as i64).wrapping_neg() as u64 - (rlo != 0) as u64;
             sign = (sign == 0) as i32;
         }
         nonzero = (rhi != 0) as i32;
@@ -218,6 +218,26 @@ mod tests {
             -0.00000000000000022204460492503126,
         );
 
-        assert_eq!(fma(-0.992, -0.992, -0.992), -0.00793599999988632,);
+        let result = fma(-0.992, -0.992, -0.992);
+        //force rounding to storage format on x87 to prevent superious errors.
+        #[cfg(all(target_arch = "x86", not(target_feature = "sse2")))]
+        let result = force_eval!(result);
+        assert_eq!(result, -0.007936000000000007,);
+    }
+
+    #[test]
+    fn fma_sbb() {
+        assert_eq!(
+            fma(-(1.0 - f64::EPSILON), f64::MIN, f64::MIN),
+            -3991680619069439e277
+        );
+    }
+
+    #[test]
+    fn fma_underflow() {
+        assert_eq!(
+            fma(1.1102230246251565e-16, -9.812526705433188e-305, 1.0894e-320),
+            0.0,
+        );
     }
 }

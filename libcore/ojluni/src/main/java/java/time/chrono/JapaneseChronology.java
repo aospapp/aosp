@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012, 2013, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2012, 2019, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -142,6 +142,7 @@ public final class JapaneseChronology extends AbstractChronology implements Seri
     /**
      * Serialization version.
      */
+    @java.io.Serial
     private static final long serialVersionUID = 459996390165777884L;
 
     //-----------------------------------------------------------------------
@@ -208,10 +209,10 @@ public final class JapaneseChronology extends AbstractChronology implements Seri
      */
     @Override
     public JapaneseDate date(Era era, int yearOfEra, int month, int dayOfMonth) {
-        if (era instanceof JapaneseEra == false) {
+        if (!(era instanceof JapaneseEra jera)) {
             throw new ClassCastException("Era must be JapaneseEra");
         }
-        return JapaneseDate.of((JapaneseEra) era, yearOfEra, month, dayOfMonth);
+        return JapaneseDate.of(jera, yearOfEra, month, dayOfMonth);
     }
 
     /**
@@ -516,7 +517,7 @@ public final class JapaneseChronology extends AbstractChronology implements Seri
     //-----------------------------------------------------------------------
     /**
      * Writes the Chronology using a
-     * <a href="../../../serialized-form.html#java.time.chrono.Ser">dedicated serialized form</a>.
+     * <a href="{@docRoot}/serialized-form.html#java.time.chrono.Ser">dedicated serialized form</a>.
      * @serialData
      * <pre>
      *  out.writeByte(1);     // identifies a Chronology
@@ -526,6 +527,7 @@ public final class JapaneseChronology extends AbstractChronology implements Seri
      * @return the instance of {@code Ser}, not null
      */
     @Override
+    @java.io.Serial
     Object writeReplace() {
         return super.writeReplace();
     }
@@ -536,6 +538,7 @@ public final class JapaneseChronology extends AbstractChronology implements Seri
      * @param s the stream to read
      * @throws InvalidObjectException always
      */
+    @java.io.Serial
     private void readObject(ObjectInputStream s) throws InvalidObjectException {
         throw new InvalidObjectException("Deserialization via serialization delegate");
     }

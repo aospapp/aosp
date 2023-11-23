@@ -1,15 +1,28 @@
+# Lint as: python2, python3
 # Copyright (c) 2013 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
 import collections
 import dbus
 import dbus.mainloop.glib
-import gobject
+# AU tests use ToT client code, but ToT -3 client version.
+try:
+    from gi.repository import GObject
+except ImportError:
+    import gobject as GObject
 import time
+import six
+
+from six.moves import map
+from six.moves import range
+from six import PY2
 
 from autotest_lib.client.cros import dbus_util
-
 
 class ShillProxyError(Exception):
     """Exceptions raised by ShillProxy and its children."""
@@ -82,6 +95,7 @@ class ShillProxy(object):
     DEVICE_ENUMERATION_TIMEOUT = 30
     DEVICE_ENABLE_DISABLE_TIMEOUT = 60
     SERVICE_DISCONNECT_TIMEOUT = 5
+    SERVICE_READY_TIMEOUT = 5
 
     SERVICE_PROPERTY_AUTOCONNECT = 'AutoConnect'
     SERVICE_PROPERTY_DEVICE = 'Device'
@@ -275,11 +289,11 @@ class ShillProxy(object):
 
         """
         dbus_dict = {}
-        for key, value in in_dict.iteritems():
-                if key not in ShillProxy.SERVICE_PROPERTY_MAP:
-                        raise ShillProxyError('Unsupported property %s' % (key))
-                (dbus_type, kwargs) = ShillProxy.SERVICE_PROPERTY_MAP[key]
-                dbus_dict[key] = dbus_type(value, variant_level=1, **kwargs)
+        for key, value in list(in_dict.items()):
+            if key not in ShillProxy.SERVICE_PROPERTY_MAP:
+                raise ShillProxyError('Unsupported property %s' % (key))
+            (dbus_type, kwargs) = ShillProxy.SERVICE_PROPERTY_MAP[key]
+            dbus_dict[key] = dbus_type(value, variant_level=1, **kwargs)
         return dbus_dict
 
 
@@ -302,7 +316,7 @@ class ShillProxy(object):
         @return python typed object representing property value or None
 
         """
-        properties = interface.GetProperties(utf8_strings=True)
+        properties = interface.GetProperties()
         if property_key in properties:
             return ShillProxy.dbus2primitive(properties[property_key])
         else:
@@ -318,7 +332,7 @@ class ShillProxy(object):
         @param value string value to set for property on interface from string
 
         """
-        properties = interface.GetProperties(utf8_strings=True)
+        properties = interface.GetProperties()
         if property_key not in properties:
             raise ShillProxyError('No property %s found in %s' %
                     (property_key, interface.object_path))
@@ -342,8 +356,7 @@ class ShillProxy(object):
 
         """
         if property_key not in ShillProxy.MANAGER_OPTIONAL_PROPERTY_MAP:
-                raise ShillProxyError('Unsupported property %s' %
-                                      (property_key))
+            raise ShillProxyError('Unsupported property %s' % (property_key))
         else:
             dbus_class = ShillProxy.MANAGER_OPTIONAL_PROPERTY_MAP[property_key]
             interface.SetProperty(property_key,
@@ -509,7 +522,7 @@ class ShillProxy(object):
             # Check to make sure we're not already in a target state.
             try:
                 properties = self.dbus2primitive(
-                        dbus_object.GetProperties(utf8_strings=True))
+                        dbus_object.GetProperties())
                 last_value = properties.get(property_name, '(no value found)')
                 if last_value in expected_values:
                     return True, last_value, duration()
@@ -517,15 +530,15 @@ class ShillProxy(object):
             except dbus.exceptions.DBusException:
                 return False, '(object reference became invalid)', duration()
 
-            context = gobject.MainLoop().get_context()
+            context = GObject.MainLoop().get_context()
             while duration() < timeout_seconds:
                 # Dispatch all pending events.
                 while context.iteration(False):
                     pass
 
                 while update_queue:
-                    updated_property, value = map(self.dbus2primitive,
-                                                  update_queue.popleft())
+                    updated_property, value = list(
+                            map(self.dbus2primitive, update_queue.popleft()))
                     if property_name != updated_property:
                         continue
 
@@ -554,7 +567,7 @@ class ShillProxy(object):
         @return dbus object representing the active profile.
 
         """
-        properties = self.manager.GetProperties(utf8_strings=True)
+        properties = self.manager.GetProperties()
         return self.get_dbus_object(
                 self.DBUS_TYPE_PROFILE,
                 properties[self.MANAGER_PROPERTY_ACTIVE_PROFILE])
@@ -576,14 +589,14 @@ class ShillProxy(object):
 
     def get_devices(self):
         """Return the list of devices as dbus Interface objects"""
-        properties = self.manager.GetProperties(utf8_strings=True)
+        properties = self.manager.GetProperties()
         return [self.get_dbus_object(self.DBUS_TYPE_DEVICE, path)
                 for path in properties[self.MANAGER_PROPERTY_DEVICES]]
 
 
     def get_profiles(self):
         """Return the list of profiles as dbus Interface objects"""
-        properties = self.manager.GetProperties(utf8_strings=True)
+        properties = self.manager.GetProperties()
         return [self.get_dbus_object(self.DBUS_TYPE_PROFILE, path)
                 for path in properties[self.MANAGER_PROPERTY_PROFILES]]
 
@@ -610,7 +623,7 @@ class ShillProxy(object):
                 otherwise.
 
         """
-        properties = self.manager.GetProperties(utf8_strings=True)
+        properties = self.manager.GetProperties()
         all_services = properties.get(self.MANAGER_PROPERTY_ALL_SERVICES,
                                       None)
         if not all_services:
@@ -619,7 +632,7 @@ class ShillProxy(object):
         for service_path in all_services:
             service = self.get_dbus_object(self.DBUS_TYPE_SERVICE,
                                            service_path)
-            properties = service.GetProperties(utf8_strings=True)
+            properties = service.GetProperties()
             device_path = properties.get(self.SERVICE_PROPERTY_DEVICE, None)
             if device_path == device.object_path:
                 return service
@@ -646,19 +659,19 @@ class ShillProxy(object):
             return None
 
         dbus_type, manager_property = self.OBJECT_TYPE_PROPERTY_MAP[object_type]
-        manager_properties = self.manager.GetProperties(utf8_strings=True)
+        manager_properties = self.manager.GetProperties()
         for path in manager_properties[manager_property]:
             try:
                 test_object = self.get_dbus_object(dbus_type, path)
-                object_properties = test_object.GetProperties(utf8_strings=True)
-                for name, value in properties.iteritems():
+                object_properties = test_object.GetProperties()
+                for name, value in list(properties.items()):
                     if (name not in object_properties or
                         self.dbus2primitive(object_properties[name]) != value):
                         break
                 else:
                     return test_object
 
-            except dbus.exceptions.DBusException, e:
+            except dbus.exceptions.DBusException as _:
                 # This could happen if for instance, you're enumerating services
                 # and test_object was removed in shill between the call to get
                 # the manager properties and the call to get the service
@@ -698,10 +711,18 @@ class ShillProxy(object):
         except dbus.exceptions.DBusException as e:
             if e.get_dbus_name() != self.ERROR_ALREADY_CONNECTED:
                 raise e
-        success, _, _ = self.wait_for_property_in(
-                service, self.SERVICE_PROPERTY_STATE,
-                self.SERVICE_CONNECTED_STATES,
-                timeout_seconds=timeout_seconds)
+
+        # 'ready' might be an intermittent state; poll for a stable state.
+        for _ in range(self.SERVICE_READY_TIMEOUT):
+            success, state, _ = self.wait_for_property_in(
+                    service,
+                    self.SERVICE_PROPERTY_STATE,
+                    self.SERVICE_CONNECTED_STATES,
+                    timeout_seconds=timeout_seconds)
+            if state != 'ready':
+                break
+            time.sleep(1)
+
         return success
 
 

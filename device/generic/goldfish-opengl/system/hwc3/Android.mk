@@ -30,11 +30,10 @@ LOCAL_VENDOR_MODULE := true
 LOCAL_SHARED_LIBRARIES := \
     android.hardware.graphics.composer@2.1-resources \
     android.hardware.graphics.composer@2.2-resources \
-    android.hardware.graphics.composer3-V1-ndk \
+    android.hardware.graphics.composer3-V2-ndk \
     android.hardware.graphics.mapper@2.0 \
     android.hardware.graphics.mapper@4.0 \
     libbase \
-    libbinder \
     libbinder_ndk \
     libEGL \
     libcutils \
@@ -84,7 +83,15 @@ LOCAL_SRC_FILES := \
     DisplayConfig.cpp \
     DisplayFinder.cpp \
     Drm.cpp \
-    DrmPresenter.cpp \
+    DrmAtomicRequest.cpp \
+    DrmBuffer.cpp \
+    DrmClient.cpp \
+    DrmConnector.cpp \
+    DrmCrtc.cpp \
+    DrmDisplay.cpp \
+    DrmEventListener.cpp \
+    DrmMode.cpp \
+    DrmPlane.cpp \
     Gralloc.cpp \
     GuestFrameComposer.cpp \
     HostFrameComposer.cpp \

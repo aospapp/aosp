@@ -21,6 +21,7 @@
  *  this file contains the GATT server functions
  *
  ******************************************************************************/
+#include <algorithm>
 #include <string.h>
 
 #include "bt_target.h"
@@ -29,6 +30,7 @@
 #include "osi/include/allocator.h"
 #include "osi/include/log.h"
 #include "osi/include/osi.h"
+#include "stack/arbiter/acl_arbiter.h"
 #include "stack/eatt/eatt.h"
 #include "stack/include/bt_hdr.h"
 #include "stack/include/bt_types.h"
@@ -142,7 +144,8 @@ void gatt_dequeue_sr_cmd(tGATT_TCB& tcb, uint16_t cid) {
 }
 
 static void build_read_multi_rsp(tGATT_SR_CMD* p_cmd, uint16_t mtu) {
-  uint16_t ii, total_len, len;
+  uint16_t ii;
+  size_t total_len, len;
   uint8_t* p;
   bool is_overflow = false;
 
@@ -177,31 +180,38 @@ static void build_read_multi_rsp(tGATT_SR_CMD* p_cmd, uint16_t mtu) {
     }
 
     if (p_rsp != NULL) {
-      total_len = (p_buf->len + p_rsp->attr_value.len);
+      total_len = p_buf->len;
       if (p_cmd->multi_req.variable_len) {
         total_len += 2;
       }
 
       if (total_len > mtu) {
-        /* just send the partial response for the overflow case */
-        len = p_rsp->attr_value.len - (total_len - mtu);
+        VLOG(1) << "Buffer space not enough for this data item, skipping";
+        break;
+      }
+
+      len = std::min((size_t) p_rsp->attr_value.len, mtu - total_len);
+
+      if (len == 0) {
+        VLOG(1) << "Buffer space not enough for this data item, skipping";
+        break;
+      }
+
+      if (len < p_rsp->attr_value.len) {
         is_overflow = true;
         VLOG(1) << StringPrintf(
-            "multi read overflow available len=%d val_len=%d", len,
+            "multi read overflow available len=%zu val_len=%d", len,
             p_rsp->attr_value.len);
-      } else {
-        len = p_rsp->attr_value.len;
       }
 
       if (p_cmd->multi_req.variable_len) {
-        UINT16_TO_STREAM(p, len);
+        UINT16_TO_STREAM(p, (uint16_t) len);
         p_buf->len += 2;
       }
 
       if (p_rsp->attr_value.handle == p_cmd->multi_req.handles[ii]) {
-        memcpy(p, p_rsp->attr_value.value, len);
-        if (!is_overflow) p += len;
-        p_buf->len += len;
+        ARRAY_TO_STREAM(p, p_rsp->attr_value.value, (uint16_t) len);
+        p_buf->len += (uint16_t) len;
       } else {
         p_cmd->status = GATT_NOT_FOUND;
         break;
@@ -286,7 +296,7 @@ tGATT_STATUS gatt_sr_process_app_rsp(tGATT_TCB& tcb, tGATT_IF gatt_if,
                                      tGATTS_RSP* p_msg,
                                      tGATT_SR_CMD* sr_res_p) {
   tGATT_STATUS ret_code = GATT_SUCCESS;
-  uint16_t payload_size = gatt_tcb_get_payload_size_rx(tcb, sr_res_p->cid);
+  uint16_t payload_size = gatt_tcb_get_payload_size_tx(tcb, sr_res_p->cid);
 
   VLOG(1) << __func__ << " gatt_if=" << +gatt_if;
 
@@ -308,8 +318,8 @@ tGATT_STATUS gatt_sr_process_app_rsp(tGATT_TCB& tcb, tGATT_IF gatt_if,
 
     if (gatt_sr_is_cback_cnt_zero(tcb) && status == GATT_SUCCESS) {
       if (sr_res_p->p_rsp_msg == NULL) {
-        sr_res_p->p_rsp_msg = attp_build_sr_msg(tcb, (uint8_t)(op_code + 1),
-                                                (tGATT_SR_MSG*)p_msg);
+        sr_res_p->p_rsp_msg = attp_build_sr_msg(
+            tcb, (uint8_t)(op_code + 1), (tGATT_SR_MSG*)p_msg, payload_size);
       } else {
         LOG(ERROR) << "Exception!!! already has respond message";
       }
@@ -363,7 +373,6 @@ void gatt_process_exec_write_req(tGATT_TCB& tcb, uint16_t cid, uint8_t op_code,
 #endif
 
   if (len < sizeof(flag)) {
-    android_errorWriteLog(0x534e4554, "73172115");
     LOG(ERROR) << __func__ << "invalid length";
     gatt_send_error_rsp(tcb, cid, GATT_INVALID_PDU, GATT_REQ_EXEC_WRITE, 0,
                         false);
@@ -811,25 +820,32 @@ static void gatts_process_mtu_req(tGATT_TCB& tcb, uint16_t cid, uint16_t len,
     return;
   }
 
+  tGATT_SR_MSG gatt_sr_msg;
+
   uint16_t mtu = 0;
   uint8_t* p = p_data;
   STREAM_TO_UINT16(mtu, p);
   /* mtu must be greater than default MTU which is 23/48 */
-  if (mtu < GATT_DEF_BLE_MTU_SIZE)
+  if (mtu < GATT_DEF_BLE_MTU_SIZE) {
     tcb.payload_size = GATT_DEF_BLE_MTU_SIZE;
-  else if (mtu > GATT_MAX_MTU_SIZE)
-    tcb.payload_size = GATT_MAX_MTU_SIZE;
-  else
-    tcb.payload_size = mtu;
+  } else {
+    tcb.payload_size = std::min(mtu, (uint16_t)(GATT_MAX_MTU_SIZE));
+  }
 
-  LOG(INFO) << "MTU request PDU with MTU size " << +tcb.payload_size;
+  /* Always say to remote our real MAX MTU. */
+  gatt_sr_msg.mtu = GATT_MAX_MTU_SIZE;
+
+  LOG_INFO("MTU %d request from remote (%s), resulted MTU %d", mtu,
+           tcb.peer_bda.ToString().c_str(), tcb.payload_size);
 
   BTM_SetBleDataLength(tcb.peer_bda, tcb.payload_size + L2CAP_PKT_OVERHEAD);
 
-  tGATT_SR_MSG gatt_sr_msg;
-  gatt_sr_msg.mtu = tcb.payload_size;
-  BT_HDR* p_buf = attp_build_sr_msg(tcb, GATT_RSP_MTU, &gatt_sr_msg);
+  BT_HDR* p_buf =
+      attp_build_sr_msg(tcb, GATT_RSP_MTU, &gatt_sr_msg, GATT_DEF_BLE_MTU_SIZE);
   attp_send_sr_msg(tcb, cid, p_buf);
+
+  bluetooth::shim::arbiter::GetArbiter().OnIncomingMtuReq(tcb.tcb_idx,
+                                                          tcb.payload_size);
 
   tGATTS_DATA gatts_data;
   gatts_data.mtu = tcb.payload_size;
@@ -1040,7 +1056,6 @@ static void gatts_process_read_req(tGATT_TCB& tcb, uint16_t cid,
     /* Error: packet length is too short */
     LOG(ERROR) << __func__ << ": packet length=" << len
                << " too short. min=" << sizeof(uint16_t);
-    android_errorWriteWithInfoLog(0x534e4554, "73172115", -1, NULL, 0);
     gatt_send_error_rsp(tcb, cid, GATT_INVALID_PDU, op_code, 0, false);
     return;
   }
@@ -1328,7 +1343,8 @@ static bool gatts_process_db_out_of_sync(tGATT_TCB& tcb, uint16_t cid,
       gatt_send_error_rsp(tcb, cid, GATT_DATABASE_OUT_OF_SYNC, op_code, 0x0000,
                           false);
     }
-    LOG(INFO) << __func__ << ": database out of sync, device=" << tcb.peer_bda
+    LOG(INFO) << __func__ << ": database out of sync, device="
+              << ADDRESS_TO_LOGGABLE_STR(tcb.peer_bda)
               << ", op_code=" << loghex((uint16_t)op_code)
               << ", should_rsp=" << should_rsp;
     gatt_sr_update_cl_status(tcb, /* chg_aware= */ should_rsp);

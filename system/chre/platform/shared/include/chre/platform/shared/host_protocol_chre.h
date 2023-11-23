@@ -19,6 +19,8 @@
 
 #include <stdint.h>
 
+#include "chre/core/event_loop_common.h"
+#include "chre/core/nanoapp.h"
 #include "chre/core/settings.h"
 #include "chre/platform/shared/generated/host_messages_generated.h"
 #include "chre/platform/shared/host_protocol_common.h"
@@ -50,6 +52,15 @@ const char *getStringFromByteVector(const flatbuffers::Vector<int8_t> *vec);
  */
 class HostMessageHandlers {
  public:
+  struct LoadNanoappCallbackData {
+    uint64_t appId;
+    uint32_t transactionId;
+    uint16_t hostClientId;
+    UniquePtr<Nanoapp> nanoapp;
+    uint32_t fragmentId;
+    bool sendFragmentResponse;
+  };
+
   static void handleNanoappMessage(uint64_t appId, uint32_t messageType,
                                    uint16_t hostEndpoint,
                                    const void *messageData,
@@ -58,6 +69,9 @@ class HostMessageHandlers {
   static void handleHubInfoRequest(uint16_t hostClientId);
 
   static void handleNanoappListRequest(uint16_t hostClientId);
+
+  static void handleDebugConfiguration(
+      const fbs::DebugConfiguration *debugConfiguration);
 
   static void handleLoadNanoappRequest(
       uint16_t hostClientId, uint32_t transactionId, uint64_t appId,
@@ -79,6 +93,39 @@ class HostMessageHandlers {
   static void handleSelfTestRequest(uint16_t hostClientId);
 
   static void handleNanConfigurationUpdate(bool enabled);
+
+ private:
+  static void sendFragmentResponse(uint16_t hostClientId,
+                                   uint32_t transactionId, uint32_t fragmentId,
+                                   bool success);
+
+  static void finishLoadingNanoappCallback(
+      SystemCallbackType type, UniquePtr<LoadNanoappCallbackData> &&cbData);
+
+  /**
+   * Helper function that loads a nanoapp into the system
+   * from a buffer sent over in 1 or more fragments.
+   *
+   * @param hostClientId the ID of client that originated this transaction
+   * @param transactionId the ID of the transaction
+   * @param appId the ID of the app to load
+   * @param appVersion the version of the app to load
+   * @param appFlags The flags provided by the app being loaded
+   * @param targetApiVersion the API version this nanoapp is targeted for
+   * @param buffer the nanoapp binary data. May be only part of the nanoapp's
+   *     binary if it's being sent over multiple fragments
+   * @param bufferLen the size of buffer in bytes
+   * @param fragmentId the identifier indicating which fragment is being loaded
+   * @param appBinaryLen the full size of the nanoapp binary to be loaded
+   *
+   * @return void
+   */
+  static void loadNanoappData(uint16_t hostClientId, uint32_t transactionId,
+                              uint64_t appId, uint32_t appVersion,
+                              uint32_t appFlags, uint32_t targetApiVersion,
+                              const void *buffer, size_t bufferLen,
+                              uint32_t fragmentId, size_t appBinaryLen,
+                              bool respondBeforeStart);
 };
 
 /**

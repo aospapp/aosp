@@ -37,51 +37,54 @@ namespace statsd {
 // input:
 // [logMatcher]: the input AtomMatcher from the StatsdConfig
 // [index]: the index of the matcher
+// [invalidConfigReason]: logging ids if config is invalid
 // output:
 // new AtomMatchingTracker, or null if the tracker is unable to be created
-sp<AtomMatchingTracker> createAtomMatchingTracker(const AtomMatcher& logMatcher, const int index,
-                                                  const sp<UidMap>& uidMap);
+sp<AtomMatchingTracker> createAtomMatchingTracker(
+        const AtomMatcher& logMatcher, const int index, const sp<UidMap>& uidMap,
+        optional<InvalidConfigReason>& invalidConfigReason);
 
 // Create a ConditionTracker.
 // input:
 // [predicate]: the input Predicate from the StatsdConfig
 // [index]: the index of the condition tracker
 // [atomMatchingTrackerMap]: map of atom matcher id to its index in allAtomMatchingTrackers
+// [invalidConfigReason]: logging ids if config is invalid
 // output:
 // new ConditionTracker, or null if the tracker is unable to be created
 sp<ConditionTracker> createConditionTracker(
         const ConfigKey& key, const Predicate& predicate, const int index,
-        const unordered_map<int64_t, int>& atomMatchingTrackerMap);
+        const unordered_map<int64_t, int>& atomMatchingTrackerMap,
+        optional<InvalidConfigReason>& invalidConfigReason);
 
 // Get the hash of a metric, combining the activation if the metric has one.
-bool getMetricProtoHash(const StatsdConfig& config, const google::protobuf::MessageLite& metric,
-                        const int64_t id,
-                        const std::unordered_map<int64_t, int>& metricToActivationMap,
-                        uint64_t& metricHash);
+optional<InvalidConfigReason> getMetricProtoHash(
+        const StatsdConfig& config, const google::protobuf::MessageLite& metric, const int64_t id,
+        const std::unordered_map<int64_t, int>& metricToActivationMap, uint64_t& metricHash);
 
 // 1. Validates matcher existence
 // 2. Enforces matchers with dimensions and those used for trigger_event are about one atom
 // 3. Gets matcher index and updates tracker to metric map
-bool handleMetricWithAtomMatchingTrackers(
-        const int64_t matcherId, const int metricIndex, const bool enforceOneAtom,
+optional<InvalidConfigReason> handleMetricWithAtomMatchingTrackers(
+        const int64_t matcherId, const int64_t metricId, const int metricIndex,
+        const bool enforceOneAtom,
         const std::vector<sp<AtomMatchingTracker>>& allAtomMatchingTrackers,
         const std::unordered_map<int64_t, int>& atomMatchingTrackerMap,
         std::unordered_map<int, std::vector<int>>& trackerToMetricMap, int& logTrackerIndex);
 
 // 1. Validates condition existence, including those in links
 // 2. Gets condition index and updates condition to metric map
-bool handleMetricWithConditions(
-        const int64_t condition, const int metricIndex,
+optional<InvalidConfigReason> handleMetricWithConditions(
+        const int64_t condition, const int64_t metricId, const int metricIndex,
         const std::unordered_map<int64_t, int>& conditionTrackerMap,
-        const ::google::protobuf::RepeatedPtrField<::android::os::statsd::MetricConditionLink>&
-                links,
+        const ::google::protobuf::RepeatedPtrField<MetricConditionLink>& links,
         const std::vector<sp<ConditionTracker>>& allConditionTrackers, int& conditionIndex,
         std::unordered_map<int, std::vector<int>>& conditionToMetricMap);
 
 // Validates a metricActivation and populates state.
 // Fills the new event activation/deactivation maps, preserving the existing activations.
-// Returns false if there are errors.
-bool handleMetricActivationOnConfigUpdate(
+// Returns nullopt if successful and InvalidConfigReason if not.
+optional<InvalidConfigReason> handleMetricActivationOnConfigUpdate(
         const StatsdConfig& config, const int64_t metricId, const int metricIndex,
         const std::unordered_map<int64_t, int>& metricToActivationMap,
         const std::unordered_map<int64_t, int>& oldAtomMatchingTrackerMap,
@@ -110,7 +113,8 @@ optional<sp<MetricProducer>> createCountMetricProducerAndUpdateMetadata(
         std::unordered_map<int, std::vector<int>>& conditionToMetricMap,
         std::unordered_map<int, std::vector<int>>& activationAtomTrackerToMetricMap,
         std::unordered_map<int, std::vector<int>>& deactivationAtomTrackerToMetricMap,
-        std::vector<int>& metricsWithActivation);
+        std::vector<int>& metricsWithActivation,
+        optional<InvalidConfigReason>& invalidConfigReason);
 
 // Creates a DurationMetricProducer and updates the vectors/maps used by MetricsManager with
 // the appropriate indices. Returns an sp to the producer, or nullopt if there was an error.
@@ -129,7 +133,8 @@ optional<sp<MetricProducer>> createDurationMetricProducerAndUpdateMetadata(
         std::unordered_map<int, std::vector<int>>& conditionToMetricMap,
         std::unordered_map<int, std::vector<int>>& activationAtomTrackerToMetricMap,
         std::unordered_map<int, std::vector<int>>& deactivationAtomTrackerToMetricMap,
-        std::vector<int>& metricsWithActivation);
+        std::vector<int>& metricsWithActivation,
+        optional<InvalidConfigReason>& invalidConfigReason);
 
 // Creates an EventMetricProducer and updates the vectors/maps used by MetricsManager with
 // the appropriate indices. Returns an sp to the producer, or nullopt if there was an error.
@@ -146,7 +151,8 @@ optional<sp<MetricProducer>> createEventMetricProducerAndUpdateMetadata(
         std::unordered_map<int, std::vector<int>>& conditionToMetricMap,
         std::unordered_map<int, std::vector<int>>& activationAtomTrackerToMetricMap,
         std::unordered_map<int, std::vector<int>>& deactivationAtomTrackerToMetricMap,
-        std::vector<int>& metricsWithActivation);
+        std::vector<int>& metricsWithActivation,
+        optional<InvalidConfigReason>& invalidConfigReason);
 
 // Creates a NumericValueMetricProducer and updates the vectors/maps used by MetricsManager with
 // the appropriate indices. Returns an sp to the producer, or nullopt if there was an error.
@@ -167,7 +173,8 @@ optional<sp<MetricProducer>> createNumericValueMetricProducerAndUpdateMetadata(
         std::unordered_map<int, std::vector<int>>& conditionToMetricMap,
         std::unordered_map<int, std::vector<int>>& activationAtomTrackerToMetricMap,
         std::unordered_map<int, std::vector<int>>& deactivationAtomTrackerToMetricMap,
-        std::vector<int>& metricsWithActivation);
+        std::vector<int>& metricsWithActivation,
+        optional<InvalidConfigReason>& invalidConfigReason);
 
 // Creates a GaugeMetricProducer and updates the vectors/maps used by MetricsManager with
 // the appropriate indices. Returns an sp to the producer, or nullopt if there was an error.
@@ -186,7 +193,8 @@ optional<sp<MetricProducer>> createGaugeMetricProducerAndUpdateMetadata(
         std::unordered_map<int, std::vector<int>>& conditionToMetricMap,
         std::unordered_map<int, std::vector<int>>& activationAtomTrackerToMetricMap,
         std::unordered_map<int, std::vector<int>>& deactivationAtomTrackerToMetricMap,
-        std::vector<int>& metricsWithActivation);
+        std::vector<int>& metricsWithActivation,
+        optional<InvalidConfigReason>& invalidConfigReason);
 
 // Creates a KllMetricProducer and updates the vectors/maps used by MetricsManager with
 // the appropriate indices. Returns an sp to the producer, or nullopt if there was an error.
@@ -207,7 +215,7 @@ optional<sp<MetricProducer>> createKllMetricProducerAndUpdateMetadata(
         unordered_map<int, vector<int>>& conditionToMetricMap,
         unordered_map<int, vector<int>>& activationAtomTrackerToMetricMap,
         unordered_map<int, vector<int>>& deactivationAtomTrackerToMetricMap,
-        vector<int>& metricsWithActivation);
+        vector<int>& metricsWithActivation, optional<InvalidConfigReason>& invalidConfigReason);
 
 // Creates an AnomalyTracker and adds it to the appropriate metric.
 // Returns an sp to the AnomalyTracker, or nullopt if there was an error.
@@ -215,14 +223,15 @@ optional<sp<AnomalyTracker>> createAnomalyTracker(
         const Alert& alert, const sp<AlarmMonitor>& anomalyAlarmMonitor,
         const UpdateStatus& updateStatus, const int64_t currentTimeNs,
         const std::unordered_map<int64_t, int>& metricProducerMap,
-        std::vector<sp<MetricProducer>>& allMetricProducers);
+        std::vector<sp<MetricProducer>>& allMetricProducers,
+        optional<InvalidConfigReason>& invalidConfigReason);
 
-// Templated function for adding subscriptions to alarms or alerts. Returns true if successful.
+// Templated function for adding subscriptions to alarms or alerts. Returns nullopt if successful
+// and InvalidConfigReason if not.
 template <typename T>
-bool initSubscribersForSubscriptionType(const StatsdConfig& config,
-                                        const Subscription_RuleType ruleType,
-                                        const std::unordered_map<int64_t, int>& ruleMap,
-                                        std::vector<T>& allRules) {
+optional<InvalidConfigReason> initSubscribersForSubscriptionType(
+        const StatsdConfig& config, const Subscription_RuleType ruleType,
+        const std::unordered_map<int64_t, int>& ruleMap, std::vector<T>& allRules) {
     for (int i = 0; i < config.subscription_size(); ++i) {
         const Subscription& subscription = config.subscription(i);
         if (subscription.rule_type() != ruleType) {
@@ -231,18 +240,31 @@ bool initSubscribersForSubscriptionType(const StatsdConfig& config,
         if (subscription.subscriber_information_case() ==
             Subscription::SubscriberInformationCase::SUBSCRIBER_INFORMATION_NOT_SET) {
             ALOGW("subscription \"%lld\" has no subscriber info.\"", (long long)subscription.id());
-            return false;
+            return createInvalidConfigReasonWithSubscription(
+                    INVALID_CONFIG_REASON_SUBSCRIPTION_SUBSCRIBER_INFO_MISSING, subscription.id());
         }
         const auto& itr = ruleMap.find(subscription.rule_id());
         if (itr == ruleMap.end()) {
             ALOGW("subscription \"%lld\" has unknown rule id: \"%lld\"",
                   (long long)subscription.id(), (long long)subscription.rule_id());
-            return false;
+            switch (subscription.rule_type()) {
+                case Subscription::ALARM:
+                    return createInvalidConfigReasonWithSubscriptionAndAlarm(
+                            INVALID_CONFIG_REASON_SUBSCRIPTION_RULE_NOT_FOUND, subscription.id(),
+                            subscription.rule_id());
+                case Subscription::ALERT:
+                    return createInvalidConfigReasonWithSubscriptionAndAlert(
+                            INVALID_CONFIG_REASON_SUBSCRIPTION_RULE_NOT_FOUND, subscription.id(),
+                            subscription.rule_id());
+                case Subscription::RULE_TYPE_UNSPECIFIED:
+                    return createInvalidConfigReasonWithSubscription(
+                            INVALID_CONFIG_REASON_SUBSCRIPTION_RULE_NOT_FOUND, subscription.id());
+            }
         }
         const int ruleIndex = itr->second;
         allRules[ruleIndex]->addSubscription(subscription);
     }
-    return true;
+    return nullopt;
 }
 
 // Helper functions for MetricsManager to initialize from StatsdConfig.
@@ -258,11 +280,13 @@ bool initSubscribersForSubscriptionType(const StatsdConfig& config,
 // output:
 // [atomMatchingTrackerMap]: this map should contain matcher name to index mapping
 // [allAtomMatchingTrackers]: should store the sp to all the AtomMatchingTracker
-// [allTagIds]: contains the set of all interesting tag ids to this config.
-bool initAtomMatchingTrackers(const StatsdConfig& config, const sp<UidMap>& uidMap,
-                              std::unordered_map<int64_t, int>& atomMatchingTrackerMap,
-                              std::vector<sp<AtomMatchingTracker>>& allAtomMatchingTrackers,
-                              std::set<int>& allTagIds);
+// [allTagIdsToMatchersMap]: maps of tag ids to atom matchers
+// Returns nullopt if successful and InvalidConfigReason if not.
+optional<InvalidConfigReason> initAtomMatchingTrackers(
+        const StatsdConfig& config, const sp<UidMap>& uidMap,
+        std::unordered_map<int64_t, int>& atomMatchingTrackerMap,
+        std::vector<sp<AtomMatchingTracker>>& allAtomMatchingTrackers,
+        std::unordered_map<int, std::vector<int>>& allTagIdsToMatchersMap);
 
 // Initialize ConditionTrackers
 // input:
@@ -275,12 +299,14 @@ bool initAtomMatchingTrackers(const StatsdConfig& config, const sp<UidMap>& uidM
 // [trackerToConditionMap]: contain the mapping from index of
 //                        log tracker to condition trackers that use the log tracker
 // [initialConditionCache]: stores the initial conditions for each ConditionTracker
-bool initConditions(const ConfigKey& key, const StatsdConfig& config,
-                    const std::unordered_map<int64_t, int>& atomMatchingTrackerMap,
-                    std::unordered_map<int64_t, int>& conditionTrackerMap,
-                    std::vector<sp<ConditionTracker>>& allConditionTrackers,
-                    std::unordered_map<int, std::vector<int>>& trackerToConditionMap,
-                    std::vector<ConditionState>& initialConditionCache);
+// Returns nullopt if successful and InvalidConfigReason if not.
+optional<InvalidConfigReason> initConditions(
+        const ConfigKey& key, const StatsdConfig& config,
+        const std::unordered_map<int64_t, int>& atomMatchingTrackerMap,
+        std::unordered_map<int64_t, int>& conditionTrackerMap,
+        std::vector<sp<ConditionTracker>>& allConditionTrackers,
+        std::unordered_map<int, std::vector<int>>& trackerToConditionMap,
+        std::vector<ConditionState>& initialConditionCache);
 
 // Initialize State maps using State protos in the config. These maps will
 // eventually be passed to MetricProducers to initialize their state info.
@@ -291,9 +317,11 @@ bool initConditions(const ConfigKey& key, const StatsdConfig& config,
 // [allStateGroupMaps]: this map should contain the mapping from states ids and state
 //                      values to state group ids for all states
 // [stateProtoHashes]: contains a map of state id to the hash of the State proto from the config
-bool initStates(const StatsdConfig& config, unordered_map<int64_t, int>& stateAtomIdMap,
-                unordered_map<int64_t, unordered_map<int, int64_t>>& allStateGroupMaps,
-                std::map<int64_t, uint64_t>& stateProtoHashes);
+// Returns nullopt if successful and InvalidConfigReason if not.
+optional<InvalidConfigReason> initStates(
+        const StatsdConfig& config, unordered_map<int64_t, int>& stateAtomIdMap,
+        unordered_map<int64_t, unordered_map<int, int64_t>>& allStateGroupMaps,
+        std::map<int64_t, uint64_t>& stateProtoHashes);
 
 // Initialize MetricProducers.
 // input:
@@ -310,7 +338,8 @@ bool initStates(const StatsdConfig& config, unordered_map<int64_t, int>& stateAt
 // [conditionToMetricMap]: contains the mapping from condition tracker index to
 //                          the list of MetricProducer index
 // [trackerToMetricMap]: contains the mapping from log tracker to MetricProducer index.
-bool initMetrics(
+// Returns nullopt if successful and InvalidConfigReason if not.
+optional<InvalidConfigReason> initMetrics(
         const ConfigKey& key, const StatsdConfig& config, const int64_t timeBaseTimeNs,
         const int64_t currentTimeNs, const sp<StatsPullerManager>& pullerManager,
         const std::unordered_map<int64_t, int>& atomMatchingTrackerMap,
@@ -330,34 +359,34 @@ bool initMetrics(
 
 // Initialize alarms
 // Is called both on initialize new configs and config updates since alarms do not have any state.
-bool initAlarms(const StatsdConfig& config, const ConfigKey& key,
-                const sp<AlarmMonitor>& periodicAlarmMonitor, const int64_t timeBaseNs,
-                const int64_t currentTimeNs, std::vector<sp<AlarmTracker>>& allAlarmTrackers);
+optional<InvalidConfigReason> initAlarms(const StatsdConfig& config, const ConfigKey& key,
+                                         const sp<AlarmMonitor>& periodicAlarmMonitor,
+                                         const int64_t timeBaseNs, const int64_t currentTimeNs,
+                                         std::vector<sp<AlarmTracker>>& allAlarmTrackers);
 
 // Initialize MetricsManager from StatsdConfig.
 // Parameters are the members of MetricsManager. See MetricsManager for declaration.
-bool initStatsdConfig(const ConfigKey& key, const StatsdConfig& config, const sp<UidMap>& uidMap,
-                      const sp<StatsPullerManager>& pullerManager,
-                      const sp<AlarmMonitor>& anomalyAlarmMonitor,
-                      const sp<AlarmMonitor>& periodicAlarmMonitor, const int64_t timeBaseNs,
-                      const int64_t currentTimeNs, std::set<int>& allTagIds,
-                      std::vector<sp<AtomMatchingTracker>>& allAtomMatchingTrackers,
-                      std::unordered_map<int64_t, int>& atomMatchingTrackerMap,
-                      std::vector<sp<ConditionTracker>>& allConditionTrackers,
-                      std::unordered_map<int64_t, int>& conditionTrackerMap,
-                      std::vector<sp<MetricProducer>>& allMetricProducers,
-                      std::unordered_map<int64_t, int>& metricProducerMap,
-                      vector<sp<AnomalyTracker>>& allAnomalyTrackers,
-                      vector<sp<AlarmTracker>>& allPeriodicAlarmTrackers,
-                      std::unordered_map<int, std::vector<int>>& conditionToMetricMap,
-                      std::unordered_map<int, std::vector<int>>& trackerToMetricMap,
-                      std::unordered_map<int, std::vector<int>>& trackerToConditionMap,
-                      std::unordered_map<int, std::vector<int>>& activationAtomTrackerToMetricMap,
-                      std::unordered_map<int, std::vector<int>>& deactivationAtomTrackerToMetricMap,
-                      std::unordered_map<int64_t, int>& alertTrackerMap,
-                      std::vector<int>& metricsWithActivation,
-                      std::map<int64_t, uint64_t>& stateProtoHashes,
-                      std::set<int64_t>& noReportMetricIds);
+optional<InvalidConfigReason> initStatsdConfig(
+        const ConfigKey& key, const StatsdConfig& config, const sp<UidMap>& uidMap,
+        const sp<StatsPullerManager>& pullerManager, const sp<AlarmMonitor>& anomalyAlarmMonitor,
+        const sp<AlarmMonitor>& periodicAlarmMonitor, const int64_t timeBaseNs,
+        const int64_t currentTimeNs,
+        std::unordered_map<int, std::vector<int>>& allTagIdsToMatchersMap,
+        std::vector<sp<AtomMatchingTracker>>& allAtomMatchingTrackers,
+        std::unordered_map<int64_t, int>& atomMatchingTrackerMap,
+        std::vector<sp<ConditionTracker>>& allConditionTrackers,
+        std::unordered_map<int64_t, int>& conditionTrackerMap,
+        std::vector<sp<MetricProducer>>& allMetricProducers,
+        std::unordered_map<int64_t, int>& metricProducerMap,
+        vector<sp<AnomalyTracker>>& allAnomalyTrackers,
+        vector<sp<AlarmTracker>>& allPeriodicAlarmTrackers,
+        std::unordered_map<int, std::vector<int>>& conditionToMetricMap,
+        std::unordered_map<int, std::vector<int>>& trackerToMetricMap,
+        std::unordered_map<int, std::vector<int>>& trackerToConditionMap,
+        std::unordered_map<int, std::vector<int>>& activationAtomTrackerToMetricMap,
+        std::unordered_map<int, std::vector<int>>& deactivationAtomTrackerToMetricMap,
+        std::unordered_map<int64_t, int>& alertTrackerMap, std::vector<int>& metricsWithActivation,
+        std::map<int64_t, uint64_t>& stateProtoHashes, std::set<int64_t>& noReportMetricIds);
 
 }  // namespace statsd
 }  // namespace os

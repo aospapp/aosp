@@ -13,6 +13,7 @@ cupstestppd, cups filters) for at least one of tested PPD files.
 TEST_CATEGORY = "Functional"
 TEST_CLASS = "platform"
 JOB_RETRIES = 0
+PY_VERSION = 3
 
 DOC = """
 This test runs the following procedure for PPD files from ppds_ext directory:

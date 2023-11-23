@@ -101,6 +101,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
@@ -376,6 +377,7 @@ public class SecurityLoggingTest extends BaseDeviceAdminTest {
         if (!mHasSecureLockScreen) {
             return;
         }
+        mOnPasswordChangedCalled = new CountDownLatch(4);
         KeyguardManager km = mContext.getSystemService(KeyguardManager.class);
         runWithShellPermissionIdentity(() -> {
             km.setLock(PIN, "1111".getBytes(), PIN, null);
@@ -383,6 +385,13 @@ public class SecurityLoggingTest extends BaseDeviceAdminTest {
             km.setLock(PIN, "83651865".getBytes(), PIN, "1914".getBytes());
             km.setLock(PIN, null, PIN, "83651865".getBytes());
         });
+        try {
+            mOnPasswordChangedCalled.await(60, TimeUnit.SECONDS);
+        } catch (InterruptedException e) {
+            fail(e.toString());
+        } finally {
+            mOnPasswordChangedCalled = null;
+        }
     }
     /**
      * Fetches and checks the events.

@@ -31,7 +31,7 @@ import java.util.Collections;
  * Set of tests for LauncherApps with managed profiles.
  */
 @RequiresAdditionalFeatures({FEATURE_MANAGED_USERS})
-public class LauncherAppsProfileTest extends BaseLauncherAppsTest {
+public final class LauncherAppsProfileTest extends BaseLauncherAppsTest {
 
     private static final String MANAGED_PROFILE_PKG = "com.android.cts.managedprofile";
     private static final String MANAGED_PROFILE_APK = "CtsManagedProfileApp.apk";
@@ -113,21 +113,6 @@ public class LauncherAppsProfileTest extends BaseLauncherAppsTest {
         CLog.d("Output for command " + command + ": " + getDevice().executeShellCommand(command));
         runDeviceTestsAsUser(LAUNCHER_TESTS_PKG,
                 LAUNCHER_TESTS_CLASS, "testProfileOwnerInjectedActivityNotFound",
-                mParentUserId, Collections.singletonMap(PARAM_TEST_USER, mMainUserSerialNumber));
-    }
-
-    @Test
-    public void testNoHiddenActivityInProfile() throws Exception {
-        // Install app for all users.
-        installAppAsUser(LAUNCHER_TESTS_HAS_LAUNCHER_ACTIVITY_APK, mParentUserId);
-        installAppAsUser(LAUNCHER_TESTS_HAS_LAUNCHER_ACTIVITY_APK, mProfileUserId);
-
-        // Run tests to check SimpleApp exists in both profile and main user.
-        runDeviceTestsAsUser(LAUNCHER_TESTS_PKG,
-                LAUNCHER_TESTS_CLASS, "testDoPoNoTestAppInjectedActivityFound",
-                mParentUserId, Collections.singletonMap(PARAM_TEST_USER, mProfileSerialNumber));
-        runDeviceTestsAsUser(LAUNCHER_TESTS_PKG,
-                LAUNCHER_TESTS_CLASS, "testHasLauncherActivityAppHasAppDetailsActivityInjected",
                 mParentUserId, Collections.singletonMap(PARAM_TEST_USER, mMainUserSerialNumber));
     }
 

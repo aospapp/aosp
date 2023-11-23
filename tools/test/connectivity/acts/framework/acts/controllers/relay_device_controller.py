@@ -81,7 +81,6 @@ def destroy(relay_devices):
     """
     for device in relay_devices:
         device.clean_up()
-    pass
 
 
 def get_info(relay_devices):

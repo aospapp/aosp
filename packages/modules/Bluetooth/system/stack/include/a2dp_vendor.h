@@ -220,25 +220,4 @@ bool A2DP_VendorInitCodecConfig(btav_a2dp_codec_index_t codec_index,
 // Returns a string describing the codec information.
 std::string A2DP_VendorCodecInfoString(const uint8_t* p_codec_info);
 
-// Try to dlopen external codec library
-//
-// |lib_name| is the name of the library to load
-// |friendly_name| is only use for logging purpose
-// Return pointer to the handle if the library is successfully dlopen,
-// nullptr otherwise
-void* A2DP_VendorCodecLoadExternalLib(const std::string& lib_name,
-                                      const std::string& friendly_name);
-
-#define LOAD_CODEC_SYMBOL(codec_name, handle, error_fn, symbol_name, api_type) \
-  ({                                                                           \
-    void* load_sym = dlsym(handle, symbol_name.c_str());                       \
-    if (load_sym == NULL) {                                                    \
-      LOG_ERROR("Cannot find function '%s' in the '%s' encoder library: %s",   \
-                symbol_name.c_str(), codec_name, dlerror());                   \
-      error_fn();                                                              \
-      return LOAD_ERROR_VERSION_MISMATCH;                                      \
-    }                                                                          \
-    (api_type) load_sym;                                                       \
-  })
-
 #endif  // A2DP_VENDOR_H

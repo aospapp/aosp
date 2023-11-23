@@ -28,40 +28,36 @@
 #include <utility>
 #include <vector>
 
+#include <android-base/properties.h>
+#include <android-base/strings.h>
 #include <base/files/file_util.h>
 #include <base/format_macros.h>
 #include <base/metrics/histogram_macros.h>
 #include <base/strings/string_number_conversions.h>
+#include <base/strings/stringprintf.h>
 #include <base/time/time.h>
 #include <brillo/data_encoding.h>
 #include <bsdiff/bspatch.h>
 #include <google/protobuf/repeated_field.h>
 #include <puffin/puffpatch.h>
 
+#include "libsnapshot/cow_format.h"
 #include "update_engine/common/constants.h"
 #include "update_engine/common/download_action.h"
 #include "update_engine/common/error_code.h"
 #include "update_engine/common/error_code_utils.h"
 #include "update_engine/common/hardware_interface.h"
 #include "update_engine/common/prefs_interface.h"
-#include "update_engine/common/subprocess.h"
 #include "update_engine/common/terminator.h"
 #include "update_engine/common/utils.h"
-#include "update_engine/payload_consumer/bzip_extent_writer.h"
-#include "update_engine/payload_consumer/cached_file_descriptor.h"
-#include "update_engine/payload_consumer/certificate_parser_interface.h"
-#include "update_engine/payload_consumer/extent_reader.h"
-#include "update_engine/payload_consumer/extent_writer.h"
 #include "update_engine/payload_consumer/partition_update_generator_interface.h"
 #include "update_engine/payload_consumer/partition_writer.h"
+#include "update_engine/update_metadata.pb.h"
 #if USE_FEC
 #include "update_engine/payload_consumer/fec_file_descriptor.h"
 #endif  // USE_FEC
-#include "update_engine/payload_consumer/file_descriptor_utils.h"
-#include "update_engine/payload_consumer/mount_history.h"
 #include "update_engine/payload_consumer/payload_constants.h"
 #include "update_engine/payload_consumer/payload_verifier.h"
-#include "update_engine/payload_consumer/xz_extent_writer.h"
 
 using google::protobuf::RepeatedPtrField;
 using std::min;
@@ -206,6 +202,9 @@ bool DeltaPerformer::HandleOpResult(bool op_result,
 }
 
 int DeltaPerformer::Close() {
+  // Checkpoint update progress before canceling, so that subsequent attempts
+  // can resume from exactly where update_engine left last time.
+  CheckpointUpdateProgress(true);
   int err = -CloseCurrentPartition();
   LOG_IF(ERROR,
          !payload_hash_calculator_.Finalize() ||
@@ -398,6 +397,45 @@ MetadataParseResult DeltaPerformer::ParsePayloadMetadata(
       base::TimeDelta::FromMinutes(5),                                      \
       20);
 
+bool DeltaPerformer::CheckSPLDowngrade() {
+  if (!manifest_.has_security_patch_level()) {
+    return true;
+  }
+  if (manifest_.security_patch_level().empty()) {
+    return true;
+  }
+  const auto new_spl = manifest_.security_patch_level();
+  const auto current_spl =
+      android::base::GetProperty("ro.build.version.security_patch", "");
+  if (current_spl.empty()) {
+    LOG(WARNING) << "Failed to get ro.build.version.security_patch, unable to "
+                    "determine if this OTA is a SPL downgrade. Assuming this "
+                    "OTA is not SPL downgrade.";
+    return true;
+  }
+  if (new_spl < current_spl) {
+    const auto avb_state =
+        android::base::GetProperty("ro.boot.verifiedbootstate", "green");
+    if (android::base::EqualsIgnoreCase(avb_state, "green")) {
+      LOG(ERROR) << "Target build SPL " << new_spl
+                 << " is older than current build's SPL " << current_spl
+                 << ", this OTA is an SPL downgrade. Your device's "
+                    "ro.boot.verifiedbootstate="
+                 << avb_state
+                 << ", it probably has a locked bootlaoder. Since a locked "
+                    "bootloader will reject SPL downgrade no matter what, we "
+                    "will reject this OTA.";
+      return false;
+    }
+    install_plan_->powerwash_required = true;
+    LOG(WARNING)
+        << "Target build SPL " << new_spl
+        << " is older than current build's SPL " << current_spl
+        << ", this OTA is an SPL downgrade. Data wipe will be required";
+  }
+  return true;
+}
+
 // Wrapper around write. Returns true if all requested bytes
 // were written, or false on any error, regardless of progress
 // and stores an action exit code in |error|.
@@ -443,6 +481,61 @@ bool DeltaPerformer::Write(const void* bytes, size_t count, ErrorCode* error) {
     DiscardBuffer(false, metadata_size_);
 
     block_size_ = manifest_.block_size();
+
+    if (!CheckSPLDowngrade()) {
+      *error = ErrorCode::kPayloadTimestampError;
+      return false;
+    }
+
+    // update estimate_cow_size if VABC is disabled
+    // new_cow_size per partition = partition_size - (#blocks in Copy
+    // operations part of the partition)
+    if (install_plan_->vabc_none) {
+      LOG(INFO) << "Setting Virtual AB Compression algorithm to none";
+      manifest_.mutable_dynamic_partition_metadata()
+          ->set_vabc_compression_param("none");
+      for (auto& partition : *manifest_.mutable_partitions()) {
+        auto new_cow_size = partition.new_partition_info().size();
+        for (const auto& operation : partition.merge_operations()) {
+          if (operation.type() == CowMergeOperation::COW_COPY) {
+            new_cow_size -=
+                operation.dst_extent().num_blocks() * manifest_.block_size();
+          }
+        }
+        // Every block written to COW device will come with a header which
+        // stores src/dst block info along with other data.
+        const auto cow_metadata_size = partition.new_partition_info().size() /
+                                       manifest_.block_size() *
+                                       sizeof(android::snapshot::CowOperation);
+        // update_engine will emit a label op every op or every two seconds,
+        // whichever one is longer. In the worst case, we add 1 label per
+        // InstallOp. So take size of label ops into account.
+        const auto label_ops_size = partition.operations_size() *
+                                    sizeof(android::snapshot::CowOperation);
+        // Adding extra 2MB headroom just for any unexpected space usage.
+        // If we overrun reserved COW size, entire OTA will fail
+        // and no way for user to retry OTA
+        partition.set_estimate_cow_size(new_cow_size + (1024 * 1024 * 2) +
+                                        cow_metadata_size + label_ops_size);
+        LOG(INFO) << "New COW size for partition " << partition.partition_name()
+                  << " is " << partition.estimate_cow_size();
+      }
+    }
+    if (install_plan_->disable_vabc) {
+      manifest_.mutable_dynamic_partition_metadata()->set_vabc_enabled(false);
+    }
+    if (install_plan_->enable_threading) {
+      manifest_.mutable_dynamic_partition_metadata()
+          ->mutable_vabc_feature_set()
+          ->set_threaded(true);
+      LOG(INFO) << "Attempting to enable multi-threaded compression for VABC";
+    }
+    if (install_plan_->batched_writes) {
+      manifest_.mutable_dynamic_partition_metadata()
+          ->mutable_vabc_feature_set()
+          ->set_batch_writes(true);
+      LOG(INFO) << "Attempting to enable batched writes for VABC";
+    }
 
     // This populates |partitions_| and the |install_plan.partitions| with the
     // list of partitions from the manifest.
@@ -549,7 +642,7 @@ bool DeltaPerformer::Write(const void* bytes, size_t count, ErrorCode* error) {
 
     base::TimeTicks op_start_time = base::TimeTicks::Now();
 
-    bool op_result;
+    bool op_result{};
     const string op_name = InstallOperationTypeName(op.type());
     switch (op.type()) {
       case InstallOperation::REPLACE:
@@ -691,6 +784,13 @@ bool DeltaPerformer::ParseManifestPartitions(ErrorCode* error) {
   if (!install_plan_->ParsePartitions(
           partitions_, boot_control_, block_size_, error)) {
     return false;
+  }
+  auto&& has_verity = [](const auto& part) {
+    return part.fec_extent().num_blocks() > 0 ||
+           part.hash_tree_extent().num_blocks() > 0;
+  };
+  if (!std::any_of(partitions_.begin(), partitions_.end(), has_verity)) {
+    install_plan_->write_verity = false;
   }
 
   LogPartitionInfo(partitions_);
@@ -1205,51 +1305,71 @@ bool DeltaPerformer::CanResumeUpdate(PrefsInterface* prefs,
                                      const string& update_check_response_hash) {
   int64_t next_operation = kUpdateStateOperationInvalid;
   if (!(prefs->GetInt64(kPrefsUpdateStateNextOperation, &next_operation) &&
-        next_operation != kUpdateStateOperationInvalid && next_operation > 0))
+        next_operation != kUpdateStateOperationInvalid && next_operation > 0)) {
+    LOG(WARNING) << "Failed to resume update " << kPrefsUpdateStateNextOperation
+                 << " invalid: " << next_operation;
     return false;
+  }
 
   string interrupted_hash;
   if (!(prefs->GetString(kPrefsUpdateCheckResponseHash, &interrupted_hash) &&
         !interrupted_hash.empty() &&
-        interrupted_hash == update_check_response_hash))
+        interrupted_hash == update_check_response_hash)) {
+    LOG(WARNING) << "Failed to resume update " << kPrefsUpdateCheckResponseHash
+                 << " mismatch, last hash: " << interrupted_hash
+                 << ", current hash: " << update_check_response_hash << "";
     return false;
+  }
 
-  int64_t resumed_update_failures;
+  int64_t resumed_update_failures{};
   // Note that storing this value is optional, but if it is there it should
   // not be more than the limit.
   if (prefs->GetInt64(kPrefsResumedUpdateFailures, &resumed_update_failures) &&
-      resumed_update_failures > kMaxResumedUpdateFailures)
+      resumed_update_failures > kMaxResumedUpdateFailures) {
+    LOG(WARNING) << "Failed to resume update " << kPrefsResumedUpdateFailures
+                 << " invalid: " << resumed_update_failures;
     return false;
+  }
 
   // Validation check the rest.
   int64_t next_data_offset = -1;
   if (!(prefs->GetInt64(kPrefsUpdateStateNextDataOffset, &next_data_offset) &&
-        next_data_offset >= 0))
+        next_data_offset >= 0)) {
+    LOG(WARNING) << "Failed to resume update "
+                 << kPrefsUpdateStateNextDataOffset
+                 << " invalid: " << next_data_offset;
     return false;
+  }
 
   string sha256_context;
   if (!(prefs->GetString(kPrefsUpdateStateSHA256Context, &sha256_context) &&
-        !sha256_context.empty()))
+        !sha256_context.empty())) {
+    LOG(WARNING) << "Failed to resume update " << kPrefsUpdateStateSHA256Context
+                 << " is empty.";
     return false;
+  }
 
   int64_t manifest_metadata_size = 0;
   if (!(prefs->GetInt64(kPrefsManifestMetadataSize, &manifest_metadata_size) &&
-        manifest_metadata_size > 0))
+        manifest_metadata_size > 0)) {
+    LOG(WARNING) << "Failed to resume update " << kPrefsManifestMetadataSize
+                 << " invalid: " << manifest_metadata_size;
     return false;
+  }
 
   int64_t manifest_signature_size = 0;
   if (!(prefs->GetInt64(kPrefsManifestSignatureSize,
                         &manifest_signature_size) &&
-        manifest_signature_size >= 0))
+        manifest_signature_size >= 0)) {
+    LOG(WARNING) << "Failed to resume update " << kPrefsManifestSignatureSize
+                 << " invalid: " << manifest_signature_size;
     return false;
+  }
 
   return true;
 }
 
-bool DeltaPerformer::ResetUpdateProgress(
-    PrefsInterface* prefs,
-    bool quick,
-    bool skip_dynamic_partititon_metadata_updated) {
+bool DeltaPerformer::ResetUpdateProgress(PrefsInterface* prefs, bool quick) {
   TEST_AND_RETURN_FALSE(prefs->SetInt64(kPrefsUpdateStateNextOperation,
                                         kUpdateStateOperationInvalid));
   if (!quick) {
@@ -1264,10 +1384,8 @@ bool DeltaPerformer::ResetUpdateProgress(
     prefs->Delete(kPrefsPostInstallSucceeded);
     prefs->Delete(kPrefsVerityWritten);
 
-    if (!skip_dynamic_partititon_metadata_updated) {
-      LOG(INFO) << "Resetting recorded hash for prepared partitions.";
-      prefs->Delete(kPrefsDynamicPartitionMetadataUpdated);
-    }
+    LOG(INFO) << "Resetting recorded hash for prepared partitions.";
+    prefs->Delete(kPrefsDynamicPartitionMetadataUpdated);
   }
   return true;
 }
@@ -1394,7 +1512,7 @@ bool DeltaPerformer::PrimeUpdateState() {
   total_bytes_received_ += buffer_offset_;
 
   // Speculatively count the resume as a failure.
-  int64_t resumed_update_failures;
+  int64_t resumed_update_failures{};
   if (prefs_->GetInt64(kPrefsResumedUpdateFailures, &resumed_update_failures)) {
     resumed_update_failures++;
   } else {

@@ -1,4 +1,4 @@
-/* SPDX-License-Identifier: GPL-2.0+ */
+/* SPDX-License-Identifier: GPL-2.0+ OR Apache-2.0 */
 /*
  * Copyright (C) 2018 HUAWEI, Inc.
  *             http://www.huawei.com/
@@ -109,7 +109,6 @@ static inline int list_empty(struct list_head *head)
 	    n    = list_next_entry(pos, member);                               \
 	     &pos->member != (head);                                           \
 	     pos = n, n = list_next_entry(n, member))
-
 
 #ifdef __cplusplus
 }

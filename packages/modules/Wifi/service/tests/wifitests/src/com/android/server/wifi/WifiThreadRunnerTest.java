@@ -40,7 +40,7 @@ import org.mockito.Spy;
 import java.util.function.Supplier;
 
 @SmallTest
-public class WifiThreadRunnerTest {
+public class WifiThreadRunnerTest extends WifiBaseTest {
 
     private static final int RESULT = 2;
     private static final int VALUE_ON_TIMEOUT = -1;

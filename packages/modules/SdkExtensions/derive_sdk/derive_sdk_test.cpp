@@ -30,6 +30,25 @@
 
 #include "packages/modules/common/proto/sdk.pb.h"
 
+#define EXPECT_ALL(n) \
+  {                   \
+    EXPECT_R(n);      \
+    EXPECT_S(n);      \
+    EXPECT_T(n);      \
+    EXPECT_U(n);      \
+  }
+
+#define EXPECT_R(n) EXPECT_EQ(GetR(), (n))
+
+// Only expect the S extension level to be set on S+ devices.
+#define EXPECT_S(n) EXPECT_EQ(GetS(), android::modules::sdklevel::IsAtLeastS() ? (n) : -1)
+
+// Only expect the T extension level to be set on T+ devices.
+#define EXPECT_T(n) EXPECT_EQ(GetT(), android::modules::sdklevel::IsAtLeastT() ? (n) : -1)
+
+// Only expect the U extension level to be set on U+ devices.
+#define EXPECT_U(n) EXPECT_EQ(GetU(), android::modules::sdklevel::IsAtLeastU() ? (n) : -1)
+
 class DeriveSdkTest : public ::testing::Test {
  protected:
   void TearDown() override { android::derivesdk::SetSdkLevels("/apex"); }
@@ -74,36 +93,23 @@ class DeriveSdkTest : public ::testing::Test {
     ASSERT_TRUE(android::base::WriteStringToFile(buf, path, true));
   }
 
-  void EXPECT_R(int n) {
-    int R = android::base::GetIntProperty("build.version.extensions.r", -1);
-    EXPECT_EQ(R, n);
-  }
+  int GetR() { return android::base::GetIntProperty("build.version.extensions.r", -1); }
 
-  void EXPECT_S(int n) {
-    int S = android::base::GetIntProperty("build.version.extensions.s", -1);
-    // Only expect the S extension level to be set on S+ devices.
-    EXPECT_EQ(S, android::modules::sdklevel::IsAtLeastS() ? n : -1);
-  }
+  int GetS() { return android::base::GetIntProperty("build.version.extensions.s", -1); }
 
-  void EXPECT_T(int n) {
-    int T = android::base::GetIntProperty("build.version.extensions.t", -1);
-    // Only expect the T extension level to be set on T+ devices.
-    EXPECT_EQ(T, android::modules::sdklevel::IsAtLeastT() ? n : -1);
-  }
+  int GetT() { return android::base::GetIntProperty("build.version.extensions.t", -1); }
 
-  void EXPECT_ALL(int n) {
-    EXPECT_R(n);
-    EXPECT_S(n);
-    EXPECT_T(n);
+  int GetU() { return android::base::GetIntProperty("build.version.extensions.u", -1); }
+
+  void EXPECT_ADSERVICES(int n) {
+    int actual = android::base::GetIntProperty("build.version.extensions.ad_services", -1);
+    // Only expect the AdServices extension level to be set on T+ devices.
+    EXPECT_EQ(actual, android::modules::sdklevel::IsAtLeastT() ? n : -1);
   }
 
   ExtensionDatabase db_;
   TemporaryDir dir_;
 };
-
-TEST_F(DeriveSdkTest, CurrentSystemImageValue) {
-  EXPECT_ALL(3);
-}
 
 TEST_F(DeriveSdkTest, OneDessert_OneVersion_OneApex) {
   AddExtensionVersion(3, {{SdkModule::SDK_EXTENSIONS, 2}});
@@ -222,6 +228,97 @@ TEST_F(DeriveSdkTest, UnmappedModule) {
                     });
 
   ASSERT_FALSE(android::derivesdk::SetSdkLevels(dir()));
+}
+
+TEST_F(DeriveSdkTest, AdServicesPreV7) {
+  AddExtensionVersion(1, {
+                             {SdkModule::TETHERING, 1},
+                         });
+  EXPECT_ALL(0);
+  EXPECT_ADSERVICES(1);
+
+  SetApexVersion("com.android.tethering", 1);
+  EXPECT_ALL(1);
+
+  // V2 defined
+  AddExtensionVersion(2, {
+                             {SdkModule::AD_SERVICES, 2},
+                             {SdkModule::TETHERING, 2},
+                         });
+  EXPECT_ALL(1);
+  EXPECT_ADSERVICES(1);
+
+  // Only adservices v2
+  SetApexVersion("com.android.adservices", 2);
+  EXPECT_ALL(1);
+  EXPECT_ADSERVICES(2);
+
+  // Both v2
+  SetApexVersion("com.android.tethering", 2);
+  EXPECT_ALL(2);
+  EXPECT_ADSERVICES(2);
+
+  // Only tethering v2. R and S extension are bumped, but T requires adserices.
+  SetApexVersion("com.android.adservices", 0);
+  SetApexVersion("com.android.tethering", 2);
+  EXPECT_R(2);
+  EXPECT_S(2);
+  EXPECT_T(1);
+  EXPECT_ADSERVICES(1);
+}
+
+TEST_F(DeriveSdkTest, AdServicesPostV7) {
+  // Need to add a base version with an R module to prevent the
+  // dessert extension versions from getting bumped.
+  AddExtensionVersion(1, {
+                             {SdkModule::TETHERING, 1},
+                         });
+
+  // Only adservices v2
+  SetApexVersion("com.android.adservices", 2);
+  EXPECT_ALL(0);
+  EXPECT_ADSERVICES(1);
+
+  // From v7 and onwards, we only care about the adservices version
+  SetApexVersion("com.android.adservices", 7);
+  EXPECT_ALL(0);
+  EXPECT_ADSERVICES(7);
+
+  SetApexVersion("com.android.adservices", 10);
+  EXPECT_ALL(0);
+  EXPECT_ADSERVICES(10);
+}
+
+TEST_F(DeriveSdkTest, Tiramisu) {
+  AddExtensionVersion(1, {
+                             {SdkModule::AD_SERVICES, 1},
+                             {SdkModule::APPSEARCH, 2},
+                             {SdkModule::ON_DEVICE_PERSONALIZATION, 3},
+                         });
+  EXPECT_T(0);
+
+  SetApexVersion("com.android.adservices", 1);
+  EXPECT_T(0);
+
+  SetApexVersion("com.android.appsearch", 2);
+  EXPECT_T(0);
+
+  SetApexVersion("com.android.ondevicepersonalization", 3);
+  EXPECT_T(1);
+}
+
+TEST_F(DeriveSdkTest, UpsideDownCake) {
+  AddExtensionVersion(1, {
+                             {SdkModule::CONFIG_INFRASTRUCTURE, 1},
+                             {SdkModule::HEALTH_FITNESS, 2},
+                         });
+  EXPECT_U(0);
+
+  SetApexVersion("com.android.configinfrastructure", 1);
+  EXPECT_U(0);
+
+  SetApexVersion("com.android.healthfitness", 2);
+  EXPECT_U(1);
 }
 
 int main(int argc, char** argv) {

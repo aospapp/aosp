@@ -209,8 +209,17 @@ class SupplicantStaNetworkCallbackAidlImpl extends ISupplicantStaNetworkCallback
                     + " certHash=" + certHash
                     + " cert=" + cert);
             mWifiMonitor.broadcastCertificationEvent(
-                    mIfaceName, mFrameworkNetworkId, mSsid, depth, cert);
+                    mIfaceName, mFrameworkNetworkId, mSsid, depth,
+                    new CertificateEventInfo(cert, certHash));
         }
+    }
+
+    @Override
+    public void onPermanentIdReqDenied() {
+        mNetworkHal.logCallback("onPermanentIdReqDenied");
+
+        mWifiMonitor.broadcastPermanentIdReqDenied(
+                mIfaceName, mFrameworkNetworkId, mSsid);
     }
 
     @Override

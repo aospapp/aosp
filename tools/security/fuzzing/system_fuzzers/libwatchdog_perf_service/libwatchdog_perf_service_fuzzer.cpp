@@ -19,7 +19,7 @@
 
 #include <iostream>
 
-#include "IoPerfCollection.h"
+#include "PerformanceProfiler.h"
 #include "ProcStatCollector.h"
 #include "UidIoStatsCollector.h"
 
@@ -81,15 +81,15 @@ extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, std::size_t size) {
       // Test UidIoStatsCollector
       TemporaryFile tf1;
       WriteStringToFile(uidIoStatsSnapshot, tf1.path);
-      UidIoStatsCollector uidIoStatsCollector(tf1.path);
-      assert(uidIoStatsCollector.enabled() == true);
-      uidIoStatsCollector.collect();
-      // Test ProcStat
+      sp<UidIoStatsCollector> uidIoStatsCollector =
+          sp<UidIoStatsCollector>::make(tf1.path);
+      uidIoStatsCollector->collect();
+      // Test procStatCollector
       TemporaryFile tf2;
       WriteStringToFile(procStatsSnapshot, tf2.path);
-      ProcStatCollector procStatCollector(tf2.path);
-      assert(procStatCollector.enabled() == true);
-      procStatCollector.collect();
+      sp<ProcStatCollector> procStatCollector =
+          sp<ProcStatCollector>::make(tf2.path);
+      procStatCollector->collect();
     }
     return 0;
 }

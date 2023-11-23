@@ -2,13 +2,13 @@ package android.platform.tests;
 
 import static junit.framework.Assert.assertTrue;
 
-import android.platform.helpers.AutoConfigConstants;
-import android.platform.helpers.AutoConfigConstants;
 import android.platform.helpers.AutoUtility;
+import android.platform.helpers.HelperAccessor;
 import android.platform.helpers.IAutoAppInfoSettingsHelper;
 import android.platform.helpers.IAutoAppInfoSettingsHelper.State;
 import android.platform.helpers.IAutoSettingHelper;
-import android.platform.helpers.HelperAccessor;
+import android.platform.helpers.SettingsConstants;
+
 import androidx.test.runner.AndroidJUnit4;
 
 import org.junit.After;
@@ -38,7 +38,10 @@ public class AppInfoSettingTest {
 
     @Before
     public void openAppInfoFacet() {
-        mSettingHelper.get().openSetting(AutoConfigConstants.APPS_SETTINGS);
+        mSettingHelper.get().openSetting(SettingsConstants.APPS_SETTINGS);
+        assertTrue(
+                "Apps setting did not open.",
+                mSettingHelper.get().checkMenuExists("Reset app grid to A-Z order"));
         mAppInfoSettingsHelper.get().showAllApps();
     }
 

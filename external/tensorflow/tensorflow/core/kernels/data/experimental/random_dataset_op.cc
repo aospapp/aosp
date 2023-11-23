@@ -47,7 +47,7 @@ class RandomDatasetOp::Dataset : public DatasetBase {
 
   std::unique_ptr<IteratorBase> MakeIteratorInternal(
       const string& prefix) const override {
-    return absl::make_unique<Iterator>(
+    return std::make_unique<Iterator>(
         Iterator::Params{this, strings::StrCat(prefix, "::Random")});
   }
 
@@ -57,9 +57,8 @@ class RandomDatasetOp::Dataset : public DatasetBase {
     // These splits aren't actually used during iteration.
     // TODO(aaudibert): Avoid sending dummy splits over RPC when using tf.data
     // service with RandomDataset.
-    split_providers->push_back(
-        absl::make_unique<IndexSplitProvider>(kint64max));
-    return Status::OK();
+    split_providers->push_back(std::make_unique<IndexSplitProvider>(kint64max));
+    return OkStatus();
   }
 
   const DataTypeVector& output_dtypes() const override {
@@ -78,13 +77,13 @@ class RandomDatasetOp::Dataset : public DatasetBase {
                            seeds_.second, ")::Dataset");
   }
 
-  int64 Cardinality() const override { return kInfiniteCardinality; }
+  int64_t CardinalityInternal() const override { return kInfiniteCardinality; }
 
   Status InputDatasets(std::vector<const DatasetBase*>* inputs) const override {
-    return Status::OK();
+    return OkStatus();
   }
 
-  Status CheckExternalState() const override { return Status::OK(); }
+  Status CheckExternalState() const override { return OkStatus(); }
 
  protected:
   Status AsGraphDefInternal(SerializationContext* ctx,
@@ -95,7 +94,7 @@ class RandomDatasetOp::Dataset : public DatasetBase {
     TF_RETURN_IF_ERROR(b->AddScalar(seeds_.first, &seed));
     TF_RETURN_IF_ERROR(b->AddScalar(seeds_.second, &seed2));
     TF_RETURN_IF_ERROR(b->AddDataset(this, {seed, seed2}, output));
-    return Status::OK();
+    return OkStatus();
   }
 
  private:
@@ -113,9 +112,9 @@ class RandomDatasetOp::Dataset : public DatasetBase {
       out_tensors->reserve(1);
       mutex_lock l(mu_);
       out_tensors->emplace_back(ctx->allocator({}), DT_INT64, TensorShape({}));
-      out_tensors->back().scalar<int64>()() = Random();
+      out_tensors->back().scalar<int64_t>()() = Random();
       *end_of_sequence = false;
-      return Status::OK();
+      return OkStatus();
     }
 
    protected:
@@ -129,7 +128,7 @@ class RandomDatasetOp::Dataset : public DatasetBase {
       mutex_lock l(mu_);
       TF_RETURN_IF_ERROR(writer->WriteScalar(full_name("num_random_samples"),
                                              num_random_samples_));
-      return Status::OK();
+      return OkStatus();
     }
 
     Status RestoreInternal(IteratorContext* ctx,
@@ -141,7 +140,7 @@ class RandomDatasetOp::Dataset : public DatasetBase {
       generator_ =
           random::SingleSampleAdapter<random::PhiloxRandom>(&parent_generator_);
       generator_.Skip(num_random_samples_);
-      return Status::OK();
+      return OkStatus();
     }
 
    private:
@@ -151,15 +150,15 @@ class RandomDatasetOp::Dataset : public DatasetBase {
       auto out = generator_();
       return out;
     }
-    const std::pair<int64, int64> seeds_;
+    const std::pair<int64_t, int64_t> seeds_;
     mutex mu_;
     random::PhiloxRandom parent_generator_ TF_GUARDED_BY(mu_);
     random::SingleSampleAdapter<random::PhiloxRandom> generator_
         TF_GUARDED_BY(mu_);
-    int64 num_random_samples_ TF_GUARDED_BY(mu_) = 0;
+    int64_t num_random_samples_ TF_GUARDED_BY(mu_) = 0;
   };
 
-  const std::pair<int64, int64> seeds_;
+  const std::pair<int64_t, int64_t> seeds_;
 };  // RandomDatasetOp::Dataset
 
 RandomDatasetOp::RandomDatasetOp(OpKernelConstruction* ctx)
@@ -167,10 +166,10 @@ RandomDatasetOp::RandomDatasetOp(OpKernelConstruction* ctx)
 
 void RandomDatasetOp::MakeDataset(OpKernelContext* ctx, DatasetBase** output) {
   int64_t seed;
-  OP_REQUIRES_OK(ctx, ParseScalarArgument<int64>(ctx, "seed", &seed));
+  OP_REQUIRES_OK(ctx, ParseScalarArgument<int64_t>(ctx, "seed", &seed));
 
   int64_t seed2;
-  OP_REQUIRES_OK(ctx, ParseScalarArgument<int64>(ctx, "seed2", &seed2));
+  OP_REQUIRES_OK(ctx, ParseScalarArgument<int64_t>(ctx, "seed2", &seed2));
 
   *output = new Dataset(ctx, seed, seed2);
 }

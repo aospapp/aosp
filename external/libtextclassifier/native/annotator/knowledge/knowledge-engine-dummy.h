@@ -37,6 +37,8 @@ class KnowledgeEngine {
 
   void SetPriorityScore(float priority_score) {}
 
+  void SetEnabledModes(ModeFlag enabled_modes) {}
+
   Status ClassifyText(const std::string& text, CodepointSpan selection_indices,
                       AnnotationUsecase annotation_usecase,
                       const Optional<LocationContext>& location_context,
@@ -48,7 +50,7 @@ class KnowledgeEngine {
   Status Chunk(const std::string& text, AnnotationUsecase annotation_usecase,
                const Optional<LocationContext>& location_context,
                const Permissions& permissions, const AnnotateMode annotate_mode,
-               Annotations* result) const {
+               ModeFlag mode, Annotations* result) const {
     return Status::OK;
   }
 
@@ -58,7 +60,7 @@ class KnowledgeEngine {
       AnnotationUsecase annotation_usecase,
       const Optional<LocationContext>& location_context,
       const Permissions& permissions, const AnnotateMode annotate_mode,
-      Annotations* results) const {
+      ModeFlag mode, Annotations* results) const {
     return Status::OK;
   }
 

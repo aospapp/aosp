@@ -19,6 +19,10 @@
      package="android.contentcaptureservice.cts2"
      android:targetSandboxVersion="2">
 
+    <queries>
+        <package android:name="android.contentcaptureservice.cts" />
+    </queries>
+
     <application>
 
         <uses-library android:name="android.test.runner"/>

@@ -31,13 +31,13 @@ oneway interface ICarTelemetryReportListener {
      * The parameter will no longer be stored in {@code CarTelemetryService}.
      *
      * @param metricsConfigName the metrics config name that the report is associated with.
-     * @param report script execution report.
+     * @param reportFileDescriptor the metrics reports can be read from this fd.
      * @param telemetryError the serialized bytes of the telemetry error object.
      * @param status of the metrics report.
      */
     void onResult(
             in String metricsConfigName,
-            in PersistableBundle report,
+            in ParcelFileDescriptor reportFileDescriptor,
             in byte[] telemetryError,
             in int status);
 }

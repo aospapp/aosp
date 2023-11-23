@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # Copyright 2020 The Chromium Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -11,7 +12,7 @@ from autotest_lib.client.common_lib import error
 from autotest_lib.client.common_lib.cros import chrome
 from autotest_lib.client.cros import constants as cros_constants
 from autotest_lib.client.cros.audio import cras_utils
-from autotest_lib.client.cros.multimedia import audio_facade_native
+from autotest_lib.client.cros.multimedia import audio_facade
 
 class audio_CrasGetNodes(test.test):
     """Verifies dbus GetNodes API of CRAS."""
@@ -35,8 +36,8 @@ class audio_CrasGetNodes(test.test):
             with chrome.Chrome(
                     extension_paths=[cros_constants.AUDIO_TEST_EXTENSION],
                     autotest_ext=True) as cr:
-                audio_facade = audio_facade_native.AudioFacadeNative(cr)
-                audio_facade.set_chrome_active_node_type(
+                audio_facade_local = audio_facade.AudioFacadeLocal(cr)
+                audio_facade_local.set_chrome_active_node_type(
                         self.ALOOP_CRAS_NODE_TYPE, self.ALOOP_CRAS_NODE_TYPE)
 
             # Checks active output and input node types are correct.

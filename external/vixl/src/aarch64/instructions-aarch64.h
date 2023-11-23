@@ -199,8 +199,11 @@ enum VectorFormat {
 
   // An artificial value, used to distinguish from NEON format category.
   kFormatSVE = 0x0000fffd,
-  // An artificial value. Q lane size isn't encoded in the usual size field.
-  kFormatSVEQ = 0x000f0000,
+  // Artificial values. Q and O lane sizes aren't encoded in the usual size
+  // field.
+  kFormatSVEQ = 0x00080000,
+  kFormatSVEO = 0x00040000,
+
   // Vector element width of SVE register with the unknown lane count since
   // the vector length is implementation dependent.
   kFormatVnB = SVE_B | kFormatSVE,
@@ -208,6 +211,7 @@ enum VectorFormat {
   kFormatVnS = SVE_S | kFormatSVE,
   kFormatVnD = SVE_D | kFormatSVE,
   kFormatVnQ = kFormatSVEQ | kFormatSVE,
+  kFormatVnO = kFormatSVEO | kFormatSVE,
 
   // An artificial value, used by simulator trace tests and a few oddball
   // instructions (such as FMLAL).
@@ -267,9 +271,19 @@ class Instruction {
     return Compress(M);
   }
 
+  uint32_t ExtractBitsAbsent() const {
+    VIXL_UNREACHABLE();
+    return 0;
+  }
+
   template <uint32_t M, uint32_t V>
   uint32_t IsMaskedValue() const {
     return (Mask(M) == V) ? 1 : 0;
+  }
+
+  uint32_t IsMaskedValueAbsent() const {
+    VIXL_UNREACHABLE();
+    return 0;
   }
 
   int32_t ExtractSignedBits(int msb, int lsb) const {
@@ -300,8 +314,13 @@ class Instruction {
     return this->ExtractBits(msb, lsb);
   }
 
-  VectorFormat GetSVEVectorFormat() const {
-    switch (Mask(SVESizeFieldMask)) {
+  VectorFormat GetSVEVectorFormat(int field_lsb = 22) const {
+    VIXL_ASSERT((field_lsb >= 0) && (field_lsb <= 30));
+    uint32_t instr = ExtractUnsignedBitfield32(field_lsb + 1,
+                                               field_lsb,
+                                               GetInstructionBits())
+                     << 22;
+    switch (instr & SVESizeFieldMask) {
       case SVE_B:
         return kFormatVnB;
       case SVE_H:
@@ -349,11 +368,17 @@ class Instruction {
 
   std::pair<int, int> GetSVEPermuteIndexAndLaneSizeLog2() const;
 
+  std::pair<int, int> GetSVEMulZmAndIndex() const;
+  std::pair<int, int> GetSVEMulLongZmAndIndex() const;
+
   std::pair<int, int> GetSVEImmShiftAndLaneSizeLog2(bool is_predicated) const;
+
+  int GetSVEExtractImmediate() const;
 
   int GetSVEMsizeFromDtype(bool is_signed, int dtype_h_lsb = 23) const;
 
   int GetSVEEsizeFromDtype(bool is_signed, int dtype_l_lsb = 21) const;
+
 
   unsigned GetImmNEONabcdefgh() const;
   VIXL_DEPRECATED("GetImmNEONabcdefgh", unsigned ImmNEONabcdefgh() const) {
@@ -453,7 +478,8 @@ class Instruction {
   }
 
   // True if `this` is valid immediately after the provided movprfx instruction.
-  bool CanTakeSVEMovprfx(Instruction const* movprfx) const;
+  bool CanTakeSVEMovprfx(uint32_t form_hash, Instruction const* movprfx) const;
+  bool CanTakeSVEMovprfx(const char* form, Instruction const* movprfx) const;
 
   bool IsLoad() const;
   bool IsStore() const;
@@ -789,18 +815,26 @@ class NEONFormatDecoder {
                          SubstitutionMode mode0 = kFormat,
                          SubstitutionMode mode1 = kFormat,
                          SubstitutionMode mode2 = kFormat) {
+    const char* subst0 = GetSubstitute(0, mode0);
+    const char* subst1 = GetSubstitute(1, mode1);
+    const char* subst2 = GetSubstitute(2, mode2);
+
+    if ((subst0 == NULL) || (subst1 == NULL) || (subst2 == NULL)) {
+      return NULL;
+    }
+
     snprintf(form_buffer_,
              sizeof(form_buffer_),
              string,
-             GetSubstitute(0, mode0),
-             GetSubstitute(1, mode1),
-             GetSubstitute(2, mode2));
+             subst0,
+             subst1,
+             subst2);
     return form_buffer_;
   }
 
-  // Append a "2" to a mnemonic string based of the state of the Q bit.
+  // Append a "2" to a mnemonic string based on the state of the Q bit.
   const char* Mnemonic(const char* mnemonic) {
-    if ((instrbits_ & NEON_Q) != 0) {
+    if ((mnemonic != NULL) && (instrbits_ & NEON_Q) != 0) {
       snprintf(mne_buffer_, sizeof(mne_buffer_), "%s2", mnemonic);
       return mne_buffer_;
     }
@@ -895,6 +929,33 @@ class NEONFormatDecoder {
     return &map;
   }
 
+  // The shift immediate map uses between two and five bits to encode the NEON
+  // vector format:
+  // 00010->8B, 00011->16B, 001x0->4H, 001x1->8H,
+  // 01xx0->2S, 01xx1->4S, 1xxx1->2D, all others undefined.
+  static const NEONFormatMap* ShiftImmFormatMap() {
+    static const NEONFormatMap map = {{22, 21, 20, 19, 30},
+                                      {NF_UNDEF, NF_UNDEF, NF_8B,    NF_16B,
+                                       NF_4H,    NF_8H,    NF_4H,    NF_8H,
+                                       NF_2S,    NF_4S,    NF_2S,    NF_4S,
+                                       NF_2S,    NF_4S,    NF_2S,    NF_4S,
+                                       NF_UNDEF, NF_2D,    NF_UNDEF, NF_2D,
+                                       NF_UNDEF, NF_2D,    NF_UNDEF, NF_2D,
+                                       NF_UNDEF, NF_2D,    NF_UNDEF, NF_2D,
+                                       NF_UNDEF, NF_2D,    NF_UNDEF, NF_2D}};
+    return &map;
+  }
+
+  // The shift long/narrow immediate map uses between two and four bits to
+  // encode the NEON vector format:
+  // 0001->8H, 001x->4S, 01xx->2D, all others undefined.
+  static const NEONFormatMap* ShiftLongNarrowImmFormatMap() {
+    static const NEONFormatMap map =
+        {{22, 21, 20, 19},
+         {NF_UNDEF, NF_8H, NF_4S, NF_4S, NF_2D, NF_2D, NF_2D, NF_2D}};
+    return &map;
+  }
+
   // The scalar format map uses two bits (size<1:0>) to encode the NEON scalar
   // formats: NF_B, NF_H, NF_S, NF_D.
   static const NEONFormatMap* ScalarFormatMap() {
@@ -968,7 +1029,7 @@ class NEONFormatDecoder {
   static const char* NEONFormatAsString(NEONFormat format) {
     // clang-format off
     static const char* formats[] = {
-      "undefined",
+      NULL,
       "8b", "16b", "4h", "8h", "2s", "4s", "1d", "2d",
       "b", "h", "s", "d"
     };
@@ -983,9 +1044,9 @@ class NEONFormatDecoder {
                 (format == NF_D) || (format == NF_UNDEF));
     // clang-format off
     static const char* formats[] = {
-      "undefined",
-      "undefined", "undefined", "undefined", "undefined",
-      "undefined", "undefined", "undefined", "undefined",
+      NULL,
+      NULL, NULL, NULL, NULL,
+      NULL, NULL, NULL, NULL,
       "'B", "'H", "'S", "'D"
     };
     // clang-format on

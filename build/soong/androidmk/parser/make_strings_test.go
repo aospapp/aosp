@@ -75,6 +75,16 @@ var splitNTestCases = []struct {
 			genMakeString(""),
 		},
 	},
+	{
+		// "x$(var1)y bar"
+		in:  genMakeString("x", "var1", "y bar"),
+		sep: " ",
+		n:   2,
+		expected: []*MakeString{
+			genMakeString("x", "var1", "y"),
+			genMakeString("bar"),
+		},
+	},
 }
 
 func TestMakeStringSplitN(t *testing.T) {
@@ -213,6 +223,36 @@ func TestMakeStringWords(t *testing.T) {
 		expectedString := dumpArray(test.expected)
 		if gotString != expectedString {
 			t.Errorf("with:\n%q\nexpected:\n%s\ngot:\n%s", test.in.Dump(), expectedString, gotString)
+		}
+	}
+}
+
+var endsWithTestCases = []struct {
+	in       *MakeString
+	endsWith rune
+	expected bool
+}{
+	{
+		in:       genMakeString("foo", "X", "bar ="),
+		endsWith: '=',
+		expected: true,
+	},
+	{
+		in:       genMakeString("foo", "X", "bar ="),
+		endsWith: ':',
+		expected: false,
+	},
+	{
+		in:       genMakeString("foo", "X", ""),
+		endsWith: '=',
+		expected: false,
+	},
+}
+
+func TestMakeStringEndsWith(t *testing.T) {
+	for _, test := range endsWithTestCases {
+		if test.in.EndsWith(test.endsWith) != test.expected {
+			t.Errorf("with:\n%q\nexpected:\n%t\ngot:\n%t", test.in.Dump(), test.expected, !test.expected)
 		}
 	}
 }

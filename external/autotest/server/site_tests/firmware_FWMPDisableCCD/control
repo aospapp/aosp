@@ -10,7 +10,9 @@ PURPOSE = "Verify the cr50 response to FWMP flags being set"
 TIME = "MEDIUM"
 ATTRIBUTES = "suite:faft_cr50_pvt, suite:faft_cr50_prepvt"
 TEST_TYPE = "server"
+JOB_RETRIES = 0
 DEPENDENCIES = "servo_state:WORKING"
+PY_VERSION = 3
 
 DOC = """
 This test will set FWMP flags. If the test has access to the cr50 console, it

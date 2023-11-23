@@ -2,10 +2,11 @@ AUTHOR = "puthik"
 NAME = "power_VideoCall"
 PURPOSE = "Simulates video call multitasking."
 CRITERIA = "This test is a benchmark."
-TIME = "LONG"
+TIME = "LENGTHY"
 TEST_CATEGORY = "Benchmark"
 TEST_CLASS = "power"
 TEST_TYPE = "client"
+PY_VERSION = 3
 
 DOC = """
 This test simulates video call multitasking and record power related statistic.
@@ -20,4 +21,5 @@ The run time is 2 hours to allow the DUT to heat up to steady state.
 
 args_dict = utils.args_to_dict(args)
 pdash_note = args_dict.get('pdash_note', '')
-job.run_test('power_VideoCall', pdash_note=pdash_note)
+job.run_test('power_VideoCall', pdash_note=pdash_note,
+             min_run_time_percent=75)

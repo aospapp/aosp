@@ -19,6 +19,7 @@ package com.android.phone.settings.fdn;
 
 import static android.app.Activity.RESULT_OK;
 
+import android.content.ContentProvider;
 import android.content.ContentValues;
 import android.content.Intent;
 import android.content.res.Resources;
@@ -26,6 +27,8 @@ import android.database.Cursor;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.PersistableBundle;
+import android.os.Process;
+import android.os.UserHandle;
 import android.provider.ContactsContract.CommonDataKinds;
 import android.telephony.CarrierConfigManager;
 import android.telephony.PhoneNumberUtils;
@@ -137,6 +140,14 @@ public class EditFdnContactScreen extends BaseFdnContactScreen {
                 }
                 Cursor cursor = null;
                 try {
+                    // check if the URI returned by the user belongs to the user
+                    final int currentUser = UserHandle.getUserId(Process.myUid());
+                    if (currentUser
+                            != ContentProvider.getUserIdFromUri(intent.getData(), currentUser)) {
+                        Log.w(LOG_TAG, "onActivityResult: Contact data of different user, "
+                                + "cannot access");
+                        return;
+                    }
                     cursor = getContentResolver().query(intent.getData(),
                         NUM_PROJECTION, null, null, null);
                     if ((cursor == null) || (!cursor.moveToFirst())) {

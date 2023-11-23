@@ -104,7 +104,8 @@ public class TimeChangeTests {
                 .addFlags(Intent.FLAG_RECEIVER_FOREGROUND);
         mAlarmPi = PendingIntent.getBroadcast(mContext, 0, alarmIntent, PendingIntent.FLAG_MUTABLE);
         final IntentFilter alarmFilter = new IntentFilter(ACTION_ALARM);
-        mContext.registerReceiver(mAlarmReceiver, alarmFilter);
+        mContext.registerReceiver(mAlarmReceiver, alarmFilter,
+                Context.RECEIVER_EXPORTED_UNAUDITED);
         mConfigHelper.with("min_futurity", 0L).commitAndAwaitPropagation();
         BatteryUtils.runDumpsysBatteryUnplug();
         mTestStartRtc = System.currentTimeMillis();

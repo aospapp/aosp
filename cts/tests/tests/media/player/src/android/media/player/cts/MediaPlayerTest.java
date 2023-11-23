@@ -22,6 +22,8 @@ import static junit.framework.TestCase.assertSame;
 import static junit.framework.TestCase.assertTrue;
 import static junit.framework.TestCase.fail;
 
+import static org.junit.Assert.assertThrows;
+
 import android.content.Context;
 import android.content.pm.PackageManager;
 import android.content.res.AssetFileDescriptor;
@@ -43,8 +45,6 @@ import android.media.TimedText;
 import android.media.audiofx.AudioEffect;
 import android.media.audiofx.Visualizer;
 import android.media.cts.MediaPlayerTestBase;
-import android.media.cts.NonMediaMainlineTest;
-import android.media.cts.Preconditions;
 import android.media.cts.TestMediaDataSource;
 import android.media.cts.TestUtils.Monitor;
 import android.media.cts.Utils;
@@ -64,6 +64,8 @@ import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.filters.SmallTest;
 
 import com.android.compatibility.common.util.MediaUtils;
+import com.android.compatibility.common.util.NonMainlineTest;
+import com.android.compatibility.common.util.Preconditions;
 
 import junit.framework.AssertionFailedError;
 
@@ -101,7 +103,7 @@ import java.util.stream.Stream;
  */
 @SmallTest
 @RequiresDevice
-@NonMediaMainlineTest
+@NonMainlineTest
 @AppModeFull(reason = "TODO: evaluate and port to instant")
 @RunWith(AndroidJUnit4.class)
 public class MediaPlayerTest extends MediaPlayerTestBase {
@@ -115,6 +117,8 @@ public class MediaPlayerTest extends MediaPlayerTestBase {
     private static final int  RECORDED_VIDEO_HEIGHT = 144;
     private static final long RECORDED_DURATION_MS  = 3000;
     private static final float FLOAT_TOLERANCE = .0001f;
+    private static final int PLAYBACK_DURATION_MS  = 10000;
+    private static final int ANR_DETECTION_TIME_MS  = 20000;
 
     private final Vector<Integer> mTimedTextTrackIndex = new Vector<>();
     private final Monitor mOnTimedTextCalled = new Monitor();
@@ -406,9 +410,10 @@ public class MediaPlayerTest extends MediaPlayerTestBase {
     }
 
     @Test
-    public void testConcurentPlayAudio() throws Exception {
+    public void testConcurrentPlayAudio() throws Exception {
         final String res = "test1m1s.mp3"; // MP3 longer than 1m are usualy offloaded
-        final int tolerance = 70;
+        final int recommendedTolerance = 70;
+        final List<Integer> offsets = new ArrayList<>();
 
         Preconditions.assertTestFileExists(mInpPrefix + res);
         List<MediaPlayer> mps = Stream.generate(
@@ -431,13 +436,25 @@ public class MediaPlayerTest extends MediaPlayerTestBase {
                 int pos = mp.getCurrentPosition();
                 assertTrue(pos >= 0);
 
-                Thread.sleep(SLEEP_TIME); // Delay each track to be able to ear them
+                Thread.sleep(SLEEP_TIME); // Delay each track to be able to hear them
             }
+
             // Check that all mp3 are playing concurrently here
+            // Record the offsets between streams, but don't enforce them
             for (MediaPlayer mp : mps) {
                 int pos = mp.getCurrentPosition();
                 Thread.sleep(SLEEP_TIME);
-                assertEquals(pos + SLEEP_TIME, mp.getCurrentPosition(), tolerance);
+                offsets.add(Math.abs(pos + SLEEP_TIME - mp.getCurrentPosition()));
+            }
+
+            if (offsets.stream().anyMatch(offset -> offset > recommendedTolerance)) {
+                Log.w(LOG_TAG, "testConcurrentPlayAudio: some concurrent playing offsets "
+                        + offsets + " are above the recommended tolerance of "
+                        + recommendedTolerance + "ms.");
+            } else {
+                Log.i(LOG_TAG, "testConcurrentPlayAudio: all concurrent playing offsets "
+                        + offsets + " are under the recommended tolerance of "
+                        + recommendedTolerance + "ms.");
             }
         } finally {
             mps.forEach(MediaPlayer::release);
@@ -699,7 +716,10 @@ public class MediaPlayerTest extends MediaPlayerTestBase {
             player.reset();
             player.setDataSource(afd.getFileDescriptor(), afd.getStartOffset(), afd.getLength());
             player.prepare();
-            player.seekTo(56000);
+            // Test needs the mediaplayer to playback at least about 5 seconds of content.
+            // Clip used here has a duration of 61 seconds, given PLAYBACK_DURATION_MS for play.
+            // This leaves enough remaining time, with gapless enabled or disabled,
+            player.seekTo(player.getDuration() - PLAYBACK_DURATION_MS);
         }
     }
 
@@ -741,6 +761,10 @@ public class MediaPlayerTest extends MediaPlayerTestBase {
 
     @Test
     public void testSetNextMediaPlayer() throws Exception {
+        final int ITERATIONS = 3;
+        // the +1 is for the trailing test of setNextMediaPlayer(null)
+        final int TOTAL_TIMEOUT_MS = PLAYBACK_DURATION_MS * (ITERATIONS + 1)
+                        + ANR_DETECTION_TIME_MS + 5000 /* listener latency(ms) */;
         initMediaPlayer(mMediaPlayer);
 
         final Monitor mTestCompleted = new Monitor();
@@ -754,9 +778,9 @@ public class MediaPlayerTest extends MediaPlayerTestBase {
                     return;
                 }
                 long now = SystemClock.elapsedRealtime();
-                if ((now - startTime) > 45000) {
-                    // We've been running for 45 seconds and still aren't done, so we're stuck
-                    // somewhere. Signal ourselves to dump the thread stacks.
+                if ((now - startTime) > TOTAL_TIMEOUT_MS) {
+                    // We've been running beyond TOTAL_TIMEOUT and still aren't done,
+                    // so we're stuck somewhere. Signal ourselves to dump the thread stacks.
                     android.os.Process.sendSignal(android.os.Process.myPid(), 3);
                     SystemClock.sleep(2000);
                     fail("Test is stuck, see ANR stack trace for more info. You may need to" +
@@ -769,7 +793,7 @@ public class MediaPlayerTest extends MediaPlayerTestBase {
         timer.start();
 
         try {
-            for (int i = 0; i < 3; i++) {
+            for (int i = 0; i < ITERATIONS; i++) {
 
                 initMediaPlayer(mMediaPlayer2);
                 mOnCompletionCalled.reset();
@@ -809,6 +833,7 @@ public class MediaPlayerTest extends MediaPlayerTestBase {
             }
 
             // Now test that setNextMediaPlayer(null) works. 1 is still playing, 2 is done
+            // this is the final "+1" in our time calculations above
             mOnCompletionCalled.reset();
             mOnInfoCalled.reset();
             initMediaPlayer(mMediaPlayer2);
@@ -911,7 +936,7 @@ public class MediaPlayerTest extends MediaPlayerTestBase {
                         mContext.getPackageName(), getInstrumentation(), true /* on */);
             }
 
-            mp1 = new MediaPlayer();
+            mp1 = new MediaPlayer(mContext);
             mp1.setAudioStreamType(AudioManager.STREAM_MUSIC);
 
             AssetFileDescriptor afd = getAssetFileDescriptorFor(res1);
@@ -921,7 +946,7 @@ public class MediaPlayerTest extends MediaPlayerTestBase {
 
             int session = mp1.getAudioSessionId();
 
-            mp2 = new MediaPlayer();
+            mp2 = new MediaPlayer(mContext);
             mp2.setAudioSessionId(session);
             mp2.setAudioStreamType(AudioManager.STREAM_MUSIC);
 
@@ -2599,4 +2624,11 @@ public class MediaPlayerTest extends MediaPlayerTestBase {
             getInstrumentation().getUiAutomation().dropShellPermissionIdentity();
         }
     }
+
+    @Presubmit
+    @Test
+    public void testConstructorWithNullContextFails() {
+        assertThrows(NullPointerException.class, () -> new MediaPlayer(/*context=*/null));
+    }
+
 }

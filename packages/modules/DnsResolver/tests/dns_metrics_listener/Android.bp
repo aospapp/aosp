@@ -19,7 +19,6 @@ cc_test_library {
         "libbinder_ndk",
     ],
     static_libs: [
-        "libutils",
         "netd_event_listener_interface-lateststable-ndk",
     ],
 }

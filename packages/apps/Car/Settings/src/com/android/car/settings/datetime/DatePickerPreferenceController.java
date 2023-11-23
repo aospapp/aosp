@@ -85,7 +85,7 @@ public class DatePickerPreferenceController extends PreferenceController<Prefere
     }
 
     @Override
-    public int getAvailabilityStatus() {
+    public int getDefaultAvailabilityStatus() {
         return DatetimeUtils.getAvailabilityStatus(getContext());
     }
 

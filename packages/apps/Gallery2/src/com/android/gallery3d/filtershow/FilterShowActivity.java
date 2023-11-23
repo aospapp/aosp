@@ -1383,6 +1383,7 @@ public class FilterShowActivity extends FragmentActivity implements OnItemClickL
                 SELECT_PICTURE);
     }
 
+    @SuppressWarnings("MissingSuperCall") // TODO: Fix me
     @Override
     public void onActivityResult(int requestCode, int resultCode, Intent data) {
         if (resultCode == RESULT_OK) {

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008, 2013, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2008, 2016, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -70,6 +70,12 @@ class UnixException extends Exception {
         return errorString();
     }
 
+    @Override
+    public Throwable fillInStackTrace() {
+        // This is an internal exception; the stack trace is irrelevant.
+        return this;
+    }
+
     /**
      * Map well known errors to specific exceptions where possible; otherwise
      * return more general FileSystemException.
@@ -86,6 +92,9 @@ class UnixException extends Exception {
             return new NoSuchFileException(file, other, null);
         if (errno() == UnixConstants.EEXIST)
             return new FileAlreadyExistsException(file, other, null);
+        if (errno() == UnixConstants.ELOOP)
+            return new FileSystemException(file, other, errorString()
+                + " or unable to access attributes of symbolic link");
 
         // fallback to the more general exception
         return new FileSystemException(file, other, errorString());

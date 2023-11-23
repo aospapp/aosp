@@ -75,13 +75,8 @@ public class WorkspaceItemInfo extends ItemInfoWithIcon {
     /**
      * The intent used to start the application.
      */
+    @NonNull
     public Intent intent;
-
-    /**
-     * If isShortcut=true and customIcon=false, this contains a reference to the
-     * shortcut icon as an application's resource.
-     */
-    public Intent.ShortcutIconResource iconResource;
 
     /**
      * A message to display when the user tries to start a disabled shortcut.
@@ -108,7 +103,6 @@ public class WorkspaceItemInfo extends ItemInfoWithIcon {
         super(info);
         title = info.title;
         intent = new Intent(info.intent);
-        iconResource = info.iconResource;
         status = info.status;
         personKeys = info.personKeys.clone();
     }
@@ -130,7 +124,7 @@ public class WorkspaceItemInfo extends ItemInfoWithIcon {
     }
 
     @Override
-    public void onAddToDatabase(ContentWriter writer) {
+    public void onAddToDatabase(@NonNull ContentWriter writer) {
         super.onAddToDatabase(writer);
         writer.put(Favorites.TITLE, title)
                 .put(Favorites.INTENT, getIntent())
@@ -140,13 +134,10 @@ public class WorkspaceItemInfo extends ItemInfoWithIcon {
         if (!usingLowResIcon()) {
             writer.putIcon(bitmap, user);
         }
-        if (iconResource != null) {
-            writer.put(Favorites.ICON_PACKAGE, iconResource.packageName)
-                    .put(Favorites.ICON_RESOURCE, iconResource.resourceName);
-        }
     }
 
     @Override
+    @NonNull
     public Intent getIntent() {
         return intent;
     }
@@ -164,7 +155,8 @@ public class WorkspaceItemInfo extends ItemInfoWithIcon {
         return isPromise() && !hasStatusFlag(FLAG_SUPPORTS_WEB_UI);
     }
 
-    public void updateFromDeepShortcutInfo(ShortcutInfo shortcutInfo, Context context) {
+    public void updateFromDeepShortcutInfo(@NonNull final ShortcutInfo shortcutInfo,
+            @NonNull final Context context) {
         // {@link ShortcutInfo#getActivity} can change during an update. Recreate the intent
         intent = ShortcutKey.makeIntent(shortcutInfo);
         title = shortcutInfo.getShortLabel();

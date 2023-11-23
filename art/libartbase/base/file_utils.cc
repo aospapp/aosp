@@ -40,6 +40,7 @@
 
 #include <memory>
 #include <sstream>
+#include <vector>
 
 #include "android-base/file.h"
 #include "android-base/logging.h"
@@ -50,6 +51,7 @@
 #include "base/os.h"
 #include "base/stl_util.h"
 #include "base/unix_file/fd_file.h"
+#include "base/utils.h"
 
 #if defined(__APPLE__)
 #include <crt_externs.h>
@@ -62,6 +64,10 @@
 #include <linux/unistd.h>
 #endif
 
+#ifdef ART_TARGET_ANDROID
+#include "android-modules-utils/sdk_level.h"
+#endif
+
 namespace art {
 
 using android::base::StringPrintf;
@@ -69,15 +75,18 @@ using android::base::StringPrintf;
 static constexpr const char* kClassesDex = "classes.dex";
 static constexpr const char* kAndroidRootEnvVar = "ANDROID_ROOT";
 static constexpr const char* kAndroidRootDefaultPath = "/system";
-static constexpr const char* kAndroidSystemExtRootEnvVar = "ANDROID_SYSTEM_EXT";
+static constexpr const char* kAndroidSystemExtRootEnvVar = "SYSTEM_EXT_ROOT";
 static constexpr const char* kAndroidSystemExtRootDefaultPath = "/system_ext";
 static constexpr const char* kAndroidDataEnvVar = "ANDROID_DATA";
 static constexpr const char* kAndroidDataDefaultPath = "/data";
+static constexpr const char* kAndroidExpandEnvVar = "ANDROID_EXPAND";
+static constexpr const char* kAndroidExpandDefaultPath = "/mnt/expand";
 static constexpr const char* kAndroidArtRootEnvVar = "ANDROID_ART_ROOT";
 static constexpr const char* kAndroidConscryptRootEnvVar = "ANDROID_CONSCRYPT_ROOT";
 static constexpr const char* kAndroidI18nRootEnvVar = "ANDROID_I18N_ROOT";
 static constexpr const char* kApexDefaultPath = "/apex/";
 static constexpr const char* kArtApexDataEnvVar = "ART_APEX_DATA";
+static constexpr const char* kBootImageStem = "boot";
 
 // Get the "root" directory containing the "lib" directory where this instance
 // of the libartbase library (which contains `GetRootContainingLibartbase`) is
@@ -104,56 +113,6 @@ static std::string GetRootContainingLibartbase() {
   }
 #endif
   return "";
-}
-
-std::string GetAndroidRootSafe(std::string* error_msg) {
-#ifdef _WIN32
-  UNUSED(kAndroidRootEnvVar, kAndroidRootDefaultPath, GetRootContainingLibartbase);
-  *error_msg = "GetAndroidRootSafe unsupported for Windows.";
-  return "";
-#else
-  // Prefer ANDROID_ROOT if it's set.
-  const char* android_root_from_env = getenv(kAndroidRootEnvVar);
-  if (android_root_from_env != nullptr) {
-    if (!OS::DirectoryExists(android_root_from_env)) {
-      *error_msg =
-          StringPrintf("Failed to find %s directory %s", kAndroidRootEnvVar, android_root_from_env);
-      return "";
-    }
-    return android_root_from_env;
-  }
-
-  // On host, libartbase is currently installed in "$ANDROID_ROOT/lib"
-  // (e.g. something like "$ANDROID_BUILD_TOP/out/host/linux-x86/lib". Use this
-  // information to infer the location of the Android Root (on host only).
-  //
-  // Note that this could change in the future, if we decided to install ART
-  // artifacts in a different location, e.g. within an "ART APEX" directory.
-  if (!kIsTargetBuild) {
-    std::string root_containing_libartbase = GetRootContainingLibartbase();
-    if (!root_containing_libartbase.empty()) {
-      return root_containing_libartbase;
-    }
-  }
-
-  // Try the default path.
-  if (!OS::DirectoryExists(kAndroidRootDefaultPath)) {
-    *error_msg =
-        StringPrintf("Failed to find default Android Root directory %s", kAndroidRootDefaultPath);
-    return "";
-  }
-  return kAndroidRootDefaultPath;
-#endif
-}
-
-std::string GetAndroidRoot() {
-  std::string error_msg;
-  std::string ret = GetAndroidRootSafe(&error_msg);
-  if (ret.empty()) {
-    LOG(FATAL) << error_msg;
-    UNREACHABLE();
-  }
-  return ret;
 }
 
 static const char* GetAndroidDirSafe(const char* env_var,
@@ -187,6 +146,62 @@ static const char* GetAndroidDir(const char* env_var,
     LOG(FATAL) << error_msg;
     UNREACHABLE();
   }
+}
+
+std::string GetAndroidRootSafe(std::string* error_msg) {
+#ifdef _WIN32
+  UNUSED(kAndroidRootEnvVar, kAndroidRootDefaultPath, GetRootContainingLibartbase);
+  *error_msg = "GetAndroidRootSafe unsupported for Windows.";
+  return "";
+#else
+  std::string local_error_msg;
+  const char* dir = GetAndroidDirSafe(kAndroidRootEnvVar, kAndroidRootDefaultPath,
+      /*must_exist=*/ true, &local_error_msg);
+  if (dir == nullptr) {
+    // On host, libartbase is currently installed in "$ANDROID_ROOT/lib"
+    // (e.g. something like "$ANDROID_BUILD_TOP/out/host/linux-x86/lib". Use this
+    // information to infer the location of the Android Root (on host only).
+    //
+    // Note that this could change in the future, if we decided to install ART
+    // artifacts in a different location, e.g. within an "ART APEX" directory.
+    if (!kIsTargetBuild) {
+      std::string root_containing_libartbase = GetRootContainingLibartbase();
+      if (!root_containing_libartbase.empty()) {
+        return root_containing_libartbase;
+      }
+    }
+    *error_msg = std::move(local_error_msg);
+    return "";
+  }
+
+  return dir;
+#endif
+}
+
+std::string GetAndroidRoot() {
+  std::string error_msg;
+  std::string ret = GetAndroidRootSafe(&error_msg);
+  CHECK(!ret.empty()) << error_msg;
+  return ret;
+}
+
+std::string GetSystemExtRootSafe(std::string* error_msg) {
+#ifdef _WIN32
+  UNUSED(kAndroidSystemExtRootEnvVar, kAndroidSystemExtRootDefaultPath);
+  *error_msg = "GetSystemExtRootSafe unsupported for Windows.";
+  return "";
+#else
+  const char* dir = GetAndroidDirSafe(kAndroidSystemExtRootEnvVar, kAndroidSystemExtRootDefaultPath,
+      /*must_exist=*/ true, error_msg);
+  return dir ? dir : "";
+#endif
+}
+
+std::string GetSystemExtRoot() {
+  std::string error_msg;
+  std::string ret = GetSystemExtRootSafe(&error_msg);
+  CHECK(!ret.empty()) << error_msg;
+  return ret;
 }
 
 static std::string GetArtRootSafe(bool must_exist, /*out*/ std::string* error_msg) {
@@ -276,6 +291,18 @@ std::string GetAndroidDataSafe(std::string* error_msg) {
 
 std::string GetAndroidData() { return GetAndroidDir(kAndroidDataEnvVar, kAndroidDataDefaultPath); }
 
+std::string GetAndroidExpandSafe(std::string* error_msg) {
+  const char* android_dir = GetAndroidDirSafe(kAndroidExpandEnvVar,
+                                              kAndroidExpandDefaultPath,
+                                              /*must_exist=*/true,
+                                              error_msg);
+  return (android_dir != nullptr) ? android_dir : "";
+}
+
+std::string GetAndroidExpand() {
+  return GetAndroidDir(kAndroidExpandEnvVar, kAndroidExpandDefaultPath);
+}
+
 std::string GetArtApexData() {
   return GetAndroidDir(kArtApexDataEnvVar, kArtApexDataDefaultPath, /*must_exist=*/false);
 }
@@ -292,10 +319,102 @@ std::string GetPrebuiltPrimaryBootImageDir() {
   return GetPrebuiltPrimaryBootImageDir(android_root);
 }
 
-std::string GetDefaultBootImageLocation(const std::string& android_root,
-                                        bool deny_art_apex_data_files) {
+std::string GetFirstMainlineFrameworkLibraryFilename(std::string* error_msg) {
+  const char* env_bcp = getenv("BOOTCLASSPATH");
+  const char* env_dex2oat_bcp = getenv("DEX2OATBOOTCLASSPATH");
+  if (env_bcp == nullptr || env_dex2oat_bcp == nullptr) {
+    *error_msg = "BOOTCLASSPATH and DEX2OATBOOTCLASSPATH must not be empty";
+    return "";
+  }
+
+  // DEX2OATBOOTCLASSPATH contains core libraries and framework libraries. We used to only compile
+  // those libraries. Now we compile mainline framework libraries as well, and we have repurposed
+  // DEX2OATBOOTCLASSPATH to indicate the separation between mainline framework libraries and other
+  // libraries.
+  std::string_view mainline_bcp(env_bcp);
+  if (!android::base::ConsumePrefix(&mainline_bcp, env_dex2oat_bcp)) {
+    *error_msg = "DEX2OATBOOTCLASSPATH must be a prefix of BOOTCLASSPATH";
+    return "";
+  }
+
+  std::vector<std::string_view> mainline_bcp_jars;
+  Split(mainline_bcp, ':', &mainline_bcp_jars);
+  if (mainline_bcp_jars.empty()) {
+    *error_msg = "No mainline framework library found";
+    return "";
+  }
+
+  return std::string(mainline_bcp_jars[0]);
+}
+
+static std::string GetFirstMainlineFrameworkLibraryName(std::string* error_msg) {
+  std::string filename = GetFirstMainlineFrameworkLibraryFilename(error_msg);
+  if (filename.empty()) {
+    return "";
+  }
+
+  std::string jar_name = android::base::Basename(filename);
+
+  std::string_view library_name(jar_name);
+  if (!android::base::ConsumeSuffix(&library_name, ".jar")) {
+    *error_msg = "Invalid mainline framework jar: " + jar_name;
+    return "";
+  }
+
+  return std::string(library_name);
+}
+
+// Returns true when no error occurs, even if the extension doesn't exist.
+static bool MaybeAppendBootImageMainlineExtension(const std::string& android_root,
+                                                  bool deny_system_files,
+                                                  bool deny_art_apex_data_files,
+                                                  /*inout*/ std::string* location,
+                                                  /*out*/ std::string* error_msg) {
+  if (!kIsTargetAndroid) {
+    return true;
+  }
+  // Due to how the runtime determines the mapping between boot images and bootclasspath jars, the
+  // name of the boot image extension must be in the format of
+  // `<primary-boot-image-stem>-<first-library-name>.art`.
+  std::string library_name = GetFirstMainlineFrameworkLibraryName(error_msg);
+  if (library_name.empty()) {
+    return false;
+  }
+
+  if (!deny_art_apex_data_files) {
+    std::string mainline_extension_location =
+        StringPrintf("%s/%s-%s.art",
+                     GetApexDataDalvikCacheDirectory(InstructionSet::kNone).c_str(),
+                     kBootImageStem,
+                     library_name.c_str());
+    std::string mainline_extension_path =
+        GetSystemImageFilename(mainline_extension_location.c_str(), kRuntimeISA);
+    if (OS::FileExists(mainline_extension_path.c_str(), /*check_file_type=*/true)) {
+      *location += ":" + mainline_extension_location;
+      return true;
+    }
+  }
+
+  if (!deny_system_files) {
+    std::string mainline_extension_location = StringPrintf(
+        "%s/framework/%s-%s.art", android_root.c_str(), kBootImageStem, library_name.c_str());
+    std::string mainline_extension_path =
+        GetSystemImageFilename(mainline_extension_location.c_str(), kRuntimeISA);
+    // It is expected that the file doesn't exist when the ART module is preloaded on an old source
+    // tree that doesn't dexpreopt mainline BCP jars, so it shouldn't be considered as an error.
+    if (OS::FileExists(mainline_extension_path.c_str(), /*check_file_type=*/true)) {
+      *location += ":" + mainline_extension_location;
+      return true;
+    }
+  }
+
+  return true;
+}
+
+std::string GetDefaultBootImageLocationSafe(const std::string& android_root,
+                                            bool deny_art_apex_data_files,
+                                            std::string* error_msg) {
   constexpr static const char* kEtcBootImageProf = "etc/boot-image.prof";
-  constexpr static const char* kBootImageStem = "boot";
   constexpr static const char* kMinimalBootImageStem = "boot_minimal";
 
   // If an update for the ART module has been been installed, a single boot image for the entire
@@ -305,14 +424,27 @@ std::string GetDefaultBootImageLocation(const std::string& android_root,
         GetApexDataDalvikCacheDirectory(InstructionSet::kNone) + "/" + kBootImageStem + ".art";
     const std::string boot_image_filename = GetSystemImageFilename(boot_image.c_str(), kRuntimeISA);
     if (OS::FileExists(boot_image_filename.c_str(), /*check_file_type=*/true)) {
-      // Typically "/data/misc/apexdata/com.android.art/dalvik-cache/boot.art!/apex/com.android.art
-      // /etc/boot-image.prof!/system/etc/boot-image.prof".
-      return StringPrintf("%s!%s/%s!%s/%s",
-                          boot_image.c_str(),
-                          kAndroidArtApexDefaultPath,
-                          kEtcBootImageProf,
-                          android_root.c_str(),
-                          kEtcBootImageProf);
+      // Boot image consists of two parts:
+      //  - the primary boot image (contains the Core Libraries and framework libraries)
+      //  - the boot image mainline extension (contains mainline framework libraries)
+      // Typically
+      // "/data/misc/apexdata/com.android.art/dalvik-cache/boot.art!/apex/com.android.art
+      // /etc/boot-image.prof!/system/etc/boot-image.prof:
+      // /data/misc/apexdata/com.android.art/dalvik-cache/boot-framework-adservices.art".
+      std::string location = StringPrintf("%s!%s/%s!%s/%s",
+                                          boot_image.c_str(),
+                                          kAndroidArtApexDefaultPath,
+                                          kEtcBootImageProf,
+                                          android_root.c_str(),
+                                          kEtcBootImageProf);
+      if (!MaybeAppendBootImageMainlineExtension(android_root,
+                                                 /*deny_system_files=*/true,
+                                                 deny_art_apex_data_files,
+                                                 &location,
+                                                 error_msg)) {
+        return "";
+      }
+      return location;
     } else if (errno == EACCES) {
       // Additional warning for potential SELinux misconfiguration.
       PLOG(ERROR) << "Default boot image check failed, could not stat: " << boot_image_filename;
@@ -341,28 +473,60 @@ std::string GetDefaultBootImageLocation(const std::string& android_root,
       PLOG(ERROR) << "Minimal boot image check failed, could not stat: " << boot_image_filename;
     }
   }
-  // Boot image consists of two parts:
-  //  - the primary boot image (contains the Core Libraries)
-  //  - the boot image extensions (contains framework libraries)
-  // Typically "/apex/com.android.art/javalib/boot.art!/apex/com.android.art/etc/boot-image.prof:
-  // /system/framework/boot-framework.art!/system/etc/boot-image.prof".
-  return StringPrintf("%s/%s.art!%s/%s:%s/framework/%s-framework.art!%s/%s",
-                      GetPrebuiltPrimaryBootImageDir(android_root).c_str(),
-                      kBootImageStem,
-                      kAndroidArtApexDefaultPath,
-                      kEtcBootImageProf,
-                      android_root.c_str(),
-                      kBootImageStem,
-                      android_root.c_str(),
-                      kEtcBootImageProf);
-}
 
-std::string GetDefaultBootImageLocation(std::string* error_msg) {
-  std::string android_root = GetAndroidRootSafe(error_msg);
-  if (android_root.empty()) {
+  // Boot image consists of two parts:
+  //  - the primary boot image (contains the Core Libraries and framework libraries)
+  //  - the boot image mainline extension (contains mainline framework libraries)
+  // Typically "/system/framework/boot.art
+  // !/apex/com.android.art/etc/boot-image.prof!/system/etc/boot-image.prof:
+  // /system/framework/boot-framework-adservices.art".
+
+  std::string location = StringPrintf("%s/%s.art!%s/%s!%s/%s",
+                                      GetPrebuiltPrimaryBootImageDir(android_root).c_str(),
+                                      kBootImageStem,
+                                      kAndroidArtApexDefaultPath,
+                                      kEtcBootImageProf,
+                                      android_root.c_str(),
+                                      kEtcBootImageProf);
+
+#ifdef ART_TARGET_ANDROID
+  // Prior to U, there was a framework extension.
+  if (!android::modules::sdklevel::IsAtLeastU()) {
+    location = StringPrintf("%s/%s.art!%s/%s:%s/framework/%s-framework.art!%s/%s",
+                            GetPrebuiltPrimaryBootImageDir(android_root).c_str(),
+                            kBootImageStem,
+                            kAndroidArtApexDefaultPath,
+                            kEtcBootImageProf,
+                            android_root.c_str(),
+                            kBootImageStem,
+                            android_root.c_str(),
+                            kEtcBootImageProf);
+  }
+#endif
+
+  if (!MaybeAppendBootImageMainlineExtension(android_root,
+                                             /*deny_system_files=*/false,
+                                             deny_art_apex_data_files,
+                                             &location,
+                                             error_msg)) {
     return "";
   }
-  return GetDefaultBootImageLocation(android_root, /*deny_art_apex_data_files=*/false);
+  return location;
+}
+
+std::string GetDefaultBootImageLocation(const std::string& android_root,
+                                        bool deny_art_apex_data_files) {
+  std::string error_msg;
+  std::string location =
+      GetDefaultBootImageLocationSafe(android_root, deny_art_apex_data_files, &error_msg);
+  CHECK(!location.empty()) << error_msg;
+  return location;
+}
+
+std::string GetJitZygoteBootImageLocation() {
+  // Intentionally use a non-existing location so that the runtime will fail to find the boot image
+  // and JIT bootclasspath with the given profiles.
+  return "/nonx/boot.art!/apex/com.android.art/etc/boot-image.prof!/system/etc/boot-image.prof";
 }
 
 static /*constinit*/ std::string_view dalvik_cache_sub_dir = "dalvik-cache";
@@ -675,12 +839,31 @@ bool LocationIsOnSystem(const std::string& location) {
   LOG(FATAL) << "LocationIsOnSystem is unsupported on Windows.";
   return false;
 #else
-  return android::base::StartsWith(location, GetAndroidRoot().c_str());
+  return android::base::StartsWith(location, GetAndroidRoot());
+#endif
+}
+
+bool LocationIsOnSystemExt(const std::string& location) {
+#ifdef _WIN32
+  UNUSED(location);
+  LOG(FATAL) << "LocationIsOnSystemExt is unsupported on Windows.";
+  return false;
+#else
+  return IsLocationOn(location,
+                      kAndroidSystemExtRootEnvVar,
+                      kAndroidSystemExtRootDefaultPath) ||
+         // When the 'system_ext' partition is not present, builds will create
+         // '/system/system_ext' instead.
+         IsLocationOn(location,
+                      kAndroidRootEnvVar,
+                      kAndroidRootDefaultPath,
+                      /* subdir= */ "system_ext/");
 #endif
 }
 
 bool LocationIsTrusted(const std::string& location, bool trust_art_apex_data_files) {
-  if (LocationIsOnSystem(location) || LocationIsOnArtModule(location)) {
+  if (LocationIsOnSystem(location) || LocationIsOnSystemExt(location)
+        || LocationIsOnArtModule(location)) {
     return true;
   }
   return LocationIsOnArtApexData(location) & trust_art_apex_data_files;
@@ -704,7 +887,7 @@ int DupCloexec(int fd) {
 #if defined(__linux__)
   return fcntl(fd, F_DUPFD_CLOEXEC, 0);
 #else
-  return dup(fd);
+  return dup(fd); // NOLINT
 #endif
 }
 

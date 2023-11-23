@@ -26,7 +26,7 @@
 package sun.misc;
 
 import dalvik.annotation.optimization.FastNative;
-import jdk.internal.HotSpotIntrinsicCandidate;
+import jdk.internal.vm.annotation.IntrinsicCandidate;
 import sun.reflect.Reflection;
 
 import java.lang.reflect.Field;
@@ -699,7 +699,7 @@ public final class Unsafe {
      * @return the previous value
      * @since 1.8
      */
-    @HotSpotIntrinsicCandidate
+    @IntrinsicCandidate
     public final int getAndAddInt(Object o, long offset, int delta) {
         int v;
         do {
@@ -719,7 +719,7 @@ public final class Unsafe {
      * @return the previous value
      * @since 1.8
      */
-    @HotSpotIntrinsicCandidate
+    @IntrinsicCandidate
     public final long getAndAddLong(Object o, long offset, long delta) {
         long v;
         do {
@@ -739,7 +739,7 @@ public final class Unsafe {
      * @return the previous value
      * @since 1.8
      */
-    @HotSpotIntrinsicCandidate
+    @IntrinsicCandidate
     public final int getAndSetInt(Object o, long offset, int newValue) {
         int v;
         do {
@@ -759,7 +759,7 @@ public final class Unsafe {
      * @return the previous value
      * @since 1.8
      */
-    @HotSpotIntrinsicCandidate
+    @IntrinsicCandidate
     public final long getAndSetLong(Object o, long offset, long newValue) {
         long v;
         do {
@@ -779,7 +779,7 @@ public final class Unsafe {
      * @return the previous value
      * @since 1.8
      */
-    @HotSpotIntrinsicCandidate
+    @IntrinsicCandidate
     public final Object getAndSetObject(Object o, long offset, Object newValue) {
         Object v;
         do {
@@ -801,7 +801,7 @@ public final class Unsafe {
      * provide a LoadLoad barrier also provide a LoadStore barrier for free.
      * @since 1.8
      */
-    @HotSpotIntrinsicCandidate
+    @IntrinsicCandidate
     @FastNative
     public native void loadFence();
 
@@ -817,7 +817,7 @@ public final class Unsafe {
      * provide a StoreStore barrier also provide a LoadStore barrier for free.
      * @since 1.8
      */
-    @HotSpotIntrinsicCandidate
+    @IntrinsicCandidate
     @FastNative
     public native void storeFence();
 
@@ -830,7 +830,7 @@ public final class Unsafe {
      * Corresponds to C11 atomic_thread_fence(memory_order_seq_cst).
      * @since 1.8
      */
-    @HotSpotIntrinsicCandidate
+    @IntrinsicCandidate
     @FastNative
     public native void fullFence();
 }

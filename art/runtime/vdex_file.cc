@@ -49,10 +49,6 @@ namespace art {
 
 using android::base::StringPrintf;
 
-constexpr uint8_t VdexFile::VdexFileHeader::kVdexInvalidMagic[4];
-constexpr uint8_t VdexFile::VdexFileHeader::kVdexMagic[4];
-constexpr uint8_t VdexFile::VdexFileHeader::kVdexVersion[4];
-
 bool VdexFile::VdexFileHeader::IsMagicValid() const {
   return (memcmp(magic_, kVdexMagic, sizeof(kVdexMagic)) == 0);
 }
@@ -219,7 +215,6 @@ const uint8_t* VdexFile::GetNextTypeLookupTableData(const uint8_t* cursor,
 
 bool VdexFile::OpenAllDexFiles(std::vector<std::unique_ptr<const DexFile>>* dex_files,
                                std::string* error_msg) const {
-  const ArtDexFileLoader dex_file_loader;
   size_t i = 0;
   for (const uint8_t* dex_file_start = GetNextDexFileData(nullptr, i);
        dex_file_start != nullptr;
@@ -228,17 +223,12 @@ bool VdexFile::OpenAllDexFiles(std::vector<std::unique_ptr<const DexFile>>* dex_
     // TODO: Supply the location information for a vdex file.
     static constexpr char kVdexLocation[] = "";
     std::string location = DexFileLoader::GetMultiDexLocation(i, kVdexLocation);
-    std::unique_ptr<const DexFile> dex(dex_file_loader.OpenWithDataSection(
-        dex_file_start,
-        size,
-        /*data_base=*/ nullptr,
-        /*data_size=*/ 0u,
-        location,
-        GetLocationChecksum(i),
-        /*oat_dex_file=*/ nullptr,
-        /*verify=*/ false,
-        /*verify_checksum=*/ false,
-        error_msg));
+    ArtDexFileLoader dex_file_loader(dex_file_start, size, location);
+    std::unique_ptr<const DexFile> dex(dex_file_loader.Open(GetLocationChecksum(i),
+                                                            /*oat_dex_file=*/nullptr,
+                                                            /*verify=*/false,
+                                                            /*verify_checksum=*/false,
+                                                            error_msg));
     if (dex == nullptr) {
       return false;
     }
@@ -392,6 +382,12 @@ bool VdexFile::MatchesDexFileChecksums(const std::vector<const DexFile::Header*>
     }
   }
   return true;
+}
+
+bool VdexFile::HasOnlyStandardDexFiles() const {
+  // All are the same so it's enough to check the first one.
+  const uint8_t* dex_file_start = GetNextDexFileData(nullptr, 0);
+  return dex_file_start == nullptr || StandardDexFile::IsMagicValid(dex_file_start);
 }
 
 static ObjPtr<mirror::Class> FindClassAndClearException(ClassLinker* class_linker,

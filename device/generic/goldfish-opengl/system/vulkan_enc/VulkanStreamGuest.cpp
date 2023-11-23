@@ -13,7 +13,8 @@
 // limitations under the License.
 #include "VulkanStreamGuest.h"
 
-namespace goldfish_vk {
+namespace gfxstream {
+namespace vk {
 
 VulkanStreamGuest::VulkanStreamGuest(IOStream *stream): mStream(stream) {
     unsetHandleMapping();
@@ -31,7 +32,7 @@ void VulkanStreamGuest::alloc(void** ptrAddr, size_t bytes) {
         *ptrAddr = nullptr;
         return;
     }
-    
+
     *ptrAddr = mPool.alloc(bytes);
 }
 
@@ -171,4 +172,5 @@ void VulkanCountingStream::rewind() {
     m_read = 0;
 }
 
-} // namespace goldfish_vk
+}  // namespace vk
+}  // namespace gfxstream

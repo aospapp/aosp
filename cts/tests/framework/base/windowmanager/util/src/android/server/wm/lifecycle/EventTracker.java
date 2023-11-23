@@ -48,10 +48,15 @@ public class EventTracker implements EventLog.EventTrackerCallback {
         }
     }
 
-    void waitAndAssertActivityCurrentState(Class<? extends Activity> activityClass,
+    /**
+     * Blocking call that will wait and verify that the activity transition settles with the
+     * expected state.
+     */
+    public void waitAndAssertActivityCurrentState(Class<? extends Activity> activityClass,
             String expectedState) {
         final boolean waitResult = waitForConditionWithTimeout(() -> {
             List<String> activityLog = mEventLog.getActivityLog(activityClass);
+            if (activityLog.isEmpty()) return false;
             String currentState = activityLog.get(activityLog.size() - 1);
             return expectedState.equals(currentState);
         });

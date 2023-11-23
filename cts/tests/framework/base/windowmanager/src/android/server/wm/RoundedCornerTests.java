@@ -21,11 +21,15 @@ import static android.content.pm.ActivityInfo.SCREEN_ORIENTATION_PORTRAIT;
 import static android.content.pm.ActivityInfo.SCREEN_ORIENTATION_REVERSE_LANDSCAPE;
 import static android.content.pm.ActivityInfo.SCREEN_ORIENTATION_REVERSE_PORTRAIT;
 import static android.content.pm.ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED;
-import static android.server.wm.RoundedCornerTests.TestActivity.EXTRA_ORIENTATION;
+import static android.content.res.Configuration.ORIENTATION_PORTRAIT;
 import static android.view.RoundedCorner.POSITION_BOTTOM_LEFT;
 import static android.view.RoundedCorner.POSITION_BOTTOM_RIGHT;
 import static android.view.RoundedCorner.POSITION_TOP_LEFT;
 import static android.view.RoundedCorner.POSITION_TOP_RIGHT;
+import static android.view.Surface.ROTATION_0;
+import static android.view.Surface.ROTATION_180;
+import static android.view.Surface.ROTATION_270;
+import static android.view.Surface.ROTATION_90;
 import static android.view.WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE;
 import static android.view.WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS;
 
@@ -49,12 +53,12 @@ import android.view.WindowInsets;
 import android.view.WindowManager;
 import android.view.WindowMetrics;
 
+import androidx.annotation.NonNull;
 import androidx.test.rule.ActivityTestRule;
 
 import com.android.compatibility.common.util.PollingCheck;
 
 import org.junit.After;
-import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -64,8 +68,8 @@ import org.junit.runners.Parameterized;
 @RunWith(Parameterized.class)
 public class RoundedCornerTests extends ActivityManagerTestBase {
     private static final String TAG = "RoundedCornerTests";
-    private final static int POSITION_LENGTH = 4;
-    private final static long TIMEOUT = 1000; // milliseconds
+    private static final int POSITION_LENGTH = 4;
+    private static final long TIMEOUT_IN_MILLISECONDS = 1000;
 
     @Parameterized.Parameters(name= "{1}({0})")
     public static Object[][] data() {
@@ -83,67 +87,117 @@ public class RoundedCornerTests extends ActivityManagerTestBase {
     @Parameterized.Parameter(1)
     public String orientationName;
 
-    @Before
-    public void setUp() {
-        // On devices with ignore_orientation_request set to true, the test activity will be
-        // letterboxed in a landscape display which make the activity not a fullscreen one.
-        // We should set it to false while testing.
-        mObjectTracker.manage(new IgnoreOrientationRequestSession(false /* enable */));
-    }
+    private final WindowManagerStateHelper mWindowManagerStateHelper =
+            new WindowManagerStateHelper();
 
     @After
     public void tearDown() {
-        mTestActivity.finishActivity();
-        new WindowManagerStateHelper().waitForDisplayUnfrozen();
+        mTestActivityRule.finishActivity();
+        mWindowManagerStateHelper.waitForDisplayUnfrozen();
     }
 
     @Rule
-    public final ActivityTestRule<TestActivity> mTestActivity =
+    public final ActivityTestRule<TestActivity> mTestActivityRule =
             new ActivityTestRule<>(TestActivity.class, false /* initialTouchMode */,
                     false /* launchActivity */);
 
     @Test
     public void testRoundedCorner_fullscreen() {
-        final TestActivity activity = mTestActivity.launchActivity(
-                new Intent().putExtra(EXTRA_ORIENTATION, orientation));
-        runOnMainSync(() -> {
-            activity.addChildWindow(
-                    activity.calculateWindowBounds(false /* excludeRoundedCorners */));
-        });
-        // Make sure the child window has been laid out.
-        final View childWindowRoot = activity.getChildWindowRoot();
-        PollingCheck.waitFor(TIMEOUT, () -> childWindowRoot.getWidth() > 0);
-        PollingCheck.waitFor(TIMEOUT, () -> activity.getDispatchedInsets() != null);
-        final WindowInsets insets = activity.getDispatchedInsets();
-
-        final Display display = activity.getDisplay();
-        for (int i = 0; i < POSITION_LENGTH; i++) {
-            assertEquals(insets.getRoundedCorner(i), display.getRoundedCorner(i));
-        }
+        verifyRoundedCorners(false /* excludeRoundedCorners */);
     }
 
     @Test
     public void testRoundedCorner_excludeRoundedCorners() {
-        final TestActivity activity = mTestActivity.launchActivity(
-                new Intent().putExtra(EXTRA_ORIENTATION, orientation));
-        if (!activity.hasRoundedCorners()) {
+        verifyRoundedCorners(true /* excludeRoundedCorners */);
+    }
+
+    private void verifyRoundedCorners(boolean excludedRoundedCorners) {
+        final TestActivity activity = mTestActivityRule.launchActivity(new Intent());
+
+        if (excludedRoundedCorners && !activity.hasRoundedCorners()) {
             Log.d(TAG, "There is no rounded corner on the display. Skipped!!");
             return;
         }
-        runOnMainSync(() -> {
-            activity.addChildWindow(
-                    activity.calculateWindowBounds(true /* excludeRoundedCorners */));
-        });
 
-        // Make sure the child window has been laid out.
-        final View childWindowRoot = activity.getChildWindowRoot();
-        PollingCheck.waitFor(TIMEOUT, () -> childWindowRoot.getWidth() > 0);
-        PollingCheck.waitFor(TIMEOUT, () -> activity.getDispatchedInsets() != null);
-        final WindowInsets insets = activity.getDispatchedInsets();
+        waitAndAssertResumedActivity(activity.getComponentName(), "Activity must be resumed.");
 
-        for (int i = 0; i < POSITION_LENGTH; i++) {
-            assertNull("The rounded corners should be null.", insets.getRoundedCorner(i));
+        int rotation = getRotation(activity, orientation);
+
+        if (rotation != ROTATION_0) {
+            // If the device doesn't support rotation, just verify the rounded corner with
+            // the current orientation.
+            if (!supportsRotation()) {
+                return;
+            }
+            RotationSession rotationSession = createManagedRotationSession();
+            rotationSession.set(rotation);
+
+            mInstrumentation.getUiAutomation().syncInputTransactions();
         }
+
+        runOnMainSync(() -> activity.addChildWindow(
+                activity.calculateWindowBounds(excludedRoundedCorners)));
+        try {
+            // Make sure the child window has been laid out.
+            PollingCheck.waitFor(TIMEOUT_IN_MILLISECONDS,
+                    () -> activity.getDispatchedInsets() != null);
+            final WindowInsets insets = activity.getDispatchedInsets();
+
+            if (excludedRoundedCorners) {
+                for (int i = 0; i < POSITION_LENGTH; i++) {
+                    assertNull("The rounded corners should be null.",
+                            insets.getRoundedCorner(i));
+                }
+            } else {
+                final Display display = activity.getDisplay();
+                for (int j = 0; j < POSITION_LENGTH; j++) {
+                    assertEquals(insets.getRoundedCorner(j), display.getRoundedCorner(j));
+                }
+            }
+        } finally {
+            runOnMainSync(activity::removeChildWindow);
+        }
+    }
+
+    /**
+     * Returns the rotation based on {@code orientations}.
+     */
+    private static int getRotation(@NonNull Activity activity, int requestedOrientation) {
+        // Not use Activity#getRequestedOrientation because the possible values are dozens and hard
+        // to determine the rotation.
+        int currentOrientation = activity.getResources().getConfiguration().orientation;
+        if (currentOrientation == ORIENTATION_PORTRAIT) {
+            switch (requestedOrientation) {
+                case SCREEN_ORIENTATION_PORTRAIT: {
+                    return ROTATION_0;
+                }
+                case SCREEN_ORIENTATION_LANDSCAPE: {
+                    return ROTATION_90;
+                }
+                case SCREEN_ORIENTATION_REVERSE_PORTRAIT: {
+                    return ROTATION_180;
+                }
+                case SCREEN_ORIENTATION_REVERSE_LANDSCAPE: {
+                    return ROTATION_270;
+                }
+            }
+        } else {
+            switch (requestedOrientation) {
+                case SCREEN_ORIENTATION_PORTRAIT: {
+                    return ROTATION_90;
+                }
+                case SCREEN_ORIENTATION_LANDSCAPE: {
+                    return ROTATION_0;
+                }
+                case SCREEN_ORIENTATION_REVERSE_PORTRAIT: {
+                    return ROTATION_270;
+                }
+                case SCREEN_ORIENTATION_REVERSE_LANDSCAPE: {
+                    return ROTATION_180;
+                }
+            }
+        }
+        throw new IllegalArgumentException("Unknown orientation value:" + requestedOrientation);
     }
 
     private void runOnMainSync(Runnable runnable) {
@@ -186,8 +240,10 @@ public class RoundedCornerTests extends ActivityManagerTestBase {
             getWindowManager().addView(mChildWindowRoot, attrs);
         }
 
-        View getChildWindowRoot() {
-            return mChildWindowRoot;
+        void removeChildWindow() {
+            if (mChildWindowRoot != null) {
+                getWindowManager().removeViewImmediate(mChildWindowRoot);
+            }
         }
 
         WindowInsets getDispatchedInsets() {
@@ -204,7 +260,7 @@ public class RoundedCornerTests extends ActivityManagerTestBase {
 
         Rect calculateWindowBounds(boolean excludeRoundedCorners) {
             final Display display = getDisplay();
-            final WindowMetrics windowMetrics = getWindowManager().getMaximumWindowMetrics();
+            final WindowMetrics windowMetrics = getWindowManager().getCurrentWindowMetrics();
             if (!excludeRoundedCorners) {
                 return windowMetrics.getBounds();
             }

@@ -36,11 +36,6 @@ aidl_interface {
         java: {
             platform_apis: true,
         },
-        ndk: {
-            vndk: {
-                enabled: true,
-            },
-        },
     },
     versions_with_info: [
         {
@@ -51,7 +46,12 @@ aidl_interface {
             version: "2",
             imports: [],
         },
+        {
+            version: "3",
+            imports: [],
+        },
 
     ],
+    frozen: true,
 
 }

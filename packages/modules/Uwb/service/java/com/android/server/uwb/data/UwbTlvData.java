@@ -15,7 +15,7 @@
  */
 package com.android.server.uwb.data;
 
-import java.util.Arrays;
+import com.android.server.uwb.util.UwbUtil;
 
 public class UwbTlvData {
     public final int status;
@@ -45,7 +45,7 @@ public class UwbTlvData {
         return "UwbTlvData { "
                 + " status = " + status
                 + " length = " + length
-                + ", tlvs = [" + Arrays.toString(tlvs)
+                + ", tlvs = [" + UwbUtil.toHexString(tlvs)
                 + "] }";
     }
 }

@@ -20,14 +20,17 @@ import copy
 import logging
 import os
 
-import atest_utils
-import constants
+from typing import List
 
-from atest_enum import ExitCode
-from logstorage import atest_gcp_utils
-from logstorage import logstorage_utils
-from metrics import metrics
-from test_runners import atest_tf_test_runner
+from atest import atest_utils
+from atest import constants
+
+from atest.atest_enum import ExitCode
+from atest.logstorage import atest_gcp_utils
+from atest.logstorage import logstorage_utils
+from atest.metrics import metrics
+from atest.test_finders import test_info
+from atest.test_runners import atest_tf_test_runner
 
 class SuitePlanTestRunner(atest_tf_test_runner.AtestTradefedTestRunner):
     """Suite Plan Test Runner class."""
@@ -42,14 +45,17 @@ class SuitePlanTestRunner(atest_tf_test_runner.AtestTradefedTestRunner):
                              'test': '',
                              'args': ''}
 
-    def get_test_runner_build_reqs(self):
+    def get_test_runner_build_reqs(self, test_infos: List[test_info.TestInfo]):
         """Return the build requirements.
+
+        Args:
+            test_infos: List of TestInfo.
 
         Returns:
             Set of build targets.
         """
         build_req = set()
-        build_req |= super().get_test_runner_build_reqs()
+        build_req |= super().get_test_runner_build_reqs(test_infos)
         return build_req
 
     def run_tests(self, test_infos, extra_args, reporter):

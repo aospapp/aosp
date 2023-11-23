@@ -22,11 +22,11 @@ import static com.android.dx.mockito.inline.extended.ExtendedMockito.mockitoSess
 
 import static com.google.common.truth.Truth.assertThat;
 
+import static org.junit.Assert.assertThrows;
 import static org.mockito.Mockito.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
-import static org.testng.Assert.assertThrows;
 
 import android.automotive.watchdog.internal.ComponentType;
 import android.automotive.watchdog.internal.ICarWatchdog;
@@ -37,7 +37,9 @@ import android.automotive.watchdog.internal.PackageIoOveruseStats;
 import android.automotive.watchdog.internal.PowerCycle;
 import android.automotive.watchdog.internal.ProcessIdentifier;
 import android.automotive.watchdog.internal.ResourceOveruseConfiguration;
+import android.automotive.watchdog.internal.ResourceStats;
 import android.automotive.watchdog.internal.StateType;
+import android.automotive.watchdog.internal.ThreadPolicyWithPriority;
 import android.automotive.watchdog.internal.UserPackageIoUsageStats;
 import android.os.Binder;
 import android.os.IBinder;
@@ -48,6 +50,7 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.Mock;
+import org.mockito.Mockito;
 import org.mockito.MockitoSession;
 import org.mockito.Spy;
 import org.mockito.quality.Strictness;
@@ -70,7 +73,7 @@ public class CarWatchdogDaemonHelperTest {
     private MockitoSession mMockSession;
 
     @Before
-    public void setUp() {
+    public void setUp() throws Exception {
         mMockSession = mockitoSession()
                 .initMocks(this)
                 .strictness(Strictness.LENIENT)
@@ -83,7 +86,13 @@ public class CarWatchdogDaemonHelperTest {
 
     @After
     public void tearDown() {
-        mMockSession.finishMocking();
+        try {
+            mMockSession.finishMocking();
+        } finally {
+            // When using inline mock maker, clean up inline mocks to prevent OutOfMemory errors.
+            // See https://github.com/mockito/mockito/issues/1614 and b/259280359.
+            Mockito.framework().clearInlineMocks();
+        }
     }
 
     @Test
@@ -224,8 +233,103 @@ public class CarWatchdogDaemonHelperTest {
                 () -> mCarWatchdogDaemonHelper.unregisterCarWatchdogService(service));
     }
 
+    @Test
+    public void testSetThreadPriority() throws Exception {
+        int testPid = 1;
+        int testTid = 2;
+        int testUid = 3;
+        int testPolicy = 4;
+        int testPriority = 5;
+
+        mCarWatchdogDaemonHelper.setThreadPriority(
+                    testPid, testTid, testUid, testPolicy, testPriority);
+
+        verify(mFakeCarWatchdog).setThreadPriority(
+                testPid, testTid, testUid, testPolicy, testPriority);
+    }
+
+    @Test
+    public void testSetThreadPriority_DaemonVersionTooLow() throws Exception {
+        int testPid = 1;
+        int testTid = 2;
+        int testUid = 3;
+        int testPolicy = 4;
+        int testPriority = 5;
+        when(mFakeCarWatchdog.getInterfaceVersion()).thenReturn(1);
+
+        assertThrows(UnsupportedOperationException.class,
+                () -> mCarWatchdogDaemonHelper.setThreadPriority(
+                        testPid, testTid, testUid, testPolicy, testPriority));
+    }
+
+    @Test
+    public void testGetThreadPriority() throws Exception {
+        int testPid = 1;
+        int testTid = 2;
+        int testUid = 3;
+        int testPolicy = 4;
+        int testPriority = 5;
+        ThreadPolicyWithPriority p = new ThreadPolicyWithPriority();
+        p.policy = testPolicy;
+        p.priority = testPriority;
+        when(mFakeCarWatchdog.getThreadPriority(testPid, testTid, testUid))
+                .thenReturn(p);
+
+        int[] result = mCarWatchdogDaemonHelper.getThreadPriority(testPid, testTid, testUid);
+
+        assertThat(result[0]).isEqualTo(testPolicy);
+        assertThat(result[1]).isEqualTo(testPriority);
+    }
+
+    @Test
+    public void testGetThreadPriority_DaemonVersionTooLow() throws Exception {
+        int testPid = 1;
+        int testTid = 2;
+        int testUid = 3;
+        when(mFakeCarWatchdog.getInterfaceVersion()).thenReturn(1);
+
+        assertThrows(UnsupportedOperationException.class,
+                () -> mCarWatchdogDaemonHelper.getThreadPriority(testPid, testTid, testUid));
+    }
+
+    @Test
+    public void testOnAidlVhalPidFetched() throws Exception {
+        int vhalPid = 12846;
+
+        mCarWatchdogDaemonHelper.onAidlVhalPidFetched(vhalPid);
+
+        verify(mFakeCarWatchdog).onAidlVhalPidFetched(vhalPid);
+    }
+
+    @Test
+    public void testOnAidlVhalPidFetched_DaemonVersionTooLow() throws Exception {
+        when(mFakeCarWatchdog.getInterfaceVersion()).thenReturn(1);
+
+        assertThrows(UnsupportedOperationException.class,
+                () -> mCarWatchdogDaemonHelper.onAidlVhalPidFetched(12846));
+    }
+
+
+    @Test
+    public void testOnTodayIoUsageStatsFetched() throws Exception {
+        List<UserPackageIoUsageStats> testUserPackageIoUsageStats = Collections.emptyList();
+
+        mCarWatchdogDaemonHelper.onTodayIoUsageStatsFetched(testUserPackageIoUsageStats);
+
+        verify(mFakeCarWatchdog).onTodayIoUsageStatsFetched(testUserPackageIoUsageStats);
+    }
+
+    @Test
+    public void testOnTodayIoUsageStatsFetched_DaemonVersionTooLow() throws Exception {
+        when(mFakeCarWatchdog.getInterfaceVersion()).thenReturn(2);
+
+        assertThrows(UnsupportedOperationException.class,
+                () -> mCarWatchdogDaemonHelper.onTodayIoUsageStatsFetched(Collections.emptyList()));
+    }
+
     // FakeCarWatchdog mimics ICarWatchdog daemon in local process.
     private final class FakeCarWatchdog extends ICarWatchdog.Default {
+        private static final int UDC_INTERFACE_VERSION = 3;
 
         private final ArrayList<ICarWatchdogServiceForSystem> mServices = new ArrayList<>();
 
@@ -250,6 +354,11 @@ public class CarWatchdogDaemonHelperTest {
                 }
             }
             throw new IllegalArgumentException("Not registered service");
+        }
+
+        @Override
+        public int getInterfaceVersion() {
+            return UDC_INTERFACE_VERSION;
         }
     }
 
@@ -276,6 +385,15 @@ public class CarWatchdogDaemonHelperTest {
         public List<UserPackageIoUsageStats> getTodayIoUsageStats() {
             return new ArrayList<>();
         }
+
+        @Override
+        public void onLatestResourceStats(List<ResourceStats> resourceStats) {}
+
+        @Override
+        public void requestAidlVhalPid() {}
+
+        @Override
+        public void requestTodayIoUsageStats() {}
 
         @Override
         public String getInterfaceHash() {

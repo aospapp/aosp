@@ -20,7 +20,10 @@ import android.net.ConnectivityManager.NetworkCallback;
 import android.net.Network;
 import android.net.NetworkCapabilities;
 import android.net.NetworkRequest;
+import android.net.TelephonyNetworkSpecifier;
 import android.os.Bundle;
+import android.telephony.SubscriptionManager;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.View.OnClickListener;
@@ -62,6 +65,7 @@ public class CBS extends Fragment {
     @Override
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        mConnectivityManager = getContext().getSystemService(ConnectivityManager.class);
     }
 
     @Override
@@ -80,23 +84,33 @@ public class CBS extends Fragment {
         mRelease.setOnClickListener(new OnClickListener() {
             @Override
             public void onClick(View view) {
-                mConnectivityManager.unregisterNetworkCallback(
+                try {
+                    mConnectivityManager.unregisterNetworkCallback(
                         mProfileCheckNetworkCallback);
+                } catch (Exception e) {
+                    Log.d("SliceTest", "Exception: " + e);
+                }
             }
         });
         mRequest = view.findViewById(R.id.requestcbs);
         mRequest.setOnClickListener(new OnClickListener() {
             @Override
             public void onClick(View view) {
-                NetworkCallback mProfileCheckNetworkCallback = new NetworkCallback() {
+                mProfileCheckNetworkCallback = new NetworkCallback() {
                     @Override
                     public void onAvailable(final Network network) {
                         mNetwork = network;
+                        Log.d("CBS", "onAvailable + " + network);
                     }
                 };
                 NetworkRequest.Builder builder = new NetworkRequest.Builder();
                 builder.addCapability(NetworkCapabilities.NET_CAPABILITY_CBS);
+                builder.addTransportType(NetworkCapabilities.TRANSPORT_CELLULAR);
+                int subId = SubscriptionManager.getDefaultDataSubscriptionId();
+                builder.setNetworkSpecifier(new TelephonyNetworkSpecifier.Builder()
+                        .setSubscriptionId(subId).build());
                 mConnectivityManager.requestNetwork(builder.build(), mProfileCheckNetworkCallback);
+                Log.d("CBS", "onClick + " + builder.build());
             }
         });
         mPing = view.findViewById(R.id.pingcbs);
@@ -106,8 +120,9 @@ public class CBS extends Fragment {
                 if (mNetwork != null) {
                     //mNetwork.
                     try {
-                        new RequestTask().ping(mNetwork);
+                        new RequestTask().execute(mNetwork);
                     } catch (Exception e) {
+                        Log.d("SliceTest", "Exception: " + e);
                     }
                 }
             }

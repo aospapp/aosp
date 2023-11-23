@@ -18,6 +18,7 @@
 #include "native_bridge_support/vdso/interceptable_functions.h"
 
 DEFINE_INTERCEPTABLE_STUB_FUNCTION(ABinderProcess_handlePolledCommands);
+DEFINE_INTERCEPTABLE_STUB_FUNCTION(ABinderProcess_isThreadPoolStarted);
 DEFINE_INTERCEPTABLE_STUB_FUNCTION(ABinderProcess_joinThreadPool);
 DEFINE_INTERCEPTABLE_STUB_FUNCTION(ABinderProcess_setThreadPoolMaxThreadCount);
 DEFINE_INTERCEPTABLE_STUB_FUNCTION(ABinderProcess_setupPolling);
@@ -127,14 +128,18 @@ DEFINE_INTERCEPTABLE_STUB_FUNCTION(AParcel_writeUint32);
 DEFINE_INTERCEPTABLE_STUB_FUNCTION(AParcel_writeUint32Array);
 DEFINE_INTERCEPTABLE_STUB_FUNCTION(AParcel_writeUint64);
 DEFINE_INTERCEPTABLE_STUB_FUNCTION(AParcel_writeUint64Array);
+DEFINE_INTERCEPTABLE_STUB_FUNCTION(AServiceManager_NotificationRegistration_delete);
 DEFINE_INTERCEPTABLE_STUB_FUNCTION(AServiceManager_addService);
+DEFINE_INTERCEPTABLE_STUB_FUNCTION(AServiceManager_addServiceWithFlags);
 DEFINE_INTERCEPTABLE_STUB_FUNCTION(AServiceManager_checkService);
 DEFINE_INTERCEPTABLE_STUB_FUNCTION(AServiceManager_forEachDeclaredInstance);
 DEFINE_INTERCEPTABLE_STUB_FUNCTION(AServiceManager_forceLazyServicesPersist);
 DEFINE_INTERCEPTABLE_STUB_FUNCTION(AServiceManager_getService);
+DEFINE_INTERCEPTABLE_STUB_FUNCTION(AServiceManager_getUpdatableApexName);
 DEFINE_INTERCEPTABLE_STUB_FUNCTION(AServiceManager_isDeclared);
 DEFINE_INTERCEPTABLE_STUB_FUNCTION(AServiceManager_isUpdatableViaApex);
 DEFINE_INTERCEPTABLE_STUB_FUNCTION(AServiceManager_reRegister);
+DEFINE_INTERCEPTABLE_STUB_FUNCTION(AServiceManager_registerForServiceNotifications);
 DEFINE_INTERCEPTABLE_STUB_FUNCTION(AServiceManager_registerLazyService);
 DEFINE_INTERCEPTABLE_STUB_FUNCTION(AServiceManager_setActiveServicesCallback);
 DEFINE_INTERCEPTABLE_STUB_FUNCTION(AServiceManager_tryUnregister);
@@ -154,10 +159,13 @@ DEFINE_INTERCEPTABLE_STUB_FUNCTION(AStatus_getStatus);
 DEFINE_INTERCEPTABLE_STUB_FUNCTION(AStatus_isOk);
 DEFINE_INTERCEPTABLE_STUB_FUNCTION(AStatus_newOk);
 DEFINE_INTERCEPTABLE_STUB_FUNCTION(_Z25AIBinder_toPlatformBinderP8AIBinder);
+DEFINE_INTERCEPTABLE_STUB_FUNCTION(_Z26AParcel_viewPlatformParcelP7AParcel);
+DEFINE_INTERCEPTABLE_STUB_FUNCTION(_Z26AParcel_viewPlatformParcelPK7AParcel);
 DEFINE_INTERCEPTABLE_STUB_FUNCTION(_Z27AIBinder_fromPlatformBinderRKN7android2spINS_7IBinderEEE);
 
 static void __attribute__((constructor(0))) init_stub_library() {
   INIT_INTERCEPTABLE_STUB_FUNCTION("libbinder_ndk.so", ABinderProcess_handlePolledCommands);
+  INIT_INTERCEPTABLE_STUB_FUNCTION("libbinder_ndk.so", ABinderProcess_isThreadPoolStarted);
   INIT_INTERCEPTABLE_STUB_FUNCTION("libbinder_ndk.so", ABinderProcess_joinThreadPool);
   INIT_INTERCEPTABLE_STUB_FUNCTION("libbinder_ndk.so", ABinderProcess_setThreadPoolMaxThreadCount);
   INIT_INTERCEPTABLE_STUB_FUNCTION("libbinder_ndk.so", ABinderProcess_setupPolling);
@@ -267,14 +275,18 @@ static void __attribute__((constructor(0))) init_stub_library() {
   INIT_INTERCEPTABLE_STUB_FUNCTION("libbinder_ndk.so", AParcel_writeUint32Array);
   INIT_INTERCEPTABLE_STUB_FUNCTION("libbinder_ndk.so", AParcel_writeUint64);
   INIT_INTERCEPTABLE_STUB_FUNCTION("libbinder_ndk.so", AParcel_writeUint64Array);
+  INIT_INTERCEPTABLE_STUB_FUNCTION("libbinder_ndk.so", AServiceManager_NotificationRegistration_delete);
   INIT_INTERCEPTABLE_STUB_FUNCTION("libbinder_ndk.so", AServiceManager_addService);
+  INIT_INTERCEPTABLE_STUB_FUNCTION("libbinder_ndk.so", AServiceManager_addServiceWithFlags);
   INIT_INTERCEPTABLE_STUB_FUNCTION("libbinder_ndk.so", AServiceManager_checkService);
   INIT_INTERCEPTABLE_STUB_FUNCTION("libbinder_ndk.so", AServiceManager_forEachDeclaredInstance);
   INIT_INTERCEPTABLE_STUB_FUNCTION("libbinder_ndk.so", AServiceManager_forceLazyServicesPersist);
   INIT_INTERCEPTABLE_STUB_FUNCTION("libbinder_ndk.so", AServiceManager_getService);
+  INIT_INTERCEPTABLE_STUB_FUNCTION("libbinder_ndk.so", AServiceManager_getUpdatableApexName);
   INIT_INTERCEPTABLE_STUB_FUNCTION("libbinder_ndk.so", AServiceManager_isDeclared);
   INIT_INTERCEPTABLE_STUB_FUNCTION("libbinder_ndk.so", AServiceManager_isUpdatableViaApex);
   INIT_INTERCEPTABLE_STUB_FUNCTION("libbinder_ndk.so", AServiceManager_reRegister);
+  INIT_INTERCEPTABLE_STUB_FUNCTION("libbinder_ndk.so", AServiceManager_registerForServiceNotifications);
   INIT_INTERCEPTABLE_STUB_FUNCTION("libbinder_ndk.so", AServiceManager_registerLazyService);
   INIT_INTERCEPTABLE_STUB_FUNCTION("libbinder_ndk.so", AServiceManager_setActiveServicesCallback);
   INIT_INTERCEPTABLE_STUB_FUNCTION("libbinder_ndk.so", AServiceManager_tryUnregister);
@@ -294,6 +306,8 @@ static void __attribute__((constructor(0))) init_stub_library() {
   INIT_INTERCEPTABLE_STUB_FUNCTION("libbinder_ndk.so", AStatus_isOk);
   INIT_INTERCEPTABLE_STUB_FUNCTION("libbinder_ndk.so", AStatus_newOk);
   INIT_INTERCEPTABLE_STUB_FUNCTION("libbinder_ndk.so", _Z25AIBinder_toPlatformBinderP8AIBinder);
+  INIT_INTERCEPTABLE_STUB_FUNCTION("libbinder_ndk.so", _Z26AParcel_viewPlatformParcelP7AParcel);
+  INIT_INTERCEPTABLE_STUB_FUNCTION("libbinder_ndk.so", _Z26AParcel_viewPlatformParcelPK7AParcel);
   INIT_INTERCEPTABLE_STUB_FUNCTION("libbinder_ndk.so", _Z27AIBinder_fromPlatformBinderRKN7android2spINS_7IBinderEEE);
 }
 // clang-format on

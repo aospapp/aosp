@@ -1,1 +1,93 @@
+"""Copyright (C) 2022 The Android Open Source Project
 
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+     http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+"""
+
+load("@bazel_skylib//lib:selects.bzl", "selects")
+load(":cc_aidl_library_test.bzl", "cc_aidl_library_test_suite")
+load(":cc_binary_test.bzl", "cc_binary_test_suite")
+load(":cc_hidl_library_test.bzl", "cc_hidl_library_test_suite")
+load(":cc_library_common_test.bzl", "cc_library_common_test_suites")
+load(":cc_library_shared_test.bzl", "cc_library_shared_test_suite")
+load(":cc_library_static_test.bzl", "cc_library_static_test_suite")
+load(":cc_object_test.bzl", "cc_object_test_suite")
+load(":cc_prebuilt_binary_test.bzl", "cc_prebuilt_binary_test_suite")
+load(":cc_prebuilt_library_shared_test.bzl", "cc_prebuilt_library_shared_test_suite")
+load(":cc_prebuilt_library_static_test.bzl", "cc_prebuilt_library_static_test_suite")
+load(":cc_proto_test.bzl", "cc_proto_test_suite")
+load(":cc_sysprop_library_test.bzl", "cc_gen_sysprop_test_suite")
+load(":cc_test_test.bzl", "cc_test_test_suite")
+load(":clang_tidy_test.bzl", "clang_tidy_test_suite")
+load(":flex_test.bzl", "flex_test_suite")
+load(":lto_transitions_test.bzl", "lto_transition_test_suite")
+load(":stl_test.bzl", "stl_test_suite")
+load(":yasm_test.bzl", "yasm_test_suite")
+
+config_setting(
+    name = "coverage_lib_flag",
+    values = {"collect_code_coverage": "True"},
+)
+
+selects.config_setting_group(
+    name = "android_coverage_lib_flag",
+    match_all = [
+        ":coverage_lib_flag",
+        "//build/bazel/platforms/os:android_config_setting",
+    ],
+)
+
+platform(
+    name = "windows_for_testing",
+    constraint_values = ["@//build/bazel/platforms/os:windows"],
+)
+
+platform(
+    name = "darwin_for_testing",
+    constraint_values = ["@//build/bazel/platforms/os:darwin"],
+)
+
+cc_aidl_library_test_suite(name = "cc_aidl_library_tests")
+
+cc_binary_test_suite(name = "cc_binary_tests")
+
+cc_test_test_suite(name = "cc_test_tests")
+
+cc_hidl_library_test_suite(name = "cc_hidl_library_tests")
+
+cc_library_common_test_suites(name = "cc_library_common_tests")
+
+cc_library_shared_test_suite(name = "cc_library_shared_tests")
+
+cc_library_static_test_suite(name = "cc_library_static_tests")
+
+cc_gen_sysprop_test_suite(name = "cc_gen_sysprop_tests")
+
+cc_object_test_suite(name = "cc_object_tests")
+
+cc_prebuilt_binary_test_suite(name = "cc_prebuilt_binary_tests")
+
+cc_prebuilt_library_shared_test_suite(name = "cc_prebuilt_library_shared_tests")
+
+cc_prebuilt_library_static_test_suite(name = "cc_prebuilt_library_static_tests")
+
+cc_proto_test_suite(name = "cc_proto_tests")
+
+clang_tidy_test_suite(name = "clang_tidy_tests")
+
+flex_test_suite(name = "flex_tests")
+
+lto_transition_test_suite(name = "lto_transition_tests")
+
+stl_test_suite(name = "stl_tests")
+
+yasm_test_suite(name = "yasm_tests")

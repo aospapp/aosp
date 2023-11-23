@@ -16,14 +16,14 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="tethered_notification_title" msgid="6426563586025792944">"Модем болгох эсвэл сүлжээний цэг идэвхтэй байна"</string>
-    <string name="tethered_notification_message" msgid="64800879503420696">"Тохируулахын тулд товшино уу."</string>
-    <string name="disable_tether_notification_title" msgid="3004509127903564191">"Модем болгохыг идэвхгүй болгосон"</string>
-    <string name="disable_tether_notification_message" msgid="6717523799293901476">"Дэлгэрэнгүй мэдээлэл авахын тулд админтайгаа холбогдоно уу"</string>
-    <string name="notification_channel_tethering_status" msgid="2663463891530932727">"Сүлжээний цэг болон модем болгох төлөв"</string>
-    <string name="no_upstream_notification_title" msgid="1204601824631788482"></string>
-    <string name="no_upstream_notification_message" msgid="8586582938243032621"></string>
-    <string name="no_upstream_notification_disable_button" msgid="8800919436924640822"></string>
-    <string name="upstream_roaming_notification_title" msgid="4772373823198997030"></string>
-    <string name="upstream_roaming_notification_message" msgid="3985577843181551650"></string>
+    <string name="tethered_notification_title" msgid="5350162111436634622">"Модем болгох эсвэл сүлжээний цэг идэвхтэй байна"</string>
+    <string name="tethered_notification_message" msgid="2338023450330652098">"Тохируулахын тулд товшино уу."</string>
+    <string name="disable_tether_notification_title" msgid="3183576627492925522">"Модем болгохыг идэвхгүй болгосон"</string>
+    <string name="disable_tether_notification_message" msgid="6655882039707534929">"Дэлгэрэнгүй мэдээлэл авах бол админтайгаа холбогдоно уу"</string>
+    <string name="notification_channel_tethering_status" msgid="7030733422705019001">"Сүлжээний цэг болон модем болгохын төлөв"</string>
+    <string name="no_upstream_notification_title" msgid="2052743091868702475"></string>
+    <string name="no_upstream_notification_message" msgid="6932020551635470134"></string>
+    <string name="no_upstream_notification_disable_button" msgid="8836277213343697023"></string>
+    <string name="upstream_roaming_notification_title" msgid="8614262557406849762"></string>
+    <string name="upstream_roaming_notification_message" msgid="5999740876323106599"></string>
 </resources>

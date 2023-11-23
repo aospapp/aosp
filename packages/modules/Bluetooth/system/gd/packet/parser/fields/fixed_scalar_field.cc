@@ -35,7 +35,7 @@ void FixedScalarField::GenValue(std::ostream& s) const {
 }
 
 void FixedScalarField::GenStringRepresentation(std::ostream& s, std::string) const {
-  s << "+" << value_;
+  s << value_;
 }
 
 void FixedScalarField::GenRustWriter(std::ostream& s, Size start_offset, Size end_offset) const {

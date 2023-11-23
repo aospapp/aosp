@@ -33,6 +33,6 @@ extern const signed char
     MPH_to_MediaPlayer[MPH_MAX];
 
 /** \brief Maximum number of interfaces on a single object. */
-#define MAX_INDEX 32
+#define SLES_MAX_INDEX 32
 
 #endif // !defined(__MPH_to_H)

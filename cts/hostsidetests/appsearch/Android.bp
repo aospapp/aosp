@@ -57,13 +57,13 @@ android_test_helper_app {
         "test-apps/AppSearchHostTestHelperA/src/**/*.java",
     ],
     test_suites: [
-        "cts",
         "general-tests",
         "mts-appsearch",
     ],
     manifest: "test-apps/AppSearchHostTestHelperA/AndroidManifest.xml",
     certificate: ":cts-appsearch-hosttest-helper-cert-a",
     sdk_version: "test_current",
+    min_sdk_version: "31",
 }
 
 android_test_helper_app {
@@ -80,11 +80,11 @@ android_test_helper_app {
         "test-apps/AppSearchHostTestHelperB/src/**/*.java",
     ],
     test_suites: [
-        "cts",
         "general-tests",
         "mts-appsearch",
     ],
     manifest: "test-apps/AppSearchHostTestHelperB/AndroidManifest.xml",
     certificate: ":cts-appsearch-hosttest-helper-cert-b",
     sdk_version: "test_current",
+    min_sdk_version: "31",
 }

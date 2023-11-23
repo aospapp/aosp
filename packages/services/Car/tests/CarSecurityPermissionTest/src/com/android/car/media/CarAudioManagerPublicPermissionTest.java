@@ -20,7 +20,7 @@ import static android.car.Car.PERMISSION_CAR_CONTROL_AUDIO_VOLUME;
 
 import static com.google.common.truth.Truth.assertThat;
 
-import static org.testng.Assert.expectThrows;
+import static org.junit.Assert.assertThrows;
 
 import android.car.Car;
 import android.car.media.CarAudioManager;
@@ -52,7 +52,7 @@ public final class CarAudioManagerPublicPermissionTest {
     @Test
     public void registerCarVolumeCallbackPermission() {
         CarVolumeCallback callback = new CarVolumeCallback() {};
-        Exception e = expectThrows(SecurityException.class,
+        Exception e = assertThrows(SecurityException.class,
                 () -> mCarAudioManager.registerCarVolumeCallback(callback));
         assertThat(e.getMessage()).contains(PERMISSION_CAR_CONTROL_AUDIO_VOLUME);
     }
@@ -77,7 +77,7 @@ public final class CarAudioManagerPublicPermissionTest {
 
     @Test
     public void isAudioFeatureEnabled_withNonAudioFeature_fails() {
-        IllegalArgumentException exception = expectThrows(IllegalArgumentException.class,
+        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class,
                 () -> mCarAudioManager.isAudioFeatureEnabled(0));
 
         assertThat(exception).hasMessageThat().contains("Unknown Audio Feature");

@@ -13,31 +13,24 @@
 // limitations under the License.
 
 import {Actions} from '../common/actions';
-import {featureFlags} from '../common/feature_flags';
-import {DEFAULT_PIVOT_TABLE_ID} from '../common/pivot_table_common';
 import {Area} from '../common/state';
+import {TPTime} from '../common/time';
 
 import {Flow, globals} from './globals';
 import {toggleHelp} from './help_modal';
 import {
-  horizontalScrollAndZoomToRange,
-  verticalScrollToTrack
+  focusHorizontalRange,
+  verticalScrollToTrack,
 } from './scroll_helper';
 import {executeSearch} from './search_handler';
 
-export const PIVOT_TABLE_FLAG = featureFlags.register({
-  id: 'pivotTables',
-  name: 'Pivot tables',
-  description: 'Show experimental pivot table details tab.',
-  defaultValue: false,
-});
-
-const INSTANT_FOCUS_DURATION_S = 1 / 1e9;  // 1 ns.
+const INSTANT_FOCUS_DURATION = 1n;
+const INCOMPLETE_SLICE_DURATION = 30_000n;
 type Direction = 'Forward'|'Backward';
 
 // Handles all key events than are not handled by the
-// pan and zoom handler.
-export function handleKey(e: KeyboardEvent, down: boolean) {
+// pan and zoom handler. Returns true if the event was handled.
+export function handleKey(e: KeyboardEvent, down: boolean): boolean {
   const key = e.key.toLowerCase();
   const selection = globals.state.currentSelection;
   const noModifiers = !(e.ctrlKey || e.metaKey || e.altKey || e.shiftKey);
@@ -51,50 +44,82 @@ export function handleKey(e: KeyboardEvent, down: boolean) {
     } else if (selection) {
       lockSliceSpan(e.shiftKey);
     }
+    return true;
   }
   if (down && 'f' === key && noModifiers) {
     findCurrentSelection();
+    return true;
+  }
+  if (down && 'a' === key && ctrlOrMeta) {
+    let tracksToSelect: string[] = [];
+
+    const selection = globals.state.currentSelection;
+    if (selection !== null && selection.kind === 'AREA') {
+      const area = globals.state.areas[selection.areaId];
+      const coversEntireTimeRange =
+          globals.state.traceTime.start === area.start &&
+          globals.state.traceTime.end === area.end;
+      if (!coversEntireTimeRange) {
+        // If the current selection is an area which does not cover the entire
+        // time range, preserve the list of selected tracks and expand the time
+        // range.
+        tracksToSelect = area.tracks;
+      } else {
+        // If the entire time range is already covered, update the selection to
+        // cover all tracks.
+        tracksToSelect = Object.keys(globals.state.tracks);
+      }
+    } else {
+      // If the current selection is not an area, select all.
+      tracksToSelect = Object.keys(globals.state.tracks);
+    }
+    const {start, end} = globals.state.traceTime;
+    globals.dispatch(Actions.selectArea({
+      area: {
+        start,
+        end,
+        tracks: tracksToSelect,
+      },
+    }));
+    e.preventDefault();
+    return true;
   }
   if (down && 'b' === key && ctrlOrMeta) {
     globals.dispatch(Actions.toggleSidebar({}));
+    return true;
   }
   if (down && '?' === key && maybeShift) {
     toggleHelp();
+    return true;
   }
   if (down && 'enter' === key && maybeShift) {
     e.preventDefault();
     executeSearch(e.shiftKey);
+    return true;
   }
   if (down && 'escape' === key) {
     globals.frontendLocalState.deselectArea();
     globals.makeSelection(Actions.deselect({}));
     globals.dispatch(Actions.removeNote({id: '0'}));
+    return true;
   }
   if (down && ']' === key && ctrlOrMeta) {
     focusOtherFlow('Forward');
+    return true;
   }
   if (down && ']' === key && noModifiers) {
     moveByFocusedFlow('Forward');
+    return true;
   }
   if (down && '[' === key && ctrlOrMeta) {
     focusOtherFlow('Backward');
+    return true;
   }
   if (down && '[' === key && noModifiers) {
     moveByFocusedFlow('Backward');
+    return true;
   }
-  if (down && 'p' === key && noModifiers && PIVOT_TABLE_FLAG.get()) {
-    e.preventDefault();
-    globals.frontendLocalState.togglePivotTable();
-    const pivotTableId = DEFAULT_PIVOT_TABLE_ID;
-    if (globals.state.pivotTable[pivotTableId] === undefined) {
-      globals.dispatch(Actions.addNewPivotTable({
-        name: 'Pivot Table',
-        pivotTableId,
-        selectedPivots: [],
-        selectedAggregations: []
-      }));
-    }
-  }
+  return false;
 }
 
 // Search |boundFlows| for |flowId| and return the id following it.
@@ -131,7 +156,7 @@ function focusOtherFlow(direction: Direction) {
   }
 
   const boundFlows = globals.connectedFlows.filter(
-      flow => flow.begin.sliceId === sliceId && direction === 'Forward' ||
+      (flow) => flow.begin.sliceId === sliceId && direction === 'Forward' ||
           flow.end.sliceId === sliceId && direction === 'Backward');
 
   if (direction === 'Backward') {
@@ -172,36 +197,36 @@ function moveByFocusedFlow(direction: Direction): void {
           id: flowPoint.sliceId,
           trackId: uiTrackId,
           table: 'slice',
-          scroll: true
+          scroll: true,
         }));
       }
     }
   }
 }
 
-function findTimeRangeOfSelection(): {startTs: number, endTs: number} {
+function findTimeRangeOfSelection(): {startTs: TPTime, endTs: TPTime} {
   const selection = globals.state.currentSelection;
-  let startTs = -1;
-  let endTs = -1;
+  let startTs = -1n;
+  let endTs = -1n;
   if (selection === null) {
     return {startTs, endTs};
   } else if (selection.kind === 'SLICE' || selection.kind === 'CHROME_SLICE') {
     const slice = globals.sliceDetails;
     if (slice.ts && slice.dur !== undefined && slice.dur > 0) {
-      startTs = slice.ts + globals.state.traceTime.startSec;
+      startTs = slice.ts;
       endTs = startTs + slice.dur;
     } else if (slice.ts) {
-      startTs = slice.ts + globals.state.traceTime.startSec;
+      startTs = slice.ts;
       // This will handle either:
       // a)slice.dur === -1 -> unfinished slice
       // b)slice.dur === 0  -> instant event
-      endTs = slice.dur === -1 ? globals.state.traceTime.endSec :
-                                 startTs + INSTANT_FOCUS_DURATION_S;
+      endTs = slice.dur === -1n ? startTs + INCOMPLETE_SLICE_DURATION :
+                                  startTs + INSTANT_FOCUS_DURATION;
     }
   } else if (selection.kind === 'THREAD_STATE') {
     const threadState = globals.threadStateDetails;
     if (threadState.ts && threadState.dur) {
-      startTs = threadState.ts + globals.state.traceTime.startSec;
+      startTs = threadState.ts;
       endTs = startTs + threadState.dur;
     }
   } else if (selection.kind === 'COUNTER') {
@@ -210,8 +235,8 @@ function findTimeRangeOfSelection(): {startTs: number, endTs: number} {
   } else if (selection.kind === 'AREA') {
     const selectedArea = globals.state.areas[selection.areaId];
     if (selectedArea) {
-      startTs = selectedArea.startSec;
-      endTs = selectedArea.endSec;
+      startTs = selectedArea.start;
+      endTs = selectedArea.end;
     }
   } else if (selection.kind === 'NOTE') {
     const selectedNote = globals.state.notes[selection.id];
@@ -219,7 +244,18 @@ function findTimeRangeOfSelection(): {startTs: number, endTs: number} {
     // above in the AREA case.
     if (selectedNote && selectedNote.noteType === 'DEFAULT') {
       startTs = selectedNote.timestamp;
-      endTs = selectedNote.timestamp + INSTANT_FOCUS_DURATION_S;
+      endTs = selectedNote.timestamp + INSTANT_FOCUS_DURATION;
+    }
+  } else if (selection.kind === 'LOG') {
+    // TODO(hjd): Make focus selection work for logs.
+  } else if (
+      selection.kind === 'DEBUG_SLICE' ||
+      selection.kind === 'TOP_LEVEL_SCROLL') {
+    startTs = selection.start;
+    if (selection.duration > 0) {
+      endTs = startTs + selection.duration;
+    } else {
+      endTs = startTs + INSTANT_FOCUS_DURATION;
     }
   }
 
@@ -229,12 +265,12 @@ function findTimeRangeOfSelection(): {startTs: number, endTs: number} {
 
 function lockSliceSpan(persistent = false) {
   const range = findTimeRangeOfSelection();
-  if (range.startTs !== -1 && range.endTs !== -1 &&
+  if (range.startTs !== -1n && range.endTs !== -1n &&
       globals.state.currentSelection !== null) {
     const tracks = globals.state.currentSelection.trackId ?
         [globals.state.currentSelection.trackId] :
         [];
-    const area: Area = {startSec: range.startTs, endSec: range.endTs, tracks};
+    const area: Area = {start: range.startTs, end: range.endTs, tracks};
     globals.dispatch(Actions.markArea({area, persistent}));
   }
 }
@@ -244,8 +280,8 @@ export function findCurrentSelection() {
   if (selection === null) return;
 
   const range = findTimeRangeOfSelection();
-  if (range.startTs !== -1 && range.endTs !== -1) {
-    horizontalScrollAndZoomToRange(range.startTs, range.endTs);
+  if (range.startTs !== -1n && range.endTs !== -1n) {
+    focusHorizontalRange(range.startTs, range.endTs);
   }
 
   if (selection.trackId) {

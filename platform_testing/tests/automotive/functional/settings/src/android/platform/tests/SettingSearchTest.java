@@ -19,9 +19,10 @@ package android.platform.tests;
 import static junit.framework.Assert.assertTrue;
 
 import android.platform.helpers.AutoUtility;
-import android.platform.helpers.IAutoSettingHelper;
 import android.platform.helpers.HelperAccessor;
+import android.platform.helpers.IAutoSettingHelper;
 import android.platform.test.option.StringOption;
+
 import androidx.test.runner.AndroidJUnit4;
 
 import org.junit.After;
@@ -73,9 +74,9 @@ public class SettingSearchTest {
             searchApp = mSearchApp.get();
         }
         mSettingHelper.get().searchAndSelect(searchApp);
-        assertTrue(
-                "Page title does not contains searched app name",
-                mSettingHelper.get().isValidPageTitle(searchApp));
+        mSettingHelper.get().checkMenuExists("Allowed");
+        // TODO(b/268707480) Updating the test use checkMenuExists and
+        // its fails for resource id - PERMISSIONS_PAGE_TITLE.
     }
 
     @Test

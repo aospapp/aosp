@@ -18,8 +18,20 @@
  * Generated mock file from original source file
  */
 
+#include "btif/include/core_callbacks.h"
 #include "osi/include/future.h"
+#include "test/common/core_interface.h"
 
 static future_t* hack_future;
 
 future_t* stack_manager_get_hack_future() { return hack_future; }
+
+namespace {
+
+auto interfaceToProfiles = MockCoreInterface{};
+
+}  // namespace
+
+bluetooth::core::CoreInterface* GetInterfaceToProfiles() {
+  return &interfaceToProfiles;
+}

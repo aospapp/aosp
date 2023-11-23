@@ -17,6 +17,7 @@
 package com.android.car.settings.datausage;
 
 import static com.android.car.settings.common.PreferenceController.AVAILABLE;
+import static com.android.car.settings.common.PreferenceController.AVAILABLE_FOR_VIEWING;
 import static com.android.car.settings.common.PreferenceController.CONDITIONALLY_UNAVAILABLE;
 
 import static com.google.common.truth.Truth.assertThat;
@@ -125,10 +126,55 @@ public class DataUsageSummaryPreferenceControllerTest {
     }
 
     @Test
+    public void getAvailabilityStatus_hasSim_isAvailable_zoneWrite() {
+        mPreferenceController.setAvailabilityStatusForZone("write");
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), AVAILABLE);
+    }
+
+    @Test
+    public void getAvailabilityStatus_hasSim_isAvailable_zoneRead() {
+        mPreferenceController.setAvailabilityStatusForZone("read");
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), AVAILABLE_FOR_VIEWING);
+    }
+
+    @Test
+    public void getAvailabilityStatus_hasSim_isAvailable_zoneHidden() {
+        mPreferenceController.setAvailabilityStatusForZone("hidden");
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), CONDITIONALLY_UNAVAILABLE);
+    }
+
+    @Test
     public void getAvailabilityStatus_noSim_isConditionallyUnavailable() {
         when(mMockTelephonyManager.getSimState()).thenReturn(TelephonyManager.SIM_STATE_UNKNOWN);
         assertThat(mPreferenceController.getAvailabilityStatus())
                 .isEqualTo(CONDITIONALLY_UNAVAILABLE);
+    }
+
+    @Test
+    public void getAvailabilityStatus_noSim_isConditionallyUnavailable_zoneWrite() {
+        when(mMockTelephonyManager.getSimState()).thenReturn(TelephonyManager.SIM_STATE_UNKNOWN);
+        mPreferenceController.setAvailabilityStatusForZone("write");
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), CONDITIONALLY_UNAVAILABLE);
+    }
+
+    @Test
+    public void getAvailabilityStatus_noSim_isConditionallyUnavailable_zoneRead() {
+        when(mMockTelephonyManager.getSimState()).thenReturn(TelephonyManager.SIM_STATE_UNKNOWN);
+        mPreferenceController.setAvailabilityStatusForZone("read");
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), CONDITIONALLY_UNAVAILABLE);
+    }
+
+    @Test
+    public void getAvailabilityStatus_noSim_isConditionallyUnavailable_zoneHidden() {
+        when(mMockTelephonyManager.getSimState()).thenReturn(TelephonyManager.SIM_STATE_UNKNOWN);
+        mPreferenceController.setAvailabilityStatusForZone("hidden");
+        PreferenceControllerTestUtil.assertAvailability(
+                mPreferenceController.getAvailabilityStatus(), CONDITIONALLY_UNAVAILABLE);
     }
 
     @Test

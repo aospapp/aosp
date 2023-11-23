@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010-2021 NXP
+ * Copyright 2010-2023 NXP
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,10 +23,9 @@
 #ifdef NXP_BOOTTIME_UPDATE
 #include "eSEClientIntf.h"
 #endif
+
 #include "eSEClientExtns.h"
 #include "phNxpNciHal_IoctlOperations.h"
-
-#include <vendor/nxp/nxpnfc/2.0/types.h>
 
 /********************* Definitions and structures *****************************/
 #define MAX_RETRY_COUNT 5
@@ -38,7 +37,8 @@
 #define NCI_VERSION_1_1 0x11
 #define NCI_VERSION_1_0 0x10
 #define NCI_VERSION_UNKNOWN 0x00
-#define NXP_AUTH_TIMEOUT_BUF_LEN 0x04
+#define SNXXX_NXP_AUTH_TIMEOUT_BUF_LEN 0x05
+#define PN557_NXP_AUTH_TIMEOUT_BUF_LEN 0x0C
 #define SN1XX_ROM_VERSION 0x01
 #define SN1XX_FW_MAJOR_VERSION 0x10
 #define SN2XX_ROM_VERSION 0x01
@@ -81,12 +81,10 @@ typedef void(phNxpNciHal_control_granted_callback_t)();
 //#define NCI_MSG_CORE_INIT            0x01
 #define NCI_MT_MASK 0xE0
 #define NCI_OID_MASK 0x3F
-#if (NXP_EXTNS == TRUE)
 /* GID: Group Identifier (byte 0) */
 #define NCI_GID_MASK 0x0F
 #define ORIG_NXPHAL 0x01
 #define ORIG_LIBNFC 0x02
-#endif
 #define NXP_PROPCMD_GID 0x2F
 #define NXP_FLUSH_SRAM_AO_TO_FLASH 0x21
 #define NXP_CORE_GET_CONFIG_CMD 0x03
@@ -178,10 +176,12 @@ typedef struct phNxpNciHal_Control {
   uint8_t read_retry_cnt;
   phNxpNciInfo_t nci_info;
   uint8_t hal_boot_mode;
-  bool_t fwdnld_mode_reqd;
+  bool_t isCoreRstForFwDnld;
   /* to store and restore gpio values */
   phNxpNciGpioInfo_t phNxpNciGpioInfo;
   tNFC_chipType chipType;
+  bool_t power_reset_triggered;
+  bool_t isUlpdetModeEnabled;
 } phNxpNciHal_Control_t;
 
 typedef struct {
@@ -260,7 +260,10 @@ typedef enum {
   EEPROM_UICC2_SESSION_ID,
   EEPROM_CE_ACT_NTF,
   EEPROM_UICC_HCI_CE_STATE,
-  EEPROM_EXT_FIELD_DETECT_MODE
+  EEPROM_EXT_FIELD_DETECT_MODE,
+  EEPROM_CONF_GPIO_CTRL,
+  EEPROM_SET_GPIO_VALUE,
+  EEPROM_POWER_TRACKER_ENABLE
 } phNxpNci_EEPROM_request_type_t;
 
 typedef struct phNxpNci_EEPROM_info {
@@ -281,7 +284,7 @@ typedef struct phNxpNci_getCfg_info {
   uint8_t atr_res_gen_bytes_len;
   uint8_t pmid_wt[3];
   uint8_t pmid_wt_len;
-  uint8_t auth_cmd_timeout[NXP_AUTH_TIMEOUT_BUF_LEN];
+  uint8_t auth_cmd_timeout[PN557_NXP_AUTH_TIMEOUT_BUF_LEN];
   uint8_t auth_cmd_timeoutlen;
 } phNxpNci_getCfg_info_t;
 typedef enum {

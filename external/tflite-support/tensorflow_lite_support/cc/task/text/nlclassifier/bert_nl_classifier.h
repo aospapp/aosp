@@ -95,6 +95,7 @@ class BertNLClassifier : public NLClassifier {
   absl::Status InitializeFromMetadata();
 
   std::unique_ptr<tflite::support::text::tokenizer::Tokenizer> tokenizer_;
+  bool input_tensors_are_dynamic_ = false;
 };
 
 }  // namespace nlclassifier

@@ -3,14 +3,17 @@
 //! Waiting threads hammer an atomic variable until it becomes available. Best-case latency is low, but worst-case
 //! latency is theoretically infinite.
 
+use crate::{
+    atomic::{AtomicBool, Ordering},
+    RelaxStrategy, Spin,
+};
 use core::{
     cell::UnsafeCell,
     fmt,
-    ops::{Deref, DerefMut},
-    sync::atomic::{AtomicBool, Ordering},
     marker::PhantomData,
+    mem::ManuallyDrop,
+    ops::{Deref, DerefMut},
 };
-use crate::{RelaxStrategy, Spin};
 
 /// A [spin lock](https://en.m.wikipedia.org/wiki/Spinlock) providing mutually exclusive access to data.
 ///
@@ -41,9 +44,11 @@ use crate::{RelaxStrategy, Spin};
 /// // We use a barrier to ensure the readout happens after all writing
 /// let barrier = Arc::new(Barrier::new(thread_count + 1));
 ///
+/// # let mut ts = Vec::new();
 /// for _ in (0..thread_count) {
 ///     let my_barrier = barrier.clone();
 ///     let my_lock = spin_mutex.clone();
+/// # let t =
 ///     std::thread::spawn(move || {
 ///         let mut guard = my_lock.lock();
 ///         *guard += 1;
@@ -52,12 +57,17 @@ use crate::{RelaxStrategy, Spin};
 ///         drop(guard);
 ///         my_barrier.wait();
 ///     });
+/// # ts.push(t);
 /// }
 ///
 /// barrier.wait();
 ///
 /// let answer = { *spin_mutex.lock() };
 /// assert_eq!(answer, thread_count);
+///
+/// # for t in ts {
+/// #     t.join().unwrap();
+/// # }
 /// ```
 pub struct SpinMutex<T: ?Sized, R = Spin> {
     phantom: PhantomData<R>,
@@ -70,12 +80,15 @@ pub struct SpinMutex<T: ?Sized, R = Spin> {
 /// When the guard falls out of scope it will release the lock.
 pub struct SpinMutexGuard<'a, T: ?Sized + 'a> {
     lock: &'a AtomicBool,
-    data: &'a mut T,
+    data: *mut T,
 }
 
 // Same unsafe impls as `std::sync::Mutex`
-unsafe impl<T: ?Sized + Send> Sync for SpinMutex<T> {}
-unsafe impl<T: ?Sized + Send> Send for SpinMutex<T> {}
+unsafe impl<T: ?Sized + Send, R> Sync for SpinMutex<T, R> {}
+unsafe impl<T: ?Sized + Send, R> Send for SpinMutex<T, R> {}
+
+unsafe impl<T: ?Sized + Sync> Sync for SpinMutexGuard<'_, T> {}
+unsafe impl<T: ?Sized + Send> Send for SpinMutexGuard<'_, T> {}
 
 impl<T, R> SpinMutex<T, R> {
     /// Creates a new [`SpinMutex`] wrapping the supplied data.
@@ -129,7 +142,7 @@ impl<T, R> SpinMutex<T, R> {
     ///
     /// unsafe {
     ///     core::mem::forget(lock.lock());
-    ///     
+    ///
     ///     assert_eq!(lock.as_mut_ptr().read(), 42);
     ///     lock.as_mut_ptr().write(58);
     ///
@@ -164,7 +177,11 @@ impl<T: ?Sized, R: RelaxStrategy> SpinMutex<T, R> {
     pub fn lock(&self) -> SpinMutexGuard<T> {
         // Can fail to lock even if the spinlock is not locked. May be more efficient than `try_lock`
         // when called in a loop.
-        while self.lock.compare_exchange_weak(false, true, Ordering::Acquire, Ordering::Relaxed).is_err() {
+        while self
+            .lock
+            .compare_exchange_weak(false, true, Ordering::Acquire, Ordering::Relaxed)
+            .is_err()
+        {
             // Wait until the lock looks unlocked before retrying
             while self.is_locked() {
                 R::relax();
@@ -220,7 +237,11 @@ impl<T: ?Sized, R> SpinMutex<T, R> {
     pub fn try_lock(&self) -> Option<SpinMutexGuard<T>> {
         // The reason for using a strong compare_exchange is explained here:
         // https://github.com/Amanieu/parking_lot/pull/207#issuecomment-575869107
-        if self.lock.compare_exchange(false, true, Ordering::Acquire, Ordering::Relaxed).is_ok() {
+        if self
+            .lock
+            .compare_exchange(false, true, Ordering::Acquire, Ordering::Relaxed)
+            .is_ok()
+        {
             Some(SpinMutexGuard {
                 lock: &self.lock,
                 data: unsafe { &mut *self.data.get() },
@@ -289,9 +310,10 @@ impl<'a, T: ?Sized> SpinMutexGuard<'a, T> {
     /// ```
     #[inline(always)]
     pub fn leak(this: Self) -> &'a mut T {
-        let data = this.data as *mut _; // Keep it in pointer form temporarily to avoid double-aliasing
-        core::mem::forget(this);
-        unsafe { &mut *data }
+        // Use ManuallyDrop to avoid stacked-borrow invalidation
+        let mut this = ManuallyDrop::new(this);
+        // We know statically that only we are referencing data
+        unsafe { &mut *this.data }
     }
 }
 
@@ -310,13 +332,15 @@ impl<'a, T: ?Sized + fmt::Display> fmt::Display for SpinMutexGuard<'a, T> {
 impl<'a, T: ?Sized> Deref for SpinMutexGuard<'a, T> {
     type Target = T;
     fn deref(&self) -> &T {
-        self.data
+        // We know statically that only we are referencing data
+        unsafe { &*self.data }
     }
 }
 
 impl<'a, T: ?Sized> DerefMut for SpinMutexGuard<'a, T> {
     fn deref_mut(&mut self) -> &mut T {
-        self.data
+        // We know statically that only we are referencing data
+        unsafe { &mut *self.data }
     }
 }
 
@@ -390,17 +414,18 @@ mod tests {
         }
 
         let (tx, rx) = channel();
+        let mut ts = Vec::new();
         for _ in 0..K {
             let tx2 = tx.clone();
-            thread::spawn(move || {
+            ts.push(thread::spawn(move || {
                 inc();
                 tx2.send(()).unwrap();
-            });
+            }));
             let tx2 = tx.clone();
-            thread::spawn(move || {
+            ts.push(thread::spawn(move || {
                 inc();
                 tx2.send(()).unwrap();
-            });
+            }));
         }
 
         drop(tx);
@@ -408,6 +433,10 @@ mod tests {
             rx.recv().unwrap();
         }
         assert_eq!(unsafe { CNT }, J * K * 2);
+
+        for t in ts {
+            t.join().unwrap();
+        }
     }
 
     #[test]
@@ -418,7 +447,7 @@ mod tests {
         let a = mutex.try_lock();
         assert_eq!(a.as_ref().map(|r| **r), Some(42));
 
-        // Additional lock failes
+        // Additional lock fails
         let b = mutex.try_lock();
         assert!(b.is_none());
 
@@ -459,13 +488,14 @@ mod tests {
         let arc = Arc::new(SpinMutex::<_>::new(1));
         let arc2 = Arc::new(SpinMutex::<_>::new(arc));
         let (tx, rx) = channel();
-        let _t = thread::spawn(move || {
+        let t = thread::spawn(move || {
             let lock = arc2.lock();
             let lock2 = lock.lock();
             assert_eq!(*lock2, 1);
             tx.send(()).unwrap();
         });
         rx.recv().unwrap();
+        t.join().unwrap();
     }
 
     #[test]

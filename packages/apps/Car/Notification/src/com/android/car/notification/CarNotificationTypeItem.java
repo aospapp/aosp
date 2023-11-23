@@ -65,9 +65,7 @@ public enum CarNotificationTypeItem {
             R.layout.basic_notification_template, NotificationViewType.BASIC, false),
     BASIC_IN_GROUP(-1, R.layout.basic_notification_template_inner,
             NotificationViewType.BASIC_IN_GROUP, true),
-    GROUP_EXPANDED(-1, R.layout.group_notification_template, NotificationViewType.GROUP_EXPANDED,
-            false),
-    GROUP_COLLAPSED(-1, R.layout.group_notification_template, NotificationViewType.GROUP_COLLAPSED,
+    GROUP(-1, R.layout.group_notification_template, NotificationViewType.GROUP,
             false),
     GROUP_SUMMARY(-1, R.layout.group_summary_notification_template,
             NotificationViewType.GROUP_SUMMARY, false);
@@ -137,8 +135,7 @@ public enum CarNotificationTypeItem {
             case NotificationViewType.INBOX:
             case NotificationViewType.INBOX_IN_GROUP:
                 return new InboxNotificationViewHolder(view, clickHandlerFactory);
-            case NotificationViewType.GROUP_EXPANDED:
-            case NotificationViewType.GROUP_COLLAPSED:
+            case NotificationViewType.GROUP:
                 return new GroupNotificationViewHolder(view, clickHandlerFactory);
             case NotificationViewType.GROUP_SUMMARY:
                 return new GroupSummaryNotificationViewHolder(view, clickHandlerFactory);
@@ -160,8 +157,8 @@ public enum CarNotificationTypeItem {
      * Binds a {@link AlertEntry} to a notification template.
      */
     public void bind(AlertEntry alertEntry, boolean isHeadsUp,
-            CarNotificationBaseViewHolder holder) {
-        holder.bind(alertEntry, mIsInGroup, isHeadsUp);
+            CarNotificationBaseViewHolder holder, boolean isSeen) {
+        holder.bind(alertEntry, mIsInGroup, isHeadsUp, isSeen);
     }
 
     /**

@@ -25,14 +25,13 @@ import static org.junit.Assume.assumeTrue;
 import com.android.compatibility.common.util.SystemUtil;
 
 public class DreamCoordinator {
-    private Context mContext;
+    private final DreamManager mDreamManager;
+
     private boolean mSetup;
     private boolean mDefaultDreamServiceEnabled;
-    private DreamManager mDreamManager;
 
     public DreamCoordinator(Context context) {
-        mContext = context;
-        mDreamManager = mContext.getSystemService(DreamManager.class);
+        mDreamManager = context.getSystemService(DreamManager.class);
     }
 
     public final ComponentName getDreamActivityName(ComponentName dream) {
@@ -60,7 +59,7 @@ public class DreamCoordinator {
      * Restores any settings changed by {@link #setup()}.
      */
     public void restoreDefaults() {
-        // If we have not setup the coordinator, do not do anything.
+        // If we have not set up the coordinator, do not do anything.
         if (!mSetup) {
             return;
         }
@@ -76,17 +75,23 @@ public class DreamCoordinator {
                 () -> mDreamManager.setScreensaverEnabled(false));
     }
 
-    public void startDream(ComponentName name) {
-        SystemUtil.runWithShellPermissionIdentity(() -> mDreamManager.startDream(name));
+    public void startDream() {
+        SystemUtil.runWithShellPermissionIdentity(() -> mDreamManager.startDream());
     }
 
     public void stopDream() {
-        SystemUtil.runWithShellPermissionIdentity(() -> mDreamManager.stopDream());
+        SystemUtil.runWithShellPermissionIdentity(mDreamManager::stopDream);
     }
 
-    public  ComponentName setActiveDream(ComponentName dream) {
+    public ComponentName setActiveDream(ComponentName dream) {
         SystemUtil.runWithShellPermissionIdentity(() -> mDreamManager.setActiveDream(dream));
         return getDreamActivityName(dream);
+    }
+
+    public ComponentName setSystemDream(ComponentName dream) {
+        SystemUtil.runWithShellPermissionIdentity(() ->
+                mDreamManager.setSystemDreamComponent(dream));
+        return dream == null ? null : getDreamActivityName(dream);
     }
 
     public void setDreamOverlay(ComponentName overlay) {
@@ -94,6 +99,6 @@ public class DreamCoordinator {
     }
 
     public boolean isDreaming() {
-        return SystemUtil.runWithShellPermissionIdentity(() -> mDreamManager.isDreaming());
+        return SystemUtil.runWithShellPermissionIdentity(mDreamManager::isDreaming);
     }
 }

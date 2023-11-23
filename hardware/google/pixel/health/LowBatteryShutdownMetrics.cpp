@@ -52,7 +52,6 @@ bool LowBatteryShutdownMetrics::uploadVoltageAvg(void) {
     }
 
     // Process and upload comma-delimited last voltage values
-    VendorBatteryCausedShutdown shutdown;
     int32_t voltage_avg;
     for (const auto &item : android::base::Split(prop_contents, ",")) {
         if (!(voltage_avg = stoi(item))) {
@@ -60,8 +59,7 @@ bool LowBatteryShutdownMetrics::uploadVoltageAvg(void) {
             continue;
         }
         LOG(INFO) << "Uploading voltage_avg: " << std::to_string(voltage_avg);
-        shutdown.set_last_recorded_micro_volt(voltage_avg);
-        reportBatteryCausedShutdown(stats_client, shutdown);
+        reportBatteryCausedShutdown(stats_client, voltage_avg);
     }
 
     // Clear property now that we've uploaded its contents

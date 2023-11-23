@@ -16,7 +16,6 @@ dependencies {
     api project(path: ':connectedapps-testapp_types')
     api project(path: ':connectedapps-testapp_types_providers')
     api project(path: ':connectedapps-testapp_wrappers')
-    api project(path: ':connectedapps-testapp_crossuser')
 }
 
 android {

@@ -26,9 +26,11 @@ import android.media.ToneGenerator;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Parcel;
+import android.os.ParcelUuid;
 import android.os.Process;
 import android.os.UserHandle;
 import android.telecom.CallAudioState;
+import android.telecom.CallEndpoint;
 import android.telecom.ConnectionRequest;
 import android.telecom.DisconnectCause;
 import android.telecom.GatewayInfo;
@@ -40,6 +42,7 @@ import android.telecom.VideoProfile;
 import android.test.InstrumentationTestCase;
 
 import java.util.Arrays;
+import java.util.UUID;
 
 /**
  * Verifies that the setter, getter and parcelable interfaces of the Telecom data objects are
@@ -318,6 +321,28 @@ public class DataObjectUnitTests extends InstrumentationTestCase {
                 VideoProfile.CameraCapabilities.CREATOR.createFromParcel(p);
         assertEquals(cameraCapabilities.getWidth(), unparcelled.getWidth());
         assertEquals(cameraCapabilities.getHeight(), unparcelled.getHeight());
+        p.recycle();
+    }
+
+    public void testCallEndpoint() throws Exception {
+        CharSequence name = "testCallEndpoint";
+        ParcelUuid identifier = new ParcelUuid(UUID.randomUUID());
+        CallEndpoint callEndpoint = new CallEndpoint(name, CallEndpoint.TYPE_BLUETOOTH, identifier);
+        assertEquals(name, callEndpoint.getEndpointName());
+        assertEquals(CallEndpoint.TYPE_BLUETOOTH, callEndpoint.getEndpointType());
+        assertEquals(identifier, callEndpoint.getIdentifier());
+
+        // Create a parcel of the object and recreate the object back
+        // from the parcel.
+        Parcel p = Parcel.obtain();
+        callEndpoint.writeToParcel(p, 0);
+        p.setDataPosition(0);
+        CallEndpoint parcelCallEndpoint = CallEndpoint.CREATOR.createFromParcel(p);
+        assertEquals(name, parcelCallEndpoint.getEndpointName());
+        assertEquals(CallEndpoint.TYPE_BLUETOOTH, parcelCallEndpoint.getEndpointType());
+        assertEquals(identifier, parcelCallEndpoint.getIdentifier());
+        assertEquals(0, parcelCallEndpoint.describeContents());
+        assertEquals(callEndpoint, parcelCallEndpoint);
         p.recycle();
     }
 }

@@ -21,16 +21,18 @@ import android.content.Context;
 import android.os.Bundle;
 import android.platform.test.longevity.proto.Configuration.Scenario;
 import android.platform.test.longevity.proto.Configuration.Scenario.ExtraArg;
+
 import androidx.annotation.VisibleForTesting;
 import androidx.test.InstrumentationRegistry;
-
-import java.util.List;
 
 import org.junit.runner.Runner;
 import org.junit.runner.notification.RunNotifier;
 import org.junit.runners.BlockJUnit4ClassRunner;
 import org.junit.runners.model.InitializationError;
 import org.junit.runners.model.RunnerBuilder;
+
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * {@inheritDoc}
@@ -93,16 +95,24 @@ public class ProfileSuite extends LongevitySuite {
                                 "%s is not annotated with @Scenario.",
                                 runner.getDescription().getDisplayName()));
             }
-            // All scenarios must extend BlockJUnit4ClassRunner.
-            if (!(runner instanceof BlockJUnit4ClassRunner)) {
+            // All scenarios must extend BlockJUnit4ClassRunner or be ignored.
+            if (!(runner instanceof BlockJUnit4ClassRunner) && !isIgnoredRunner(runner)) {
                 throw new InitializationError(
                         String.format(
-                                "All runners must extend BlockJUnit4ClassRunner. %s:%s doesn't.",
+                                "All runners must extend BlockJUnit4ClassRunner or be ignored."
+                                        + " %s:%s doesn't.",
                                 runner.getClass(), runner.getDescription().getDisplayName()));
             }
         }
         // Construct and store custom runners for the full suite.
-        return new Profile(args).getRunnerSequence(builder.runners(suite, annotation.value()));
+        Profile profile = new Profile(args);
+        if (profile.getConfiguration() != null) {
+            return profile.getRunnerSequence(builder.runners(suite, annotation.value()));
+        } else {
+            // Fall back to longevity suite construction if no profile is supplied.
+            return LongevitySuite.constructClassRunners(
+                    suite, new ArrayList<Runner>(), builder, args);
+        }
     }
 
     /** {@inheritDoc} */

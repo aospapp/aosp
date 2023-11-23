@@ -43,7 +43,6 @@ import com.android.net.module.util.NetworkStatsUtils;
 import libcore.io.IoUtils;
 
 import java.io.ByteArrayOutputStream;
-import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -427,46 +426,6 @@ public class NetworkStatsRecorder {
         }
     }
 
-    public void importLegacyNetworkLocked(File file) throws IOException {
-        Objects.requireNonNull(mRotator, "missing FileRotator");
-
-        // legacy file still exists; start empty to avoid double importing
-        mRotator.deleteAll();
-
-        final NetworkStatsCollection collection = new NetworkStatsCollection(mBucketDuration);
-        collection.readLegacyNetwork(file);
-
-        final long startMillis = collection.getStartMillis();
-        final long endMillis = collection.getEndMillis();
-
-        if (!collection.isEmpty()) {
-            // process legacy data, creating active file at starting time, then
-            // using end time to possibly trigger rotation.
-            mRotator.rewriteActive(new CombiningRewriter(collection), startMillis);
-            mRotator.maybeRotate(endMillis);
-        }
-    }
-
-    public void importLegacyUidLocked(File file) throws IOException {
-        Objects.requireNonNull(mRotator, "missing FileRotator");
-
-        // legacy file still exists; start empty to avoid double importing
-        mRotator.deleteAll();
-
-        final NetworkStatsCollection collection = new NetworkStatsCollection(mBucketDuration);
-        collection.readLegacyUid(file, mOnlyTags);
-
-        final long startMillis = collection.getStartMillis();
-        final long endMillis = collection.getEndMillis();
-
-        if (!collection.isEmpty()) {
-            // process legacy data, creating active file at starting time, then
-            // using end time to possibly trigger rotation.
-            mRotator.rewriteActive(new CombiningRewriter(collection), startMillis);
-            mRotator.maybeRotate(endMillis);
-        }
-    }
-
     /**
      * Import a specified {@link NetworkStatsCollection} instance into this recorder,
      * and write it into a standalone file.
@@ -582,7 +541,8 @@ public class NetworkStatsRecorder {
 
     /**
      * Recover from {@link FileRotator} failure by dumping state to
-     * {@link DropBoxManager} and deleting contents.
+     * {@link DropBoxManager} and deleting contents if this recorder
+     * sets {@code mWipeOnError} to true, otherwise keep the contents.
      */
     void recoverAndDeleteData() {
         if (DUMP_BEFORE_DELETE) {

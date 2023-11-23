@@ -85,15 +85,14 @@ static void print_header(std::stringstream& ss) {
 
 static void print_stats(std::stringstream& ss, const MemUsage& stats) {
     if (!show_wss) {
-        ss << ::android::base::StringPrintf("%6" PRIu64 "K  ", stats.vss / 1024);
+        ss << ::android::base::StringPrintf("%6" PRIu64 "K  ", stats.vss);
     }
 
     ss << ::android::base::StringPrintf(
             "%6" PRIu64 "K  %6" PRIu64 "K  %6" PRIu64 "K  %6" PRIu64 "K  %6" PRIu64 "K  %6" PRIu64
             "K  %6" PRIu64 "K  %6" PRIu64 "K ",
-            stats.rss / 1024, stats.pss / 1024, stats.uss / 1024, stats.shared_clean / 1024,
-            stats.shared_dirty / 1024, stats.private_clean / 1024, stats.private_dirty / 1024,
-            stats.thp / 1024);
+            stats.rss, stats.pss, stats.uss, stats.shared_clean, stats.shared_dirty,
+            stats.private_clean, stats.private_dirty, stats.thp);
 }
 
 static int show(const MemUsage& proc_stats, const std::vector<Vma>& maps) {

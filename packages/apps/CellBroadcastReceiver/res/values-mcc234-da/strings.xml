@@ -29,11 +29,11 @@
     <string name="cmas_severe_alert" msgid="6989950459525380066">"Alarm ved alvorlig fare"</string>
     <string name="cmas_required_monthly_test" msgid="1226904101913162471">"Testalarm"</string>
     <string name="cmas_exercise_alert" msgid="4540370572086918020">"Øvelsesalarm"</string>
-    <string name="app_label" msgid="3863159788297913185">"Nødalarmer"</string>
-    <string name="sms_cb_settings" msgid="4187131985831792308">"Nødalarmer"</string>
-    <string name="enable_alerts_master_toggle_summary" msgid="805446672915814777">"Få notifikationer om nødalarmer"</string>
-    <string name="enable_alert_speech_summary" msgid="5021926525240750702">"Brug oplæsning for at få læst beskeder om nødalarmer"</string>
-    <string name="cmas_opt_out_dialog_text" msgid="1972978578760513449">"Du modtager i øjeblikket nødadvarsler. Vil du fortsætte med at modtage dem?"</string>
-    <string name="emergency_alert_settings_title_watches" msgid="5299419351642118203">"Nødalarmer"</string>
-    <string name="notification_cb_settings_changed_text" msgid="6861845802821634203">"Tryk for at se indstillinger for nødalarmer"</string>
+    <string name="app_label" msgid="3863159788297913185">"Varslinger"</string>
+    <string name="sms_cb_settings" msgid="4187131985831792308">"Varslinger"</string>
+    <string name="enable_alerts_master_toggle_summary" msgid="805446672915814777">"Få notifikationer om varsling"</string>
+    <string name="enable_alert_speech_summary" msgid="5021926525240750702">"Brug oplæsning for at få læst beskeder om varslinger"</string>
+    <string name="cmas_opt_out_dialog_text" msgid="1972978578760513449">"Du modtager i øjeblikket varslinger. Vil du fortsætte med at modtage dem?"</string>
+    <string name="emergency_alert_settings_title_watches" msgid="5299419351642118203">"Varslinger"</string>
+    <string name="notification_cb_settings_changed_text" msgid="6861845802821634203">"Tryk for at se indstillinger for varslinger"</string>
 </resources>

@@ -23,9 +23,11 @@ import static org.junit.Assert.assertTrue;
 import android.car.Car;
 import android.car.drivingstate.CarUxRestrictions;
 import android.car.drivingstate.CarUxRestrictionsManager;
+import android.car.test.ApiCheckerRule.Builder;
 import android.platform.test.annotations.AppModeFull;
 import android.platform.test.annotations.RequiresDevice;
 import android.test.suitebuilder.annotation.SmallTest;
+import android.util.Log;
 
 import androidx.test.runner.AndroidJUnit4;
 
@@ -37,13 +39,21 @@ import org.junit.runner.RunWith;
 @RequiresDevice
 @RunWith(AndroidJUnit4.class)
 @AppModeFull(reason = "Test relies on other server to connect to.")
-public class CarUxRestrictionsManagerTest extends CarApiTestBase {
+public final class CarUxRestrictionsManagerTest extends AbstractCarTestCase {
+
+    private static final String TAG = CarUxRestrictionsManagerTest.class.getSimpleName();
+
     private CarUxRestrictionsManager mManager;
+
+    // TODO(b/242350638): add missing annotations, remove (on child bug of 242350638)
+    @Override
+    protected void configApiCheckerRule(Builder builder) {
+        Log.w(TAG, "Disabling API requirements check");
+        builder.disableAnnotationsCheck();
+    }
 
     @Before
     public void setUp() throws Exception {
-        super.setUp();
-
         mManager = (CarUxRestrictionsManager)
                 getCar().getCarManager(Car.CAR_UX_RESTRICTION_SERVICE);
         assertNotNull(mManager);

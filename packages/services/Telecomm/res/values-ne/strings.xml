@@ -30,7 +30,7 @@
     <string name="notification_disconnectedCall_body" msgid="600491714584417536">"आपत्‌कालीन कल गरिएको हुनाले <xliff:g id="CALLER">%s</xliff:g> लाई गरिएको कल विच्छेद गरियो।"</string>
     <string name="notification_disconnectedCall_generic_body" msgid="5282765206349184853">"आपत्‌कालीन कल जारी रहेको हुनाले तपाईंको कल विच्छेद गरिएको छ।"</string>
     <string name="notification_audioProcessing_title" msgid="1619035039880584575">"पृष्ठभूमिको कल"</string>
-    <string name="notification_audioProcessing_body" msgid="6397005913770420388">"<xliff:g id="AUDIO_PROCESSING_APP_NAME">%s</xliff:g> ले एउटा कल पृष्ठभूमिमा राखेको छ। कल गरेको बेला यो एपले अडियोमाथि पहुँच राखेर प्ले गरिरहेको हुन सक्छ।"</string>
+    <string name="notification_audioProcessing_body" msgid="8811420157964118913">"<xliff:g id="AUDIO_PROCESSING_APP_NAME">%s</xliff:g> ले ब्याकग्राउन्डमा कुनै कल प्रोसेस गर्दै छ। यो एपले तपाईंको कलको अडियो प्रयोग गरिरहेको र सोही अडियो प्ले गरिरहेको हुन सक्छ।"</string>
     <string name="notification_incallservice_not_responding_title" msgid="5347557574288598548">"<xliff:g id="IN_CALL_SERVICE_APP_NAME">%s</xliff:g> ले काम गर्न छाड्यो"</string>
     <string name="notification_incallservice_not_responding_body" msgid="9209308270131968623">"कल गर्नका लागि तपाईंको डिभाइसमा पहिल्यैदेखि रहेको फोन एप प्रयोग गरियो"</string>
     <string name="accessibility_call_muted" msgid="2968461092554300779">"कल म्युट भयो।"</string>
@@ -100,6 +100,7 @@
     <string name="notification_channel_background_calls" msgid="7785659903711350506">"ब्याकग्राउन्डका कलहरू"</string>
     <string name="notification_channel_disconnected_calls" msgid="8228636543997645757">"विच्छेद गरिएका कल"</string>
     <string name="notification_channel_in_call_service_crash" msgid="7313237519166984267">"फोनमा रहेका क्र्यास भएका एपहरू"</string>
+    <string name="notification_channel_call_streaming" msgid="5100510699787538991">"कल स्ट्रिमिङ"</string>
     <string name="alert_outgoing_call" msgid="5319895109298927431">"यो कल गर्नुले तपाईंको <xliff:g id="OTHER_APP">%1$s</xliff:g> कल अन्त्य गर्दछ।"</string>
     <string name="alert_redirect_outgoing_call_or_not" msgid="665409645789521636">"यो कल गर्ने तरिका छनौट गर्नुहोस्"</string>
     <string name="alert_place_outgoing_call_with_redirection" msgid="5221065030959024121">"<xliff:g id="OTHER_APP">%1$s</xliff:g> प्रयोग गरी कल रिडाइरेक्ट गर्नुहोस्"</string>
@@ -123,4 +124,14 @@
     <string name="developer_title" msgid="9146088855661672353">"टेलिकमको विकासकर्ताको मेनु"</string>
     <string name="toast_emergency_can_not_pull_call" msgid="9074229465338410869">"आपत्‌कालीन कल चलिराखेको बेलामा अरु कल स्वीकार गर्न सकिँदैन।"</string>
     <string name="cancel" msgid="6733466216239934756">"रद्द गर्नुहोस्"</string>
+    <string name="back" msgid="6915955601805550206">"पछाडि"</string>
+    <string name="callendpoint_name_earpiece" msgid="7047285080319678594">"इयरपस"</string>
+    <string name="callendpoint_name_bluetooth" msgid="210210953208913172">"ब्लुटुथ"</string>
+    <string name="callendpoint_name_wiredheadset" msgid="6860787176412079742">"तारसहितको हेडसेट"</string>
+    <string name="callendpoint_name_speaker" msgid="1971760468695323189">"स्पिकर"</string>
+    <string name="callendpoint_name_streaming" msgid="2337595450408275576">"बाह्य"</string>
+    <string name="callendpoint_name_unknown" msgid="2199074708477193852">"अज्ञात"</string>
+    <string name="call_streaming_notification_body" msgid="502216105683378263">"अर्को डिभाइसमा अडियो स्ट्रिम गरिँदै छ"</string>
+    <string name="call_streaming_notification_action_hang_up" msgid="7017663335289063827">"कल काट्नुहोस्"</string>
+    <string name="call_streaming_notification_action_switch_here" msgid="3524180754186221228">"यहाँ गई बदल्नुहोस्"</string>
 </resources>

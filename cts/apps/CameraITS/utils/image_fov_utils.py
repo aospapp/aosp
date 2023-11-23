@@ -16,7 +16,6 @@
 
 import logging
 import math
-import unittest
 
 import cv2
 import camera_properties_utils
@@ -181,7 +180,7 @@ def find_fov_reference(cam, req, props, raw_bool, ref_img_name_stem):
     ref_img_name_stem: test _NAME + location to save data
 
   Returns:
-    ref_fov: dict with [fmt, % coverage, w, h, circle_w, circle_h]
+    ref_fov: dict with {fmt, % coverage, w, h, circle_w, circle_h}
     cc_ct_gt: circle center position relative to the center of image.
     aspect_ratio_gt: aspect ratio of the detected circle in float.
   """
@@ -252,55 +251,3 @@ def find_fov_reference(cam, req, props, raw_bool, ref_img_name_stem):
   ref_fov['circle_h'] = circle['h']
   logging.debug('Using %s reference: %s', fmt_type, str(ref_fov))
   return ref_fov, cc_ct_gt, aspect_ratio_gt
-
-
-class ImageFovUtilsTest(unittest.TestCase):
-  """Unit tests for this module."""
-
-  def test_calc_expected_circle_image_ratio(self):
-    """Unit test for calc_expected_circle_image_ratio.
-
-    Test by using 5% area circle in VGA cropped to nHD format
-    """
-    ref_fov = {'w': 640, 'h': 480, 'percent': 5}
-    # nHD format cut down
-    img_w, img_h = 640, 360
-    nhd = calc_expected_circle_image_ratio(ref_fov, img_w, img_h)
-    self.assertTrue(math.isclose(nhd, 5*480/360, abs_tol=0.01))
-
-  def test_check_ar(self):
-    """Unit test for aspect ratio check."""
-    # Circle true
-    circle = {'w': 1, 'h': 1}
-    ar_gt = 1.0
-    w, h = 640, 480
-    e_msg_stem = 'check_ar_true'
-    e_msg = check_ar(circle, ar_gt, w, h, e_msg_stem)
-    self.assertIsNone(e_msg)
-
-    # Circle false
-    circle = {'w': 2, 'h': 1}
-    e_msg_stem = 'check_ar_false'
-    e_msg = check_ar(circle, ar_gt, w, h, e_msg_stem)
-    self.assertIn('check_ar_false', e_msg)
-
-  def test_check_crop(self):
-    """Unit test for crop check."""
-    # Crop true
-    circle = {'w': 100, 'h': 100, 'x_offset': 1, 'y_offset': 1}
-    cc_gt = {'hori': 1.0, 'vert': 1.0}
-    w, h = 640, 480
-    e_msg_stem = 'check_crop_true'
-    crop_thresh_factor = 1
-    e_msg = check_crop(circle, cc_gt, w, h, e_msg_stem, crop_thresh_factor)
-    self.assertIsNone(e_msg)
-
-    # Crop false
-    circle = {'w': 100, 'h': 100, 'x_offset': 2, 'y_offset': 1}
-    e_msg_stem = 'check_crop_false'
-    e_msg = check_crop(circle, cc_gt, w, h, e_msg_stem, crop_thresh_factor)
-    self.assertIn('check_crop_false', e_msg)
-
-if __name__ == '__main__':
-  unittest.main()
-

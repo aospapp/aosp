@@ -40,7 +40,7 @@ import com.android.ims.internal.IRcsPresence;
  */
 public class RcsPresence {
     static final String TAG = "RcsPresence";
-    private boolean DBG = true;
+    private boolean DBG = false;
     private IRcsPresence mIRcsPresence = null;
 
     /**

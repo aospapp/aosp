@@ -36,6 +36,9 @@ typedef enum {
 
     /* Request failed because corrupt data was detected */
     CORRUPT = -3,
+
+    /* Request failed because unexpected ssl certificate received */
+    BAD_CERTIFICATE = -4
 } status_t;
 
 #define ARRAY_SIZE(X) (sizeof(X)/sizeof(X[0]))

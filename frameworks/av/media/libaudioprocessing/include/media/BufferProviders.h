@@ -142,9 +142,14 @@ public:
 
     bool isValid() const { return mIsValid; }
 
+    static bool isOutputChannelMaskSupported(audio_channel_mask_t outputChannelMask) {
+        return audio_utils::channels::IChannelMix::isOutputChannelMaskSupported(
+                outputChannelMask);
+    }
+
 protected:
-    audio_utils::channels::ChannelMix mChannelMix;
-    bool mIsValid = false;
+    const std::shared_ptr<audio_utils::channels::IChannelMix> mChannelMix;
+    const bool mIsValid;
 };
 
 // RemixBufferProvider derives from CopyBufferProvider to perform an
@@ -279,6 +284,27 @@ protected:
     size_t               mContractedWrittenFrames;
     size_t               mContractedOutputFrameSize; // contracted output frame size
 };
+
+class TeeBufferProvider : public CopyBufferProvider {
+public:
+    TeeBufferProvider(
+            size_t inputFrameSize, size_t outputFrameSize,
+            size_t bufferFrameCount, uint8_t* teeBuffer, int teeBufferFrameCount)
+            : CopyBufferProvider(inputFrameSize, outputFrameSize, bufferFrameCount),
+              mTeeBuffer(teeBuffer), mTeeBufferFrameCount(teeBufferFrameCount),
+              mFrameCopied(0) {};
+
+    void copyFrames(void *dst, const void *src, size_t frames) override;
+
+    void clearFramesCopied();
+
+protected:
+    AudioBufferProvider *mTrackBufferProvider;
+    uint8_t* mTeeBuffer;
+    const int mTeeBufferFrameCount;
+    int mFrameCopied;
+};
+
 // ----------------------------------------------------------------------------
 } // namespace android
 

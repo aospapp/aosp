@@ -19,6 +19,9 @@ package com.android.bedstead.testapp;
 import android.accounts.AccountManager;
 import android.accounts.RemoteAccountManager;
 import android.accounts.RemoteAccountManagerWrapper;
+import android.app.NotificationManager;
+import android.app.RemoteNotificationManager;
+import android.app.RemoteNotificationManagerWrapper;
 import android.app.admin.DevicePolicyManager;
 import android.app.admin.RemoteDevicePolicyManager;
 import android.app.admin.RemoteDevicePolicyManagerWrapper;
@@ -30,6 +33,8 @@ import android.content.Context;
 import android.content.IntentFilter;
 import android.content.RemoteContext;
 import android.content.RemoteContextWrapper;
+import android.content.RemoteRestrictionsManager;
+import android.content.RemoteRestrictionsManagerWrapper;
 import android.content.pm.CrossProfileApps;
 import android.content.pm.PackageManager;
 import android.content.pm.RemoteCrossProfileApps;
@@ -50,14 +55,19 @@ import android.os.UserManager;
 import android.security.KeyChain;
 import android.security.RemoteKeyChain;
 import android.security.RemoteKeyChainWrapper;
+import android.telecom.RemoteTelecomManager;
+import android.telecom.RemoteTelecomManagerWrapper;
+import android.telephony.RemoteSmsManager;
+import android.telephony.RemoteSmsManagerWrapper;
 
 import com.android.bedstead.nene.TestApis;
+import com.android.bedstead.nene.appops.AppOps;
 import com.android.bedstead.nene.exceptions.NeneException;
 import com.android.bedstead.nene.packages.ProcessReference;
 import com.android.bedstead.nene.users.UserReference;
 
 import com.google.android.enterprise.connectedapps.ConnectionListener;
-import com.google.android.enterprise.connectedapps.CrossProfileConnector;
+import com.google.android.enterprise.connectedapps.ProfileConnectionHolder;
 import com.google.android.enterprise.connectedapps.exceptions.UnavailableProfileException;
 
 import java.util.HashMap;
@@ -76,11 +86,12 @@ public class TestAppInstance implements AutoCloseable, ConnectionListener {
 
     private final TestApp mTestApp;
     private final UserReference mUser;
-    private final CrossProfileConnector mConnector;
+    private final TestAppConnector mConnector;
     private final Map<IntentFilter, Long> mRegisteredBroadcastReceivers = new HashMap<>();
     private final ProfileTestAppController mTestAppController;
     private final TestAppActivities mTestAppActivities;
     private boolean mKeepAliveManually = false;
+    private ProfileConnectionHolder mConnectionHolder = null;
     private final TestAppInstancePermissions mTestAppInstancePermissions =
             new TestAppInstancePermissions(this);
 
@@ -94,16 +105,15 @@ public class TestAppInstance implements AutoCloseable, ConnectionListener {
         }
         mTestApp = testApp;
         mUser = user;
-        mConnector = CrossProfileConnector.builder(TestApis.context().instrumentedContext())
-                .setBinder(new TestAppBinder(this))
-                .build();
-        mConnector.registerConnectionListener(this);
+        mConnector = TestAppConnector.create(TestApis.context().instrumentedContext(),
+                new TestAppBinder(this));
+        mConnector.addConnectionListener(this);
         mTestAppController =
                 ProfileTestAppController.create(mConnector);
         mTestAppActivities = TestAppActivities.create(this);
     }
 
-    CrossProfileConnector connector() {
+    TestAppConnector connector() {
         return mConnector;
     }
 
@@ -177,14 +187,11 @@ public class TestAppInstance implements AutoCloseable, ConnectionListener {
     }
 
     private void registerReceiver(IntentFilter intentFilter, long receiverId, int flags) {
-        try {
-            mConnector.connect();
+        try (ProfileConnectionHolder h = mConnector.connect()){
             mTestAppController.other().registerReceiver(receiverId, intentFilter, flags);
             mRegisteredBroadcastReceivers.put(intentFilter, receiverId);
         } catch (UnavailableProfileException e) {
             throw new IllegalStateException("Could not connect to test app", e);
-        } finally {
-            mConnector.stopManualConnectionManagement();
         }
     }
 
@@ -198,14 +205,11 @@ public class TestAppInstance implements AutoCloseable, ConnectionListener {
 
         long receiverId = mRegisteredBroadcastReceivers.remove(intentFilter);
 
-        try {
-            mConnector.connect();
+        try (ProfileConnectionHolder h = mConnector.connect()){
             mTestAppController.other().unregisterReceiver(receiverId);
             mRegisteredBroadcastReceivers.put(intentFilter, receiverId);
         } catch (UnavailableProfileException e) {
             throw new IllegalStateException("Could not connect to test app", e);
-        } finally {
-            mConnector.stopManualConnectionManagement();
         }
 
         if (mRegisteredBroadcastReceivers.isEmpty() && !mKeepAliveManually) {
@@ -234,7 +238,12 @@ public class TestAppInstance implements AutoCloseable, ConnectionListener {
     private void keepAlive(boolean manualKeepAlive) {
         mKeepAliveManually = manualKeepAlive;
         try {
-            connector().connect();
+            if (mConnectionHolder != null) {
+                mConnectionHolder.close();
+                mConnectionHolder = null;
+            }
+
+            mConnectionHolder = connector().connect();
         } catch (UnavailableProfileException e) {
             throw new IllegalStateException("Could not connect to test app. Is it installed?", e);
         }
@@ -247,7 +256,10 @@ public class TestAppInstance implements AutoCloseable, ConnectionListener {
      */
     public TestAppInstance stopKeepAlive() {
         mKeepAliveManually = false;
-        connector().stopManualConnectionManagement();
+        if (mConnectionHolder != null) {
+            mConnectionHolder.close();
+            mConnectionHolder = null;
+        }
         return this;
     }
 
@@ -306,7 +318,7 @@ public class TestAppInstance implements AutoCloseable, ConnectionListener {
      * <p>Almost all methods are available. Those that are not will be missing from the interface.
      */
     public RemoteDevicePolicyManager devicePolicyManager() {
-        return new RemoteDevicePolicyManagerWrapper(mConnector);
+        return new RemoteDevicePolicyManagerWrapper(mConnector, mUser, mTestApp.pkg());
     }
 
     /**
@@ -315,7 +327,7 @@ public class TestAppInstance implements AutoCloseable, ConnectionListener {
      * <p>Almost all methods are available. Those that are not will be missing from the interface.
      */
     public RemoteUserManager userManager() {
-        return new RemoteUserManagerWrapper(mConnector);
+        return new RemoteUserManagerWrapper(mConnector, mUser, mTestApp.pkg());
     }
 
     /**
@@ -324,7 +336,7 @@ public class TestAppInstance implements AutoCloseable, ConnectionListener {
      * <p>Almost all methods are available. Those that are not will be missing from the interface.
      */
     public RemoteWifiManager wifiManager() {
-        return new RemoteWifiManagerWrapper(mConnector);
+        return new RemoteWifiManagerWrapper(mConnector, mUser, mTestApp.pkg());
     }
 
     /**
@@ -333,7 +345,7 @@ public class TestAppInstance implements AutoCloseable, ConnectionListener {
      * <p>Almost all methods are available. Those that are not will be missing from the interface.
      */
     public RemoteHardwarePropertiesManager hardwarePropertiesManager() {
-        return new RemoteHardwarePropertiesManagerWrapper(mConnector);
+        return new RemoteHardwarePropertiesManagerWrapper(mConnector, mUser, mTestApp.pkg());
     }
 
     /**
@@ -342,7 +354,7 @@ public class TestAppInstance implements AutoCloseable, ConnectionListener {
      * <p>Almost all methods are available. Those that are not will be missing from the interface.
      */
     public RemotePackageManager packageManager() {
-        return new RemotePackageManagerWrapper(mConnector);
+        return new RemotePackageManagerWrapper(mConnector, mUser, mTestApp.pkg());
     }
 
     /**
@@ -351,7 +363,7 @@ public class TestAppInstance implements AutoCloseable, ConnectionListener {
      * <p>Almost all methods are available. Those that are not will be missing from the interface.
      */
     public RemoteCrossProfileApps crossProfileApps() {
-        return new RemoteCrossProfileAppsWrapper(mConnector);
+        return new RemoteCrossProfileAppsWrapper(mConnector, mUser, mTestApp.pkg());
     }
 
     /**
@@ -360,7 +372,7 @@ public class TestAppInstance implements AutoCloseable, ConnectionListener {
      * <p>Almost all methods are available. Those that are not will be missing from the interface.
      */
     public RemoteLauncherApps launcherApps() {
-        return new RemoteLauncherAppsWrapper(mConnector);
+        return new RemoteLauncherAppsWrapper(mConnector, mUser, mTestApp.pkg());
     }
 
     /**
@@ -369,7 +381,7 @@ public class TestAppInstance implements AutoCloseable, ConnectionListener {
      * <p>Almost all methods are available. Those that are not will be missing from the interface.
      */
     public RemoteAccountManager accountManager() {
-        return new RemoteAccountManagerWrapper(mConnector);
+        return new RemoteAccountManagerWrapper(mConnector, mUser, mTestApp.pkg());
     }
 
     /**
@@ -378,7 +390,7 @@ public class TestAppInstance implements AutoCloseable, ConnectionListener {
      * <p>Almost all methods are available. Those that are not will be missing from the interface.
      */
     public RemoteContext context() {
-        return new RemoteContextWrapper(mConnector);
+        return new RemoteContextWrapper(mConnector, mUser, mTestApp.pkg());
     }
 
     /**
@@ -387,7 +399,7 @@ public class TestAppInstance implements AutoCloseable, ConnectionListener {
      * <p>Almost all methods are available. Those that are not will be missing from the interface.
      */
     public RemoteKeyChain keyChain() {
-        return new RemoteKeyChainWrapper(mConnector);
+        return new RemoteKeyChainWrapper(mConnector, mUser, mTestApp.pkg());
     }
 
     /**
@@ -396,7 +408,43 @@ public class TestAppInstance implements AutoCloseable, ConnectionListener {
      * <p>Almost all methods are available. Those that are not will be missing from the interface.
      */
     public RemoteBluetoothManager bluetoothManager() {
-        return new RemoteBluetoothManagerWrapper(mConnector);
+        return new RemoteBluetoothManagerWrapper(mConnector, mUser, mTestApp.pkg());
+    }
+
+    /**
+     * Access the {@link NotificationManager} using this test app.
+     *
+     * <p>Almost all methods are available. Those that are not will be missing from the interface.
+     */
+    public RemoteNotificationManager notificationManager() {
+        return new RemoteNotificationManagerWrapper(mConnector, mUser, mTestApp.pkg());
+    }
+
+    /**
+     * Access the {@link android.telephony.SmsManager} using this test app.
+     *
+     * <p>Almost all methods are available. Those that are not will be missing from the interface.
+     */
+    public RemoteSmsManager smsManager() {
+        return new RemoteSmsManagerWrapper(mConnector, mUser, mTestApp.pkg());
+    }
+
+    /**
+     * Access the {@link TelecomManager} using this test app.
+     *
+     * <p>Almost all methods are available. Those that are not will be missing from the interface.
+     */
+    public RemoteTelecomManager telecomManager() {
+        return new RemoteTelecomManagerWrapper(mConnector, mUser, mTestApp.pkg());
+    }
+
+    /**
+     * Access the {@link android.content.RestrictionsManager} using this test app.
+     *
+     * <p>Almost all methods are available. Those that are not will be missing from the interface.
+     */
+    public RemoteRestrictionsManager restrictionsManager() {
+        return new RemoteRestrictionsManagerWrapper(mConnector, mUser, mTestApp.pkg());
     }
 
     /**
@@ -404,6 +452,13 @@ public class TestAppInstance implements AutoCloseable, ConnectionListener {
      */
     public TestAppInstancePermissions permissions() {
         return mTestAppInstancePermissions;
+    }
+
+    /**
+     * Access AppOps for this test app.
+     */
+    public AppOps appOps() {
+        return testApp().pkg().appOps(mUser);
     }
 
     @Override

@@ -24,9 +24,9 @@ import android.util.Log;
 import java.util.concurrent.Executor;
 
 /** @hide */
-final class TcpSocketKeepalive extends SocketKeepalive {
+public final class TcpSocketKeepalive extends SocketKeepalive {
 
-    TcpSocketKeepalive(@NonNull IConnectivityManager service,
+    public TcpSocketKeepalive(@NonNull IConnectivityManager service,
             @NonNull Network network,
             @NonNull ParcelFileDescriptor pfd,
             @NonNull Executor executor,
@@ -50,7 +50,17 @@ final class TcpSocketKeepalive extends SocketKeepalive {
      *   acknowledgement.
      */
     @Override
-    void startImpl(int intervalSec) {
+    protected void startImpl(int intervalSec, int flags, Network underpinnedNetwork) {
+        if (0 != flags) {
+            throw new IllegalArgumentException("Illegal flag value for "
+                    + this.getClass().getSimpleName() + " : " + flags);
+        }
+
+        if (underpinnedNetwork != null) {
+            throw new IllegalArgumentException("Illegal underpinned network for "
+                    + this.getClass().getSimpleName() + " : " + underpinnedNetwork);
+        }
+
         mExecutor.execute(() -> {
             try {
                 mService.startTcpKeepalive(mNetwork, mPfd, intervalSec, mCallback);
@@ -62,12 +72,10 @@ final class TcpSocketKeepalive extends SocketKeepalive {
     }
 
     @Override
-    void stopImpl() {
+    protected void stopImpl() {
         mExecutor.execute(() -> {
             try {
-                if (mSlot != null) {
-                    mService.stopKeepalive(mNetwork, mSlot);
-                }
+                mService.stopKeepalive(mCallback);
             } catch (RemoteException e) {
                 Log.e(TAG, "Error stopping packet keepalive: ", e);
                 throw e.rethrowFromSystemServer();

@@ -157,7 +157,7 @@ disk_stats_delta_wr() {
 clean_up_tracepoints() {
     # This is a good point to check if the Android FS tracepoints are enabled in the
     # kernel or not
-    tracepoint_exists=`adb shell 'if [ -d /sys/kernel/debug/tracing/events/android_fs ]; then echo 0; else echo 1; fi' `
+    tracepoint_exists=`adb shell 'if [ -d /sys/kernel/debug/tracing/events/f2fs ]; then echo 0; else echo 1; fi' `
     if [ $tracepoint_exists == 1 ]; then
 	echo "Android FS tracepoints not enabled in kernel. Exiting..."
 	exit 1
@@ -165,14 +165,14 @@ clean_up_tracepoints() {
     adb shell 'echo 0 > /sys/kernel/debug/tracing/tracing_on'
     adb shell 'echo 0 > /sys/kernel/debug/tracing/trace'
     if [ $trace_reads == true ]; then
-	adb shell 'echo 1 > /sys/kernel/debug/tracing/events/android_fs/android_fs_dataread_start/enable'
+	adb shell 'echo 1 > /sys/kernel/debug/tracing/events/f2fs/f2fs_dataread_start/enable'
     fi
     if [ $trace_writes == true ]; then
-	adb shell 'echo 1 > /sys/kernel/debug/tracing/events/android_fs/android_fs_datawrite_start/enable'
+	adb shell 'echo 1 > /sys/kernel/debug/tracing/events/f2fs/f2fs_datawrite_start/enable'
     fi
     if [ $f2fs_fs == 1 ] ; then
 	if [ $trace_writepages == true ]; then
-	    adb shell 'echo 1 > /sys/kernel/debug/tracing/events/android_fs/android_fs_writepages/enable'
+	    adb shell 'echo 1 > /sys/kernel/debug/tracing/events/f2fs/f2fs_writepages/enable'
 	fi
     fi
     adb shell 'echo 1 > /sys/kernel/debug/tracing/tracing_on'
@@ -197,14 +197,14 @@ streamtrace_end() {
 copyout_trace() {
     streamtrace_end
     if [ $trace_reads == true ]; then
-	adb shell 'echo 0 > /sys/kernel/debug/tracing/events/android_fs/android_fs_dataread_start/enable'
+	adb shell 'echo 0 > /sys/kernel/debug/tracing/events/f2fs/f2fs_dataread_start/enable'
     fi
     if [ $trace_writes == true ]; then
-	adb shell 'echo 0 > /sys/kernel/debug/tracing/events/android_fs/android_fs_datawrite_start/enable'
+	adb shell 'echo 0 > /sys/kernel/debug/tracing/events/f2fs/f2fs_datawrite_start/enable'
     fi
     if [ $f2fs_fs == 1 ] ; then
 	if [ $trace_writepages == true ]; then
-	    adb shell 'echo 0 > /sys/kernel/debug/tracing/events/android_fs/android_fs_writepages/enable'
+	    adb shell 'echo 0 > /sys/kernel/debug/tracing/events/f2fs/f2fs_writepages/enable'
 	fi
     fi
     adb shell 'echo 0 > /sys/kernel/debug/tracing/tracing_on'
@@ -218,11 +218,11 @@ prep_tracefile_common() {
 }
 
 prep_tracefile_rd() {
-    prep_tracefile_common android_fs_dataread
+    prep_tracefile_common f2fs_dataread
     # Strip away unnecessary stuff so we can compute latencies easily
-    fgrep android_fs_dataread_start $infile > foo0
-    # Throw away everything upto and including android_fs_dataread:
-    cat foo0 | sed -n -e 's/^.*android_fs_dataread_start //p' > foo1
+    fgrep f2fs_dataread_start $infile > foo0
+    # Throw away everything upto and including f2fs_dataread:
+    cat foo0 | sed -n -e 's/^.*f2fs_dataread_start //p' > foo1
     mv foo1 $infile
     # At this stage, $infile should the following format :
     # entry_name <filename> offset <offset> bytes <bytes> cmdline <cmdline> pid <pid> i_size <i_size> ino <ino>
@@ -230,9 +230,9 @@ prep_tracefile_rd() {
 }
 
 prep_tracefile_writepages() {
-    prep_tracefile_common android_fs_writepages
-    # Throw away everything up to and including android_fs_writepages_start:
-    cat $infile | sed -n -e 's/^.*android_fs_writepages //p' > foo1
+    prep_tracefile_common f2fs_writepages
+    # Throw away everything up to and including f2fs_writepages_start:
+    cat $infile | sed -n -e 's/^.*f2fs_writepages //p' > foo1
     mv foo1 $infile
     # At this stage, $infile should the following format :
     # entry_name <filename> bytes <bytes> ino <ino>
@@ -241,10 +241,10 @@ prep_tracefile_writepages() {
 # Latencies not supported for Writes. 'Write End' is just when the data has been
 # written back to page cache.
 prep_tracefile_wr() {
-    prep_tracefile_common android_fs_datawrite
-    fgrep android_fs_datawrite_start $infile > foo0
-    # Throw away everything upto and including android_fs_datawrite:
-    cat foo0 | sed -n -e 's/^.*android_fs_datawrite_start //p' > foo1
+    prep_tracefile_common f2fs_datawrite
+    fgrep f2fs_datawrite_start $infile > foo0
+    # Throw away everything upto and including f2fs_datawrite:
+    cat foo0 | sed -n -e 's/^.*f2fs_datawrite_start //p' > foo1
     mv foo1 $infile
     # At this stage, $infile should the following format :
     # entry_name <filename> offset <offset> bytes <bytes> cmdline <cmdline> pid <pid> i_size <i_size> ino <ino>

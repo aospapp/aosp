@@ -1,16 +1,21 @@
+# Lint as: python2, python3
 # Copyright 2017 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
 """Power cycle a usb port on DUT(device under test)."""
 
+from __future__ import absolute_import
+from __future__ import division
 from __future__ import print_function
-
-from autotest_lib.client.common_lib.cros.cfm.usb import usb_port_manager
 
 import logging
 import os
+from six.moves import zip
 import time
+
+from autotest_lib.client.common_lib.cros.cfm.usb import usb_port_manager
+
 
 TOKEN_NEW_BUS = '/:  '
 TOKEN_ROOT_DEVICE = '\n    |__ '

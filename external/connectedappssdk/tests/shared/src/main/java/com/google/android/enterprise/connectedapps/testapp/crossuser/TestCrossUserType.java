@@ -16,12 +16,26 @@
 package com.google.android.enterprise.connectedapps.testapp.crossuser;
 
 import com.google.android.enterprise.connectedapps.annotations.CrossUser;
+import com.google.android.enterprise.connectedapps.testapp.TestStringCallbackListener;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
 
-@CrossUser(connector = TestCrossUserConnector.class, timeoutMillis = 7000)
+@CrossUser(connector = AppCrossUserConnector.class)
 public class TestCrossUserType {
 
   @CrossUser
-  public void passString(String string, TestCrossUserStringCallbackListener callbackListener) {
+  public String identityStringMethod(String string) {
+    return string;
+  }
+
+  @CrossUser
+  public ListenableFuture<String> listenableFutureIdentityStringMethod(String string) {
+    return Futures.immediateFuture(string);
+  }
+
+  @CrossUser
+  public void asyncIdentityStringMethod(
+      String string, TestStringCallbackListener callbackListener) {
     callbackListener.stringCallback(string);
   }
 }

@@ -12,6 +12,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+#pragma once
 
 #include <fruit/fruit.h>
 
@@ -23,8 +24,10 @@ namespace cuttlefish {
 
 class SuperImageRebuilder : public SetupFeature {};
 
-fruit::Component<fruit::Required<const FetcherConfig, const CuttlefishConfig>,
+fruit::Component<fruit::Required<const FetcherConfig, const CuttlefishConfig,
+                                 const CuttlefishConfig::InstanceSpecific>,
                  SuperImageRebuilder>
-SuperImageRebuilderComponent(const std::string* output_path);
+SuperImageRebuilderComponent();
+bool SuperImageNeedsRebuilding(const FetcherConfig& fetcher_config);
 
 } // namespace cuttlefish

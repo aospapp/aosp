@@ -47,6 +47,11 @@ std::string GetAndroidRoot();
 // Find $ANDROID_ROOT, /system, or return an empty string.
 std::string GetAndroidRootSafe(/*out*/ std::string* error_msg);
 
+// Find $SYSTEM_EXT_ROOT, /system_ext, or abort.
+std::string GetSystemExtRoot();
+// Find $SYSTEM_EXT_ROOT, /system_ext, or return an empty string.
+std::string GetSystemExtRootSafe(/*out*/ std::string* error_msg);
+
 // These methods return the ART Root, which is the location of the (activated)
 // ART APEX module. On target, this is normally "/apex/com.android.art". On
 // host, this is usually a subdirectory of the Android Root, e.g.
@@ -66,6 +71,11 @@ std::string GetAndroidData();
 // Find $ANDROID_DATA, /data, or return an empty string.
 std::string GetAndroidDataSafe(/*out*/ std::string* error_msg);
 
+// Find $ANDROID_EXPAND, /mnt/expand, or abort.
+std::string GetAndroidExpand();
+// Find $ANDROID_EXPAND, /mnt/expand, or return an empty string.
+std::string GetAndroidExpandSafe(/*out*/ std::string* error_msg);
+
 // Find $ART_APEX_DATA, /data/misc/apexdata/com.android.art, or abort.
 std::string GetArtApexData();
 
@@ -73,13 +83,23 @@ std::string GetArtApexData();
 // generated at build time).
 std::string GetPrebuiltPrimaryBootImageDir();
 
-// Returns the default boot image location (ANDROID_ROOT/framework/boot.art).
-// Returns an empty string if ANDROID_ROOT is not set.
-std::string GetDefaultBootImageLocation(std::string* error_msg);
+// Returns the filename of the first mainline framework library.
+std::string GetFirstMainlineFrameworkLibraryFilename(std::string* error_msg);
 
 // Returns the default boot image location, based on the passed `android_root`.
+// Returns an empty string if an error occurs.
+// The default boot image location can only be used with the default bootclasspath (the value of the
+// BOOTCLASSPATH environment variable).
+std::string GetDefaultBootImageLocationSafe(const std::string& android_root,
+                                            bool deny_art_apex_data_files,
+                                            std::string* error_msg);
+
+// Same as above, but fails if an error occurs.
 std::string GetDefaultBootImageLocation(const std::string& android_root,
                                         bool deny_art_apex_data_files);
+
+// Returns the boot image location that forces the runtime to run in JIT Zygote mode.
+std::string GetJitZygoteBootImageLocation();
 
 // Allows the name to be used for the dalvik cache directory (normally "dalvik-cache") to be
 // overridden with a new value.
@@ -159,6 +179,9 @@ bool LocationIsOnI18nModule(std::string_view location);
 
 // Return whether the location is on system (i.e. android root).
 bool LocationIsOnSystem(const std::string& location);
+
+// Return whether the location is on system_ext
+bool LocationIsOnSystemExt(const std::string& location);
 
 // Return whether the location is on system/framework (i.e. $ANDROID_ROOT/framework).
 bool LocationIsOnSystemFramework(std::string_view location);

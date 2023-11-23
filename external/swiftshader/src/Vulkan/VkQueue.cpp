@@ -197,11 +197,16 @@ VkResult Queue::present(const VkPresentInfoKHR *presentInfo)
 	// to get rid of it. b/132458423
 	waitIdle();
 
+	// Note: VkSwapchainPresentModeInfoEXT can be used to override the present mode, but present
+	// mode is currently ignored by SwiftShader.
+
 	for(uint32_t i = 0; i < presentInfo->waitSemaphoreCount; i++)
 	{
 		auto *semaphore = vk::DynamicCast<BinarySemaphore>(presentInfo->pWaitSemaphores[i]);
 		semaphore->wait();
 	}
+
+	const auto *presentFences = vk::GetExtendedStruct<VkSwapchainPresentFenceInfoEXT>(presentInfo->pNext, VK_STRUCTURE_TYPE_SWAPCHAIN_PRESENT_FENCE_INFO_EXT);
 
 	VkResult commandResult = VK_SUCCESS;
 
@@ -223,6 +228,12 @@ VkResult Queue::present(const VkPresentInfoKHR *presentInfo)
 			{
 				commandResult = perSwapchainResult;
 			}
+		}
+
+		// The wait semaphores and the swapchain are no longer accessed
+		if(presentFences)
+		{
+			vk::Cast(presentFences->pFences[i])->complete();
 		}
 	}
 

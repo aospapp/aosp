@@ -20,6 +20,9 @@ import android.app.Activity;
 import android.app.DirectAction;
 import android.app.VoiceInteractor;
 import android.content.Intent;
+import android.content.pm.PackageInfo;
+import android.content.pm.PackageManager;
+import android.content.pm.PackageManager.NameNotFoundException;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.CancellationSignal;
@@ -77,6 +80,11 @@ public final class DirectActionsActivity extends Activity {
                     final RemoteCallback commandCallback = cmdArgs.getParcelable(
                             Utils.VOICE_INTERACTION_KEY_CALLBACK);
                     getPackageName(commandCallback);
+                } break;
+                case Utils.DIRECT_ACTIONS_ACTIVITY_CMD_GET_PACKAGE_INFO: {
+                    final RemoteCallback commandCallback = cmdArgs.getParcelable(
+                            Utils.VOICE_INTERACTION_KEY_CALLBACK);
+                    getPackageInfo(commandCallback);
                 } break;
             }
         });
@@ -167,6 +175,29 @@ public final class DirectActionsActivity extends Activity {
         final Bundle result = new Bundle();
         result.putString(Utils.DIRECT_ACTIONS_KEY_RESULT, packageName);
         Log.v(TAG, "getPackageName(): " + Utils.toBundleString(result));
+        callback.sendResult(result);
+    }
+
+    private void getPackageInfo(@NonNull RemoteCallback callback) {
+        String packageName = getVoiceInteractor().getPackageName();
+        PackageManager packageManager = getPackageManager();
+        final Bundle result = new Bundle();
+        if (packageManager != null) {
+            Log.v(TAG, "Found Package Manager");
+            try {
+                PackageInfo packageInfo = packageManager.getPackageInfo(packageName,
+                        PackageManager.GET_META_DATA | PackageManager.GET_SERVICES);
+                result.putParcelable(Utils.DIRECT_ACTIONS_KEY_RESULT, packageInfo);
+                callback.sendResult(result);
+                return;
+            } catch (NameNotFoundException e) {
+                Log.e(TAG, "getPackageInfo failed: " + e.toString());
+            } catch (Exception e) {
+                Log.e(TAG, "getPackageInfo failed with Exception: " + e.toString());
+            }
+        }
+
+        result.putParcelable(Utils.DIRECT_ACTIONS_KEY_RESULT, null);
         callback.sendResult(result);
     }
 

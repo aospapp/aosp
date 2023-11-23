@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # Copyright (c) 2018 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -9,6 +10,14 @@ from autotest_lib.client.common_lib import error
 
 SHORT_TIMEOUT = 2
 LONG_TIMEOUT = 30
+
+def _ascii_string(uc_string):
+    """Returns ascii string given unicode string.
+
+    @param uc_string: Unicode string
+
+    """
+    return str(uc_string).encode('ASCII')
 
 class TelnetHelper(object):
     """Helper class to run basic string commands on a telnet host."""
@@ -62,12 +71,12 @@ class TelnetHelper(object):
 
         cmd_str.strip(self._tx_cmd_separator)
         try:
-            self._tn.read_until(self._prompt, SHORT_TIMEOUT)
+            self._tn.read_until(_ascii_string(self._prompt), SHORT_TIMEOUT)
         except EOFError as e:
             raise error.TestError("Connection closed. EOFError (%s)" % e)
 
         try:
-            self._tn.write(cmd_str + self._tx_cmd_separator)
+            self._tn.write(_ascii_string(cmd_str + self._tx_cmd_separator))
         except socket.error as e:
             raise error.TestError("Connection closed. Socket error (%s)." % e)
 
@@ -75,9 +84,8 @@ class TelnetHelper(object):
             return None
 
         try:
-            match_channel_idx, _, ret_text = \
-                    self._tn.expect(["\S+" + self._rx_cmd_separator],
-                                    SHORT_TIMEOUT)
+            match_channel_idx, _, ret_text = self._tn.expect(
+                [_ascii_string("\S+" + self._rx_cmd_separator)], SHORT_TIMEOUT)
         except EOFError as e:
             raise error.TestError("Connection closed. EOFError (%s)" % e)
 
@@ -85,6 +93,7 @@ class TelnetHelper(object):
             raise error.TestError("Telnet command failed to return valid data. "
                                   "Data returned: %s" % ret_text)
 
+        ret_text = ret_text.decode()
         ret_text = ret_text.strip()
 
         return ret_text

@@ -23,6 +23,7 @@
     <string name="bt_share_picker_label" msgid="7464438494743777696">"Bluetooth"</string>
     <string name="unknown_device" msgid="2317679521750821654">"Bilinmeyen cihaz"</string>
     <string name="unknownNumber" msgid="1245183329830158661">"Bilinmiyor"</string>
+    <string name="not_provided" msgid="6938740494380012614">"Belirtilmedi"</string>
     <string name="airplane_error_title" msgid="2570111716678850860">"Uçak modu"</string>
     <string name="airplane_error_msg" msgid="4853111123699559578">"Uçak modunda Bluetooth\'u kullanamazsınız."</string>
     <string name="bt_enable_title" msgid="4484289159118416315"></string>
@@ -128,4 +129,10 @@
     <string name="a2dp_sink_mbs_label" msgid="6035366346569127155">"Bluetooth Ses"</string>
     <string name="bluetooth_opp_file_limit_exceeded" msgid="6612109860149473930">"4 GB\'tan büyük dosyalar aktarılamaz"</string>
     <string name="bluetooth_connect_action" msgid="2319449093046720209">"Bluetooth\'a bağlan"</string>
+    <string name="bluetooth_enabled_apm_title" msgid="6914461147844949044">"Uçak modundayken Bluetooth açık"</string>
+    <string name="bluetooth_enabled_apm_message" msgid="6168686193308136881">"Kablosuz bağlantıyı açık tutarsanız cihazınız, daha sonra tekrar uçak modunda olduğunuzda kablosuz bağlantıyı açık tutar"</string>
+    <string name="bluetooth_stays_on_title" msgid="39720820955212918">"Bluetooth açık kalır"</string>
+    <string name="bluetooth_stays_on_message" msgid="3669663452593157737">"Cihazınız, uçak modundayken Bluetooth\'u açık tutmayı hatırlar. Açık kalmasını istemiyorsanız Bluetooth\'u kapatın."</string>
+    <string name="bluetooth_and_wifi_stays_on_title" msgid="5821932798860821244">"Kablosuz bağlantı ve Bluetooth açık kalır"</string>
+    <string name="bluetooth_and_wifi_stays_on_message" msgid="7848565203843882558">"Cihazınız, uçak modundayken kablosuz bağlantıyı ve Bluetooth\'u açık tutmayı hatırlar. Açık kalmasını istemiyorsanız kablosuz bağlantıyı ve Bluetooth\'u kapatın."</string>
 </resources>

@@ -30,7 +30,7 @@ import android.util.Log;
 
 import androidx.annotation.WorkerThread;
 
-import com.android.server.nearby.common.bloomfilter.BloomFilter;
+import com.android.internal.annotations.VisibleForTesting;
 import com.android.server.nearby.fastpair.footprint.FastPairUploadInfo;
 
 import java.util.ArrayList;
@@ -78,6 +78,11 @@ public class FastPairDataProvider {
         } else {
             Log.d("FastPairService", "the fast pair proxy provider initiated");
         }
+    }
+
+    @VisibleForTesting
+    void setProxyDataProvider(ProxyFastPairDataProvider proxyFastPairDataProvider) {
+        this.mProxyFastPairDataProvider = proxyFastPairDataProvider;
     }
 
     /**
@@ -133,14 +138,6 @@ public class FastPairDataProvider {
             return;
         }
         throw new IllegalStateException("No ProxyFastPairDataProvider yet constructed");
-    }
-
-    /**
-     * Get recognized device from bloom filter.
-     */
-    public Data.FastPairDeviceWithAccountKey getRecognizedDevice(BloomFilter bloomFilter,
-            byte[] salt) {
-        return Data.FastPairDeviceWithAccountKey.newBuilder().build();
     }
 
     /**

@@ -19,6 +19,7 @@ import java.io.BufferedReader;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.ByteBuffer;
+import java.text.ParseException;
 import java.util.Arrays;
 import java.util.function.BiFunction;
 import java.util.function.Function;
@@ -26,7 +27,6 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
-import java.text.ParseException;
 
 /**
  * Parses an API definition given as a text file with DEX signatures of class
@@ -38,8 +38,18 @@ import java.text.ParseException;
  */
 public class DexApiDocumentParser {
 
-    // Regex patterns which match DEX signatures of methods and fields.
-    // See comment by next() for more details.
+    /*
+     * Regex patterns which match DEX signatures of methods and fields.
+     *
+     * The following two line formats are supported:
+     * 1) [class descriptor]->[field name]:[field type]
+     *      - e.g. Lcom/example/MyClass;->myField:I
+     *      - these lines are parsed as field signatures
+     * 2) [class descriptor]->[method name]([method parameter types])[method return type]
+     *      - e.g. Lcom/example/MyClass;->myMethod(Lfoo;Lbar;)J
+     *      - these lines are parsed as method signatures
+     * NB there are parens present in method signatures but not field signatures.
+     */
     private static final Pattern REGEX_FIELD = Pattern.compile("^(L[^>]*;)->(.*):(.*)$");
     private static final Pattern REGEX_METHOD =
             Pattern.compile("^(L[^>]*;)->(.*)(\\(.*\\).*)$");
@@ -83,7 +93,7 @@ public class DexApiDocumentParser {
         return parseAsStream(buffer, LINE_LENGTH_ESTIMATE);
     }
     public Stream<DexMember> parseAsStream(ByteBuffer buffer, int lineLengthEstimate) {
-        // TODO: Ensurance that the input conforms to ByteBufferLineSpliterator requirements.
+        // TODO: Ensure that the input conforms to ByteBufferLineSpliterator requirements.
         return StreamSupport.stream(new ByteBufferLineSpliterator<DexMember>(buffer,
                 lineLengthEstimate, DEX_MEMBER_CONVERTER), true);
     }
@@ -94,26 +104,21 @@ public class DexApiDocumentParser {
         String signature = splitLine[0];
         String[] flags = Arrays.copyOfRange(splitLine, 1, splitLine.length);
 
-        // Match line against regex patterns.
-        Matcher matchField = REGEX_FIELD.matcher(signature);
-        Matcher matchMethod = REGEX_METHOD.matcher(signature);
-
-        // Check that *exactly* one pattern matches.
-        int matchCount = (matchField.matches() ? 1 : 0) + (matchMethod.matches() ? 1 : 0);
-        if (matchCount == 0) {
-            throw new ParseException("Could not parse: \"" + line + "\"", lineNum);
-        } else if (matchCount > 1) {
-            throw new ParseException("Ambiguous parse: \"" + line + "\"", lineNum);
+        // Check if the signature has the form of a field signature (no parens present).
+        final boolean memberIsField = (signature.indexOf('(') < 0);
+        if (memberIsField) {
+            Matcher matchField = REGEX_FIELD.matcher(signature);
+            if (matchField.matches()) {
+                return new DexField(
+                        matchField.group(1), matchField.group(2), matchField.group(3), flags);
+            }
+        } else {
+            Matcher matchMethod = REGEX_METHOD.matcher(signature);
+            if (matchMethod.matches()) {
+                return new DexMethod(
+                        matchMethod.group(1), matchMethod.group(2), matchMethod.group(3), flags);
+            }
         }
-
-        // Extract information from the signature.
-        if (matchField.matches()) {
-            return new DexField(
-                    matchField.group(1), matchField.group(2), matchField.group(3), flags);
-        } else if (matchMethod.matches()) {
-            return new DexMethod(
-                    matchMethod.group(1),matchMethod.group(2), matchMethod.group(3), flags);
-        }
-        throw new IllegalStateException();
+        throw new ParseException("Could not parse: \"" + line + "\"", lineNum);
     }
 }

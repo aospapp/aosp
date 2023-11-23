@@ -271,7 +271,7 @@ public class RuntimeData {
 
 		// stack[0]: [Z
 
-		mv.visitTypeInsn(Opcodes.CHECKCAST, InstrSupport.DATAFIELD_DESC);
+		mv.visitTypeInsn(Opcodes.CHECKCAST, InstrSupport.DATAFIELD_DESC_UNQUALIFIED);
 	}
 
 }

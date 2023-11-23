@@ -41,7 +41,7 @@ public class ScreenReaderCategoryPreferenceController extends
     }
 
     @Override
-    protected int getAvailabilityStatus() {
+    protected int getDefaultAvailabilityStatus() {
         boolean screenReaderInstalled = ScreenReaderUtils.isScreenReaderInstalled(getContext());
         return screenReaderInstalled ? AVAILABLE : CONDITIONALLY_UNAVAILABLE;
     }

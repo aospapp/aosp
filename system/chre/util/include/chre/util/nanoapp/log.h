@@ -27,9 +27,8 @@
  */
 #ifdef CHRE_IS_NANOAPP_BUILD
 
-#include <chre.h>
-
 #include "chre/util/log_common.h"
+#include "chre_api/chre.h"
 
 #ifndef NANOAPP_MINIMUM_LOG_LEVEL
 #error "NANOAPP_MINIMUM_LOG_LEVEL must be defined"

@@ -34,11 +34,11 @@ import android.util.Log;
 import androidx.annotation.Keep;
 import androidx.preference.Preference;
 import androidx.preference.PreferenceScreen;
-import androidx.preference.SwitchPreference;
 
 import com.android.settingslib.applications.ServiceListing;
 import com.android.tv.settings.R;
 import com.android.tv.settings.SettingsPreferenceFragment;
+import com.android.tv.settings.widget.SwitchWithSoundPreference;
 
 import java.util.List;
 
@@ -48,6 +48,8 @@ import java.util.List;
 @Keep
 public class NotificationAccess extends SettingsPreferenceFragment {
     private static final String TAG = "NotificationAccess";
+
+    private static final int MAX_CN_LENGTH = 500;
 
     private static final String HEADER_KEY = "header";
 
@@ -76,6 +78,12 @@ public class NotificationAccess extends SettingsPreferenceFragment {
                 .setIntentAction(NotificationListenerService.SERVICE_INTERFACE)
                 .setPermission(android.Manifest.permission.BIND_NOTIFICATION_LISTENER_SERVICE)
                 .setNoun("notification listener")
+                .setValidator(info -> {
+                    if (info.getComponentName().flattenToString().length() > MAX_CN_LENGTH) {
+                        return false;
+                    }
+                    return true;
+                 })
                 .build();
         mServiceListing.addCallback(this::updateList);
     }
@@ -122,7 +130,8 @@ public class NotificationAccess extends SettingsPreferenceFragment {
                 Log.w(TAG, "can't find package name", e);
             }
             final String summary = service.loadLabel(mPackageManager).toString();
-            final SwitchPreference pref = new SwitchPreference(getPreferenceManager().getContext());
+            final SwitchWithSoundPreference pref = new SwitchWithSoundPreference(
+                    getPreferenceManager().getContext());
             pref.setPersistent(false);
             pref.setIcon(mIconDrawableFactory.getBadgedIcon(service, service.applicationInfo,
                     UserHandle.getUserId(service.applicationInfo.uid)));

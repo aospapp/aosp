@@ -27,8 +27,8 @@ namespace topshim {
 namespace rust {
 
 struct RustApcfCommand;
+struct RustMsftAdvMonitor;
 struct RustGattFilterParam;
-struct RustRawAddress;
 struct RustUuid;
 
 class BleScannerIntf : public ScanningCallbacks {
@@ -73,6 +73,7 @@ class BleScannerIntf : public ScanningCallbacks {
       uint16_t sync_handle, int8_t tx_power, int8_t rssi, uint8_t status, std::vector<uint8_t> data) override;
   void OnPeriodicSyncLost(uint16_t sync_handle) override;
   void OnPeriodicSyncTransferred(int pa_source, uint8_t status, RawAddress address) override;
+  void OnBigInfoReport(uint16_t sync_handle, bool encrypted) override;
 
   // Implementations of BleScannerInterface. These don't inherit from
   // BleScannerInterface because the Rust FFI boundary requires some clever
@@ -102,6 +103,18 @@ class BleScannerIntf : public ScanningCallbacks {
   // Enable/disable scan filter. Gets responses via |OnEnableCallback|.
   void ScanFilterEnable(bool enable);
 
+  // Is MSFT Extension supported?
+  bool IsMsftSupported();
+
+  // Adds an MSFT filter. Gets responses via |OnMsftAdvMonitorAddCallback|.
+  void MsftAdvMonitorAdd(uint32_t call_id, const RustMsftAdvMonitor& monitor);
+
+  // Removes a previously added MSFT scan filter.
+  void MsftAdvMonitorRemove(uint32_t call_id, uint8_t monitor_handle);
+
+  // Enables or disables MSFT advertisement monitor.
+  void MsftAdvMonitorEnable(uint32_t call_id, bool enable);
+
   // Sets the LE scan interval and window in units of N * 0.625 msec. The result
   // of this action is returned via |OnStatusCallback|.
   void SetScanParameters(uint8_t scanner_id, uint16_t scan_interval, uint16_t scan_window);
@@ -128,23 +141,23 @@ class BleScannerIntf : public ScanningCallbacks {
 
   // Start periodic sync. Gets responses via |OnStartSyncCb|. Periodic reports
   // come via |OnSyncReportCb| and |OnSyncLostCb|.
-  void StartSync(uint8_t sid, RustRawAddress address, uint16_t skip, uint16_t timeout);
+  void StartSync(uint8_t sid, RawAddress addr, uint16_t skip, uint16_t timeout);
 
   // Stop periodic sync.
   void StopSync(uint16_t handle);
 
   // Cancel creating a periodic sync.
-  void CancelCreateSync(uint8_t sid, RustRawAddress address);
+  void CancelCreateSync(uint8_t sid, RawAddress addr);
 
   // Transfer sync data to target address. Gets responses via
   // |OnSyncTransferCb|.
-  void TransferSync(RustRawAddress address, uint16_t service_data, uint16_t sync_handle);
+  void TransferSync(RawAddress addr, uint16_t service_data, uint16_t sync_handle);
 
   // Transfer set info to target address. Gets responses via |OnSyncTransferCb|.
-  void TransferSetInfo(RustRawAddress address, uint16_t service_data, uint8_t adv_handle);
+  void TransferSetInfo(RawAddress addr, uint16_t service_data, uint8_t adv_handle);
 
   // Sync tx parameters to target address. Gets responses via |OnStartSyncCb|.
-  void SyncTxParameters(RustRawAddress address, uint8_t mode, uint16_t skip, uint16_t timeout);
+  void SyncTxParameters(RawAddress addr, uint8_t mode, uint16_t skip, uint16_t timeout);
 
   // Register scanning callbacks to be dispatched to the Rust layer via static
   // methods.
@@ -162,6 +175,9 @@ class BleScannerIntf : public ScanningCallbacks {
   void OnFilterParamSetupCallback(uint8_t scanner_id, uint8_t avbl_space, uint8_t action_type, uint8_t btm_status);
   void OnFilterConfigCallback(
       uint8_t filt_index, uint8_t filt_type, uint8_t avbl_space, uint8_t action, uint8_t btm_status);
+  void OnMsftAdvMonitorAddCallback(uint32_t call_id, uint8_t monitor_handle, uint8_t status);
+  void OnMsftAdvMonitorRemoveCallback(uint32_t call_id, uint8_t status);
+  void OnMsftAdvMonitorEnableCallback(uint32_t call_id, uint8_t status);
 
   BleScannerInterface* scanner_intf_;
 };

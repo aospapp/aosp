@@ -8,6 +8,8 @@ from autotest_lib.client.common_lib import error
 from autotest_lib.client.common_lib.cros import chrome
 from autotest_lib.client.cros.crash.crash_test import CrashTest
 
+
+# TODO(b/185707445): port this test to Tast.
 class logging_CrashServices(test.test):
     """Verifies crash collection for system services."""
     version = 3
@@ -55,7 +57,7 @@ class logging_CrashServices(test.test):
         """Checks the creation of the the dump files with appropriate extensions.
            Also check for the file size of the dumps created.
 
-        @param path: Dirctory path where the dump files are expected.
+        @param path: Directory path where the dump files are expected.
         @param process_name: Name of the process.
         @param filetype: Extension of the dump file.
 
@@ -70,11 +72,37 @@ class logging_CrashServices(test.test):
         for entry in entries:
             (filename, ext) = os.path.splitext(entry)
             if ext == filetype and filename.startswith(process_name):
-                logging.info('the path is %s', os.path)
-                if os.path.getsize(path + '/' + entry) > 0 :
+                file_path = path + '/' + entry
+                logging.info('the path is %s', file_path)
+                if os.path.getsize(file_path) > 0:
                     return entry
         return None
 
+    def _remove_crash_file(self, path, process_name):
+        """Remove crash dumps to prevent unnecessary crash reporting.
+
+        @param path: Directory path where the dump files are expected.
+        @param process_name: Name of the process.
+
+        """
+        try:
+            # sort by name so that we can find latest crash first
+            entries = sorted(os.listdir(path), reverse=True)
+        except OSError:
+            return
+
+        crash_name = None
+        for entry in entries:
+            (filename, _) = os.path.splitext(entry)
+            if filename.startswith(process_name):
+                crash_name = filename
+                break
+        if crash_name is None:
+            return
+
+        for entry in entries:
+            if entry.startswith(crash_name):
+                os.remove(path + '/' + entry)
 
     def _test_process(self, process_path, crash_extensions):
         """Calls a function to kill the process and then wait
@@ -96,6 +124,11 @@ class logging_CrashServices(test.test):
                                                          crash_ext),
                 desc="Waiting for %s for %s" % (crash_ext, process_path))
 
+        self._remove_crash_file(CrashTest._SYSTEM_CRASH_DIR, process_name)
+        # tlsdated generates two groups of crash files for some unknown reason,
+        # so we need to remove both of them.
+        if process_name == "tlsdated":
+            self._remove_crash_file(CrashTest._SYSTEM_CRASH_DIR, process_name)
 
     def run_once(self, process_path=None, crash_extensions=None):
         if process_path:

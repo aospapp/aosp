@@ -354,10 +354,12 @@ sp<StatsLogProcessor> CreateStatsLogProcessor(const long timeBaseSec, const Stat
     sp<StatsPullerManager> pullerManager = new StatsPullerManager();
     sp<AlarmMonitor> anomalyAlarmMonitor;
     sp<AlarmMonitor> periodicAlarmMonitor;
-    sp<StatsLogProcessor> processor =
-            new StatsLogProcessor(uidMap, pullerManager, anomalyAlarmMonitor, periodicAlarmMonitor,
-                                  timeBaseSec * NS_PER_SEC, [](const ConfigKey&) { return true; },
-                                  [](const int&, const vector<int64_t>&) { return true; });
+    sp<StatsLogProcessor> processor = new StatsLogProcessor(
+            uidMap, pullerManager, anomalyAlarmMonitor, periodicAlarmMonitor,
+            timeBaseSec * NS_PER_SEC, [](const ConfigKey&) { return true; },
+            [](const int&, const vector<int64_t>&) { return true; },
+            [](const ConfigKey&, const string&, const vector<int64_t>&) {},
+            /*logEventFilter=*/nullptr);
     processor->OnConfigUpdated(timeBaseSec * NS_PER_SEC, key, config);
     return processor;
 }

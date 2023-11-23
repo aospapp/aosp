@@ -24,10 +24,10 @@ import logging
 from collections import deque
 from datetime import timedelta
 
-import atest_execution_info
-import result_reporter
+from atest import atest_execution_info
+from atest import result_reporter
 
-from test_runners import test_runner_base
+from atest.test_runners import test_runner_base
 
 
 EVENT_NAMES = {'module_started': 'TEST_MODULE_STARTED',

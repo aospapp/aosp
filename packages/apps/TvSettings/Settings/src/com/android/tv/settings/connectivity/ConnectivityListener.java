@@ -239,8 +239,7 @@ public class ConnectivityListener implements WifiTracker.WifiListener, Lifecycle
         if (ap != null) {
             WifiConfiguration wifiConfig = ap.getConfig();
             if (wifiConfig != null
-                    && wifiConfig.macRandomizationSetting
-                            == WifiConfiguration.RANDOMIZATION_PERSISTENT) {
+                    && isWifiMacAddressRandomized(ap)) {
                 return wifiConfig.getRandomizedMacAddress().toString();
             }
         }
@@ -266,6 +265,11 @@ public class ConnectivityListener implements WifiTracker.WifiListener, Lifecycle
             return WifiConfiguration.RANDOMIZATION_NONE;
         }
         return ap.getConfig().macRandomizationSetting;
+    }
+
+    /** Return whether the randomized MAC address is used. */
+    public boolean isWifiMacAddressRandomized(AccessPoint ap) {
+        return getWifiMacRandomizationSetting(ap) != WifiConfiguration.RANDOMIZATION_NONE;
     }
 
     /** Apply the setting of whether to use MAC address randimization. */

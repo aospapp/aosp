@@ -40,6 +40,15 @@ cc_defaults {
         "include",
     ],
     host_supported: true,
+    target: {
+        windows: {
+            enabled: true,
+            cflags: [
+                "-DNOGDI",
+                "-Wno-format",
+            ],
+        },
+    },
 }
 
 cc_library {
@@ -115,11 +124,17 @@ cc_library {
     local_include_dirs: [
         "include/tss2",
         "src",
-        "src/util",
     ],
     shared_libs: [
         "libbase",
     ],
+    target: {
+        windows: {
+            host_ldlibs: [
+                "-lws2_32",
+            ],
+        },
+    },
 }
 
 cc_library {
@@ -127,7 +142,6 @@ cc_library {
     defaults: [ "tpm2-tss-defaults" ],
     srcs: [
         "src/tss2-tcti/tcti-common.c",
-        "src/tss2-tcti/tcti-device.c",
         "src/tss2-tcti/tctildr.c",
         "src/tss2-tcti/tctildr-nodl.c",
     ],
@@ -140,6 +154,13 @@ cc_library {
         "tpm2-tss2-mu",
         "tpm2-tss2-util",
     ],
+    target: {
+        not_windows: {
+            srcs: [
+                "src/tss2-tcti/tcti-device.c",
+            ],
+        },
+    },
 }
 
 cc_library {

@@ -58,8 +58,8 @@ public class ChoreographerCallbacksTest {
         ChoreographerCallbacks callbacks = new ChoreographerCallbacks();
         ArrayList<Integer> order = new ArrayList<>();
 
-        callbacks.add((Runnable) () -> order.add(2), 200);
-        callbacks.add((FrameCallback) frameTimeNanos -> order.add(1), 100);
+        callbacks.add((Runnable) () -> order.add(2), null, 200);
+        callbacks.add((FrameCallback) frameTimeNanos -> order.add(1), null, 100);
         callbacks.execute(200, logger);
 
         Assert.assertArrayEquals(order.toArray(), new Object[] { 1, 2 });
@@ -71,8 +71,8 @@ public class ChoreographerCallbacksTest {
         ChoreographerCallbacks callbacks = new ChoreographerCallbacks();
         ArrayList<Integer> order = new ArrayList<>();
 
-        callbacks.add((Runnable) () -> order.add(2), 200);
-        callbacks.add((FrameCallback) frameTimeNanos -> order.add(1), 100);
+        callbacks.add((Runnable) () -> order.add(2), null, 200);
+        callbacks.add((FrameCallback) frameTimeNanos -> order.add(1), null, 100);
         callbacks.execute(100, logger);
 
         Assert.assertArrayEquals(order.toArray(), new Object[] { 1 });
@@ -85,9 +85,9 @@ public class ChoreographerCallbacksTest {
         ArrayList<Integer> order = new ArrayList<>();
 
         Runnable runnable = () -> order.add(2);
-        callbacks.add(runnable, 200);
-        callbacks.add((FrameCallback) frameTimeNanos -> order.add(1), 100);
-        callbacks.remove(runnable);
+        callbacks.add(runnable, null, 200);
+        callbacks.add((FrameCallback) frameTimeNanos -> order.add(1), null, 100);
+        callbacks.remove(runnable, null);
         callbacks.execute(200, logger);
 
         Assert.assertArrayEquals(order.toArray(), new Object[] { 1 });
@@ -98,10 +98,28 @@ public class ChoreographerCallbacksTest {
     public void testErrorIfUnknownCallbackType() {
         ChoreographerCallbacks callbacks = new ChoreographerCallbacks();
 
-        callbacks.add(new Object(), 100);
+        callbacks.add(new Object(), null, 100);
         callbacks.execute(200, logger);
 
         Assert.assertFalse(logger.errorMessages.isEmpty());
         Assert.assertEquals(logger.errorMessages.get(0), "Unexpected action as Choreographer callback");
+    }
+
+    @Test
+    public void testRemoveNullAction() {
+        ChoreographerCallbacks callbacks = new ChoreographerCallbacks();
+        ArrayList<Integer> order = new ArrayList<>();
+
+        Object token1 = new Object();
+        Object token2 = new Object();
+        callbacks.add((Runnable) () -> order.add(2), token1, 200);
+        callbacks.add((FrameCallback) frameTimeNanos -> order.add(1), token1, 100);
+        callbacks.add((Runnable) () -> order.add(3), token2, 100);
+        callbacks.add((Runnable) () -> order.add(4), null, 200);
+        callbacks.remove(null, token1);
+        callbacks.execute(200, logger);
+
+        Assert.assertArrayEquals(order.toArray(), new Object[] { 3, 4 });
+        Assert.assertTrue(logger.errorMessages.isEmpty());
     }
 }

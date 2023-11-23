@@ -72,6 +72,7 @@ TEST_P(NetdHidlTest, TestDestroyOemNetworkInvalid) {
     ASSERT_EQ(INetd::StatusCode::INVALID_ARGUMENTS, retStatus);
 }
 
+GTEST_ALLOW_UNINSTANTIATED_PARAMETERIZED_TEST(NetdHidlTest);
 INSTANTIATE_TEST_SUITE_P(
     PerInstance, NetdHidlTest,
     testing::ValuesIn(android::hardware::getAllHalInstanceNames(INetd::descriptor)),

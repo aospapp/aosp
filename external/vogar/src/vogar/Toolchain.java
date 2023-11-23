@@ -19,17 +19,13 @@ package vogar;
 import vogar.Dexer;
 
 public enum Toolchain {
-    // .dex: desugar + javac + dx
-    DX,
     // .dex: desugar + javac + d8
     D8,
     // .class: javac
     JAVAC;
 
     public Dexer getDexer() {
-        if (this == Toolchain.DX) {
-            return Dexer.DX;
-        } else if (this == Toolchain.D8) {
+        if (this == Toolchain.D8) {
             return Dexer.D8;
         }
         throw new IllegalStateException("No dexer for toolchain " + this);

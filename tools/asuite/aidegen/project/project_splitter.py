@@ -42,7 +42,9 @@ _EXCLUDE_FOLDERS = ['.idea', '.repo', 'art', 'bionic', 'bootable', 'build',
                     'libnativehelper', 'pdk', 'prebuilts', 'sdk', 'system',
                     'toolchain', 'tools', 'vendor', 'out', 'external',
                     'art/tools/ahat/src/test-dump',
-                    'cts/common/device-side/device-info/src_stub']
+                    'cts/common/device-side/device-info/src_stub',
+                    'external/gson/gson/src/main/java'
+                    ]
 _PERMISSION_DEFINED_PATH = ('frameworks/base/core/res/framework-res/'
                             'android_common/gen/')
 _ANDROID = 'android'
@@ -155,7 +157,7 @@ class ProjectSplitter:
                 self._all_srcs[key] -= srcs[key]
 
     def _remove_duplicate_sources(self):
-        """Removes the duplicate source folders from each sub project.
+        """Removes the duplicate source folders from each sub-project.
 
         Priority processing with the longest path length, e.g.
         frameworks/base/packages/SettingsLib must have priority over
@@ -184,7 +186,7 @@ class ProjectSplitter:
         """Gets the dependencies between the projects.
 
         Check if the current project's source folder exists in other projects.
-        If do, the current project is a dependency module to the other.
+        If so, the current project is a dependency module to the other.
         """
         projects = sorted(self._projects, key=lambda k: len(
             k.project_relative_path))
@@ -233,7 +235,6 @@ class ProjectSplitter:
         if self._full_repo:
             mod[constant.KEY_DEPENDENCIES].append(self._full_repo_iml)
         mod[constant.KEY_DEPENDENCIES].append(constant.KEY_DEPENDENCIES)
-        srcjar_dict = dict()
         permission_src = self._get_permission_defined_source_path()
         if permission_src:
             mod[constant.KEY_SRCS] = [permission_src]
@@ -316,7 +317,7 @@ class ProjectSplitter:
         1) If it's a aapt2/R type jar or other directory type sources, add them
            into self._all_srcs[_KEY_SOURCE_PATH].
         2) If it's an R.srcjar file, check if the same path of aapt2/R directory
-           exists if so add aapt2/R path into into the
+           exists if so add aapt2/R path into the
            self._all_srcs[_KEY_SOURCE_PATH], otherwise unzip R.srcjar into
            the 'aidegen_r.srcjar' directory and add the unzipped path into
            self._all_srcs[_KEY_SOURCE_PATH].

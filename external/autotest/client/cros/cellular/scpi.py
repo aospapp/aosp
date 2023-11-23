@@ -1,10 +1,10 @@
-#!/usr/bin/python2
+# Lint as: python2, python3
 # Copyright (c) 2013 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-import cellular_logging
-import cellular_system_error
+from autotest_lib.client.cros.cellular import cellular_logging
+from autotest_lib.client.cros.cellular import cellular_system_error
 
 log = cellular_logging.SetupCellularLogging('scpi_driver')
 

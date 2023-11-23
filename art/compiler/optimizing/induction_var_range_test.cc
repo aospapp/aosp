@@ -17,12 +17,13 @@
 #include "induction_var_range.h"
 
 #include "base/arena_allocator.h"
+#include "base/macros.h"
 #include "builder.h"
 #include "induction_var_analysis.h"
 #include "nodes.h"
 #include "optimizing_unit_test.h"
 
-namespace art {
+namespace art HIDDEN {
 
 using Value = InductionVarRange::Value;
 
@@ -1064,10 +1065,6 @@ TEST_F(InductionVarRangeTest, ConstantTripCountDown) {
   HInstruction* last = range_.GenerateLastValue(phi, graph_, loop_preheader_);
   ASSERT_TRUE(last->IsSub());
   ExpectInt(1000, last->InputAt(0));
-  ASSERT_TRUE(last->InputAt(1)->IsNeg());
-  last = last->InputAt(1)->InputAt(0);
-  ASSERT_TRUE(last->IsSub());
-  ExpectInt(0, last->InputAt(0));
   ExpectInt(1000, last->InputAt(1));
 
   // Loop logic.

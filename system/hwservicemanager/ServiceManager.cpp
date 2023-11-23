@@ -252,7 +252,8 @@ static void tryStartService(const std::string& fqName, const std::string& name) 
     // running, then this will be a no-op. So, for instance, if a service is
     // deadlocked during startup, you will see this message repeatedly.
     LOG(INFO) << "Since " << fqName << "/" << name
-              << " is not registered, trying to start it as a lazy HAL.";
+              << " is not registered, trying to start it as a lazy HAL (if it's not configured to "
+                 "be a lazy HAL, it may be stuck starting or still starting).";
 
     std::thread([=] {
         if (!SetProperty("ctl.interface_start", fqName + "/" + name)) {

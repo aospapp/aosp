@@ -53,6 +53,7 @@ import androidx.test.rule.ActivityTestRule;
 import androidx.test.runner.AndroidJUnit4;
 
 import com.android.compatibility.common.util.BitmapUtils;
+import com.android.compatibility.common.util.CddTest;
 import com.android.compatibility.common.util.PollingCheck;
 
 import org.junit.AfterClass;
@@ -75,6 +76,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * sync between accessibility and input focus.
  */
 @RunWith(AndroidJUnit4.class)
+@CddTest(requirements = {"3.10/C-1-1,C-1-2"})
+@Presubmit
 public class AccessibilityFocusAndInputFocusSyncTest {
     /**
      * The delay time is for next UI frame rendering out.
@@ -139,7 +142,6 @@ public class AccessibilityFocusAndInputFocusSyncTest {
     }
 
     @MediumTest
-    @Presubmit
     @Test
     public void testFindAccessibilityFocus() throws Exception {
         sInstrumentation.runOnMainSync(() -> {
@@ -170,7 +172,6 @@ public class AccessibilityFocusAndInputFocusSyncTest {
     }
 
     @MediumTest
-    @Presubmit
     @Test
     public void testInitialStateNoAccessibilityFocus() throws Exception {
         // Get the root which is only accessibility focused.
@@ -203,7 +204,6 @@ public class AccessibilityFocusAndInputFocusSyncTest {
     }
 
     @MediumTest
-    @Presubmit
     @Test
     public void testActionClearAccessibilityFocus() throws Exception {
         // Get the root linear layout info.
@@ -238,7 +238,6 @@ public class AccessibilityFocusAndInputFocusSyncTest {
     }
 
     @MediumTest
-    @Presubmit
     @Test
     public void testOnlyOneNodeHasAccessibilityFocus() throws Exception {
         // Get the first not focused edit text.
@@ -292,7 +291,6 @@ public class AccessibilityFocusAndInputFocusSyncTest {
         }
     }
 
-    @Presubmit
     @Test
     public void testScreenReaderFocusableAttribute_reportedToAccessibility() {
         final AccessibilityNodeInfo secondButton = sUiAutomation.getRootInActiveWindow()

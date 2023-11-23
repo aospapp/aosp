@@ -309,7 +309,7 @@ static const QAndroidEmulatorWindowAgent sQAndroidEmulatorWindowAgent = {
             DEBUG_LOG(stderr, "window-agent-GfxStream-impl: updateFoldablePostureIndicator\n");
         },
         .setUIDisplayRegion =
-                [](int x_offset, int y_offset, int w, int h) {
+                [](int x_offset, int y_offset, int w, int h, bool ignoreOrientation) {
                     DEBUG_LOG(stderr,
                             "window-agent-GfxStream-impl: .setUIDisplayRegion "
                             "%d %d %dx%d\n",
@@ -457,17 +457,17 @@ namespace android {
 namespace emulation {
 
 const QAndroidVmOperations* const
-GfxStreamAndroidConsoleFactory::android_get_QAndroidVmOperations() const {
+GfxStreamGraphicsAgentFactory::android_get_QAndroidVmOperations() const {
     return &sQAndroidVmOperations;
 }
 
 const QAndroidMultiDisplayAgent* const
-GfxStreamAndroidConsoleFactory::android_get_QAndroidMultiDisplayAgent() const {
+GfxStreamGraphicsAgentFactory::android_get_QAndroidMultiDisplayAgent() const {
     return &sMultiDisplayAgent;
 }
 
 const QAndroidEmulatorWindowAgent* const
-GfxStreamAndroidConsoleFactory::android_get_QAndroidEmulatorWindowAgent()
+GfxStreamGraphicsAgentFactory::android_get_QAndroidEmulatorWindowAgent()
         const {
     return &sQAndroidEmulatorWindowAgent;
 }

@@ -86,6 +86,10 @@ class FilesystemVerifierAction : public InstallPlanAction {
 
  private:
   friend class FilesystemVerifierActionTestDelegate;
+  // Wrapper function that schedules calls of EncodeFEC. Returns true on success
+  void WriteVerityData(FileDescriptor* fd,
+                       void* buffer,
+                       const size_t buffer_size);
   void WriteVerityAndHashPartition(const off64_t start_offset,
                                    const off64_t end_offset,
                                    void* buffer,
@@ -171,6 +175,11 @@ class FilesystemVerifierAction : public InstallPlanAction {
   // Callback that should be cancelled on |TerminateProcessing|. Usually this
   // points to pending read callbacks from async stream.
   ScopedTaskId pending_task_id_;
+
+  // Cumulative sum of partition sizes. Used for progress report.
+  // This vector will always start with 0, and end with total size of all
+  // partitions.
+  std::vector<size_t> partition_weight_;
 
   DISALLOW_COPY_AND_ASSIGN(FilesystemVerifierAction);
 };

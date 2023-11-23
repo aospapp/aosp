@@ -41,10 +41,10 @@
 #pragma STDC FP_CONTRACT OFF
 static void __log2_ep(double *hi, double *lo, double x);
 
-typedef union {
+union uint64d_t {
     uint64_t i;
     double d;
-} uint64d_t;
+};
 
 static const uint64d_t _CL_NAN = { 0x7ff8000000000000ULL };
 
@@ -1949,7 +1949,8 @@ double reference_lgamma(double x)
         w6 = -1.63092934096575273989e-03; /* 0xBF5AB89D, 0x0B9E43E4 */
 
     static const double zero = 0.00000000000000000000e+00;
-    double t, y, z, nadj, p, p1, p2, p3, q, r, w;
+    double nadj = zero;
+    double t, y, z, p, p1, p2, p3, q, r, w;
     cl_int i, hx, lx, ix;
 
     union {
@@ -2259,10 +2260,10 @@ long double reference_dividel(long double x, long double y)
     return dx / dy;
 }
 
-typedef struct
+struct double_double
 {
     double hi, lo;
-} double_double;
+};
 
 // Split doubles_double into a series of consecutive 26-bit precise doubles and
 // a remainder. Note for later -- for multiplication, it might be better to
@@ -2321,7 +2322,7 @@ static inline double_double accum_d(double_double a, double b)
 
 static inline double_double add_dd(double_double a, double_double b)
 {
-    double_double r = { -0.0 - 0.0 };
+    double_double r = { -0.0, -0.0 };
 
     if (isinf(a.hi) || isinf(b.hi) || isnan(a.hi) || isnan(b.hi) || 0.0 == a.hi
         || 0.0 == b.hi)
@@ -3767,10 +3768,10 @@ static uint32_t two_over_pi[] = {
 static uint32_t pi_over_two[] = { 0x1,        0x2487ed51, 0x42d1846,
                                   0x26263314, 0x1701b839, 0x28948127 };
 
-typedef union {
+union d_ui64_t {
     uint64_t u;
     double d;
-} d_ui64_t;
+};
 
 // radix or base of representation
 #define RADIX (30)
@@ -3786,13 +3787,13 @@ d_ui64_t two_pow_two_mradix = { (uint64_t)(1023 - 2 * RADIX) << 52 };
 // extended fixed point representation of double precision
 // floating point number.
 // x = sign * [ sum_{i = 0 to 2} ( X[i] * 2^(index - i)*RADIX ) ]
-typedef struct
+struct eprep_t
 {
     uint32_t X[3]; // three 32 bit integers are sufficient to represnt double in
                    // base_30
     int index; // exponent bias
     int sign; // sign of double
-} eprep_t;
+};
 
 static eprep_t double_to_eprep(double x)
 {
@@ -4549,8 +4550,8 @@ long double reference_powl(long double x, long double y)
     if (x != x || y != y) return x + y;
 
     // do the work required to sort out edge cases
-    double fabsy = reference_fabs(y);
-    double fabsx = reference_fabs(x);
+    double fabsy = (double)reference_fabsl(y);
+    double fabsx = (double)reference_fabsl(x);
     double iy = reference_rint(
         fabsy); // we do round to nearest here so that |fy| <= 0.5
     if (iy > fabsy) // convert nearbyint to floor
@@ -4637,13 +4638,13 @@ long double reference_powl(long double x, long double y)
 
     // compute product of y*log2(x)
     // scale to avoid overflow in double-double multiplication
-    if (reference_fabs(y) > HEX_DBL(+, 1, 0, +, 970))
+    if (fabsy > HEX_DBL(+, 1, 0, +, 970))
     {
         y_hi = reference_ldexp(y_hi, -53);
         y_lo = reference_ldexp(y_lo, -53);
     }
     MulDD(&ylog2x_hi, &ylog2x_lo, log2x_hi, log2x_lo, y_hi, y_lo);
-    if (fabs(y) > HEX_DBL(+, 1, 0, +, 970))
+    if (fabsy > HEX_DBL(+, 1, 0, +, 970))
     {
         ylog2x_hi = reference_ldexp(ylog2x_hi, 53);
         ylog2x_lo = reference_ldexp(ylog2x_lo, 53);
@@ -5357,10 +5358,10 @@ long double reference_acosl(long double x)
         0x3243F6A8885A308DULL, 0x313198A2E0370734ULL
     }; // first 126 bits of pi
        // http://www.super-computing.org/pi-hexa_current.html
-    long double head, tail, temp;
+    long double head, tail;
 #if __LDBL_MANT_DIG__ >= 64
     // long double has 64-bits of precision or greater
-    temp = (long double)pi_bits[0] * 0x1.0p64L;
+    long double temp = (long double)pi_bits[0] * 0x1.0p64L;
     head = temp + (long double)pi_bits[1];
     temp -= head; // rounding err rounding pi_bits[1] into head
     tail = (long double)pi_bits[1] + temp;

@@ -1,7 +1,8 @@
 [package]
 name = "pin-project-internal"
-version = "1.0.10"
+version = "1.0.12"
 edition = "2018"
+rust-version = "1.37"
 license = "Apache-2.0 OR MIT"
 repository = "https://github.com/taiki-e/pin-project"
 keywords = ["pin", "macros", "attribute"]

@@ -35,9 +35,4 @@ python_library {
     srcs: [
         "six.py",
     ],
-    version: {
-        py2: {
-            enabled: true,
-        },
-    },
 }

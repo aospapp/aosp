@@ -18,6 +18,7 @@ package com.android.wallpaper.model;
 import android.app.Activity;
 import android.app.WallpaperColors;
 import android.content.Context;
+import android.content.res.Resources;
 import android.graphics.Bitmap;
 import android.graphics.Color;
 import android.graphics.drawable.Drawable;
@@ -83,6 +84,13 @@ public abstract class WallpaperInfo implements Parcelable {
      * wallpaper), or null if not applicable.
      */
     public String getTitle(Context context) {
+        return null;
+    }
+
+    /**
+     * Returns the content description for this wallpaper, or null if none exists.
+     */
+    public String getContentDescription(Context context) {
         return null;
     }
 
@@ -293,6 +301,23 @@ public abstract class WallpaperInfo implements Parcelable {
             BACKUP_ALLOWED
     })
     public @interface BackupPermission {
+    }
+
+    /**
+     * Returns a group name under which this Wallpaper should be grouped when displayed in
+     * a gallery, or an empty String if no grouping is required.
+     */
+    public String getGroupName(Context context) {
+        return "";
+    }
+
+    /**
+     * Returns the resource id of a drawable to use as a badge when displaying this wallpaper
+     * in a gallery, or {@link Resources#ID_NULL} if no badge is required.
+     */
+    @DrawableRes
+    public int getBadgeDrawableRes() {
+        return Resources.ID_NULL;
     }
 
     /**

@@ -670,7 +670,7 @@ struct corpus::priv
   environment*					env;
   corpus_group*				group;
   corpus::exported_decls_builder_sptr		exported_decls_builder;
-  origin					origin_;
+  corpus::origin				origin_;
   vector<string>				regex_patterns_fns_to_suppress;
   vector<string>				regex_patterns_vars_to_suppress;
   vector<string>				regex_patterns_fns_to_keep;

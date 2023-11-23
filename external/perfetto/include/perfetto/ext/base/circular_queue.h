@@ -20,6 +20,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 
+#include <cstddef>
 #include <iterator>
 
 #include "perfetto/base/logging.h"
@@ -191,6 +192,19 @@ class CircularQueue {
     return *this;
   }
 
+  explicit CircularQueue(const CircularQueue& other) noexcept {
+    Grow(other.capacity());
+    for (const auto& e : const_cast<CircularQueue&>(other))
+      emplace_back(e);
+    PERFETTO_DCHECK(size() == other.size());
+  }
+
+  CircularQueue& operator=(const CircularQueue& other) noexcept {
+    this->~CircularQueue();           // Destroy the current state.
+    new (this) CircularQueue(other);  // Use the copy ctor above.
+    return *this;
+  }
+
   ~CircularQueue() {
     if (!entries_) {
       PERFETTO_DCHECK(empty());
@@ -221,6 +235,16 @@ class CircularQueue {
 
   void clear() { erase_front(size()); }
 
+  void shrink_to_fit() {
+    // We only bother shrinking if we can fit in quarter of the capacity we are
+    // currently using. Moreover, don't bother shrinking below 4096 elements as
+    // that will cause a lot of reallocations for little benefit.
+    if (size() > capacity() / 2 || capacity() <= 4096) {
+      return;
+    }
+    ChangeCapacity(capacity() / 2);
+  }
+
   T& at(size_t idx) {
     PERFETTO_DCHECK(idx < size());
     return *Get(begin_ + idx);
@@ -249,9 +273,6 @@ class CircularQueue {
 #endif
 
  private:
-  CircularQueue(const CircularQueue&) = delete;
-  CircularQueue& operator=(const CircularQueue&) = delete;
-
   void Grow(size_t new_capacity = 0) {
     // Capacity must be always a power of two. This allows Get() to use a simple
     // bitwise-AND for handling the wrapping instead of a full division.
@@ -261,6 +282,13 @@ class CircularQueue {
     // On 32-bit systems this might hit the 4GB wall and overflow. We can't do
     // anything other than crash in this case.
     PERFETTO_CHECK(new_capacity > capacity_);
+
+    ChangeCapacity(new_capacity);
+  }
+
+  void ChangeCapacity(size_t new_capacity) {
+    // We should still have enough space to fit all the elements in the queue.
+    PERFETTO_CHECK(new_capacity >= size());
 
     AlignedUniquePtr<T[]> new_vec = AlignedAllocTyped<T[]>(new_capacity);
 

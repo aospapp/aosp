@@ -19,6 +19,9 @@ package {
 cc_library_static {
     name: "libnetjniutils",
     srcs: ["netjniutils.cpp"],
+    static_libs: [
+        "libmodules-utils-build",
+    ],
     header_libs: ["jni_headers"],
     shared_libs: ["liblog"],
     export_header_lib_headers: ["jni_headers"],

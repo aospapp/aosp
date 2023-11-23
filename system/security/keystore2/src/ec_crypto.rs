@@ -14,6 +14,7 @@
 
 //! Implement ECDH-based encryption.
 
+use crate::ks_err;
 use anyhow::{Context, Result};
 use keystore2_crypto::{
     aes_gcm_decrypt, aes_gcm_encrypt, ec_key_generate_key, ec_key_get0_public_key,
@@ -28,29 +29,23 @@ pub struct ECDHPrivateKey(ECKey);
 impl ECDHPrivateKey {
     /// Randomly generate a fresh keypair.
     pub fn generate() -> Result<ECDHPrivateKey> {
-        ec_key_generate_key()
-            .map(ECDHPrivateKey)
-            .context("In ECDHPrivateKey::generate: generation failed")
+        ec_key_generate_key().map(ECDHPrivateKey).context(ks_err!("generation failed"))
     }
 
     /// Deserialize bytes into an ECDH keypair
     pub fn from_private_key(buf: &[u8]) -> Result<ECDHPrivateKey> {
-        ec_key_parse_private_key(buf)
-            .map(ECDHPrivateKey)
-            .context("In ECDHPrivateKey::from_private_key: parsing failed")
+        ec_key_parse_private_key(buf).map(ECDHPrivateKey).context(ks_err!("parsing failed"))
     }
 
     /// Serialize the ECDH key into bytes
     pub fn private_key(&self) -> Result<ZVec> {
-        ec_key_marshal_private_key(&self.0)
-            .context("In ECDHPrivateKey::private_key: marshalling failed")
+        ec_key_marshal_private_key(&self.0).context(ks_err!("marshalling failed"))
     }
 
     /// Generate the serialization of the corresponding public key
     pub fn public_key(&self) -> Result<Vec<u8>> {
         let point = ec_key_get0_public_key(&self.0);
-        ec_point_point_to_oct(point.get_point())
-            .context("In ECDHPrivateKey::public_key: marshalling failed")
+        ec_point_point_to_oct(point.get_point()).context(ks_err!("marshalling failed"))
     }
 
     /// Use ECDH to agree an AES key with another party whose public key we have.
@@ -64,18 +59,17 @@ impl ECDHPrivateKey {
         recipient_public_key: &[u8],
     ) -> Result<ZVec> {
         let hkdf = hkdf_extract(sender_public_key, salt)
-            .context("In ECDHPrivateKey::agree_key: hkdf_extract on sender_public_key failed")?;
+            .context(ks_err!("hkdf_extract on sender_public_key failed"))?;
         let hkdf = hkdf_extract(recipient_public_key, &hkdf)
-            .context("In ECDHPrivateKey::agree_key: hkdf_extract on recipient_public_key failed")?;
+            .context(ks_err!("hkdf_extract on recipient_public_key failed"))?;
         let other_public_key = ec_point_oct_to_point(other_public_key)
-            .context("In ECDHPrivateKey::agree_key: ec_point_oct_to_point failed")?;
+            .context(ks_err!("ec_point_oct_to_point failed"))?;
         let secret = ecdh_compute_key(other_public_key.get_point(), &self.0)
-            .context("In ECDHPrivateKey::agree_key: ecdh_compute_key failed")?;
-        let prk = hkdf_extract(&secret, &hkdf)
-            .context("In ECDHPrivateKey::agree_key: hkdf_extract on secret failed")?;
+            .context(ks_err!("ecdh_compute_key failed"))?;
+        let prk = hkdf_extract(&secret, &hkdf).context(ks_err!("hkdf_extract on secret failed"))?;
 
         let aes_key = hkdf_expand(AES_256_KEY_LENGTH, &prk, b"AES-256-GCM key")
-            .context("In ECDHPrivateKey::agree_key: hkdf_expand failed")?;
+            .context(ks_err!("hkdf_expand failed"))?;
         Ok(aes_key)
     }
 
@@ -84,18 +78,14 @@ impl ECDHPrivateKey {
         recipient_public_key: &[u8],
         message: &[u8],
     ) -> Result<(Vec<u8>, Vec<u8>, Vec<u8>, Vec<u8>, Vec<u8>)> {
-        let sender_key =
-            Self::generate().context("In ECDHPrivateKey::encrypt_message: generate failed")?;
-        let sender_public_key = sender_key
-            .public_key()
-            .context("In ECDHPrivateKey::encrypt_message: public_key failed")?;
-        let salt =
-            generate_salt().context("In ECDHPrivateKey::encrypt_message: generate_salt failed")?;
+        let sender_key = Self::generate().context(ks_err!("generate failed"))?;
+        let sender_public_key = sender_key.public_key().context(ks_err!("public_key failed"))?;
+        let salt = generate_salt().context(ks_err!("generate_salt failed"))?;
         let aes_key = sender_key
             .agree_key(&salt, recipient_public_key, &sender_public_key, recipient_public_key)
-            .context("In ECDHPrivateKey::encrypt_message: agree_key failed")?;
-        let (ciphertext, iv, tag) = aes_gcm_encrypt(message, &aes_key)
-            .context("In ECDHPrivateKey::encrypt_message: aes_gcm_encrypt failed")?;
+            .context(ks_err!("agree_key failed"))?;
+        let (ciphertext, iv, tag) =
+            aes_gcm_encrypt(message, &aes_key).context(ks_err!("aes_gcm_encrypt failed"))?;
         Ok((sender_public_key, salt, iv, ciphertext, tag))
     }
 
@@ -111,9 +101,8 @@ impl ECDHPrivateKey {
         let recipient_public_key = self.public_key()?;
         let aes_key = self
             .agree_key(salt, sender_public_key, sender_public_key, &recipient_public_key)
-            .context("In ECDHPrivateKey::decrypt_message: agree_key failed")?;
-        aes_gcm_decrypt(ciphertext, iv, tag, &aes_key)
-            .context("In ECDHPrivateKey::decrypt_message: aes_gcm_decrypt failed")
+            .context(ks_err!("agree_key failed"))?;
+        aes_gcm_decrypt(ciphertext, iv, tag, &aes_key).context(ks_err!("aes_gcm_decrypt failed"))
     }
 }
 

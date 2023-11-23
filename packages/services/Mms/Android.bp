@@ -19,6 +19,21 @@ package {
     default_applicable_licenses: ["Android-Apache-2.0"],
 }
 
+genrule {
+    name: "statslog-mms-java-gen",
+    tools: ["stats-log-api-gen"],
+    cmd: "$(location stats-log-api-gen) --java $(out) --module mms"
+        + " --javaPackage com.android.mms --javaClass MmsStatsLog",
+    out: ["com/android/mms/MmsStatsLog.java"],
+}
+
+java_library {
+    name: "mms-statsd",
+    srcs: [
+        ":statslog-mms-java-gen",
+    ],
+}
+
 android_app {
     name: "MmsService",
     platform_apis: true,
@@ -30,4 +45,16 @@ android_app {
         proguard_flags_files: ["proguard.flags"],
     },
     certificate: "platform",
+    static_libs: [
+        "mms-protos-lite",
+        "mms-statsd",
+        "androidx.annotation_annotation",
+    ],
+}
+
+filegroup {
+    name: "mms-service-srcs",
+    srcs: [
+        "src/com/android/mms/service/**/*.java",
+    ],
 }

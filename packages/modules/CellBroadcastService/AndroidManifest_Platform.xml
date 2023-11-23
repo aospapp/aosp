@@ -41,7 +41,6 @@
     <application android:label="Cell Broadcast Service"
         android:defaultToDeviceProtectedStorage="true"
         android:directBootAware="true"
-        android:persistent="true"
         android:forceQueryable="true"
         android:process="com.android.phone">
 

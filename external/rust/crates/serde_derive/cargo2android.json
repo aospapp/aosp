@@ -1,4 +1,5 @@
 {
-  "device": true,
-  "run": true
+  "host-first-multilib": true,
+  "run": true,
+  "tests": true
 }

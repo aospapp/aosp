@@ -28,11 +28,13 @@ apex {
         "SEPolicy-33.zip.sig",
         "SEPolicy-33.zip.fsv_sig",
         "SEPolicy-33.zip",
+        "SEPolicy-33.pb"
     ],
     required: [
         "SEPolicy.zip.sig",
         "SEPolicy.zip.fsv_sig",
         "SEPolicy.zip",
+        "SEPolicy-33.pb",
     ],
 }
 

@@ -38,4 +38,9 @@ java_library_static {
 
     host_supported: true,
     sdk_version: "current",
+    // TODO(b/237039251) use "apex_inherit" when Java modules support it
+    min_sdk_version: "29",
+    // b/267831518: Pin tradefed and dependencies to Java 11.
+    java_version: "11",
+
 }

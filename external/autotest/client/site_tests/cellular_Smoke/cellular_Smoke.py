@@ -1,11 +1,19 @@
+# Lint as: python2, python3
 # Copyright (c) 2011 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
 import logging
 import socket
 import time
-import urlparse
+
+from six.moves import range
+
+import six.moves.urllib.parse
 
 from autotest_lib.client.bin import test
 from autotest_lib.client.common_lib import error
@@ -17,6 +25,10 @@ from autotest_lib.client.cros.networking import shill_proxy
 # Default timeouts in seconds
 CONNECT_TIMEOUT = 120
 DISCONNECT_TIMEOUT = 60
+
+PORTAL_URL_PATTERN = ('https://quickaccess.verizonwireless.com/'
+                      'images_b2c/shared/nav/vz_logo_quickaccess.jpg?foo=%d')
+
 
 class cellular_Smoke(test.test):
     """
@@ -32,13 +44,10 @@ class cellular_Smoke(test.test):
 
 
     def run_once_internal(self):
-        """
-        Executes the test.
-
-        """
+        """Executes the test."""
         old_modem_info = self.test_env.modem.GetModemProperties()
 
-        for _ in xrange(self.connect_count):
+        for i in range(self.connect_count):
             device = self.test_env.shill.find_cellular_device_object()
             if not device:
                 raise error.TestError('No cellular device found.')
@@ -56,27 +65,29 @@ class cellular_Smoke(test.test):
             logging.info('Service state = %s', state)
 
             if state == 'portal':
-                url_pattern = ('https://quickaccess.verizonwireless.com/'
-                               'images_b2c/shared/nav/'
-                               'vz_logo_quickaccess.jpg?foo=%d')
+                url_pattern = PORTAL_URL_PATTERN
                 bytes_to_fetch = 4476
-            else:
+            elif state == 'online':
                 url_pattern = network.FETCH_URL_PATTERN_FOR_TEST
                 bytes_to_fetch = 64 * 1024
+            else:
+                raise error.TestError('Cellular state not online: %s' % state)
 
             interface = self.test_env.shill.get_dbus_property(
                     device, shill_proxy.ShillProxy.DEVICE_PROPERTY_INTERFACE)
             logging.info('Expected interface for %s: %s',
                          service.object_path, interface)
-            # TODO(b/114292737): Once IPv6 support is enabled on
-            # cellular, we should not need to limit this check to just
-            # AF_INET.
-            network.CheckInterfaceForDestination(
-                urlparse.urlparse(url_pattern).hostname,
-                interface, socket.AF_INET)
+            network.CheckThatInterfaceCanAccessDestination(
+                    six.moves.urllib.parse.urlparse(url_pattern).hostname, interface,
+                    [socket.AF_INET, socket.AF_INET6])
 
-            fetch_time = network.FetchUrl(url_pattern, bytes_to_fetch,
-                                          self.fetch_timeout)
+            try:
+                fetch_time = network.FetchUrl(url_pattern, bytes_to_fetch,
+                                              self.fetch_timeout)
+            except:
+                raise error.TestError('FetchUrl timed out after %d' %
+                                      self.fetch_timeout)
+
             self.write_perf_keyval({
                 'seconds_3G_fetch_time': fetch_time,
                 'bytes_3G_bytes_received': bytes_to_fetch,
@@ -99,8 +110,12 @@ class cellular_Smoke(test.test):
                 time.sleep(self.sleep_kludge)
 
 
-    def run_once(self, test_env, connect_count=5, sleep_kludge=5,
-                 fetch_timeout=120):
+    def run_once(self,
+                 test_env,
+                 connect_count=5,
+                 sleep_kludge=5,
+                 fetch_timeout=30):
+        """ Runs the test once """
         with test_env, shill_context.ServiceAutoConnectContext(
                 test_env.shill.wait_for_cellular_service_object, False):
             self.test_env = test_env

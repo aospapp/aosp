@@ -13,6 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+// Suppress "SecurityManager is deprecated" warnings: FileReadSandboxTest verifies that the class
+// still works as expected
+@file:Suppress("DEPRECATION")
+
 package com.android.tools.metalava
 
 import java.io.File

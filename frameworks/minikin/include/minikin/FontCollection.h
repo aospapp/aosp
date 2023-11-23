@@ -17,12 +17,11 @@
 #ifndef MINIKIN_FONT_COLLECTION_H
 #define MINIKIN_FONT_COLLECTION_H
 
+#include <gtest/gtest_prod.h>
+
 #include <memory>
 #include <unordered_map>
-#include <unordered_set>
 #include <vector>
-
-#include <gtest/gtest_prod.h>
 
 #include "minikin/Buffer.h"
 #include "minikin/Font.h"
@@ -37,43 +36,13 @@ constexpr uint32_t MAX_FAMILY_COUNT = 254;
 
 class FontCollection {
 public:
-    explicit FontCollection(const std::vector<std::shared_ptr<FontFamily>>& typefaces);
-    explicit FontCollection(std::shared_ptr<FontFamily>&& typeface);
+    static std::shared_ptr<FontCollection> create(
+            const std::vector<std::shared_ptr<FontFamily>>& typefaces);
+    static std::shared_ptr<FontCollection> create(std::shared_ptr<FontFamily>&& typeface);
 
-    template <Font::TypefaceReader typefaceReader>
-    static std::vector<std::shared_ptr<FontCollection>> readVector(BufferReader* reader) {
-        uint32_t allFontFamiliesCount = reader->read<uint32_t>();
-        std::vector<std::shared_ptr<FontFamily>> allFontFamilies;
-        allFontFamilies.reserve(allFontFamiliesCount);
-        for (uint32_t i = 0; i < allFontFamiliesCount; i++) {
-            allFontFamilies.push_back(FontFamily::readFrom<typefaceReader>(reader));
-        }
-        uint32_t fontCollectionsCount = reader->read<uint32_t>();
-        std::vector<std::shared_ptr<FontCollection>> fontCollections;
-        fontCollections.reserve(fontCollectionsCount);
-        for (uint32_t i = 0; i < fontCollectionsCount; i++) {
-            fontCollections.emplace_back(new FontCollection(reader, allFontFamilies));
-        }
-        return fontCollections;
-    }
-
-    template <Font::TypefaceWriter typefaceWriter>
+    static std::vector<std::shared_ptr<FontCollection>> readVector(BufferReader* reader);
     static void writeVector(BufferWriter* writer,
-                            const std::vector<std::shared_ptr<FontCollection>>& fontCollections) {
-        std::vector<std::shared_ptr<FontFamily>> allFontFamilies;
-        // Note: operator== for shared_ptr compares raw pointer values.
-        std::unordered_map<std::shared_ptr<FontFamily>, uint32_t> fontFamilyToIndexMap;
-        collectAllFontFamilies(fontCollections, &allFontFamilies, &fontFamilyToIndexMap);
-
-        writer->write<uint32_t>(allFontFamilies.size());
-        for (const auto& fontFamily : allFontFamilies) {
-            fontFamily->writeTo<typefaceWriter>(writer);
-        }
-        writer->write<uint32_t>(fontCollections.size());
-        for (const auto& fontCollection : fontCollections) {
-            fontCollection->writeTo(writer, fontFamilyToIndexMap);
-        }
-    }
+                            const std::vector<std::shared_ptr<FontCollection>>& fontCollections);
 
     // Helper class for representing font family match result in packed bits.
     struct FamilyMatchResult {
@@ -190,18 +159,32 @@ public:
     // nullptr if none of variations apply to this collection.
     std::shared_ptr<FontCollection> createCollectionWithVariation(
             const std::vector<FontVariation>& variations);
+    // Creates new FontCollection that uses the specified families as top families and
+    // families from this FontCollection as fallback.
+    std::shared_ptr<FontCollection> createCollectionWithFamilies(
+            std::vector<std::shared_ptr<FontFamily>>&& families) const;
 
-    const std::unordered_set<AxisTag>& getSupportedTags() const { return mSupportedAxes; }
+    size_t getSupportedAxesCount() const { return mSupportedAxesCount; }
+    AxisTag getSupportedAxisAt(size_t index) const { return mSupportedAxes[index]; }
 
     uint32_t getId() const;
 
-    const std::vector<std::shared_ptr<FontFamily>>& getFamilies() const { return mFamilies; }
+    size_t getFamilyCount() const { return mFamilyCount; }
+
+    const std::shared_ptr<FontFamily>& getFamilyAt(size_t index) const {
+        if (mFamilyIndices != nullptr) {
+            index = mFamilyIndices[index];
+        }
+        return (*mMaybeSharedFamilies)[index];
+    }
 
 private:
     FRIEND_TEST(FontCollectionTest, bufferTest);
 
-    FontCollection(BufferReader* reader,
-                   const std::vector<std::shared_ptr<FontFamily>>& allFontFamilies);
+    explicit FontCollection(const std::vector<std::shared_ptr<FontFamily>>& typefaces);
+    FontCollection(
+            BufferReader* reader,
+            const std::shared_ptr<std::vector<std::shared_ptr<FontFamily>>>& allFontFamilies);
     // Write fields of the instance, using fontFamilyToIndexMap for finding
     // indices for FontFamily.
     void writeTo(BufferWriter* writer,
@@ -215,8 +198,9 @@ private:
     static const int kLogCharsPerPage = 8;
     static const int kPageMask = (1 << kLogCharsPerPage) - 1;
 
-    // mFamilyVec holds the indices of the mFamilies and mRanges holds the range of indices of
-    // mFamilyVec. The maximum number of pages is 0x10FF (U+10FFFF >> 8). The maximum number of
+    // mFamilyVec holds the indices of the family (as in getFamilyAt()) and
+    // mRanges holds the range of indices of mFamilyVec.
+    // The maximum number of pages is 0x10FF (U+10FFFF >> 8). The maximum number of
     // the fonts is 0xFF. Thus, technically the maximum length of mFamilyVec is 0x10EE01
     // (0x10FF * 0xFF). However, in practice, 16-bit integers are enough since most fonts supports
     // only limited range of code points.
@@ -237,6 +221,8 @@ private:
     uint32_t calcCoverageScore(uint32_t ch, uint32_t vs, uint32_t localeListId,
                                const std::shared_ptr<FontFamily>& fontFamily) const;
 
+    bool isPrimaryFamily(const std::shared_ptr<FontFamily>& fontFamily) const;
+
     static uint32_t calcLocaleMatchingScore(uint32_t userLocaleListId,
                                             const FontFamily& fontFamily);
 
@@ -250,7 +236,18 @@ private:
 
     // This vector has pointers to the all font family instances in this collection.
     // This vector can't be empty.
-    std::vector<std::shared_ptr<FontFamily>> mFamilies;
+    // This vector may be shared with other font collections.
+    // (1) When shared, this vector is a union of all font family instances
+    //     shared by multiple font collections.
+    //     mFamilyIndices will be non-null in this case.
+    //     The i-th family in this collection will be
+    //     mMaybeSharedFamilies[mFamilyIndices[i]].
+    // (2) When not shared, mFamilyIndices will be null and
+    //     the i-th family in this collection will be mMaybeSharedFamilies[i].
+    // Use getFamilyAt(i) to access the i-th font in this family.
+    std::shared_ptr<std::vector<std::shared_ptr<FontFamily>>> mMaybeSharedFamilies;
+    uint32_t mFamilyCount;
+    const uint32_t* mFamilyIndices;
 
     // Following two vectors are pre-calculated tables for resolving coverage faster.
     // For example, to iterate over all fonts which support Unicode code point U+XXYYZZ,
@@ -267,7 +264,9 @@ private:
     std::vector<std::shared_ptr<FontFamily>> mVSFamilyVec;
 
     // Set of supported axes in this collection.
-    std::unordered_set<AxisTag> mSupportedAxes;
+    uint32_t mSupportedAxesCount;
+    // mSupportedAxes is sorted.
+    std::unique_ptr<AxisTag[]> mSupportedAxes;
 
     // Owns allocated memory if this class is created from font families, otherwise these are
     // nullptr.

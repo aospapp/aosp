@@ -44,22 +44,11 @@ MessageLoopThread::MessageLoopThread(const std::string& thread_name,
       linux_tid_(-1),
       weak_ptr_factory_(this),
       shutting_down_(false),
-      is_main_(is_main),
-      rust_thread_(nullptr) {}
+      is_main_(is_main) {}
 
 MessageLoopThread::~MessageLoopThread() { ShutDown(); }
 
 void MessageLoopThread::StartUp() {
-  if (is_main_ && init_flags::gd_rust_is_enabled()) {
-    rust_thread_ = new ::rust::Box<shim::rust::MessageLoopThread>(
-        shim::rust::main_message_loop_thread_create());
-    auto rust_id =
-        bluetooth::shim::rust::main_message_loop_thread_start(**rust_thread_);
-    thread_id_ = rust_id;
-    linux_tid_ = rust_id;
-    return;
-  }
-
   std::promise<void> start_up_promise;
   std::future<void> start_up_future = start_up_promise.get_future();
   {
@@ -84,20 +73,6 @@ bool MessageLoopThread::DoInThreadDelayed(const base::Location& from_here,
                                           base::OnceClosure task,
                                           const base::TimeDelta& delay) {
   std::lock_guard<std::recursive_mutex> api_lock(api_mutex_);
-  if (is_main_ && init_flags::gd_rust_is_enabled()) {
-    if (rust_thread_ == nullptr) {
-      LOG(ERROR) << __func__ << ": rust thread is null for thread " << *this
-                 << ", from " << from_here.ToString();
-      return false;
-    }
-
-    shim::rust::main_message_loop_thread_do_delayed(
-        **rust_thread_,
-        std::make_unique<shim::rust::OnceClosure>(std::move(task)),
-        delay.InMilliseconds());
-    return true;
-  }
-
   if (message_loop_ == nullptr) {
     LOG(ERROR) << __func__ << ": message loop is null for thread " << *this
                << ", from " << from_here.ToString();
@@ -115,14 +90,6 @@ bool MessageLoopThread::DoInThreadDelayed(const base::Location& from_here,
 
 void MessageLoopThread::ShutDown() {
   {
-    if (is_main_ && init_flags::gd_rust_is_enabled()) {
-      delete rust_thread_;
-      rust_thread_ = nullptr;
-      thread_id_ = -1;
-      linux_tid_ = -1;
-      return;
-    }
-
     std::lock_guard<std::recursive_mutex> api_lock(api_mutex_);
     if (thread_ == nullptr) {
       LOG(INFO) << __func__ << ": thread " << *this << " is already stopped";
@@ -216,10 +183,6 @@ base::WeakPtr<MessageLoopThread> MessageLoopThread::GetWeakPtr() {
 void MessageLoopThread::Run(std::promise<void> start_up_promise) {
   {
     std::lock_guard<std::recursive_mutex> api_lock(api_mutex_);
-    if (is_main_ && init_flags::gd_rust_is_enabled()) {
-      return;
-    }
-
     LOG(INFO) << __func__ << ": message loop starting for thread "
               << thread_name_;
     base::PlatformThread::SetName(thread_name_);

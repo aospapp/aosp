@@ -1,4 +1,4 @@
-// Copyright 2019 The Chromium OS Authors. All rights reserved.
+// Copyright 2019 The ChromiumOS Authors
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
@@ -7,7 +7,8 @@ use std::fmt;
 use std::mem::size_of;
 use std::result::Result;
 
-use rand_core::{Error, ErrorKind, RngCore};
+use rand_core::Error;
+use rand_core::RngCore;
 
 /// A random number generator that uses fuzzer input as the source of its
 /// randomness.  When run on the same input, it provides the same output, as
@@ -66,10 +67,7 @@ impl<'a> RngCore for FuzzRng<'a> {
             self.fill_bytes(dest);
             Ok(())
         } else {
-            Err(Error::new(
-                ErrorKind::Unavailable,
-                "not enough data in fuzzer input",
-            ))
+            Err(Error::new("not enough data in fuzzer input"))
         }
     }
 }

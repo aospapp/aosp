@@ -85,6 +85,7 @@ Only the three quirks included above are recognized at this point:
         <Setting name="max-video-encoder-input-buffers" value="12" />
     </Settings>
 
+    <Include href="media_codecs_google_tv.xml" />
     <Include href="media_codecs_google_audio.xml" />
     <Include href="media_codecs_google_telephony.xml" />
     <Include href="media_codecs_google_video.xml" />

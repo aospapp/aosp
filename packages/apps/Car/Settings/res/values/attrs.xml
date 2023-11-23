@@ -64,6 +64,12 @@
         <attr name="controller" format="string"/>
         <!-- Whether or not the preference is searchable, by default it's true. -->
         <attr name="searchable" format="boolean" />
+
+        <!-- Availability of a setting for each zone. This string must be one of
+             three values: write, read and hidden. -->
+        <attr name="occupant_driver" format="string"/>
+        <attr name="occupant_front_passenger" format="string"/>
+        <attr name="occupant_rear_passenger" format="string"/>
     </declare-styleable>
 
     <declare-styleable name="PreferenceGroup">
@@ -122,10 +128,6 @@
     <attr name="profileSwitcherAddIconColor" format="color"/>
     <attr name="profileSwitcherNameTextAppearance" format="reference"/>
     <attr name="profileSwitcherAddIconBackgroundColor" format="color"/>
-    <attr name="quickSettingsEnabledColor" format="color"/>
-    <attr name="quickSettingsDisabledColor" format="color"/>
-    <attr name="quickSettingsIconEnabledColor" format="color"/>
-    <attr name="quickSettingsIconDisabledColor" format="color"/>
     <attr name="suggestionsPrimaryColor" format="color"/>
     <attr name="suggestionsSecondaryColor" format="color"/>
 </resources>

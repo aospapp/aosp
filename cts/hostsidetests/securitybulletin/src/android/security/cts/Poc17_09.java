@@ -16,15 +16,18 @@
 
 package android.security.cts;
 
-import android.platform.test.annotations.AsbSecurityTest;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
-
 import static org.junit.Assert.*;
 
+import android.platform.test.annotations.AsbSecurityTest;
+
+import com.android.sts.common.tradefed.testtype.NonRootSecurityTestCase;
+import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
+
+import org.junit.Test;
+import org.junit.runner.RunWith;
+
 @RunWith(DeviceJUnit4ClassRunner.class)
-public class Poc17_09 extends SecurityTestCase {
+public class Poc17_09 extends NonRootSecurityTestCase {
 
     /**
      * b/63852675
@@ -32,31 +35,39 @@ public class Poc17_09 extends SecurityTestCase {
     @Test
     @AsbSecurityTest(cveBugId = 63852675)
     public void testPocCve_2017_6983() throws Exception {
-      // Error code of 139 represents segmentation fault
-      assertFalse("Segfault found",
-        AdbUtils.runCommandGetExitCode("sqlite3 ':memory:' \"CREATE VIRTUAL TABLE a using fts3(b);"
-                                                          + "INSERT INTO a values(x'efbeaddeefbeadde');"
-                                                          + "SELECT optimize(b)  FROM a;\""
-                                      , getDevice()
-                                      )==139);
-      assertFalse("Segfault found",
-        AdbUtils.runCommandGetExitCode("sqlite3 ':memory:' \"CREATE VIRTUAL TABLE a using fts3(b);"
-                                                          + "INSERT INTO a values(x'efbeaddeefbeadde');"
-                                                          + "SELECT snippet(b)   FROM a;\""
-                                      , getDevice()
-                                      )==139);
-      assertFalse("Segfault found",
-        AdbUtils.runCommandGetExitCode("sqlite3 ':memory:' \"CREATE VIRTUAL TABLE a using fts3(b);"
-                                                          + "INSERT INTO a values(x'efbeaddeefbeadde');"
-                                                          + "SELECT offsets(b)   FROM a;\""
-                                      , getDevice()
-                                      )==139);
-      assertFalse("Segfault found",
-        AdbUtils.runCommandGetExitCode("sqlite3 ':memory:' \"CREATE VIRTUAL TABLE a using fts3(b);"
-                                                          + "INSERT INTO a values(x'efbeaddeefbeadde');"
-                                                          + "SELECT matchinfo(b) FROM a;\""
-                                      , getDevice()
-                                      )==139);
+        // Error code of 139 represents segmentation fault
+        assertFalse(
+                "Segfault found",
+                AdbUtils.runCommandGetExitCode(
+                                "sqlite3 ':memory:' \"CREATE VIRTUAL TABLE a using fts3(b);"
+                                        + "INSERT INTO a values(x'efbeaddeefbeadde');"
+                                        + "SELECT optimize(b)  FROM a;\"",
+                                getDevice())
+                        == 139);
+        assertFalse(
+                "Segfault found",
+                AdbUtils.runCommandGetExitCode(
+                                "sqlite3 ':memory:' \"CREATE VIRTUAL TABLE a using fts3(b);"
+                                        + "INSERT INTO a values(x'efbeaddeefbeadde');"
+                                        + "SELECT snippet(b)   FROM a;\"",
+                                getDevice())
+                        == 139);
+        assertFalse(
+                "Segfault found",
+                AdbUtils.runCommandGetExitCode(
+                                "sqlite3 ':memory:' \"CREATE VIRTUAL TABLE a using fts3(b);"
+                                        + "INSERT INTO a values(x'efbeaddeefbeadde');"
+                                        + "SELECT offsets(b)   FROM a;\"",
+                                getDevice())
+                        == 139);
+        assertFalse(
+                "Segfault found",
+                AdbUtils.runCommandGetExitCode(
+                                "sqlite3 ':memory:' \"CREATE VIRTUAL TABLE a using fts3(b);"
+                                        + "INSERT INTO a values(x'efbeaddeefbeadde');"
+                                        + "SELECT matchinfo(b) FROM a;\"",
+                                getDevice())
+                        == 139);
     }
 
     /**

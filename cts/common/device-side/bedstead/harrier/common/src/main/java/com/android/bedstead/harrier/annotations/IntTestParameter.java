@@ -16,8 +16,6 @@
 
 package com.android.bedstead.harrier.annotations;
 
-import com.android.bedstead.harrier.BedsteadJUnit4;
-
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -26,7 +24,7 @@ import java.lang.annotation.Target;
 /**
  * Mark an {@code int} parameter as being parameterised with the given values.
  *
- * <p>You must be using the {@link BedsteadJUnit4} test runner to use this annotation.
+ * <p>You must be using the {@code BedsteadJUnit4} test runner to use this annotation.
  */
 @Target({ElementType.ANNOTATION_TYPE, ElementType.PARAMETER})
 @Retention(RetentionPolicy.RUNTIME)

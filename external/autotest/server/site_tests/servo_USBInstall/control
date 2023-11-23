@@ -4,13 +4,14 @@
 
 from autotest_lib.server import utils
 
-AUTHOR = "Chrome OS Team"
+AUTHOR = "ChromeOS Team"
 NAME = "servo_USBInstall"
 PURPOSE = "Force reinstall cros to a dut from the servo."
 TIME = "MEDIUM"
 TEST_CATEGORY = "Install"
 TEST_TYPE = "server"
 DEPENDENCIES = "servo_state:WORKING"
+PY_VERSION = 3
 
 DOC = """
 This test will do the same thing as ServoInstallRepair does, but with out

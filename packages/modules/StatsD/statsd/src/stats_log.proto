@@ -22,6 +22,7 @@ option java_package = "com.android.os";
 option java_outer_classname = "StatsLog";
 
 import "frameworks/proto_logging/stats/atoms.proto";
+import "packages/modules/StatsD/statsd/src/guardrail/invalid_config_reason_enum.proto";
 
 message DimensionsValue {
   optional int32 field = 1;
@@ -78,6 +79,8 @@ message CountBucketInfo {
   optional int64 start_bucket_elapsed_millis = 5;
 
   optional int64 end_bucket_elapsed_millis = 6;
+
+  optional int64 condition_true_nanos = 7;
 }
 
 message CountMetricData {
@@ -106,6 +109,8 @@ message DurationBucketInfo {
   optional int64 start_bucket_elapsed_millis = 5;
 
   optional int64 end_bucket_elapsed_millis = 6;
+
+  optional int64 condition_true_nanos = 7;
 }
 
 message DurationMetricData {
@@ -141,6 +146,7 @@ message ValueBucketInfo {
           int64 value_long = 2;
           double value_double = 3;
       }
+      optional int32 sample_size = 4;
   }
 
   repeated Value values = 9;
@@ -430,13 +436,24 @@ message ConfigMetricsReportList {
 
   repeated ConfigMetricsReport reports = 2;
 
-  reserved 10;
+  reserved 10 to 13, 101;
 }
 
 message StatsdStatsReport {
     optional int32 stats_begin_time_sec = 1;
 
     optional int32 stats_end_time_sec = 2;
+
+    message InvalidConfigReason {
+      optional InvalidConfigReasonEnum reason = 1;
+      optional int64 metric_id = 2;
+      optional int64 state_id = 3;
+      optional int64 alert_id = 4;
+      optional int64 alarm_id = 5;
+      optional int64 subscription_id = 6;
+      repeated int64 matcher_id = 7;
+      repeated int64 condition_id = 8;
+    }
 
     message MatcherStats {
         optional int64 id = 1;
@@ -469,6 +486,7 @@ message StatsdStatsReport {
         optional int32 matcher_count = 7;
         optional int32 alert_count = 8;
         optional bool is_valid = 9;
+        optional InvalidConfigReason invalid_config_reason = 24;
         repeated int32 broadcast_sent_time_sec = 10;
         repeated int32 data_drop_time_sec = 11;
         repeated int64 data_drop_bytes = 21;
@@ -486,6 +504,12 @@ message StatsdStatsReport {
         repeated Annotation annotation = 18;
         repeated int32 activation_time_sec = 22;
         repeated int32 deactivation_time_sec = 23;
+        repeated RestrictedMetricStats restricted_metric_stats = 25;
+        optional bool device_info_table_creation_failed = 26;
+        optional int32 restricted_db_corrupted_count = 27;
+        repeated int64 restricted_flush_latency = 28;
+        repeated int64 restricted_db_size_time_sec = 29;
+        repeated int64 restricted_db_size_bytes = 30;
     }
 
     repeated ConfigStats config_stats = 3;
@@ -494,6 +518,8 @@ message StatsdStatsReport {
         optional int32 tag = 1;
         optional int32 count = 2;
         optional int32 error_count = 3;
+        optional int32 dropped_count = 4;
+        optional int32 skip_count = 5;
     }
 
     repeated AtomStats atom_stats = 7;
@@ -603,6 +629,42 @@ message StatsdStatsReport {
     }
 
     repeated ActivationBroadcastGuardrail activation_guardrail_stats = 19;
+
+    message RestrictedMetricStats {
+      optional int64 restricted_metric_id = 1;
+      optional int64 insert_error = 2;
+      optional int64 table_creation_error = 3;
+      optional int64 table_deletion_error = 4;
+      repeated int64 flush_latency_ns = 5;
+      optional int64 category_changed_count = 6;
+    }
+
+    message RestrictedMetricQueryStats {
+      optional int32 calling_uid = 1;
+      optional int64 config_id = 2;
+      optional int32 config_uid = 3;
+      optional string config_package = 4;
+
+      enum InvalidQueryReason {
+        UNKNOWN_REASON = 0;
+        FLAG_DISABLED = 1;
+        UNSUPPORTED_SQLITE_VERSION = 2;
+        AMBIGUOUS_CONFIG_KEY = 3;
+        CONFIG_KEY_NOT_FOUND = 4;
+        CONFIG_KEY_WITH_UNMATCHED_DELEGATE = 5;
+        QUERY_FAILURE = 6;
+        INCONSISTENT_ROW_SIZE = 7;
+        NULL_CALLBACK = 8;
+      }
+
+      optional InvalidQueryReason invalid_query_reason = 5;
+      optional int64 query_wall_time_ns = 6;
+      optional bool has_error = 7;
+      optional string query_error = 8;
+      optional int64 query_latency_ns = 9;
+    }
+    repeated RestrictedMetricQueryStats restricted_metric_query_stats = 20;
+    optional uint32 shard_offset = 21;
 }
 
 message AlertTriggerDetails {

@@ -8,4 +8,7 @@ tsaichristine@google.com
 yaochen@google.com
 
 # Settings UI
-per-file settings_enums.proto=tmfang@google.com
+per-file settings_enums.proto=edgarwang@google.com
+
+# Adservices
+per-file adservices_enums.proto=binhnguyen@google.com

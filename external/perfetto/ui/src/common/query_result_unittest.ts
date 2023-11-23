@@ -12,9 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import * as protoNamespace from '../gen/protos';
+import protoNamespace from '../gen/protos';
 
-import {createQueryResult, NUM, NUM_NULL, STR, STR_NULL} from './query_result';
+import {
+  createQueryResult,
+  decodeInt64Varint,
+  NUM,
+  NUM_NULL,
+  STR,
+  STR_NULL,
+} from './query_result';
 
 const T = protoNamespace.perfetto.protos.QueryResult.CellsBatch.CellType;
 const QueryResultProto = protoNamespace.perfetto.protos.QueryResult;
@@ -73,7 +80,7 @@ test('QueryResult.BigNumbers', () => {
   ];
   const batch = QueryResultProto.CellsBatch.create({
     cells: new Array<number>(numAndExpectedStr.length).fill(T.CELL_VARINT),
-    varintCells: numAndExpectedStr.map(x => x[0]) as number[],
+    varintCells: numAndExpectedStr.map((x) => x[0]) as number[],
     isLastBatch: true,
   });
   const resProto = QueryResultProto.create({
@@ -87,7 +94,7 @@ test('QueryResult.BigNumbers', () => {
   for (const iter = qr.iter({n: NUM}); iter.valid(); iter.next()) {
     actual.push(BigInt(iter.n).toString());
   }
-  expect(actual).toEqual(numAndExpectedStr.map(x => x[1]) as string[]);
+  expect(actual).toEqual(numAndExpectedStr.map((x) => x[1]) as string[]);
 });
 
 test('QueryResult.Floats', () => {
@@ -128,7 +135,7 @@ test('QueryResult.Strings', () => {
     '',
     'hello world',
     'In einem Bächlein helle da schoß in froher Eil',
-    '色は匂へど散りぬるを我が世誰ぞ常ならん有為の奥山今日越えて浅き夢見じ酔ひもせず'
+    '色は匂へど散りぬるを我が世誰ぞ常ならん有為の奥山今日越えて浅き夢見じ酔ひもせず',
   ];
   const batch = QueryResultProto.CellsBatch.create({
     cells: new Array<number>(strings.length).fill(T.CELL_STRING),
@@ -269,7 +276,7 @@ test('QueryResult.DuplicateColumnNames', () => {
       T.CELL_STRING,
       T.CELL_FLOAT64,
       T.CELL_STRING,
-      T.CELL_STRING
+      T.CELL_STRING,
     ],
     varintCells: [42],
     stringCells: ['a', 'b', 'c'].join('\0'),
@@ -299,4 +306,158 @@ test('QueryResult.DuplicateColumnNames', () => {
     expect(iter.valid()).toBe(false);
   }
   expect(() => qr.iter({x_3: NUM})).toThrowError(/\bx_3\b.*not found/);
+});
+
+
+test('QueryResult.WaitMoreRows', async () => {
+  const batchA = QueryResultProto.CellsBatch.create({
+    cells: [T.CELL_VARINT],
+    varintCells: [42],
+    isLastBatch: false,
+  });
+  const resProtoA = QueryResultProto.create({
+    columnNames: ['a_int'],
+    batch: [batchA],
+  });
+
+  const qr = createQueryResult({query: 'Some query'});
+  qr.appendResultBatch(QueryResultProto.encode(resProtoA).finish());
+
+  const batchB = QueryResultProto.CellsBatch.create({
+    cells: [T.CELL_VARINT],
+    varintCells: [43],
+    isLastBatch: true,
+  });
+  const resProtoB = QueryResultProto.create({
+    columnNames: [],
+    batch: [batchB],
+  });
+
+  const waitPromise = qr.waitMoreRows();
+  const appendPromise = new Promise<void>((resolve, _) => {
+    setTimeout(() => {
+      qr.appendResultBatch(QueryResultProto.encode(resProtoB).finish());
+      resolve();
+    }, 0);
+  });
+
+  expect(qr.isComplete()).toBe(false);
+  expect(qr.numRows()).toBe(1);
+
+  await Promise.all([waitPromise, appendPromise]);
+
+  expect(qr.isComplete()).toBe(true);
+  expect(qr.numRows()).toBe(2);
+});
+
+describe('decodeInt64Varint', () => {
+  test('Parsing empty input should throw an error', () => {
+    expect(() => decodeInt64Varint(new Uint8Array(), 0))
+        .toThrow('Index out of range');
+  });
+
+  test('Parsing single byte positive integers', () => {
+    const testData: Array<[Uint8Array, BigInt]> = [
+      [new Uint8Array([0x00]), 0n],
+      [new Uint8Array([0x01]), 1n],
+      [new Uint8Array([0x7f]), 127n],
+    ];
+
+    testData.forEach(([input, expected]) => {
+      expect(decodeInt64Varint(input, 0)).toEqual(expected);
+    });
+  });
+
+  test('Parsing multi-byte positive integers', () => {
+    const testData: Array<[Uint8Array, BigInt]> = [
+      [new Uint8Array([0x80, 0x01]), 128n],
+      [new Uint8Array([0xff, 0x7f]), 16383n],
+      [new Uint8Array([0x80, 0x80, 0x01]), 16384n],
+      [new Uint8Array([0xff, 0xff, 0x7f]), 2097151n],
+      [
+        new Uint8Array([
+          0xff,
+          0xff,
+          0xff,
+          0xff,
+          0xff,
+          0xff,
+          0xff,
+          0xff,
+          0xff,
+          0x00,
+        ]),
+        9223372036854775807n,
+      ],
+    ];
+
+    testData.forEach(([input, expected]) => {
+      expect(decodeInt64Varint(input, 0)).toEqual(expected);
+    });
+  });
+
+  test('Parsing negative integers', () => {
+    const testData: Array<[Uint8Array, BigInt]> = [
+      [
+        new Uint8Array([
+          0xff,
+          0xff,
+          0xff,
+          0xff,
+          0xff,
+          0xff,
+          0xff,
+          0xff,
+          0xff,
+          0x01,
+        ]),
+        -1n,
+      ],
+      [
+        new Uint8Array([
+          0xfe,
+          0xff,
+          0xff,
+          0xff,
+          0xff,
+          0xff,
+          0xff,
+          0xff,
+          0xff,
+          0x01,
+        ]),
+        -2n,
+      ],
+      [
+        new Uint8Array([
+          0x80,
+          0x80,
+          0x80,
+          0x80,
+          0x80,
+          0x80,
+          0x80,
+          0x80,
+          0x80,
+          0x01,
+        ]),
+        -9223372036854775808n,
+      ],
+    ];
+
+    testData.forEach(([input, expected]) => {
+      expect(decodeInt64Varint(input, 0)).toEqual(expected);
+    });
+  });
+
+  test('Parsing with incomplete varint should throw an error', () => {
+    const testData: Array<Uint8Array> = [
+      new Uint8Array([0x80]),
+      new Uint8Array([0x80, 0x80]),
+    ];
+
+    testData.forEach((input) => {
+      expect(() => decodeInt64Varint(input, 0)).toThrow('Index out of range');
+    });
+  });
 });

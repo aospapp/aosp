@@ -1,18 +1,15 @@
 #!/bin/sh
 # SPDX-License-Identifier: GPL-2.0-or-later
 # Copyright (c) 2014-2018 Oracle and/or its affiliates. All Rights Reserved.
-# Copyright (c) 2018 Petr Vorel <pvorel@suse.cz>
+# Copyright (c) 2018-2022 Petr Vorel <pvorel@suse.cz>
 # Author:       Alexey Kodanev alexey.kodanev@oracle.com
 
-TST_SETUP="dhcp_lib_setup"
-TST_CLEANUP="dhcp_lib_cleanup"
+TST_SETUP="${TST_SETUP:-dhcp_lib_setup}"
+TST_CLEANUP="${TST_CLEANUP:-dhcp_lib_cleanup}"
 TST_TESTFUNC="test01"
 TST_NEEDS_TMPDIR=1
 TST_NEEDS_ROOT=1
 TST_NEEDS_CMDS="cat $dhcp_name awk ip pgrep pkill dhclient"
-
-. tst_net.sh
-. daemonlib.sh
 
 iface0="ltp_veth0"
 iface1="ltp_veth1"
@@ -58,12 +55,12 @@ dhcp_lib_setup()
 	lsmod | grep -q '^veth ' && veth_loaded=yes || veth_loaded=no
 
 	tst_res TINFO "create veth interfaces"
-	ip li add $iface0 type veth peer name $iface1 || \
+	ip link add $iface0 type veth peer name $iface1 || \
 		tst_brk TBROK "failed to add veth $iface0"
 
 	veth_added=1
-	ip li set up $iface0 || tst_brk TBROK "failed to bring $iface0 up"
-	ip li set up $iface1 || tst_brk TBROK "failed to bring $iface1 up"
+	ip link set up $iface0 || tst_brk TBROK "failed to bring $iface0 up"
+	ip link set up $iface1 || tst_brk TBROK "failed to bring $iface1 up"
 
 	stop_dhcp || tst_brk TBROK "Failed to stop dhcp server"
 
@@ -102,7 +99,7 @@ dhcp_lib_cleanup()
 	[ -f "dhclient${TST_IPV6}.leases" ] && \
 		mv dhclient${TST_IPV6}.leases $dhclient_lease
 
-	[ $veth_added ] && ip li del $iface0
+	[ $veth_added ] && ip link del $iface0
 
 	[ "$veth_loaded" = "no" ] && lsmod | grep -q '^veth ' && rmmod veth
 }
@@ -174,3 +171,6 @@ EOF
 
 	stop_dhcp
 }
+
+. tst_net.sh
+. daemonlib.sh

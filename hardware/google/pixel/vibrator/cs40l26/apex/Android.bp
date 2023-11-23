@@ -1,0 +1,63 @@
+// Copyright (C) 2022 The Android Open Source Project
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+package {
+    default_applicable_licenses: ["Android-Apache-2.0"],
+}
+
+apex_key {
+    name: "com.google.pixel.vibrator.hal.key",
+    public_key: "com.google.pixel.vibrator.hal.avbpubkey",
+    private_key: "com.google.pixel.vibrator.hal.pem",
+}
+
+android_app_certificate {
+    name: "com.google.pixel.vibrator.hal.certificate",
+    certificate: "com.google.pixel.vibrator.hal",
+}
+
+genrule {
+    name: "gen-android.hardware.vibrator-service.cs40l26.rc",
+    srcs: [":android.hardware.vibrator-service.cs40l26.rc"],
+    out: ["android.hardware.vibrator-service.cs40l26.rc"],
+    cmd: "sed -E 's/\\/vendor\\/bin/\\/apex\\/com.google.pixel.vibrator.hal\\/bin/' $(in) > $(out)",
+}
+
+prebuilt_etc {
+    name: "apex-android.hardware.vibrator-service.cs40l26.rc",
+    src: ":gen-android.hardware.vibrator-service.cs40l26.rc",
+    installable: false,
+}
+
+apex {
+    name: "com.google.pixel.vibrator.hal",
+    manifest: "apex_manifest.json",
+    file_contexts: "file_contexts",  // Default, please edit, see go/android-apex-howto
+    key: "com.google.pixel.vibrator.hal.key",
+    certificate: ":com.google.pixel.vibrator.hal.certificate",
+    vintf_fragments: [
+        ":android.hardware.vibrator-service.cs40l26.xml",
+    ],
+    use_vndk_as_stable: true,
+    // Install the apex in /vendor/apex
+    soc_specific: true,
+    updatable: false,
+    binaries: [
+        "android.hardware.vibrator-service.cs40l26",
+    ],
+    prebuilts: [
+        "apex-android.hardware.vibrator-service.cs40l26.rc",
+    ],
+    overrides: ["android.hardware.vibrator-service.cs40l26"],
+}

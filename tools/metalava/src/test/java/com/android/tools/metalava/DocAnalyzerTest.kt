@@ -238,34 +238,27 @@ class DocAnalyzerTest : DriverTest() {
                     /**
                      * Requires {@link android.Manifest.permission#ACCESS_COARSE_LOCATION}
                      */
-                    @androidx.annotation.RequiresPermission(android.Manifest.permission.ACCESS_COARSE_LOCATION)
                     public void test1() { throw new RuntimeException("Stub!"); }
                     /**
                      * Requires {@link android.Manifest.permission#ACCESS_COARSE_LOCATION}
                      */
-                    @androidx.annotation.RequiresPermission(allOf=android.Manifest.permission.ACCESS_COARSE_LOCATION)
                     public void test2() { throw new RuntimeException("Stub!"); }
                     /**
                      * Requires {@link android.Manifest.permission#ACCESS_COARSE_LOCATION} or {@link android.Manifest.permission#ACCESS_FINE_LOCATION}
                      */
-                    @androidx.annotation.RequiresPermission(anyOf={android.Manifest.permission.ACCESS_COARSE_LOCATION, android.Manifest.permission.ACCESS_FINE_LOCATION})
                     public void test3() { throw new RuntimeException("Stub!"); }
                     /**
                      * Requires {@link android.Manifest.permission#ACCESS_COARSE_LOCATION} and {@link android.Manifest.permission#ACCOUNT_MANAGER}
                      */
-                    @androidx.annotation.RequiresPermission(allOf={android.Manifest.permission.ACCESS_COARSE_LOCATION, android.Manifest.permission.ACCOUNT_MANAGER})
                     public void test4() { throw new RuntimeException("Stub!"); }
-                    @androidx.annotation.RequiresPermission(value=android.Manifest.permission.WATCH_APPOPS, conditional=true)
                     public void test5() { throw new RuntimeException("Stub!"); }
                     /**
                      * Requires {@link android.Manifest.permission#ACCESS_COARSE_LOCATION} or {@link android.telephony.TelephonyManager#hasCarrierPrivileges carrier privileges}
                      */
-                    @androidx.annotation.RequiresPermission(anyOf={android.Manifest.permission.ACCESS_COARSE_LOCATION, "carrier privileges"})
                     public void test6() { throw new RuntimeException("Stub!"); }
                     /**
                      * Requires {@link android.Manifest.permission#ACCESS_COARSE_LOCATION} or "carier priviliges"
                      */
-                    @androidx.annotation.RequiresPermission(anyOf={android.Manifest.permission.ACCESS_COARSE_LOCATION, "carier priviliges"})
                     public void test6() { throw new RuntimeException("Stub!"); }
                     }
                     """
@@ -315,7 +308,6 @@ class DocAnalyzerTest : DriverTest() {
                     @SuppressWarnings({"unchecked", "deprecation", "all"})
                     public class PermissionTest {
                     public PermissionTest() { throw new RuntimeException("Stub!"); }
-                    @androidx.annotation.RequiresPermission(value=android.Manifest.permission.WATCH_APPOPS, conditional=true)
                     public void test1() { throw new RuntimeException("Stub!"); }
                     }
                     """
@@ -361,17 +353,14 @@ class DocAnalyzerTest : DriverTest() {
                      * @param range2 Value is 20 or greater
                      * @return Value is 10 or greater
                      */
-                    @androidx.annotation.IntRange(from=10)
-                    public int test1(@androidx.annotation.IntRange(from=20) int range2) { throw new RuntimeException("Stub!"); }
+                    public int test1(int range2) { throw new RuntimeException("Stub!"); }
                     /**
                      * @return Value is between 10 and 20 inclusive
                      */
-                    @androidx.annotation.IntRange(from=10, to=20)
                     public int test2() { throw new RuntimeException("Stub!"); }
                     /**
                      * @return Value is 100 or less
                      */
-                    @androidx.annotation.IntRange(to=100)
                     public int test3() { throw new RuntimeException("Stub!"); }
                     }
                     """
@@ -411,14 +400,12 @@ class DocAnalyzerTest : DriverTest() {
                      * main thread of your app. *
                      */
                     @SuppressWarnings({"unchecked", "deprecation", "all"})
-                    @androidx.annotation.UiThread
                     public class RangeTest {
                     public RangeTest() { throw new RuntimeException("Stub!"); }
                     /**
                      * This method may take several seconds to complete, so it should
                      * only be called from a worker thread.
                      */
-                    @androidx.annotation.WorkerThread
                     public int test1() { throw new RuntimeException("Stub!"); }
                     }
                     """
@@ -462,8 +449,6 @@ class DocAnalyzerTest : DriverTest() {
                      * This method may take several seconds to complete, so it should
                      * only be called from a worker thread.
                      */
-                    @androidx.annotation.UiThread
-                    @androidx.annotation.WorkerThread
                     public int test1() { throw new RuntimeException("Stub!"); }
                     }
                     """
@@ -536,7 +521,6 @@ class DocAnalyzerTest : DriverTest() {
                      * @return blah blah blah
                      * @apiSince 24
                      */
-                    @androidx.annotation.UiThread
                     public int getCurrentContentInsetEnd() { throw new RuntimeException("Stub!"); }
                     /**
                      * <br>
@@ -544,7 +528,6 @@ class DocAnalyzerTest : DriverTest() {
                      * this UI element. This is typically the main thread of your app.
                      * @apiSince 15
                      */
-                    @androidx.annotation.UiThread
                     public int getCurrentContentInsetRight() { throw new RuntimeException("Stub!"); }
                     }
                     """
@@ -712,7 +695,6 @@ class DocAnalyzerTest : DriverTest() {
                     /**
                      * Requires {@link test.pkg.RangeTest#ACCESS_COARSE_LOCATION}
                      */
-                    @androidx.annotation.RequiresPermission(test.pkg.RangeTest.ACCESS_COARSE_LOCATION)
                     public void test1() { throw new RuntimeException("Stub!"); }
                     public static final java.lang.String ACCESS_COARSE_LOCATION = "android.permission.ACCESS_COARSE_LOCATION";
                     }
@@ -752,7 +734,6 @@ class DocAnalyzerTest : DriverTest() {
                     /**
                      * Requires "MyPermission"
                      */
-                    @androidx.annotation.RequiresPermission("MyPermission")
                     public void test1() { throw new RuntimeException("Stub!"); }
                     }
                     """
@@ -794,7 +775,6 @@ class DocAnalyzerTest : DriverTest() {
                      * <br>
                      * Requires {@link test.pkg.RangeTest#ACCESS_COARSE_LOCATION}
                      */
-                    @androidx.annotation.RequiresPermission(test.pkg.RangeTest.ACCESS_COARSE_LOCATION)
                     public int test1() { throw new RuntimeException("Stub!"); }
                     public static final java.lang.String ACCESS_COARSE_LOCATION = "android.permission.ACCESS_COARSE_LOCATION";
                     }
@@ -841,7 +821,6 @@ class DocAnalyzerTest : DriverTest() {
                      * <br>
                      * Requires {@link test.pkg.RangeTest#ACCESS_COARSE_LOCATION}
                      */
-                    @androidx.annotation.RequiresPermission(test.pkg.RangeTest.ACCESS_COARSE_LOCATION)
                     public int test1() { throw new RuntimeException("Stub!"); }
                     public static final java.lang.String ACCESS_COARSE_LOCATION = "android.permission.ACCESS_COARSE_LOCATION";
                     }
@@ -878,7 +857,7 @@ class DocAnalyzerTest : DriverTest() {
                     /**
                      * @param parameter2 Value is 10 or greater
                      */
-                    public int test1(int parameter1, @androidx.annotation.IntRange(from=10) int parameter2, int parameter3) { throw new RuntimeException("Stub!"); }
+                    public int test1(int parameter1, int parameter2, int parameter3) { throw new RuntimeException("Stub!"); }
                     }
                     """
                 )
@@ -929,7 +908,6 @@ class DocAnalyzerTest : DriverTest() {
                      * @param parameter3 docs for parameter2
                      * @return return value documented here
                      */
-                    @androidx.annotation.RequiresPermission(test.pkg.RangeTest.ACCESS_COARSE_LOCATION)
                     public int test1(int parameter1, int parameter2, int parameter3) { throw new RuntimeException("Stub!"); }
                     public static final java.lang.String ACCESS_COARSE_LOCATION = "android.permission.ACCESS_COARSE_LOCATION";
                     }
@@ -972,7 +950,7 @@ class DocAnalyzerTest : DriverTest() {
                      * @param parameter2 Value is 10 or greater
                      * @return return value documented here
                      */
-                    public int test1(int parameter1, @androidx.annotation.IntRange(from=10) int parameter2, int parameter3) { throw new RuntimeException("Stub!"); }
+                    public int test1(int parameter1, int parameter2, int parameter3) { throw new RuntimeException("Stub!"); }
                     }
                     """
                 )
@@ -1017,7 +995,7 @@ class DocAnalyzerTest : DriverTest() {
                      * @param parameter2 Value is 10 or greater
                      * @return return value documented here
                      */
-                    public int test1(int parameter1, @androidx.annotation.IntRange(from=10) int parameter2, int parameter3) { throw new RuntimeException("Stub!"); }
+                    public int test1(int parameter1, int parameter2, int parameter3) { throw new RuntimeException("Stub!"); }
                     }
                     """
                 )
@@ -1064,7 +1042,7 @@ class DocAnalyzerTest : DriverTest() {
                      * @param parameter3 docs for parameter2
                      * @return return value documented here
                      */
-                    public int test1(int parameter1, @androidx.annotation.IntRange(from=10) int parameter2, int parameter3) { throw new RuntimeException("Stub!"); }
+                    public int test1(int parameter1, int parameter2, int parameter3) { throw new RuntimeException("Stub!"); }
                     }
                     """
                 )
@@ -1100,7 +1078,6 @@ class DocAnalyzerTest : DriverTest() {
                     /**
                      * @return Value is 10 or greater
                      */
-                    @androidx.annotation.IntRange(from=10)
                     public int test1(int parameter1, int parameter2, int parameter3) { throw new RuntimeException("Stub!"); }
                     }
                     """
@@ -1143,7 +1120,6 @@ class DocAnalyzerTest : DriverTest() {
                      * @return return value documented here
                      * Value is 10 or greater
                      */
-                    @androidx.annotation.IntRange(from=10)
                     public int test1(int parameter1, int parameter2, int parameter3) { throw new RuntimeException("Stub!"); }
                     }
                     """
@@ -1517,6 +1493,188 @@ class DocAnalyzerTest : DriverTest() {
         )
     }
 
+    object SdkExtSinceConstants {
+        val sourceFiles = arrayOf(
+            java(
+                """
+                package android.pkg;
+                public class Test {
+                   public static final String UNIT_TEST_1 = "unit.test.1";
+                   public static final String UNIT_TEST_2 = "unit.test.2";
+                   public static final String UNIT_TEST_3 = "unit.test.3";
+                   public Test() {}
+                   public void foo() {}
+                   public class Inner {
+                       public Inner() {}
+                       public static final boolean UNIT_TEST_4 = true;
+                   }
+                }
+                """
+            )
+        )
+
+        const val apiVersionsXml = """
+                <?xml version="1.0" encoding="utf-8"?>
+                <api version="3">
+                    <sdk id="30" shortname="R-ext" name="R Extensions" reference="android/os/Build${'$'}VERSION_CODES${'$'}R" />
+                    <sdk id="31" shortname="S-ext" name="S Extensions" reference="android/os/Build${'$'}VERSION_CODES${'$'}S" />
+                    <sdk id="33" shortname="T-ext" name="T Extensions" reference="android/os/Build${'$'}VERSION_CODES${'$'}T" />
+                    <sdk id="1000000" shortname="standalone-ext" name="Standalone Extensions" reference="some/other/CONST" />
+                    <class name="android/pkg/Test" since="1" sdks="0:1,30:2,31:2,33:2">
+                        <method name="foo()V"/>
+                        <method name="&lt;init>()V"/>
+                        <field name="UNIT_TEST_1"/>
+                        <field name="UNIT_TEST_2" since="2" sdks="1000000:3,31:3,33:3,0:2"/>
+                        <field name="UNIT_TEST_3" since="31" sdks="1000000:4"/>
+                    </class>
+                    <class name="android/pkg/Test${'$'}Inner" since="1" sdks="0:1,30:2,31:2,33:2">
+                        <method name="&lt;init>()V"/>
+                        <field name="UNIT_TEST_4"/>
+                    </class>
+                </api>
+                """
+
+        const val docStubsSourceList = """
+                TESTROOT/stubs/android/pkg/package-info.java
+                TESTROOT/stubs/android/pkg/Test.java
+            """
+    }
+
+    @Test
+    fun `@sdkExtSince (finalized, no codename)`() {
+        check(
+            extraArguments = arrayOf(
+                ARG_CURRENT_VERSION,
+                "30",
+            ),
+            sourceFiles = SdkExtSinceConstants.sourceFiles,
+            applyApiLevelsXml = SdkExtSinceConstants.apiVersionsXml,
+            checkCompilation = true,
+            docStubs = true,
+            docStubsSourceList = SdkExtSinceConstants.docStubsSourceList,
+            stubFiles = arrayOf(
+                java(
+                    """
+                    package android.pkg;
+                    /**
+                     * @apiSince 1
+                     * @sdkExtSince R Extensions 2
+                     */
+                    @SuppressWarnings({"unchecked", "deprecation", "all"})
+                    public class Test {
+                    /**
+                     * @apiSince 1
+                     * @sdkExtSince R Extensions 2
+                     */
+                    public Test() { throw new RuntimeException("Stub!"); }
+                    /**
+                     * @apiSince 1
+                     * @sdkExtSince R Extensions 2
+                     */
+                    public void foo() { throw new RuntimeException("Stub!"); }
+                    /**
+                     * @apiSince 1
+                     * @sdkExtSince R Extensions 2
+                     */
+                    public static final java.lang.String UNIT_TEST_1 = "unit.test.1";
+                    /**
+                     * @apiSince 2
+                     * @sdkExtSince Standalone Extensions 3
+                     */
+                    public static final java.lang.String UNIT_TEST_2 = "unit.test.2";
+                    /** @sdkExtSince Standalone Extensions 4 */
+                    public static final java.lang.String UNIT_TEST_3 = "unit.test.3";
+                    /**
+                     * @apiSince 1
+                     * @sdkExtSince R Extensions 2
+                     */
+                    @SuppressWarnings({"unchecked", "deprecation", "all"})
+                    public class Inner {
+                    /**
+                     * @apiSince 1
+                     * @sdkExtSince R Extensions 2
+                     */
+                    public Inner() { throw new RuntimeException("Stub!"); }
+                    /**
+                     * @apiSince 1
+                     * @sdkExtSince R Extensions 2
+                     */
+                    public static final boolean UNIT_TEST_4 = true;
+                    }
+                    }
+                    """
+                )
+            )
+        )
+    }
+
+    @Test
+    fun `@sdkExtSince (not finalized)`() {
+        check(
+            sourceFiles = SdkExtSinceConstants.sourceFiles,
+            applyApiLevelsXml = SdkExtSinceConstants.apiVersionsXml,
+            checkCompilation = true,
+            docStubs = true,
+            docStubsSourceList = SdkExtSinceConstants.docStubsSourceList,
+            stubFiles = arrayOf(
+                java(
+                    """
+                    package android.pkg;
+                    /**
+                     * @apiSince 1
+                     * @sdkExtSince R Extensions 2
+                     */
+                    @SuppressWarnings({"unchecked", "deprecation", "all"})
+                    public class Test {
+                    /**
+                     * @apiSince 1
+                     * @sdkExtSince R Extensions 2
+                     */
+                    public Test() { throw new RuntimeException("Stub!"); }
+                    /**
+                     * @apiSince 1
+                     * @sdkExtSince R Extensions 2
+                     */
+                    public void foo() { throw new RuntimeException("Stub!"); }
+                    /**
+                     * @apiSince 1
+                     * @sdkExtSince R Extensions 2
+                     */
+                    public static final java.lang.String UNIT_TEST_1 = "unit.test.1";
+                    /**
+                     * @apiSince 2
+                     * @sdkExtSince Standalone Extensions 3
+                     */
+                    public static final java.lang.String UNIT_TEST_2 = "unit.test.2";
+                    /**
+                     * @apiSince 31
+                     * @sdkExtSince Standalone Extensions 4
+                     */
+                    public static final java.lang.String UNIT_TEST_3 = "unit.test.3";
+                    /**
+                     * @apiSince 1
+                     * @sdkExtSince R Extensions 2
+                     */
+                    @SuppressWarnings({"unchecked", "deprecation", "all"})
+                    public class Inner {
+                    /**
+                     * @apiSince 1
+                     * @sdkExtSince R Extensions 2
+                     */
+                    public Inner() { throw new RuntimeException("Stub!"); }
+                    /**
+                     * @apiSince 1
+                     * @sdkExtSince R Extensions 2
+                     */
+                    public static final boolean UNIT_TEST_4 = true;
+                    }
+                    }
+                    """
+                )
+            )
+        )
+    }
+
     @Test
     fun `Generate overview html docs`() {
         // If a codebase provides overview.html files in the a public package,
@@ -1707,7 +1865,6 @@ class DocAnalyzerTest : DriverTest() {
                     package test.pkg;
                     /** @apiSince 21 */
                     @SuppressWarnings({"unchecked", "deprecation", "all"})
-                    @androidx.annotation.RequiresApi(21)
                     public class MyClass1 {
                     public MyClass1() { throw new RuntimeException("Stub!"); }
                     }

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012, 2013, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2012, 2021, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -69,7 +69,6 @@ import java.io.ObjectInputStream;
 import java.io.Serializable;
 import java.time.Duration;
 import java.time.Instant;
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
@@ -162,6 +161,16 @@ public final class ZoneRules implements Serializable {
      * The zero-length ldt array.
      */
     private static final LocalDateTime[] EMPTY_LDT_ARRAY = new LocalDateTime[0];
+    /**
+     * The number of days in a 400 year cycle.
+     */
+    private static final int DAYS_PER_CYCLE = 146097;
+    /**
+     * The number of days from year zero to year 1970.
+     * There are five 400 year cycles from year zero to 2000.
+     * There are 7 leap years from 1970 to 2000.
+     */
+    private static final long DAYS_0000_TO_1970 = (DAYS_PER_CYCLE * 5L) - (30L * 365L + 7L);
 
     /**
      * Obtains an instance of a ZoneRules.
@@ -250,10 +259,12 @@ public final class ZoneRules implements Serializable {
         }
 
         // last rules
-        if (lastRules.size() > 16) {
+        Object[] temp = lastRules.toArray();
+        ZoneOffsetTransitionRule[] rulesArray = Arrays.copyOf(temp, temp.length, ZoneOffsetTransitionRule[].class);
+        if (rulesArray.length > 16) {
             throw new IllegalArgumentException("Too many transition rules");
         }
-        this.lastRules = lastRules.toArray(new ZoneOffsetTransitionRule[lastRules.size()]);
+        this.lastRules = rulesArray;
     }
 
     /**
@@ -327,7 +338,7 @@ public final class ZoneRules implements Serializable {
 
     /**
      * Writes the object using a
-     * <a href="../../../serialized-form.html#java.time.zone.Ser">dedicated serialized form</a>.
+     * <a href="{@docRoot}/serialized-form.html#java.time.zone.Ser">dedicated serialized form</a>.
      * @serialData
      * <pre style="font-size:1.0em">{@code
      *
@@ -473,7 +484,10 @@ public final class ZoneRules implements Serializable {
      * @return true if the time-zone is fixed and the offset never changes
      */
     public boolean isFixedOffset() {
-        return savingsInstantTransitions.length == 0;
+        return standardOffsets[0].equals(wallOffsets[0]) &&
+                standardTransitions.length == 0 &&
+                savingsInstantTransitions.length == 0 &&
+                lastRules.length == 0;
     }
 
     /**
@@ -489,7 +503,7 @@ public final class ZoneRules implements Serializable {
      */
     public ZoneOffset getOffset(Instant instant) {
         if (savingsInstantTransitions.length == 0) {
-            return standardOffsets[0];
+            return wallOffsets[0];
         }
         long epochSec = instant.getEpochSecond();
         // check if using last rules
@@ -575,7 +589,7 @@ public final class ZoneRules implements Serializable {
      * There are various ways to handle the conversion from a {@code LocalDateTime}.
      * One technique, using this method, would be:
      * <pre>
-     *  List&lt;ZoneOffset&gt; validOffsets = rules.getOffset(localDT);
+     *  List&lt;ZoneOffset&gt; validOffsets = rules.getValidOffsets(localDT);
      *  if (validOffsets.size() == 1) {
      *    // Normal case: only one valid offset
      *    zoneOffset = validOffsets.get(0);
@@ -643,8 +657,8 @@ public final class ZoneRules implements Serializable {
     }
 
     private Object getOffsetInfo(LocalDateTime dt) {
-        if (savingsInstantTransitions.length == 0) {
-            return standardOffsets[0];
+        if (savingsLocalTransitions.length == 0) {
+            return wallOffsets[0];
         }
         // check if using last rules
         if (lastRules.length > 0 &&
@@ -759,7 +773,7 @@ public final class ZoneRules implements Serializable {
      * @return the standard offset, not null
      */
     public ZoneOffset getStandardOffset(Instant instant) {
-        if (savingsInstantTransitions.length == 0) {
+        if (standardTransitions.length == 0) {
             return standardOffsets[0];
         }
         long epochSec = instant.getEpochSecond();
@@ -789,7 +803,7 @@ public final class ZoneRules implements Serializable {
      * @return the difference between the standard and actual offset, not null
      */
     public Duration getDaylightSavings(Instant instant) {
-        if (savingsInstantTransitions.length == 0) {
+        if (isFixedOffset()) {
             return Duration.ZERO;
         }
         ZoneOffset standardOffset = getStandardOffset(instant);
@@ -933,10 +947,34 @@ public final class ZoneRules implements Serializable {
     }
 
     private int findYear(long epochSecond, ZoneOffset offset) {
-        // inline for performance
         long localSecond = epochSecond + offset.getTotalSeconds();
-        long localEpochDay = Math.floorDiv(localSecond, 86400);
-        return LocalDate.ofEpochDay(localEpochDay).getYear();
+        long zeroDay = Math.floorDiv(localSecond, 86400) + DAYS_0000_TO_1970;
+
+        // find the march-based year
+        zeroDay -= 60;  // adjust to 0000-03-01 so leap day is at end of four year cycle
+        long adjust = 0;
+        if (zeroDay < 0) {
+            // adjust negative years to positive for calculation
+            long adjustCycles = (zeroDay + 1) / DAYS_PER_CYCLE - 1;
+            adjust = adjustCycles * 400;
+            zeroDay += -adjustCycles * DAYS_PER_CYCLE;
+        }
+        long yearEst = (400 * zeroDay + 591) / DAYS_PER_CYCLE;
+        long doyEst = zeroDay - (365 * yearEst + yearEst / 4 - yearEst / 100 + yearEst / 400);
+        if (doyEst < 0) {
+            // fix estimate
+            yearEst--;
+            doyEst = zeroDay - (365 * yearEst + yearEst / 4 - yearEst / 100 + yearEst / 400);
+        }
+        yearEst += adjust;  // reset any negative year
+        int marchDoy0 = (int) doyEst;
+
+        // convert march-based values back to january-based
+        int marchMonth0 = (marchDoy0 * 5 + 2) / 153;
+        yearEst += marchMonth0 / 10;
+
+        // Cap to the max value
+        return (int)Math.min(yearEst, Year.MAX_VALUE);
     }
 
     /**
@@ -1001,15 +1039,12 @@ public final class ZoneRules implements Serializable {
         if (this == otherRules) {
            return true;
         }
-        if (otherRules instanceof ZoneRules) {
-            ZoneRules other = (ZoneRules) otherRules;
-            return Arrays.equals(standardTransitions, other.standardTransitions) &&
-                    Arrays.equals(standardOffsets, other.standardOffsets) &&
-                    Arrays.equals(savingsInstantTransitions, other.savingsInstantTransitions) &&
-                    Arrays.equals(wallOffsets, other.wallOffsets) &&
-                    Arrays.equals(lastRules, other.lastRules);
-        }
-        return false;
+        return (otherRules instanceof ZoneRules other)
+                && Arrays.equals(standardTransitions, other.standardTransitions)
+                && Arrays.equals(standardOffsets, other.standardOffsets)
+                && Arrays.equals(savingsInstantTransitions, other.savingsInstantTransitions)
+                && Arrays.equals(wallOffsets, other.wallOffsets)
+                && Arrays.equals(lastRules, other.lastRules);
     }
 
     /**

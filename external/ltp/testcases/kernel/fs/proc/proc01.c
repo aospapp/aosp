@@ -97,10 +97,12 @@ static const struct mapping known_issues[] = {
 	{"read", "/proc/self/mem", EIO},
 	{"read", "/proc/self/task/[0-9]*/mem", EIO},
 	{"read", "/proc/self/attr/*", EINVAL},
+	{"read", "/proc/self/attr/selinux/*", EINVAL},
 	{"read", "/proc/self/attr/smack/*", EINVAL},
 	{"read", "/proc/self/attr/apparmor/*", EINVAL},
 	{"read", "/proc/self/task/[0-9]*/attr/*", EINVAL},
 	{"read", "/proc/self/task/[0-9]*/attr/smack/*", EINVAL},
+	{"read", "/proc/self/task/[0-9]*/attr/selinux/*", EINVAL},
 	{"read", "/proc/self/task/[0-9]*/attr/apparmor/*", EINVAL},
 	{"read", "/proc/self/ns/*", EINVAL},
 	{"read", "/proc/self/task/[0-9]*/ns/*", EINVAL},
@@ -139,13 +141,9 @@ static const struct mapping known_issues[] = {
 #ifdef HAVE_LIBSELINUX_DEVEL
 static const char lsm_should_work[][PATH_MAX] = {
 	"/proc/self/attr/*",
+	"/proc/self/attr/selinux/*",
 	"/proc/self/task/[0-9]*/attr/*",
-	""
-};
-
-/* Place holder for none of LSM is detected. */
-#else
-static const char lsm_should_work[][PATH_MAX] = {
+	"/proc/self/task/[0-9]*/attr/selinux/*",
 	""
 };
 #endif

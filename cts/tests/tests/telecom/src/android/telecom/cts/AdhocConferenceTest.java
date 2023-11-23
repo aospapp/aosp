@@ -44,7 +44,7 @@ public class AdhocConferenceTest extends BaseTelecomTestWithMockServices {
     @Override
     protected void setUp() throws Exception {
         super.setUp();
-        if (mShouldTestTelecom) {
+        if (mShouldTestTelecom && TestUtils.hasTelephonyFeature(mContext)) {
             setupConnectionService(null, FLAG_REGISTER | FLAG_ENABLE);
             mTelecomManager.registerPhoneAccount(TestUtils.TEST_PHONE_ACCOUNT);
             setupForEmergencyCalling(TEST_EMERGENCY_NUMBER);
@@ -54,15 +54,14 @@ public class AdhocConferenceTest extends BaseTelecomTestWithMockServices {
 
     @Override
     protected void tearDown() throws Exception {
-        if (!mShouldTestTelecom) {
-            return;
+        if (mShouldTestTelecom && TestUtils.hasTelephonyFeature(mContext)) {
+            mTelecomManager.unregisterPhoneAccount(TestUtils.TEST_PHONE_ACCOUNT_HANDLE);
         }
-        mTelecomManager.unregisterPhoneAccount(TestUtils.TEST_PHONE_ACCOUNT_HANDLE);
         super.tearDown();
     }
 
     public void testStartConference() {
-        if (!mShouldTestTelecom) {
+        if (!mShouldTestTelecom || !TestUtils.hasTelephonyFeature(mContext)) {
             return;
         }
         Bundle extra = new Bundle();
@@ -76,7 +75,8 @@ public class AdhocConferenceTest extends BaseTelecomTestWithMockServices {
     }
 
     public void testStartConferenceFailed() {
-        if (!mShouldTestTelecom) {
+        if (!mShouldTestTelecom || !TestUtils.hasTelephonyFeature(mContext)) {
+            //skip if telephony_feature is missing since we are placing an emergency call
             return;
         }
         List<Uri> participants = new ArrayList<>();
@@ -88,7 +88,7 @@ public class AdhocConferenceTest extends BaseTelecomTestWithMockServices {
     }
 
     public void testAddNewIncomingConference_onAnswer() {
-        if (!mShouldTestTelecom) {
+        if (!mShouldTestTelecom || !TestUtils.hasTelephonyFeature(mContext)) {
             return;
         }
         Bundle extra = new Bundle();
@@ -111,7 +111,7 @@ public class AdhocConferenceTest extends BaseTelecomTestWithMockServices {
     }
 
     public void testAddNewIncomingConference_onReject() {
-        if (!mShouldTestTelecom) {
+        if (!mShouldTestTelecom || !TestUtils.hasTelephonyFeature(mContext)) {
             return;
         }
         Bundle extra = new Bundle();
@@ -137,7 +137,7 @@ public class AdhocConferenceTest extends BaseTelecomTestWithMockServices {
     }
 
     public void testAddNewIncomingConferenceFailed() {
-        if (!mShouldTestTelecom) {
+        if (!mShouldTestTelecom || !TestUtils.hasTelephonyFeature(mContext)) {
             return;
         }
         placeAndVerifyEmergencyCall(true);
@@ -148,7 +148,7 @@ public class AdhocConferenceTest extends BaseTelecomTestWithMockServices {
     }
 
     public void testConferenceCallAddConferenceParticipants() {
-        if (!mShouldTestTelecom) {
+        if (!mShouldTestTelecom || !TestUtils.hasTelephonyFeature(mContext)) {
             return;
         }
         Bundle extra = new Bundle();

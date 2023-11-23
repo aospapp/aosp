@@ -169,8 +169,6 @@ public:
                              std::map<string, int>* installerIndices, std::set<string>* str_set,
                              ProtoOutputStream* proto) const;
 
-    void setIncludeCertificateHash(const bool include);
-
 private:
     std::set<string> getAppNamesFromUidLocked(const int32_t& uid, bool returnNormalized) const;
     string normalizeAppName(const string& appName) const;
@@ -227,9 +225,10 @@ private:
     // Cache the size of mOutput;
     size_t mBytesUsed;
 
-    bool mIncludeCertificateHash;
-
     // Allows unit-test to access private methods.
+    FRIEND_TEST(RestrictedEventMetricE2eTest, TestRestrictedConfigUpdateDoesNotUpdateUidMap);
+    FRIEND_TEST(RestrictedEventMetricE2eTest,
+                TestRestrictedConfigUpdateAddsDelegateRemovesUidMapEntry);
     FRIEND_TEST(UidMapTest, TestClearingOutput);
     FRIEND_TEST(UidMapTest, TestRemovedAppRetained);
     FRIEND_TEST(UidMapTest, TestRemovedAppOverGuardrail);

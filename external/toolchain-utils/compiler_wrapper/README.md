@@ -7,7 +7,7 @@ Build is split into 2 steps via separate commands:
 - build: builds the actual go binary, assuming it is executed
   from the folder created by `bundle.py`.
 
-This allows to copy the sources to a Chrome OS / Android
+This allows to copy the sources to a ChromeOS / Android
 package, including the build script, and then
 build from there without a dependency on toolchain-utils
 itself.
@@ -24,7 +24,7 @@ Run `install_compiler_wrapper.sh` to install the new wrapper in the chroot:
 Then perform the tests, e.g. build with the new compiler.
 
 
-## Updating the Wrapper for Chrome OS
+## Updating the Wrapper for ChromeOS
 
 To update the wrapper for everyone, the new wrapper configuration must be copied
 into chromiumos-overlay, and new revisions of the gcc and llvm ebuilds must be
@@ -73,3 +73,31 @@ Generated wrappers are stored here:
   `/usr/bin/clang_host_wrapper`
 - Gcc host wrapper:
   `/usr/x86_64-pc-linux-gnu/gcc-bin/10.2.0/host_wrapper`
+
+## Using the compiler wrapper to crash arbitrary compilations
+
+When Clang crashes, its output can be extremely useful. Often, it will provide
+the user with a stack trace, and messages like:
+
+```
+clang-15: unable to execute command: Illegal instruction
+clang-15: note: diagnostic msg: /tmp/clang_crash_diagnostics/foo-5420d2.c
+clang-15: note: diagnostic msg: /tmp/clang_crash_diagnostics/foo-5420d2.sh
+```
+
+Where the artifacts at `/tmp/clang_crash_diagnostics/foo-*` are a full,
+self-contained reproducer of the inputs that caused the crash in question.
+Often, such a reproducer is very valuable to have even for cases where a crash
+_doesn't_ happen (e.g., maybe Clang is now emitting an error where it used to
+not do so, and we want to bisect upstream LLVM with that info). Normally,
+collecting and crafting such a reproducer is a multi-step process, and can be
+error-prone; compile commands may rely on env vars, they may be done within
+`chroot`s, they may rely on being executed in a particular directory, they may
+rely on intermediate state, etc.
+
+Because of the usefulness of these crash reports, our wrapper supports crashing
+Clang even on files that ordinarily don't cause Clang to crash. For various
+reasons (b/236736327), this support currently requires rebuilding and
+redeploying the wrapper in order to work. That said, this could be a valuable
+tool for devs interested in creating a self-contained reproducer without having
+to manually reproduce the environment in which a particular build was performed.

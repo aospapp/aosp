@@ -23,8 +23,7 @@
 
 #include <cerrno>
 
-#include "os/log.h"
-#include "osi/include/osi.h"
+#include "log.h"
 
 namespace rootcanal {
 
@@ -42,8 +41,8 @@ size_t H4Packetizer::Send(uint8_t type, const uint8_t* data, size_t length) {
                         {const_cast<uint8_t*>(data), length}};
   ssize_t ret = 0;
   do {
-    OSI_NO_INTR(ret = writev(uart_fd_, iov, sizeof(iov) / sizeof(iov[0])));
-  } while (-1 == ret && EAGAIN == errno);
+    ret = writev(uart_fd_, iov, sizeof(iov) / sizeof(iov[0]));
+  } while (-1 == ret && (EINTR == errno || EAGAIN == errno));
 
   if (ret == -1) {
     LOG_ERROR("Error writing to UART (%s)", strerror(errno));
@@ -55,30 +54,37 @@ size_t H4Packetizer::Send(uint8_t type, const uint8_t* data, size_t length) {
 }
 
 void H4Packetizer::OnDataReady(int fd) {
-  if (disconnected_) return;
+  if (disconnected_) {
+    return;
+  }
   ssize_t bytes_to_read = h4_parser_.BytesRequested();
   std::vector<uint8_t> buffer(bytes_to_read);
 
   ssize_t bytes_read;
-  OSI_NO_INTR(bytes_read = read(fd, buffer.data(), bytes_to_read));
+  do {
+    bytes_read = read(fd, buffer.data(), bytes_to_read);
+  } while (bytes_read == -1 && errno == EINTR);
+
   if (bytes_read == 0) {
     LOG_INFO("remote disconnected!");
     disconnected_ = true;
     disconnect_cb_();
     return;
-  } else if (bytes_read < 0) {
+  }
+  if (bytes_read < 0) {
     if (errno == EAGAIN) {
       // No data, try again later.
       return;
-    } else if (errno == ECONNRESET) {
+    }
+    if (errno == ECONNRESET) {
       // They probably rejected our packet
       disconnected_ = true;
       disconnect_cb_();
       return;
-    } else {
-      LOG_ALWAYS_FATAL("Read error in %d: %s", h4_parser_.CurrentState(),
-                       strerror(errno));
     }
+
+    LOG_ALWAYS_FATAL("Read error in %d: %s", h4_parser_.CurrentState(),
+                     strerror(errno));
   }
   h4_parser_.Consume(buffer.data(), bytes_read);
 }

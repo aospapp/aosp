@@ -1,7 +1,7 @@
 /******************************************************************************
  *
  *
- *  Copyright (C) 2015-2019, 2021 NXP
+ *  Copyright 2015-2019, 2021-2023 NXP
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -17,9 +17,6 @@
  *
  ******************************************************************************/
 #pragma once
-#include <android/hardware/secure_element/1.0/ISecureElement.h>
-#include <android/hardware/secure_element/1.0/ISecureElementHalCallback.h>
-#include <android/hardware/secure_element/1.0/types.h>
 #include <utils/RefBase.h>
 #include <vendor/nxp/nxpese/1.0/INxpEse.h>
 
@@ -51,15 +48,11 @@ class EseAdaptation {
   static NfcHalThreadCondVar mHalOpenCompletedEvent;
   static NfcHalThreadCondVar mHalCloseCompletedEvent;
   static NfcHalThreadCondVar mHalIoctlEvent;
-  static android::sp<android::hardware::secure_element::V1_0::ISecureElement>
-      mHal;
   static android::sp<vendor::nxp::nxpese::V1_0::INxpEse> mHalNxpEse;
-#if (NXP_EXTNS == TRUE)
   static NfcHalThreadCondVar mHalCoreResetCompletedEvent;
   static NfcHalThreadCondVar mHalCoreInitCompletedEvent;
   static NfcHalThreadCondVar mHalInitCompletedEvent;
-#endif
-  static uint32_t Thread(uint32_t arg);
+  static uint32_t Thread();
   static void HalDeviceContextDataCallback(uint16_t data_len, uint8_t* p_data);
 
   static void HalOpen(tHAL_ESE_CBACK* p_hal_cback,

@@ -17,7 +17,7 @@
 #ifndef CHRE_PLATFORM_ZEPHYR_INIT_H_
 #define CHRE_PLATFORM_ZEPHYR_INIT_H_
 
-#include <zephyr.h>
+#include <zephyr/kernel.h>
 
 namespace chre {
 

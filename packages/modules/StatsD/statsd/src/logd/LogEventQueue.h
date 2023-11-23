@@ -16,11 +16,13 @@
 
 #pragma once
 
-#include "LogEvent.h"
+#include <gtest/gtest_prod.h>
 
 #include <condition_variable>
 #include <mutex>
 #include <queue>
+
+#include "LogEvent.h"
 
 namespace android {
 namespace os {
@@ -50,6 +52,16 @@ private:
     std::condition_variable mCondition;
     std::mutex mMutex;
     std::queue<std::unique_ptr<LogEvent>> mQueue;
+
+    friend class SocketParseMessageTest;
+
+    FRIEND_TEST(SocketParseMessageTestNoFiltering, TestProcessMessageNoFiltering);
+    FRIEND_TEST(SocketParseMessageTestNoFiltering,
+                TestProcessMessageNoFilteringWithEmptySetExplicitSet);
+    FRIEND_TEST(SocketParseMessageTest, TestProcessMessageFilterEmptySet);
+    FRIEND_TEST(SocketParseMessageTest, TestProcessMessageFilterCompleteSet);
+    FRIEND_TEST(SocketParseMessageTest, TestProcessMessageFilterPartialSet);
+    FRIEND_TEST(SocketParseMessageTest, TestProcessMessageFilterToggle);
 };
 
 }  // namespace statsd

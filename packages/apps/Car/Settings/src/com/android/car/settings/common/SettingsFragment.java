@@ -79,8 +79,7 @@ public abstract class SettingsFragment extends PreferenceFragment implements
 
     private static final int MAX_NUM_PENDING_ACTIVITY_RESULT_CALLBACKS = 0xff - 1;
 
-    private final Map<Class, List<PreferenceController>> mPreferenceControllersLookup =
-            new ArrayMap<>();
+    private final Map<String, PreferenceController> mPreferenceControllersLookup = new ArrayMap<>();
     private final List<PreferenceController> mPreferenceControllers = new ArrayList<>();
     private final SparseArray<ActivityResultCallback> mActivityResultCallbackMap =
             new SparseArray<>();
@@ -122,19 +121,11 @@ public abstract class SettingsFragment extends PreferenceFragment implements
      *
      * <p>Important: Use judiciously to minimize tight coupling between controllers and fragments.
      */
-    @SuppressWarnings("unchecked") // Class is used as map key.
+    @SuppressWarnings("unchecked") // PreferenceKey is the map key
     protected <T extends PreferenceController> T use(Class<T> clazz,
             @StringRes int preferenceKeyResId) {
-        List<PreferenceController> controllerList = mPreferenceControllersLookup.get(clazz);
-        if (controllerList != null) {
-            String preferenceKey = getString(preferenceKeyResId);
-            for (PreferenceController controller : controllerList) {
-                if (controller.getPreferenceKey().equals(preferenceKey)) {
-                    return (T) controller;
-                }
-            }
-        }
-        return null;
+        String preferenceKey = getString(preferenceKeyResId);
+        return (T) mPreferenceControllersLookup.get(preferenceKey);
     }
 
     /**
@@ -181,8 +172,7 @@ public abstract class SettingsFragment extends PreferenceFragment implements
         Lifecycle lifecycle = getLifecycle();
         mPreferenceControllers.forEach(controller -> {
             lifecycle.addObserver(controller);
-            mPreferenceControllersLookup.computeIfAbsent(controller.getClass(),
-                    k -> new ArrayList<>(/* initialCapacity= */ 1)).add(controller);
+            mPreferenceControllersLookup.put(controller.getPreferenceKey(), controller);
         });
     }
 

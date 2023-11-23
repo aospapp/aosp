@@ -302,20 +302,8 @@ public final class NetworkStats implements Parcelable, Iterable<NetworkStats.Ent
         /** @hide */
         @UnsupportedAppUsage(maxTargetSdk = Build.VERSION_CODES.R, trackingBug = 170729553)
         public Entry() {
-            this(IFACE_ALL, UID_ALL, SET_DEFAULT, TAG_NONE, 0L, 0L, 0L, 0L, 0L);
-        }
-
-        /** @hide */
-        public Entry(long rxBytes, long rxPackets, long txBytes, long txPackets, long operations) {
-            this(IFACE_ALL, UID_ALL, SET_DEFAULT, TAG_NONE, rxBytes, rxPackets, txBytes, txPackets,
-                    operations);
-        }
-
-        /** @hide */
-        public Entry(String iface, int uid, int set, int tag, long rxBytes, long rxPackets,
-                long txBytes, long txPackets, long operations) {
-            this(iface, uid, set, tag, METERED_NO, ROAMING_NO, DEFAULT_NETWORK_NO,
-                    rxBytes, rxPackets, txBytes, txPackets, operations);
+            this(IFACE_ALL, UID_ALL, SET_DEFAULT, TAG_NONE, METERED_NO, ROAMING_NO,
+                    DEFAULT_NETWORK_NO, 0L, 0L, 0L, 0L, 0L);
         }
 
         /**
@@ -607,7 +595,8 @@ public final class NetworkStats implements Parcelable, Iterable<NetworkStats.Ent
     public NetworkStats insertEntry(
             String iface, long rxBytes, long rxPackets, long txBytes, long txPackets) {
         return insertEntry(
-                iface, UID_ALL, SET_DEFAULT, TAG_NONE, rxBytes, rxPackets, txBytes, txPackets, 0L);
+                iface, UID_ALL, SET_DEFAULT, TAG_NONE, METERED_NO, ROAMING_NO, DEFAULT_NETWORK_NO,
+                rxBytes, rxPackets, txBytes, txPackets, 0L);
     }
 
     /** @hide */
@@ -615,7 +604,8 @@ public final class NetworkStats implements Parcelable, Iterable<NetworkStats.Ent
     public NetworkStats insertEntry(String iface, int uid, int set, int tag, long rxBytes,
             long rxPackets, long txBytes, long txPackets, long operations) {
         return insertEntry(new Entry(
-                iface, uid, set, tag, rxBytes, rxPackets, txBytes, txPackets, operations));
+                iface, uid, set, tag,  METERED_NO, ROAMING_NO, DEFAULT_NETWORK_NO,
+                rxBytes, rxPackets, txBytes, txPackets, operations));
     }
 
     /** @hide */
@@ -787,7 +777,8 @@ public final class NetworkStats implements Parcelable, Iterable<NetworkStats.Ent
     public NetworkStats combineValues(String iface, int uid, int set, int tag,
             long rxBytes, long rxPackets, long txBytes, long txPackets, long operations) {
         return combineValues(new Entry(
-                iface, uid, set, tag, rxBytes, rxPackets, txBytes, txPackets, operations));
+                iface, uid, set, tag, METERED_NO, ROAMING_NO, DEFAULT_NETWORK_NO,
+                rxBytes, rxPackets, txBytes, txPackets, operations));
     }
 
     /**
@@ -1041,7 +1032,7 @@ public final class NetworkStats implements Parcelable, Iterable<NetworkStats.Ent
      */
     public long getTotalPackets() {
         long total = 0;
-        for (int i = size-1; i >= 0; i--) {
+        for (int i = size - 1; i >= 0; i--) {
             total += rxPackets[i] + txPackets[i];
         }
         return total;

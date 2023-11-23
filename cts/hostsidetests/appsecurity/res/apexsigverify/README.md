@@ -5,7 +5,6 @@
 art/build/apex/com.android.art.avbpubkey
 art/build/apex/com.android.runtime.avbpubkey
 packages/services/Telephony/apex/com.android.telephony.avbpubkey
-packages/modules/Cronet/apex/com.android.cronet.avbpubkey
 packages/modules/DnsResolver/apex/com.android.resolv.avbpubkey
 external/conscrypt/apex/com.android.conscrypt.avbpubkey
 libcore/apex/com.android.i18n.avbpubkey

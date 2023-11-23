@@ -16,21 +16,94 @@
 
 $(call inherit-product, packages/services/Car/car_product/car_ui_portrait/rro/car-ui-customizations/product.mk)
 $(call inherit-product, packages/services/Car/car_product/car_ui_portrait/rro/car-ui-toolbar-customizations/product.mk)
+$(call inherit-product-if-exists, vendor/auto/embedded/products/coolwhip/car-ui-lib-rros/product.mk)
+$(call inherit-product-if-exists, vendor/google/nexus_overlay/fonts/fonts.mk)
 
 # All RROs to be included in car_ui_portrait builds.
 PRODUCT_PACKAGES += \
     CarEvsCameraPreviewAppRRO \
-    CarUiPortraitDialerRRO \
-    CarUiPortraitSettingsRRO \
-    CarUiPortraitMediaRRO \
-    CarUiPortraitMediaCommonRRO \
-    CarUiPortraitLauncherRRO \
-    CarUiPortraitNotificationRRO \
     CarUiPortraitCarServiceRRO \
+    CarUiPortraitCommon \
+    CarUiPortraitDialerRRO \
     CarUiPortraitFrameworkResRRO \
-    CarUiPortraitFrameworkResRROTest
+    CarUiPortraitLauncherAppsRRO \
+    CarUiPortraitLauncherMediaRRO \
+    CarUiPortraitLauncherReferenceRRO \
+    CarUiPortraitMediaCommonRRO \
+    CarUiPortraitMediaRRO \
+    CarUiPortraitMessengerRRO \
+    CarUiPortraitNotificationRRO \
+    CarUiPortraitRadioRRO \
+    CarUiPortraitSettingsRRO \
+    CarUiPortraitSystemUIQcRRO \
 
 ifneq ($(INCLUDE_SEAHAWK_ONLY_RROS),)
 PRODUCT_PACKAGES += \
     CarUiPortraitSettingsProviderRRO
 endif
+
+# Set necessary framework configs for SUW to run at boot.
+ifneq ($(filter $(TARGET_PRODUCT), gcar_ui_portrait_suw),)
+PRODUCT_PACKAGES += \
+    CarUiPortraitSettingsProviderEmuRRO
+endif
+
+PORTRAIT_RRO_PACKAGES := com.android.car.calendar.googlecaruiportrait.rro; \
+    com.android.car.carlauncher.apps.caruiportrait.rro; \
+    com.android.car.carlauncher.googlecaruiportrait.rro; \
+    com.android.car.carlauncher.media.caruiportrait.rro; \
+    com.android.car.caruiportrait.rro; \
+    com.android.car.developeroptions.googlecaruiportrait.rro; \
+    com.android.car.dialer.caruiportrait.rro; \
+    com.android.car.dialer.googlecaruiportrait.rro; \
+    com.android.car.dialer.googlecaruiportrait.toolbar.rro; \
+    com.android.car.faceenroll.googlecaruiportrait.rro; \
+    com.android.car.home.googlecaruiportrait.rro; \
+    com.android.car.linkviewer.googlecaruiportrait.rro; \
+    com.android.car.media.caruiportrait.rro; \
+    com.android.car.media.common.caruiportrait.rro; \
+    com.android.car.media.googlecaruiportrait.rro; \
+    com.android.car.media.googlecaruiportrait.toolbar.rro; \
+    com.nadroid.car.messenger.caruiportrait.rro; \
+    com.android.car.messenger.googlecaruiportrait.rro; \
+    com.android.car.messenger.googlecaruiportrait.toolbar.rro; \
+    com.android.car.notification.caruiportrait.rro; \
+    com.android.car.portraitlauncher.googlecaruiportrait.rro; \
+    com.android.car.portraitlauncher.rro; \
+    com.android.car.radio.caruiportrait.rro; \
+    com.android.car.radio.googlecaruiportrait.rro; \
+    com.android.car.radio.googlecaruiportrait.toolbar.rro; \
+    com.android.car.rotaryplayground.googlecaruiportrait.rro; \
+    com.android.car.settings.caruiportrait.rro; \
+    com.android.car.settings.googlecaruiportrait.rro; \
+    com.android.car.systemupdater.googlecaruiportrait.rro; \
+    com.android.car.themeplayground.googlecaruiportrait.rro; \
+    com.android.car.ui.paintbooth.googlecaruiportrait.rro; \
+    com.android.car.ui.paintbooth.googlecaruiportrait.rro; \
+    com.android.car.ui.sharedlibrary.googlecaruiportrait.rro; \
+    com.android.car.voicecontrol.googlecaruiportrait.rro; \
+    com.android.htmlviewer.googlecaruiportrait.rro; \
+    com.android.managedprovisioning.googlecaruiportrait.rro; \
+    com.android.permissioncontroller.googlecaruiportrait.rro; \
+    com.android.providers.settings.caruiportrait.emu.rro; \
+    com.android.providers.settings.caruiportrait.rro; \
+    com.android.settings.intelligence.googlecaruiportrait.rro; \
+    com.android.systemui.caruiportrait.qc.rro; \
+    com.android.vending.googlecaruiportrait.rro; \
+    com.google.android.apps.automotive.inputmethod.dev.googlecaruiportrait.rro; \
+    com.google.android.apps.automotive.inputmethod.googlecaruiportrait.rro; \
+    com.google.android.apps.automotive.templates.host.googlecaruiportrait.rro; \
+    com.google.android.carassistant.googlecaruiportrait.rro; \
+    com.google.android.car.evs.caruiportrait.rro; \
+    com.google.android.carui.ats.googlecaruiportrait.rro; \
+    com.google.android.companiondevicesupport.googlecaruiportrait.rro; \
+    com.google.android.embedded.projection.googlecaruiportrait.rro; \
+    com.google.android.gms.googlecaruiportrait.rro; \
+    com.google.android.gsf.googlecaruiportrait.rro; \
+    com.google.android.packageinstaller.googlecaruiportrait.rro; \
+    com.google.android.permissioncontroller.googlecaruiportrait.rro; \
+    com.google.android.tts.googlecaruiportrait.rro
+
+
+PRODUCT_PROPERTY_OVERRIDES += \
+    ro.boot.vendor.overlay.theme=$(subst $(space),,$(PORTRAIT_RRO_PACKAGES))

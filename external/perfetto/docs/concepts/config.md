@@ -7,8 +7,8 @@ when instructed to do so.
 Data sources record data only when one (or more) tracing sessions are active.
 A tracing session is started by invoking the `perfetto` cmdline client and
 passing a config (see QuickStart guide for
-[Android](/docs/quickstart/android-tracing.md) or
-[Linux](/docs/quickstart/linux-tracing.md)).
+[Android](/docs/quickstart/android-tracing.md),
+[Linux](/docs/quickstart/linux-tracing.md), or [Chrome on desktop](/docs/quickstart/chrome-tracing.md)).
 
 A simple trace config looks like this:
 
@@ -94,13 +94,13 @@ The buffer sections define the number, size and policy of the in-memory buffers
 owned by the tracing service. It looks as follows:
 
 ```protobuf
-// Buffer #0
+# Buffer #0
 buffers {
   size_kb: 4096
   fill_policy: RING_BUFFER
 }
 
-// Buffer #1
+# Buffer #1
 buffers {
   size_kb: 8192
   fill_policy: DISCARD
@@ -160,7 +160,7 @@ Can be achieved with:
 data_sources {
   config {
     name: "linux.ftrace"
-    target_buffer: 0       // <-- This goes into buffer 0.
+    target_buffer: 0       # <-- This goes into buffer 0.
     ftrace_config { ... }
   }
 }
@@ -168,7 +168,7 @@ data_sources {
 data_sources: {
   config {
       name: "linux.sys_stats"
-      target_buffer: 1     // <-- This goes into buffer 1.
+      target_buffer: 1     # <-- This goes into buffer 1.
       sys_stats_config { ... }
   }
 }
@@ -176,7 +176,7 @@ data_sources: {
 data_sources: {
   config {
     name: "android.heapprofd"
-    target_buffer: 1       // <-- This goes into buffer 1 as well.
+    target_buffer: 1       # <-- This goes into buffer 1 as well.
     heapprofd_config { ... }
   }
 }

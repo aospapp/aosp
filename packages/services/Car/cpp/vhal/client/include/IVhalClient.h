@@ -52,17 +52,94 @@ public:
     virtual void onPropertySetError(const std::vector<HalPropError>& errors) = 0;
 };
 
+// Errors for vehicle HAL client interface.
+enum class ErrorCode : int {
+    // Response status is OK. No errors.
+    OK = 0,
+    // The argument is invalid.
+    INVALID_ARG = 1,
+    // The request timed out. The client may try again.
+    TIMEOUT = 2,
+    // Some errors occur while connecting VHAL. The client may try again.
+    TRANSACTION_ERROR = 3,
+    // Some unexpected errors happen in VHAL. Needs to try again.
+    TRY_AGAIN_FROM_VHAL = 4,
+    // The device of corresponding vehicle property is not available.
+    // Example: the HVAC unit is turned OFF when user wants to adjust temperature.
+    NOT_AVAILABLE_FROM_VHAL = 5,
+    // The request is unauthorized.
+    ACCESS_DENIED_FROM_VHAL = 6,
+    // Some unexpected errors, for example OOM, happen in VHAL.
+    INTERNAL_ERROR_FROM_VHAL = 7,
+};
+
+// Convert the VHAL {@code StatusCode} to {@code ErrorCode}.
+static ErrorCode statusCodeToErrorCode(
+        const aidl::android::hardware::automotive::vehicle::StatusCode& code) {
+    switch (code) {
+        case aidl::android::hardware::automotive::vehicle::StatusCode::OK:
+            return ErrorCode::OK;
+        case aidl::android::hardware::automotive::vehicle::StatusCode::TRY_AGAIN:
+            return ErrorCode::TRY_AGAIN_FROM_VHAL;
+        case aidl::android::hardware::automotive::vehicle::StatusCode::INVALID_ARG:
+            return ErrorCode::INVALID_ARG;
+        case aidl::android::hardware::automotive::vehicle::StatusCode::NOT_AVAILABLE:
+            return ErrorCode::NOT_AVAILABLE_FROM_VHAL;
+        case aidl::android::hardware::automotive::vehicle::StatusCode::ACCESS_DENIED:
+            return ErrorCode::ACCESS_DENIED_FROM_VHAL;
+        case aidl::android::hardware::automotive::vehicle::StatusCode::INTERNAL_ERROR:
+            return ErrorCode::INTERNAL_ERROR_FROM_VHAL;
+        default:
+            return ErrorCode::INTERNAL_ERROR_FROM_VHAL;
+    }
+}
+
+// VhalClientError is a wrapper class for {@code ErrorCode} that could act as E in {@code
+// Result<T,E>}.
+class VhalClientError final {
+public:
+    VhalClientError() : mCode(ErrorCode::OK) {}
+
+    VhalClientError(ErrorCode&& code) : mCode(code) {}
+
+    VhalClientError(const ErrorCode& code) : mCode(code) {}
+
+    VhalClientError(aidl::android::hardware::automotive::vehicle::StatusCode&& code) :
+          mCode(statusCodeToErrorCode(code)) {}
+
+    VhalClientError(const aidl::android::hardware::automotive::vehicle::StatusCode& code) :
+          mCode(statusCodeToErrorCode(code)) {}
+
+    ErrorCode value() const;
+
+    inline operator ErrorCode() const { return value(); }
+
+    static std::string toString(ErrorCode code);
+
+    std::string print() const;
+
+private:
+    ErrorCode mCode;
+};
+
+// VhalClientResult is a {@code Result} that contains {@code ErrorCode} as error type.
+template <class T>
+using VhalClientResult = android::base::Result<T, VhalClientError>;
+
+// ClientStatusError could be cast to {@code ResultError} with a {@code ErrorCode}
+// and should be used as error type for {@VhalClientResult}.
+using ClientStatusError = android::base::Error<VhalClientError>;
+
 // ISubscriptionCallback is a client that could be used to subscribe/unsubscribe.
 class ISubscriptionClient {
 public:
     virtual ~ISubscriptionClient() = default;
 
-    virtual android::hardware::automotive::vehicle::VhalResult<void> subscribe(
+    virtual VhalClientResult<void> subscribe(
             const std::vector<aidl::android::hardware::automotive::vehicle::SubscribeOptions>&
                     options) = 0;
 
-    virtual android::hardware::automotive::vehicle::VhalResult<void> unsubscribe(
-            const std::vector<int32_t>& propIds) = 0;
+    virtual VhalClientResult<void> unsubscribe(const std::vector<int32_t>& propIds) = 0;
 };
 
 // IVhalClient is a thread-safe client for AIDL or HIDL VHAL backend.
@@ -85,10 +162,9 @@ public:
 
     virtual ~IVhalClient() = default;
 
-    using GetValueCallbackFunc = std::function<void(
-            android::hardware::automotive::vehicle::VhalResult<std::unique_ptr<IHalPropValue>>)>;
-    using SetValueCallbackFunc =
-            std::function<void(android::hardware::automotive::vehicle::VhalResult<void>)>;
+    using GetValueCallbackFunc =
+            std::function<void(VhalClientResult<std::unique_ptr<IHalPropValue>>)>;
+    using SetValueCallbackFunc = std::function<void(VhalClientResult<void>)>;
     using OnBinderDiedCallbackFunc = std::function<void()>;
 
     /**
@@ -136,8 +212,8 @@ public:
      *    status code as error code. For AIDL backend, this would return TRY_AGAIN error on timeout.
      *    For HIDL backend, because HIDL backend is synchronous, timeout does not apply.
      */
-    virtual android::hardware::automotive::vehicle::VhalResult<std::unique_ptr<IHalPropValue>>
-    getValueSync(const IHalPropValue& requestValue);
+    virtual VhalClientResult<std::unique_ptr<IHalPropValue>> getValueSync(
+            const IHalPropValue& requestValue);
 
     /**
      * Set a property value asynchronously.
@@ -155,11 +231,10 @@ public:
      *
      * @param requestValue the value to set.
      * @return An empty okay result on success or an error result with returned status code as
-     *    error code. For AIDL backend, this would return TRY_AGAIN error on timeout.
+     *    error code. For AIDL backend, this would return TIMEOUT error on timeout.
      *    For HIDL backend, because HIDL backend is synchronous, timeout does not apply.
      */
-    virtual android::hardware::automotive::vehicle::VhalResult<void> setValueSync(
-            const IHalPropValue& requestValue);
+    virtual VhalClientResult<void> setValueSync(const IHalPropValue& requestValue);
 
     /**
      * Add a callback that would be called when the binder connection to VHAL died.
@@ -167,7 +242,7 @@ public:
      * @param callback The callback that would be called when the binder died.
      * @return An okay result on success or an error on failure.
      */
-    virtual android::hardware::automotive::vehicle::VhalResult<void> addOnBinderDiedCallback(
+    virtual VhalClientResult<void> addOnBinderDiedCallback(
             std::shared_ptr<OnBinderDiedCallbackFunc> callback) = 0;
 
     /**
@@ -176,7 +251,7 @@ public:
      * @param callback The callback that would be removed.
      * @return An okay result on success, or an error if the callback is not added before.
      */
-    virtual android::hardware::automotive::vehicle::VhalResult<void> removeOnBinderDiedCallback(
+    virtual VhalClientResult<void> removeOnBinderDiedCallback(
             std::shared_ptr<OnBinderDiedCallbackFunc> callback) = 0;
 
     /**
@@ -184,9 +259,7 @@ public:
      *
      * @return An okay result that contains all property configs on success or an error on failure.
      */
-    virtual android::hardware::automotive::vehicle::VhalResult<
-            std::vector<std::unique_ptr<IHalPropConfig>>>
-    getAllPropConfigs() = 0;
+    virtual VhalClientResult<std::vector<std::unique_ptr<IHalPropConfig>>> getAllPropConfigs() = 0;
 
     /**
      * Get the configs for specified properties.
@@ -195,9 +268,8 @@ public:
      * @return An okay result that contains property configs for specified properties on success or
      *    an error if failed to get any of the property configs.
      */
-    virtual android::hardware::automotive::vehicle::VhalResult<
-            std::vector<std::unique_ptr<IHalPropConfig>>>
-    getPropConfigs(std::vector<int32_t> propIds) = 0;
+    virtual VhalClientResult<std::vector<std::unique_ptr<IHalPropConfig>>> getPropConfigs(
+            std::vector<int32_t> propIds) = 0;
 
     /**
      * Get a {@code ISubscriptionClient} that could be used to subscribe/unsubscribe to properties.

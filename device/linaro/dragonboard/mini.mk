@@ -22,7 +22,7 @@ $(call inherit-product, $(SRC_TARGET_DIR)/product/updatable_apex.mk)
 PRODUCT_PACKAGES += \
     android.hardware.keymaster@4.1-service \
     android.hidl.allocator@1.0-service \
-    android.system.suspend@1.0-service \
+    android.system.suspend-service \
     com.android.i18n \
     com.android.runtime \
     keystore2 \

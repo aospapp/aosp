@@ -39,12 +39,14 @@ public class AtomListConverter {
             /* value = */ new ActivityForegroundStateChangedConverter(),
             Atom.PushedCase.APP_CRASH_OCCURRED, new AppCrashOccurredConverter(),
             Atom.PushedCase.ANR_OCCURRED, new AnrOccurredConverter(),
-            Atom.PushedCase.WTF_OCCURRED, new WtfOccurredConverter());
+            Atom.PushedCase.WTF_OCCURRED, new WtfOccurredConverter(),
+            Atom.PushedCase.PROCESS_START_TIME, new ProcessStartTimeConverter());
 
     // Map of pulled atom cases to corresponding atom converter.
     private static Map<Atom.PulledCase, AbstractAtomConverter<?>> sPulledCaseConverters = Map.of(
             Atom.PulledCase.PROCESS_MEMORY_STATE, new ProcessMemoryStateConverter(),
-            Atom.PulledCase.PROCESS_CPU_TIME, new ProcessCpuTimeConverter());
+            Atom.PulledCase.PROCESS_CPU_TIME, new ProcessCpuTimeConverter(),
+            Atom.PulledCase.PROCESS_MEMORY_SNAPSHOT, new ProcessMemorySnapshotConverter());
 
     /**
      * Converts a list of atoms to separate the atoms fields values into arrays to be put into the

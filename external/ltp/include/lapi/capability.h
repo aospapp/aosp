@@ -3,8 +3,8 @@
  * Copyright (c) 2019 Richard Palethorpe <rpalethorpe@suse.com>
  */
 
-#ifndef LAPI_CAPABILITY_H
-#define LAPI_CAPABILITY_H
+#ifndef LAPI_CAPABILITY_H__
+#define LAPI_CAPABILITY_H__
 
 #include "config.h"
 
@@ -22,6 +22,10 @@
 
 #ifndef CAP_NET_RAW
 # define CAP_NET_RAW          13
+#endif
+
+#ifndef CAP_IPC_LOCK
+# define CAP_IPC_LOCK         14
 #endif
 
 #ifndef CAP_SYS_CHROOT
@@ -44,6 +48,10 @@
 # define CAP_SYS_RESOURCE     24
 #endif
 
+#ifndef CAP_BPF
+# define CAP_BPF              39
+#endif
+
 #ifndef CAP_TO_INDEX
 # define CAP_TO_INDEX(x)     ((x) >> 5)
 #endif
@@ -52,4 +60,4 @@
 # define CAP_TO_MASK(x)      (1 << ((x) & 31))
 #endif
 
-#endif
+#endif /* LAPI_CAPABILITY_H__ */

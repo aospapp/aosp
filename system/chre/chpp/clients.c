@@ -173,30 +173,28 @@ void chppRegisterClient(struct ChppAppState *appContext, void *clientContext,
   if (appContext->registeredClientCount >= CHPP_MAX_REGISTERED_CLIENTS) {
     CHPP_LOGE("Max clients registered: %" PRIu8,
               appContext->registeredClientCount);
-
-  } else {
-    clientState->appContext = appContext;
-    clientState->rRStates = rRStates;
-    clientState->index = appContext->registeredClientCount;
-
-    appContext->registeredClientContexts[appContext->registeredClientCount] =
-        clientContext;
-    appContext->registeredClientStates[appContext->registeredClientCount] =
-        clientState;
-    appContext->registeredClients[appContext->registeredClientCount] =
-        newClient;
-
-    char uuidText[CHPP_SERVICE_UUID_STRING_LEN];
-    chppUuidToStr(newClient->descriptor.uuid, uuidText);
-    CHPP_LOGD("Client # %" PRIu8 " UUID=%s, version=%" PRIu8 ".%" PRIu8
-              ".%" PRIu16 ", min_len=%" PRIuSIZE,
-              appContext->registeredClientCount, uuidText,
-              newClient->descriptor.version.major,
-              newClient->descriptor.version.minor,
-              newClient->descriptor.version.patch, newClient->minLength);
-
-    appContext->registeredClientCount++;
+    return;
   }
+  clientState->appContext = appContext;
+  clientState->rRStates = rRStates;
+  clientState->index = appContext->registeredClientCount;
+
+  appContext->registeredClientContexts[appContext->registeredClientCount] =
+      clientContext;
+  appContext->registeredClientStates[appContext->registeredClientCount] =
+      clientState;
+  appContext->registeredClients[appContext->registeredClientCount] = newClient;
+
+  char uuidText[CHPP_SERVICE_UUID_STRING_LEN];
+  chppUuidToStr(newClient->descriptor.uuid, uuidText);
+  CHPP_LOGD("Client # %" PRIu8 " UUID=%s, version=%" PRIu8 ".%" PRIu8
+            ".%" PRIu16 ", min_len=%" PRIuSIZE,
+            appContext->registeredClientCount, uuidText,
+            newClient->descriptor.version.major,
+            newClient->descriptor.version.minor,
+            newClient->descriptor.version.patch, newClient->minLength);
+
+  appContext->registeredClientCount++;
 }
 
 void chppInitBasicClients(struct ChppAppState *context) {
@@ -491,29 +489,29 @@ bool chppClientSendOpenRequest(struct ChppClientState *clientState,
 
   if (request == NULL) {
     CHPP_LOG_OOM();
+    return false;
+  }
 
+  clientState->openState = CHPP_OPEN_STATE_OPENING;
+
+  if (blocking) {
+    CHPP_LOGD("Opening service - blocking");
+    result = chppSendTimestampedRequestAndWait(clientState, openRRState,
+                                               request, sizeof(*request));
   } else {
-    clientState->openState = CHPP_OPEN_STATE_OPENING;
+    CHPP_LOGD("Opening service - non-blocking");
+    result = chppSendTimestampedRequestOrFail(
+        clientState, openRRState, request, sizeof(*request),
+        CHPP_CLIENT_REQUEST_TIMEOUT_INFINITE);
+  }
 
-    if (blocking) {
-      CHPP_LOGD("Opening service - blocking");
-      result = chppSendTimestampedRequestAndWait(clientState, openRRState,
-                                                 request, sizeof(*request));
-    } else {
-      CHPP_LOGD("Opening service - non-blocking");
-      result = chppSendTimestampedRequestOrFail(
-          clientState, openRRState, request, sizeof(*request),
-          CHPP_CLIENT_REQUEST_TIMEOUT_INFINITE);
-    }
+  if (!result) {
+    CHPP_LOGE("Service open fail from state=%" PRIu8 " psudo=%d blocking=%d",
+              priorState, clientState->pseudoOpen, blocking);
+    clientState->openState = CHPP_OPEN_STATE_CLOSED;
 
-    if (!result) {
-      CHPP_LOGE("Service open fail from state=%" PRIu8 " psudo=%d blocking=%d",
-                priorState, clientState->pseudoOpen, blocking);
-      clientState->openState = CHPP_OPEN_STATE_CLOSED;
-
-    } else if (blocking) {
-      result = (clientState->openState == CHPP_OPEN_STATE_OPENED);
-    }
+  } else if (blocking) {
+    result = (clientState->openState == CHPP_OPEN_STATE_OPENED);
   }
 
   return result;
@@ -531,7 +529,7 @@ void chppClientProcessOpenResponse(struct ChppClientState *clientState,
     CHPP_LOGE("Service open failed at service");
     clientState->openState = CHPP_OPEN_STATE_CLOSED;
   } else {
-    CHPP_LOGI("Service open succeeded at service");
+    CHPP_LOGD("Service open succeeded at service");
     clientState->openState = CHPP_OPEN_STATE_OPENED;
   }
 }
@@ -541,11 +539,11 @@ void chppClientRecalculateNextTimeout(struct ChppAppState *context) {
 
   for (uint8_t clientIdx = 0; clientIdx < context->registeredClientCount;
        clientIdx++) {
-    for (uint16_t cmdIdx = 0;
-         cmdIdx < context->registeredClients[clientIdx]->rRStateCount;
-         cmdIdx++) {
-      struct ChppRequestResponseState *rRState =
-          &context->registeredClientStates[clientIdx]->rRStates[cmdIdx];
+    const struct ChppClient *client = context->registeredClients[clientIdx];
+    for (uint16_t cmdIdx = 0; cmdIdx < client->rRStateCount; cmdIdx++) {
+      const struct ChppClientState *state =
+          context->registeredClientStates[clientIdx];
+      struct ChppRequestResponseState *rRState = &state->rRStates[cmdIdx];
 
       if (rRState->requestState == CHPP_REQUEST_STATE_REQUEST_SENT) {
         context->nextRequestTimeoutNs =

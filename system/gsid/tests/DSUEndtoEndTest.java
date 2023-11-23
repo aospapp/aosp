@@ -16,19 +16,14 @@
 
 package com.android.tests.dsu;
 
-import com.android.tradefed.build.BuildRetrievalError;
 import com.android.tradefed.build.IBuildInfo;
 import com.android.tradefed.build.IDeviceBuildInfo;
 import com.android.tradefed.config.Option;
 import com.android.tradefed.config.Option.Importance;
-import com.android.tradefed.device.DeviceNotAvailableException;
 import com.android.tradefed.testtype.DeviceJUnit4ClassRunner;
-import com.android.tradefed.testtype.junit4.BaseHostJUnit4Test;
-import com.android.tradefed.util.CommandResult;
 import com.android.tradefed.util.ZipUtil2;
 
 import org.apache.commons.compress.archivers.zip.ZipFile;
-
 import org.junit.After;
 import org.junit.Assert;
 import org.junit.Test;
@@ -36,16 +31,13 @@ import org.junit.runner.RunWith;
 
 import java.io.ByteArrayOutputStream;
 import java.io.File;
-import java.io.IOException;
-import java.lang.Process;
-import java.lang.Runtime;
 import java.util.concurrent.TimeUnit;
 
 /**
  * Test Dynamic System Updates by booting in and out of a supplied system image
  */
 @RunWith(DeviceJUnit4ClassRunner.class)
-public class DSUEndtoEndTest extends BaseHostJUnit4Test {
+public class DSUEndtoEndTest extends DsuTestBase {
     private static final long kDefaultUserdataSize = 4L * 1024 * 1024 * 1024;
     private static final String LPUNPACK_PATH = "bin/lpunpack";
     private static final String SIMG2IMG_PATH = "bin/simg2img";
@@ -58,12 +50,6 @@ public class DSUEndtoEndTest extends BaseHostJUnit4Test {
                         "to download the image from the test infrastructure",
             importance=Importance.ALWAYS)
     private String mSystemImagePath;
-
-    @Option(name="userdata_size",
-            shortName='u',
-            description="size in bytes of the new userdata partition",
-            importance=Importance.ALWAYS)
-    private long mUserdataSize = kDefaultUserdataSize;
 
     private File mUnsparseSystemImage;
 
@@ -121,47 +107,50 @@ public class DSUEndtoEndTest extends BaseHostJUnit4Test {
         if (!wasRoot)
             Assert.assertTrue("Test requires root", getDevice().enableAdbRoot());
 
-        expectGsiStatus("normal");
+        assertDsuStatus("normal");
 
         // Sleep after installing to allow time for gsi_tool to reboot. This prevents a race between
         // the device rebooting and waitForDeviceAvailable() returning.
-        getDevice().executeShellV2Command("gsi_tool install --userdata-size " + mUserdataSize +
-            " --gsi-size " + gsi.length() + " && sleep 10000000", gsi, null, 10, TimeUnit.MINUTES, 1);
+        getDevice()
+                .executeShellV2Command(
+                        String.format(
+                                "gsi_tool install --userdata-size %d"
+                                        + " --gsi-size %d"
+                                        + " && sleep 10000000",
+                                getDsuUserdataSize(kDefaultUserdataSize), gsi.length()),
+                        gsi,
+                        null,
+                        10,
+                        TimeUnit.MINUTES,
+                        1);
         getDevice().waitForDeviceAvailable();
         getDevice().enableAdbRoot();
 
-        expectGsiStatus("running");
+        assertDsuStatus("running");
 
         getDevice().rebootUntilOnline();
 
-        expectGsiStatus("installed");
+        assertDsuStatus("installed");
 
-        CommandResult result = getDevice().executeShellV2Command("gsi_tool enable");
-        Assert.assertEquals("gsi_tool enable failed", 0, result.getExitCode().longValue());
-
-        getDevice().reboot();
-
-        expectGsiStatus("running");
+        assertShellCommand("gsi_tool enable");
 
         getDevice().reboot();
 
-        expectGsiStatus("running");
+        assertDsuStatus("running");
 
-        getDevice().executeShellV2Command("gsi_tool wipe");
+        getDevice().reboot();
+
+        assertDsuStatus("running");
+
+        assertShellCommand("gsi_tool wipe");
 
         getDevice().rebootUntilOnline();
 
-        expectGsiStatus("normal");
+        assertDsuStatus("normal");
 
         if (wasRoot) {
             getDevice().enableAdbRoot();
         }
-    }
-
-    private void expectGsiStatus(String expected) throws Exception {
-        CommandResult result = getDevice().executeShellV2Command("gsi_tool status");
-        String status = result.getStdout().split("\n", 2)[0].trim();
-        Assert.assertEquals("Device not in expected DSU state", expected, status);
     }
 }
 

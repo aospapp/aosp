@@ -1,18 +1,18 @@
 /*
-* Copyright (C) 2016 The Android Open Source Project
-*
-* Licensed under the Apache License, Version 2.0 (the "License");
-* you may not use this file except in compliance with the License.
-* You may obtain a copy of the License at
-*
-* http://www.apache.org/licenses/LICENSE-2.0
-*
-* Unless required by applicable law or agreed to in writing, software
-* distributed under the License is distributed on an "AS IS" BASIS,
-* WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-* See the License for the specific language governing permissions and
-* limitations under the License.
-*/
+ * Copyright (C) 2016 The Android Open Source Project
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
 #pragma once
 
@@ -25,38 +25,42 @@
 #include <string>
 #include <type_traits>
 
-#include "FenceSync.h"
-#include "base/ConditionVariable.h"
-#include "base/Lock.h"
-#include "base/MessageChannel.h"
-#include "base/Optional.h"
-#include "base/Thread.h"
-#include "base/ThreadPool.h"
-#include "virtio_gpu_ops.h"
+#include "aemu/base/synchronization/ConditionVariable.h"
+#include "aemu/base/HealthMonitor.h"
+#include "aemu/base/synchronization/Lock.h"
+#include "aemu/base/synchronization/MessageChannel.h"
+#include "aemu/base/Optional.h"
+#include "aemu/base/threads/Thread.h"
+#include "aemu/base/threads/ThreadPool.h"
+#include "gl/EmulatedEglFenceSync.h"
+#include "render-utils/virtio_gpu_ops.h"
 #include "vulkan/VkDecoderGlobalState.h"
+
+namespace gfxstream {
+
+using emugl::HealthMonitor;
+using emugl::HealthWatchdog;
 
 // SyncThread///////////////////////////////////////////////////////////////////
 // The purpose of SyncThread is to track sync device timelines and give out +
 // signal FD's that correspond to the completion of host-side GL fence commands.
 
-
 struct RenderThreadInfo;
 class SyncThread : public android::base::Thread {
-public:
+   public:
     // - constructor: start up the sync worker threads for a given context.
     // The initialization of the sync threads is nonblocking.
     // - Triggers a |SyncThreadCmd| with op code |SYNC_THREAD_EGL_INIT|
-    SyncThread(bool noGL);
+    SyncThread(bool hasGl, HealthMonitor<>* healthMonitor);
     ~SyncThread();
 
-    // |triggerWait|: async wait with a given FenceSync object.
+    // |triggerWait|: async wait with a given EmulatedEglFenceSync object.
     // We use the wait() method to do a eglClientWaitSyncKHR.
     // After wait is over, the timeline will be incremented,
     // which should signal the guest-side fence FD.
     // This method is how the goldfish sync virtual device
     // knows when to increment timelines / signal native fence FD's.
-    void triggerWait(FenceSync* fenceSync,
-                     uint64_t timeline);
+    void triggerWait(gl::EmulatedEglFenceSync* fenceSync, uint64_t timeline);
 
     // |triggerWaitVk|: async wait with a given VkFence object.
     // The |vkFence| argument is a *boxed* host Vulkan handle of the fence.
@@ -70,10 +74,12 @@ public:
 
     // for use with the virtio-gpu path; is meant to have a current context
     // while waiting.
-    void triggerBlockedWaitNoTimeline(FenceSync* fenceSync);
+    void triggerBlockedWaitNoTimeline(gl::EmulatedEglFenceSync* fenceSync);
 
-    // For use with virtio-gpu and async fence completion callback. This is async like triggerWait, but takes a fence completion callback instead of incrementing some timeline directly.
-    void triggerWaitWithCompletionCallback(FenceSync* fenceSync, FenceCompletionCallback);
+    // For use with virtio-gpu and async fence completion callback. This is async like triggerWait,
+    // but takes a fence completion callback instead of incrementing some timeline directly.
+    void triggerWaitWithCompletionCallback(gl::EmulatedEglFenceSync* fenceSync,
+                                           FenceCompletionCallback);
     void triggerWaitVkWithCompletionCallback(VkFence fenceHandle, FenceCompletionCallback);
     void triggerWaitVkQsriWithCompletionCallback(VkImage image, FenceCompletionCallback);
     void triggerGeneral(FenceCompletionCallback, std::string description);
@@ -86,7 +92,7 @@ public:
     void cleanup();
 
     // Initialize the global sync thread.
-    static void initialize(bool noGL);
+    static void initialize(bool hasGl, HealthMonitor<>* healthMonitor);
 
     // Obtains the global sync thread.
     static SyncThread* get();
@@ -121,9 +127,9 @@ public:
     void sendAsync(std::function<void(WorkerId)> job, std::string description);
 
     // |doSyncThreadCmd| execute the actual task. These run on the sync thread.
-    static void doSyncThreadCmd(Command&& command, ThreadPool::WorkerId);
+    void doSyncThreadCmd(Command&& command, ThreadPool::WorkerId);
 
-    void doSyncWait(FenceSync* fenceSync, std::function<void()> onComplete);
+    void doSyncWait(gl::EmulatedEglFenceSync* fenceSync, std::function<void()> onComplete);
     static int doSyncWaitVk(VkFence, std::function<void()> onComplete);
 
     // EGL objects / object handles specific to
@@ -138,6 +144,9 @@ public:
     android::base::Lock mLock;
     android::base::ConditionVariable mCv;
     ThreadPool mWorkerThreadPool;
-    bool mNoGL;
+    bool mHasGl;
+
+    HealthMonitor<>* mHealthMonitor;
 };
 
+}  // namespace gfxstream

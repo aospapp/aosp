@@ -160,17 +160,31 @@ ConcurrentCopying::ConcurrentCopying(Heap* heap,
   if (young_gen_) {
     gc_time_histogram_ = metrics->YoungGcCollectionTime();
     metrics_gc_count_ = metrics->YoungGcCount();
+    metrics_gc_count_delta_ = metrics->YoungGcCountDelta();
     gc_throughput_histogram_ = metrics->YoungGcThroughput();
     gc_tracing_throughput_hist_ = metrics->YoungGcTracingThroughput();
     gc_throughput_avg_ = metrics->YoungGcThroughputAvg();
     gc_tracing_throughput_avg_ = metrics->YoungGcTracingThroughputAvg();
+    gc_scanned_bytes_ = metrics->YoungGcScannedBytes();
+    gc_scanned_bytes_delta_ = metrics->YoungGcScannedBytesDelta();
+    gc_freed_bytes_ = metrics->YoungGcFreedBytes();
+    gc_freed_bytes_delta_ = metrics->YoungGcFreedBytesDelta();
+    gc_duration_ = metrics->YoungGcDuration();
+    gc_duration_delta_ = metrics->YoungGcDurationDelta();
   } else {
     gc_time_histogram_ = metrics->FullGcCollectionTime();
     metrics_gc_count_ = metrics->FullGcCount();
+    metrics_gc_count_delta_ = metrics->FullGcCountDelta();
     gc_throughput_histogram_ = metrics->FullGcThroughput();
     gc_tracing_throughput_hist_ = metrics->FullGcTracingThroughput();
     gc_throughput_avg_ = metrics->FullGcThroughputAvg();
     gc_tracing_throughput_avg_ = metrics->FullGcTracingThroughputAvg();
+    gc_scanned_bytes_ = metrics->FullGcScannedBytes();
+    gc_scanned_bytes_delta_ = metrics->FullGcScannedBytesDelta();
+    gc_freed_bytes_ = metrics->FullGcFreedBytes();
+    gc_freed_bytes_delta_ = metrics->FullGcFreedBytesDelta();
+    gc_duration_ = metrics->FullGcDuration();
+    gc_duration_delta_ = metrics->FullGcDurationDelta();
   }
 }
 
@@ -575,10 +589,11 @@ class ConcurrentCopying::FlipCallback : public Closure {
     if (kIsDebugBuild && !cc->use_generational_cc_) {
       cc->region_space_->AssertAllRegionLiveBytesZeroOrCleared();
     }
-    if (UNLIKELY(Runtime::Current()->IsActiveTransaction())) {
-      CHECK(Runtime::Current()->IsAotCompiler());
+    Runtime* runtime = Runtime::Current();
+    if (UNLIKELY(runtime->IsActiveTransaction())) {
+      CHECK(runtime->IsAotCompiler());
       TimingLogger::ScopedTiming split3("(Paused)VisitTransactionRoots", cc->GetTimings());
-      Runtime::Current()->VisitTransactionRoots(cc);
+      runtime->VisitTransactionRoots(cc);
     }
     if (kUseBakerReadBarrier && kGrayDirtyImmuneObjects) {
       cc->GrayAllNewlyDirtyImmuneObjects();
@@ -587,15 +602,10 @@ class ConcurrentCopying::FlipCallback : public Closure {
         cc->VerifyGrayImmuneObjects();
       }
     }
-    // May be null during runtime creation, in this case leave java_lang_Object null.
-    // This is safe since single threaded behavior should mean FillWithFakeObject does not
-    // happen when java_lang_Object_ is null.
-    if (WellKnownClasses::java_lang_Object != nullptr) {
-      cc->java_lang_Object_ = down_cast<mirror::Class*>(cc->Mark(thread,
-          WellKnownClasses::ToClass(WellKnownClasses::java_lang_Object).Ptr()));
-    } else {
-      cc->java_lang_Object_ = nullptr;
-    }
+    ObjPtr<mirror::Class> java_lang_Object =
+        GetClassRoot<mirror::Object, kWithoutReadBarrier>(runtime->GetClassLinker());
+    DCHECK(java_lang_Object != nullptr);
+    cc->java_lang_Object_ = down_cast<mirror::Class*>(cc->Mark(thread, java_lang_Object.Ptr()));
   }
 
  private:
@@ -1692,8 +1702,6 @@ void ConcurrentCopying::CopyingPhase() {
     if (kVerboseMode) {
       LOG(INFO) << "SweepSystemWeaks done";
     }
-    // Free data for class loaders that we unloaded.
-    Runtime::Current()->GetClassLinker()->CleanupClassLoaders();
     // Marking is done. Disable marking.
     DisableMarking();
     CheckEmptyMarkStack();
@@ -1739,6 +1747,10 @@ class ConcurrentCopying::DisableMarkingCheckpoint : public Closure {
            thread->IsSuspended() ||
            thread->GetState() == ThreadState::kWaitingPerformingGc)
         << thread->GetState() << " thread " << thread << " self " << self;
+    // We sweep interpreter caches here so that it can be done after all
+    // reachable objects are marked and the mutators can sweep their caches
+    // without synchronization.
+    thread->SweepInterpreterCache(concurrent_copying_);
     // Disable the thread-local is_gc_marking flag.
     // Note a thread that has just started right before this checkpoint may have already this flag
     // set to false, which is ok.
@@ -1887,7 +1899,10 @@ void ConcurrentCopying::PushOntoMarkStack(Thread* const self, mirror::Object* to
         << " cc->is_marking=" << is_marking_;
     CHECK(self == thread_running_gc_)
         << "Only GC-running thread should access the mark stack "
-        << "in the GC exclusive mark stack mode";
+        << "in the GC exclusive mark stack mode. "
+        << "ref=" << to_ref
+        << " self->gc_marking=" << self->GetIsGcMarking()
+        << " cc->is_marking=" << is_marking_;
     // Access the GC mark stack without a lock.
     if (UNLIKELY(gc_mark_stack_->IsFull())) {
       ExpandGcMarkStack();
@@ -2715,6 +2730,11 @@ void ConcurrentCopying::ReclaimPhase() {
     LOG(INFO) << "GC ReclaimPhase";
   }
   Thread* self = Thread::Current();
+
+  // Free data for class loaders that we unloaded. This includes removing
+  // dead methods from JIT's internal maps. This must be done before
+  // reclaiming the memory of the dead methods' declaring classes.
+  Runtime::Current()->GetClassLinker()->CleanupClassLoaders();
 
   {
     // Double-check that the mark stack is empty.

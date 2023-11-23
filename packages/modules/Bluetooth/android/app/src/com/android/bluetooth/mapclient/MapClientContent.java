@@ -45,7 +45,6 @@ import com.android.vcard.VCardProperty;
 
 import com.google.android.mms.pdu.PduHeaders;
 
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
@@ -85,6 +84,8 @@ class MapClientContent {
      * Changes to the database are mirrored between the remote and local providers, specifically new
      * messages, changes to read status, and removal of messages.
      *
+     * Object is invalid after cleanUp() is called.
+     *
      * context: the context that all content provider interactions are conducted
      * MceStateMachine:  the interface to send outbound updates such as when a message is read
      * locally
@@ -116,13 +117,13 @@ class MapClientContent {
 
             @Override
             public void onChange(boolean selfChange) {
-                logV("onChange");
+                logV("onChange(self=" + selfChange + ")");
                 findChangeInDatabase();
             }
 
             @Override
             public void onChange(boolean selfChange, Uri uri) {
-                logV("onChange" + uri.toString());
+                logV("onChange(self=" + selfChange + ", uri=" + uri.toString() + ")");
                 findChangeInDatabase();
             }
         };
@@ -137,6 +138,10 @@ class MapClientContent {
         SubscriptionManager subscriptionManager =
                 context.getSystemService(SubscriptionManager.class);
         List<SubscriptionInfo> subscriptions = subscriptionManager.getActiveSubscriptionInfoList();
+        if (subscriptions == null) {
+            Log.w(TAG, "Active subscription list is missing");
+            return;
+        }
         for (SubscriptionInfo info : subscriptions) {
             if (info.getSubscriptionType() == SubscriptionManager.SUBSCRIPTION_TYPE_REMOTE_SIM) {
                 clearMessages(context, info.getSubscriptionId());
@@ -148,6 +153,10 @@ class MapClientContent {
                 }
             }
         }
+    }
+
+    private static void logI(String message) {
+        Log.i(TAG, message);
     }
 
     private static void logD(String message) {
@@ -163,26 +172,12 @@ class MapClientContent {
     }
 
     /**
-     * parseLocalNumber
-     *
-     * Determine the connected phone's number by extracting it from an inbound or outbound mms
-     * message.  This number is necessary such that group messages can be displayed correctly.
+     * This number is necessary for thread_id to work properly. thread_id is needed for
+     * (group) MMS messages to be displayed/stitched correctly.
      */
-    void parseLocalNumber(Bmessage message) {
-        if (mPhoneNumber != null) {
-            return;
-        }
-        if (INBOX_PATH.equals(message.getFolder())) {
-            ArrayList<VCardEntry> recipients = message.getRecipients();
-            if (recipients != null && !recipients.isEmpty()) {
-                mPhoneNumber = PhoneNumberUtils.extractNetworkPortion(
-                        getFirstRecipientNumber(message));
-            }
-        } else {
-            mPhoneNumber = PhoneNumberUtils.extractNetworkPortion(getOriginatorNumber(message));
-        }
-
-        logV("Found phone number: " + mPhoneNumber);
+    void setRemoteDeviceOwnNumber(String phoneNumber) {
+        mPhoneNumber = phoneNumber;
+        logV("Remote device " + mDevice.getAddress() + " phone number set to: " + mPhoneNumber);
     }
 
     /**
@@ -191,21 +186,25 @@ class MapClientContent {
      * Store a message in database with the associated handle and timestamp.
      * The handle is used to associate the local message with the remote message.
      */
-    void storeMessage(Bmessage message, String handle, Long timestamp) {
+    void storeMessage(Bmessage message, String handle, Long timestamp, boolean seen) {
+        logI("storeMessage(device=" + Utils.getLoggableAddress(mDevice) + ", time=" + timestamp
+                + ", handle=" + handle + ", type=" + message.getType()
+                + ", folder=" + message.getFolder());
+
         switch (message.getType()) {
             case MMS:
-                storeMms(message, handle, timestamp);
+                storeMms(message, handle, timestamp, seen);
                 return;
             case SMS_CDMA:
             case SMS_GSM:
-                storeSms(message, handle, timestamp);
+                storeSms(message, handle, timestamp, seen);
                 return;
             default:
                 logD("Request to store unsupported message type: " + message.getType());
         }
     }
 
-    private void storeSms(Bmessage message, String handle, Long timestamp) {
+    private void storeSms(Bmessage message, String handle, Long timestamp, boolean seen) {
         logD("storeSms");
         logV(message.toString());
         VCardEntry originator = message.getOriginator();
@@ -234,6 +233,7 @@ class MapClientContent {
         values.put(Sms.SUBSCRIPTION_ID, mSubscriptionId);
         values.put(Sms.DATE, timestamp);
         values.put(Sms.READ, readStatus);
+        values.put(Sms.SEEN, seen);
 
         Uri results = mResolver.insert(contentUri, values);
         mHandleToUriMap.put(handle, results);
@@ -302,11 +302,10 @@ class MapClientContent {
         }
     }
 
-    private void storeMms(Bmessage message, String handle, Long timestamp) {
+    private void storeMms(Bmessage message, String handle, Long timestamp, boolean seen) {
         logD("storeMms");
         logV(message.toString());
         try {
-            parseLocalNumber(message);
             ContentValues values = new ContentValues();
             long threadId = getThreadId(message);
             BluetoothMapbMessageMime mmsBmessage = new BluetoothMapbMessageMime();
@@ -328,7 +327,7 @@ class MapClientContent {
             values.put(Mms.TEXT_ONLY, true);
             values.put(Mms.MESSAGE_BOX, messageBox);
             values.put(Mms.READ, read);
-            values.put(Mms.SEEN, 0);
+            values.put(Mms.SEEN, seen);
             values.put(Mms.MESSAGE_TYPE, PduHeaders.MESSAGE_TYPE_SEND_REQ);
             values.put(Mms.MMS_VERSION, PduHeaders.CURRENT_MMS_VERSION);
             values.put(Mms.PRIORITY, PduHeaders.PRIORITY_NORMAL);
@@ -410,11 +409,14 @@ class MapClientContent {
      * clear the subscription info and content on shutdown
      */
     void cleanUp() {
+        logD("cleanUp(device=" + Utils.getLoggableAddress(mDevice)
+                + "subscriptionId=" + mSubscriptionId);
         mResolver.unregisterContentObserver(mContentObserver);
         clearMessages(mContext, mSubscriptionId);
         try {
             mSubscriptionManager.removeSubscriptionInfoRecord(mDevice.getAddress(),
                     SubscriptionManager.SUBSCRIPTION_TYPE_REMOTE_SIM);
+            mSubscriptionId = SubscriptionManager.INVALID_SUBSCRIPTION_ID;
         } catch (Exception e) {
             Log.w(TAG, "cleanUp failed: " + e.toString());
         }
@@ -425,6 +427,8 @@ class MapClientContent {
      * clean up the content provider on startup
      */
     private static void clearMessages(Context context, int subscriptionId) {
+        logD("clearMessages(subscriptionId=" + subscriptionId);
+
         ContentResolver resolver = context.getContentResolver();
         String threads = new String();
 
@@ -460,6 +464,9 @@ class MapClientContent {
         if (messageContacts.isEmpty()) {
             return Telephony.Threads.COMMON_THREAD;
         } else if (messageContacts.size() > 1) {
+            if (mPhoneNumber == null) {
+                Log.w(TAG, "getThreadId called, mPhoneNumber never found.");
+            }
             messageContacts.removeIf(number -> (PhoneNumberUtils.areSamePhoneNumber(number,
                     mPhoneNumber, mTelephonyManager.getNetworkCountryIso())));
         }
@@ -554,6 +561,60 @@ class MapClientContent {
                 bmsg.addRecipient(destEntry);
             }
         }
+    }
+
+    /**
+     * Get the total number of messages we've stored under this device's subscription ID, for a
+     * given message source, provided by the "uri" parameter.
+     */
+    private int getStoredMessagesCount(Uri uri) {
+        if (mSubscriptionId == SubscriptionManager.INVALID_SUBSCRIPTION_ID) {
+            logV("getStoredMessagesCount(uri=" + uri + "): Failed, no subscription ID");
+            return 0;
+        }
+
+        Cursor cursor = null;
+        if (Sms.CONTENT_URI.equals(uri) || Sms.Inbox.CONTENT_URI.equals(uri)
+                || Sms.Sent.CONTENT_URI.equals(uri)) {
+            cursor = mResolver.query(uri, new String[] {"count(*)"}, Sms.SUBSCRIPTION_ID + " =? ",
+                    new String[]{Integer.toString(mSubscriptionId)}, null);
+        } else if (Mms.CONTENT_URI.equals(uri) || Mms.Inbox.CONTENT_URI.equals(uri)
+                || Mms.Sent.CONTENT_URI.equals(uri)) {
+            cursor = mResolver.query(uri, new String[] {"count(*)"}, Mms.SUBSCRIPTION_ID + " =? ",
+                    new String[]{Integer.toString(mSubscriptionId)}, null);
+        } else if (Threads.CONTENT_URI.equals(uri)) {
+            uri = Threads.CONTENT_URI.buildUpon().appendQueryParameter("simple", "true").build();
+            cursor = mResolver.query(uri, new String[] {"count(*)"}, null, null, null);
+        }
+
+        if (cursor == null) {
+            return 0;
+        }
+
+        cursor.moveToFirst();
+        int count = cursor.getInt(0);
+        cursor.close();
+
+        return count;
+    }
+
+    public void dump(StringBuilder sb) {
+        sb.append("    Device Message DB:");
+        sb.append("\n      Subscription ID: " + mSubscriptionId);
+        if (mSubscriptionId != SubscriptionManager.INVALID_SUBSCRIPTION_ID) {
+            sb.append("\n      SMS Messages (Inbox/Sent/Total): "
+                    + getStoredMessagesCount(Sms.Inbox.CONTENT_URI)
+                    + " / " + getStoredMessagesCount(Sms.Sent.CONTENT_URI)
+                    + " / " + getStoredMessagesCount(Sms.CONTENT_URI));
+
+            sb.append("\n      MMS Messages (Inbox/Sent/Total): "
+                    + getStoredMessagesCount(Mms.Inbox.CONTENT_URI)
+                    + " / " + getStoredMessagesCount(Mms.Sent.CONTENT_URI)
+                    + " / " + getStoredMessagesCount(Mms.CONTENT_URI));
+
+            sb.append("\n      Threads: " + getStoredMessagesCount(Threads.CONTENT_URI));
+        }
+        sb.append("\n");
     }
 
     /**

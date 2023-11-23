@@ -19,8 +19,9 @@
 package com.android.testutils
 
 import androidx.test.platform.app.InstrumentationRegistry
-import com.android.testutils.ExceptionUtils.ThrowingRunnable
-import com.android.testutils.ExceptionUtils.ThrowingSupplier
+import com.android.modules.utils.build.SdkLevel
+import com.android.testutils.FunctionalUtils.ThrowingRunnable
+import com.android.testutils.FunctionalUtils.ThrowingSupplier
 
 /**
  * Run the specified [task] with the specified [permissions] obtained through shell
@@ -31,6 +32,23 @@ import com.android.testutils.ExceptionUtils.ThrowingSupplier
  */
 fun <T> runAsShell(vararg permissions: String, task: () -> T): T {
     val autom = InstrumentationRegistry.getInstrumentation().uiAutomation
+
+    // Calls to adoptShellPermissionIdentity do not nest, and dropShellPermissionIdentity drops all
+    // permissions. Thus, nesting calls will almost certainly cause test bugs, On S+, where we can
+    // detect this, refuse to do it.
+    //
+    // TODO: when R is deprecated, we could try to make this work instead.
+    // - Get the list of previously-adopted permissions.
+    // - Adopt the union of the previously-adopted and newly-requested permissions.
+    // - Run the task.
+    // - Adopt the previously-adopted permissions, dropping the ones just adopted.
+    //
+    // This would allow tests (and utility classes, such as the TestCarrierConfigReceiver attempted
+    // in aosp/2106007) to call runAsShell even within a test that has already adopted permissions.
+    if (SdkLevel.isAtLeastS() && !autom.getAdoptedShellPermissions().isNullOrEmpty()) {
+        throw IllegalStateException("adoptShellPermissionIdentity calls must not be nested")
+    }
+
     autom.adoptShellPermissionIdentity(*permissions)
     try {
         return task()

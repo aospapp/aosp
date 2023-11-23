@@ -1,5 +1,5 @@
-#!/usr/bin/env python2
-
+#!/usr/bin/env python
+# Lint as: python2, python3
 # Copyright (c) 2013 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -14,15 +14,14 @@ import logging.handlers
 import common
 from autotest_lib.client.cros import constants
 from autotest_lib.client.cros import xmlrpc_server
-from autotest_lib.client.cros.multimedia import bluetooth_facade_native
+from autotest_lib.client.cros.multimedia import bluetooth_facade
 
 
-class BluetoothDeviceXmlRpcDelegate(
-        xmlrpc_server.XmlRpcDelegate,
-        bluetooth_facade_native.BluetoothFacadeNative):
+class BluetoothDeviceXmlRpcDelegate(xmlrpc_server.XmlRpcDelegate,
+                                    bluetooth_facade.BluezFacadeLocal):
     """Exposes DUT methods called remotely during Bluetooth autotests.
 
-    The delegate inherits from BluetoothFacadeNative where all native calls
+    The delegate inherits from BluezFacadeLocal where all native calls
     should be kept. This XmlRpcDelegate is kept around for when Bluetooth needs
     to be called without using the MultimediaRpcDelegate.
 

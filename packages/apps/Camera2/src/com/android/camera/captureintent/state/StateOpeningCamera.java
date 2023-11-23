@@ -78,8 +78,18 @@ public final class StateOpeningCamera extends StateImpl {
         }
 
         @Override
+        public void onCameraInUse() {
+            getStateMachine().processEvent(new EventOnOpenCameraFailed());
+        }
+
+        @Override
         public void onCameraClosed() {
             // Not used anymore.
+        }
+
+        @Override
+        public void onCameraInterrupted() {
+            // Not used.
         }
 
         @Override

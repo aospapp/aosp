@@ -27,6 +27,7 @@ import com.android.tradefed.result.TestRunResult;
 
 import java.util.Arrays;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 
 public class Utils {
@@ -149,7 +150,7 @@ public class Utils {
         }
         int[] users = new int[] { primary };
         for (Integer user : device.listUsers()) {
-            if ((user != USER_SYSTEM) && (user != primary)) {
+            if ((user != USER_SYSTEM) && !Objects.equals(user, primary)) {
                 users = Arrays.copyOf(users, users.length + 1);
                 users[users.length - 1] = user;
             }

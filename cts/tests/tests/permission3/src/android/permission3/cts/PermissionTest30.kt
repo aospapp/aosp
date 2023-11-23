@@ -19,9 +19,9 @@ package android.permission3.cts
 import android.Manifest.permission.ACCESS_BACKGROUND_LOCATION
 import android.Manifest.permission.ACCESS_COARSE_LOCATION
 import android.Manifest.permission.ACCESS_FINE_LOCATION
-import android.support.test.uiautomator.By
-import org.junit.Test
+import androidx.test.uiautomator.By
 import org.junit.Assert.assertNull
+import org.junit.Test
 
 /**
  * Runtime permission behavior apps targeting API 30
@@ -30,6 +30,8 @@ class PermissionTest30 : BaseUsePermissionTest() {
 
     @Test
     fun testCantRequestFgAndBgAtOnce() {
+        // TODO(b/280542662): This delay is a temporary mitigation for an intermittent failure
+        Thread.sleep(500)
         installPackage(APP_APK_PATH_30_WITH_BACKGROUND)
         assertAppHasPermission(ACCESS_FINE_LOCATION, false)
         assertAppHasPermission(ACCESS_BACKGROUND_LOCATION, false)

@@ -16,13 +16,22 @@
 package com.android.internal.net.ipsec.ike;
 
 import android.content.Context;
+import android.content.pm.PackageManager;
 import android.os.Looper;
 
 import com.android.internal.net.eap.EapAuthenticator;
 import com.android.internal.net.ipsec.ike.utils.RandomnessFactory;
+import com.android.internal.net.utils.IkeDeviceConfigUtils;
 
 /** IkeContext contains all context information of an IKE Session */
 public class IkeContext implements EapAuthenticator.EapContext {
+    private static final String NAMESPACE_IPSEC = "ipsec";
+
+    public static final String CONFIG_AUTO_ADDRESS_FAMILY_SELECTION_CELLULAR_PREFER_IPV4 =
+            "config_auto_address_family_selection_cellular_prefer_ipv4";
+    public static final String CONFIG_AUTO_NATT_KEEPALIVES_CELLULAR_TIMEOUT_OVERRIDE_SECONDS =
+            "config_auto_natt_keepalives_cellular_timeout_override_seconds";
+
     private final Looper mLooper;
     private final Context mContext;
     private final RandomnessFactory mRandomFactory;
@@ -50,5 +59,30 @@ public class IkeContext implements EapAuthenticator.EapContext {
     @Override
     public RandomnessFactory getRandomnessFactory() {
         return mRandomFactory;
+    }
+
+    /** Looks up the value of an integer property for IPsec module from DeviceConfig */
+    public int getDeviceConfigPropertyInt(
+            String name, int minimumValue, int maximumValue, int defaultValue) {
+        if (!hasReadDeviceConfigPermission()) {
+            return defaultValue;
+        }
+
+        return IkeDeviceConfigUtils.getDeviceConfigPropertyInt(
+                NAMESPACE_IPSEC, name, minimumValue, maximumValue, defaultValue);
+    }
+
+    /** Looks up the value of a boolean property for IPsec module from DeviceConfig */
+    public boolean getDeviceConfigPropertyBoolean(String name, boolean defaultValue) {
+        if (!hasReadDeviceConfigPermission()) {
+            return defaultValue;
+        }
+        return IkeDeviceConfigUtils.getDeviceConfigPropertyBoolean(
+                NAMESPACE_IPSEC, name, defaultValue);
+    }
+
+    private boolean hasReadDeviceConfigPermission() {
+        return mContext.checkSelfPermission(android.Manifest.permission.READ_DEVICE_CONFIG)
+                == PackageManager.PERMISSION_GRANTED;
     }
 }

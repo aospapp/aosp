@@ -29,11 +29,14 @@
         <policy type="product|system|vendor|odm|oem">
           <!-- Params from config.xml that can be overlaid -->
           <item type="bool" name="audioUseDynamicRouting"/>
+          <item type="bool" name="audioUseCoreVolume"/>
+          <item type="bool" name="audioUseCoreRouting"/>
           <item type="bool" name="audioUseCarVolumeGroupMuting"/>
           <item type="bool" name="audioUseHalDuckingSignals"/>
           <item type="integer" name="audioVolumeAdjustmentContextsVersion"/>
           <item type="bool" name="audioPersistMasterMuteState"/>
           <item type="integer" name="audioVolumeKeyEventTimeoutMs"/>
+          <item type="bool" name="audioUseCarVolumeGroupEvent"/>
           <item type="bool" name="displayOffMuteLockAllAudio"/>
           <item type="bool" name="useDefaultBluetoothConnectionPolicy"/>
           <item type="bool" name="useDefaultBluetoothPowerPolicy"/>
@@ -60,6 +63,7 @@
           <item type="integer" name="acceptableWrittenKBytesPerSample"/>
           <item type="integer" name="acceptableFsyncCallsPerSample"/>
           <item type="integer" name="maxExcessiveIoSamplesInWindow"/>
+          <item type="integer" name="watchdogUserPackageSettingsResetDays" />
           <item type="integer" name="recurringResourceOverusePeriodInDays"/>
           <item type="integer" name="recurringResourceOveruseTimes"/>
           <item type="integer" name="uidIoUsageSummaryTopCount"/>
@@ -84,6 +88,7 @@
           <item type="array" name="config_occupant_display_mapping" translatable="false"/>
           <item type="array" name="config_sourcePreferredComponents" translatable="false"/>
           <item type="string" name="config_userNoticeUiService" translatable="false"/>
+          <item type="string" name="config_userPickerActivity" translatable="false"/>
           <item type="integer" name="config_mediaSourceChangedAutoplay"/>
           <item type="integer" name="config_mediaBootAutoplay"/>
           <item type="bool" name="config_mediaSourceIndependentPlayback"/>
@@ -99,6 +104,8 @@
           <item type="integer" name="config_preShutdownPrepareTimeout"/>
           <item type="integer" name="config_shutdownEnterTimeout"/>
           <item type="integer" name="config_postShutdownEnterTimeout"/>
+          <item type="bool" name="config_enablePassengerDisplayPowerSaving"/>
+          <item type="integer" name="config_noUserScreenOffTimeout"/>
           <item type="string" name="config_evsRearviewCameraId" translatable="false"/>
           <item type="string" name="config_evsCameraActivity" translatable="false"/>
           <item type="bool" name="config_wifiAdjustmentForSuspend"/>
@@ -106,8 +113,15 @@
           <item type="bool" name="config_preventTemplatedAppsFromShowingDialog"/>
           <item type="string" name="config_template_activity_class_name" translatable="false"/>
           <item type="bool" name="config_enableExternalCarTimeToExternalTimeSuggestion"/>
-          <item type="integer" name="config_userPreCreationStage"/>
-          <item type="integer" name="config_userPreCreationDelay"/>
+          <item type="string" name="config_oemCarService" translatable="false"/>
+          <item type="integer" name="config_oemCarService_connection_timeout_ms"/>
+          <item type="integer" name="config_oemCarService_serviceReady_timeout_ms"/>
+          <item type="integer" name="config_oemCarService_regularCall_timeout_ms"/>
+          <item type="integer" name="config_oemCarService_crashCall_timeout_ms"/>
+          <item type="integer" name="config_oemCarService_thread_pool_size"/>
+          <item type="integer" name="config_allowedSystemUptimeForRemoteAccess"/>
+          <item type="bool" name="config_assignPassengerActivityToForegroundCpuGroup"/>
+
           <!-- Params from config.xml that can be overlaid -->
 
           <!-- XML files that can be overlaid -->

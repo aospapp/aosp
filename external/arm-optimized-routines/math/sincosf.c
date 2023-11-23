@@ -1,8 +1,8 @@
 /*
  * Single-precision sin/cos function.
  *
- * Copyright (c) 2018-2019, Arm Limited.
- * SPDX-License-Identifier: MIT
+ * Copyright (c) 2018-2021, Arm Limited.
+ * SPDX-License-Identifier: MIT OR Apache-2.0 WITH LLVM-exception
  */
 
 #include <stdint.h>
@@ -22,7 +22,7 @@ sincosf (float y, float *sinp, float *cosp)
   int n;
   const sincos_t *p = &__sincosf_table[0];
 
-  if (abstop12 (y) < abstop12 (pio4))
+  if (abstop12 (y) < abstop12 (pio4f))
     {
       double x2 = x * x;
 

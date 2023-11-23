@@ -23,12 +23,14 @@
 #include <unwindstack/MachineArm64.h>
 #include <unwindstack/MachineMips.h>
 #include <unwindstack/MachineMips64.h>
+#include <unwindstack/MachineRiscv64.h>
 #include <unwindstack/MachineX86.h>
 #include <unwindstack/MachineX86_64.h>
 #include <unwindstack/RegsArm.h>
 #include <unwindstack/RegsArm64.h>
 #include <unwindstack/RegsMips.h>
 #include <unwindstack/RegsMips64.h>
+#include <unwindstack/RegsRiscv64.h>
 #include <unwindstack/RegsX86.h>
 #include <unwindstack/RegsX86_64.h>
 
@@ -128,6 +130,25 @@ TEST_F(RegsStepIfSignalHandlerTest, arm64_step_if_signal_handler) {
   EXPECT_EQ(0x470U, regs[ARM64_REG_PC]);
   EXPECT_EQ(0x460U, regs.sp());
   EXPECT_EQ(0x470U, regs.pc());
+}
+
+TEST_F(RegsStepIfSignalHandlerTest, riscv64_step_if_signal_handler) {
+  uint64_t addr = 0x1000;
+  RegsRiscv64 regs;
+  regs[RISCV64_REG_PC] = 0x8000;
+  regs[RISCV64_REG_SP] = addr;
+
+  elf_memory_->SetData64(0x8000, 0x0000007308b00893ULL);
+
+  for (uint64_t index = 0; index <= 100; index++) {
+    process_memory_.SetData64(addr + index * 8, index * 0x10);
+  }
+
+  ASSERT_TRUE(regs.StepIfSignalHandler(0x8000, elf_.get(), &process_memory_));
+  EXPECT_EQ(0x280U, regs[RISCV64_REG_SP]);
+  EXPECT_EQ(0x260U, regs[RISCV64_REG_PC]);
+  EXPECT_EQ(0x280U, regs.sp());
+  EXPECT_EQ(0x260U, regs.pc());
 }
 
 TEST_F(RegsStepIfSignalHandlerTest, x86_step_if_signal_handler_no_siginfo) {

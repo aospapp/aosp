@@ -24,15 +24,15 @@
     <string name="cmas_required_monthly_test" msgid="3216225136685938963">"FR-ALERT: Test"</string>
     <string name="cmas_exercise_alert" msgid="6540820517122545556">"Fr-ALERT: Simulare"</string>
     <string name="enable_cmas_extreme_threat_alerts_title" msgid="1268433786689479357">"Alerte extreme (nivelul 2)"</string>
-    <string name="enable_cmas_extreme_threat_alerts_summary" msgid="6125474083043183037">"Afișați mesaje de alertă pentru pericole extreme"</string>
+    <string name="enable_cmas_extreme_threat_alerts_summary" msgid="6125474083043183037">"Afișează mesaje de alertă pentru pericole extreme"</string>
     <string name="enable_cmas_severe_threat_alerts_title" msgid="6185770513604614548">"Alerte grave (nivelul 3)"</string>
-    <string name="enable_cmas_severe_threat_alerts_summary" msgid="3073259381449390054">"Afișați mesaje de atenționare pentru pericole grave"</string>
+    <string name="enable_cmas_severe_threat_alerts_summary" msgid="3073259381449390054">"Afișează mesaje de atenționare pentru pericole grave"</string>
     <string name="enable_public_safety_messages_title" msgid="4231398452970069457">"Atenționare (nivelul 4)"</string>
     <string name="enable_public_safety_messages_summary" msgid="1691623841627340948">"Afișați mesaje de atenționare"</string>
     <string name="enable_cmas_amber_alerts_title" msgid="4087727029650572978">"Alertă de răpire"</string>
-    <string name="enable_cmas_amber_alerts_summary" msgid="2375767662238080247">"Afișați mesaje de alertă pentru răpirile de copii"</string>
+    <string name="enable_cmas_amber_alerts_summary" msgid="2375767662238080247">"Afișează mesaje de alertă pentru răpirile de copii"</string>
     <string name="enable_cmas_test_alerts_title" msgid="730591674839718588">"FR-Alert: Test"</string>
-    <string name="enable_cmas_test_alerts_summary" msgid="6208243265914357932">"Afișați mesaje de test"</string>
+    <string name="enable_cmas_test_alerts_summary" msgid="6208243265914357932">"Afișează mesaje de test"</string>
     <string name="enable_exercise_test_alerts_title" msgid="8961707963450012289">"Fr-Alert: Simulare"</string>
-    <string name="enable_exercise_test_alerts_summary" msgid="8611222204116539840">"Afișați mesaje de simulare"</string>
+    <string name="enable_exercise_test_alerts_summary" msgid="8611222204116539840">"Afișează mesaje de simulare"</string>
 </resources>

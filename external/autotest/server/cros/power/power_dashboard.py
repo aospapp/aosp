@@ -47,27 +47,30 @@ class ServerTestDashboard(power_dashboard.BaseDashboard):
             board += '_hammer'
 
         dut_info_dict = {
-            'board': board,
-            'version': {
-                'hw': self._host.get_hardware_revision(),
-                'milestone': self._host.get_chromeos_release_milestone(),
-                'os': self._host.get_release_version(),
-                'channel': self._host.get_channel(),
-                'firmware': self._host.get_firmware_version(),
-                'ec': self._host.get_ec_version(),
-                'kernel': self._host.get_kernel_version(),
-            },
-            'sku' : {
-                'cpu': self._host.get_cpu_name(),
-                'memory_size': self._host.get_mem_total_gb(),
-                'storage_size': self._host.get_disk_size_gb(),
-                'display_resolution': self._host.get_screen_resolution(),
-            },
-            'ina': {
-                'version': 0,
-                'ina': power_rails,
-            },
-            'note': self._note,
+                'board': board,
+                'version': {
+                        'hw': self._host.get_hardware_revision(),
+                        'milestone':
+                        self._host.get_chromeos_release_milestone(),
+                        'os': self._host.get_release_version(),
+                        'channel': self._host.get_channel(),
+                        'firmware': self._host.get_firmware_version(),
+                        'ec': self._host.get_ec_version(),
+                        'kernel': self._host.get_kernel_version(),
+                },
+                'sku': {
+                        'cpu': self._host.get_cpu_name(),
+                        'memory_size': self._host.get_mem_total_gb(),
+                        'storage_size': self._host.get_disk_size_gb(),
+                        'display_resolution':
+                        self._host.get_screen_resolution(),
+                        'hwid': self._host.get_hardware_id(),
+                },
+                'ina': {
+                        'version': 0,
+                        'ina': power_rails,
+                },
+                'note': self._note,
         }
 
         if self._host.has_battery():

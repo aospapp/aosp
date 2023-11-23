@@ -29,49 +29,39 @@ TIME_OVERHEAD = 2
 
 
 class BtInterferenceStaticTest(BtInterferenceBaseTest):
+
     def __init__(self, configs):
         super().__init__(configs)
         self.bt_attenuation_range = range(self.attenuation_vector['start'],
                                           self.attenuation_vector['stop'] + 1,
                                           self.attenuation_vector['step'])
-
         self.iperf_duration = self.audio_params['duration'] + TIME_OVERHEAD
-        for level in list(
-                self.static_wifi_interference['interference_level'].keys()):
-            for channels in self.static_wifi_interference['channels']:
-                self.generate_test_case(
-                    self.static_wifi_interference['interference_level'][level],
-                    channels)
-
         test_metrics = [
-            'wifi_chan1_rssi', 'wifi_chan6_rssi', 'wifi_chan11_rssi',
-            'bt_range'
+            'wifi_chan1_rssi', 'wifi_chan6_rssi', 'wifi_chan11_rssi', 'bt_range'
         ]
         for metric in test_metrics:
             setattr(self, '{}_metric'.format(metric),
                     BlackboxMetricLogger.for_test_case(metric_name=metric))
 
-    def generate_test_case(self, interference_level, channels):
-        """Function to generate test cases with different parameters.
+    def setup_generated_tests(self):
+        for level in list(
+                self.static_wifi_interference['interference_level'].values()):
+            for channels in self.static_wifi_interference['channels']:
+                arg_set = [(level, channels)]
+                self.generate_tests(
+                    test_logic=self.bt_range_with_static_wifi_interference,
+                    name_func=self.create_test_name,
+                    arg_sets=arg_set)
 
-        Args:
-           interference_level: wifi interference signal level
-           channels: wifi interference channel or channel combination
-        """
-        def test_case_fn():
-            self.bt_range_with_static_wifi_interference(
-                interference_level, channels)
-
+    def create_test_name(self, level, channels):
         str_channel_test = ''
         for i in channels:
-            str_channel_test = str_channel_test + str(i) + '_'
+            str_channel_test = str_channel_test + str(i) + "_"
         test_case_name = ('test_bt_range_with_static_interference_level_{}_'
-                          'channel_{}'.format(interference_level,
-                                              str_channel_test))
-        setattr(self, test_case_name, test_case_fn)
+                          'channel_{}'.format(level, str_channel_test))
+        return test_case_name
 
-    def bt_range_with_static_wifi_interference(self, interference_level,
-                                               channels):
+    def bt_range_with_static_wifi_interference(self, level, channels):
         """Test function to measure bt range under interference.
 
         Args:
@@ -79,8 +69,7 @@ class BtInterferenceStaticTest(BtInterferenceBaseTest):
             channels: wifi interference channels
         """
         #setup wifi interference by setting the correct attenuator
-        inject_static_wifi_interference(self.wifi_int_pairs,
-                                        interference_level, channels)
+        inject_static_wifi_interference(self.wifi_int_pairs, level, channels)
         # Read interference RSSI
         self.get_interference_rssi()
         self.wifi_chan1_rssi_metric.metric_value = self.interference_rssi[0][
@@ -113,8 +102,7 @@ class BtInterferenceStaticTest(BtInterferenceBaseTest):
                     self.iperf_duration, obj.iperf_server.port)
                 tag = 'chan_{}'.format(obj.channel)
                 proc_iperf = Process(target=obj.iperf_client.start,
-                                     args=(obj.server_address, iperf_args,
-                                           tag))
+                                     args=(obj.server_address, iperf_args, tag))
                 procs_iperf.append(proc_iperf)
 
             #play a2dp streaming and run thdn analysis
@@ -140,8 +128,8 @@ class BtInterferenceStaticTest(BtInterferenceBaseTest):
             self.log.info('THDN results are {} at {} dB attenuation'.format(
                 thdns, atten))
             self.log.info('DUT rssi {} dBm, master tx power level {}, '
-                          'RemoteDevice rssi {} dBm'.format(rssi_primary, pwl_primary,
-                                                     rssi_secondary))
+                          'RemoteDevice rssi {} dBm'.format(
+                              rssi_primary, pwl_primary, rssi_secondary))
             for thdn in thdns:
                 if thdn >= self.audio_params['thdn_threshold']:
                     self.log.info('Under the WiFi interference condition: '
@@ -154,3 +142,4 @@ class BtInterferenceStaticTest(BtInterferenceBaseTest):
                     raise TestPass(
                         'Max range for this test is {}, with BT master RSSI at'
                         ' {} dBm'.format(atten, rssi_primary))
+

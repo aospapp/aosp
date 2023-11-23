@@ -27,8 +27,8 @@ license {
 }
 
 bpf {
-    name: "time_in_state.o",
-    srcs: ["time_in_state.c"],
+    name: "timeInState.o",
+    srcs: ["timeInState.c"],
     btf: true,
     cflags: [
         "-Wall",
@@ -41,7 +41,7 @@ bpf {
 
 cc_library {
     name: "lib_mock_bpf_time_in_state",
-    srcs: ["time_in_state.c"],
+    srcs: ["timeInState.c"],
     header_libs: ["bpf_prog_headers"],
     cflags: [
         "-Wall",
@@ -57,6 +57,7 @@ cc_test {
     name: "bpf-time-in-state-tests",
     test_suites: ["general-tests"],
     gtest: true,
+    isolated: false,
     host_supported: false,
     srcs: [
         "time_in_state_test.cpp",
@@ -79,8 +80,8 @@ cc_test {
 }
 
 bpf {
-    name: "fuse_media.o",
-    srcs: ["fuse_media.c"],
+    name: "fuseMedia.o",
+    srcs: ["fuseMedia.c"],
     cflags: [
         "-Wall",
         "-Werror",

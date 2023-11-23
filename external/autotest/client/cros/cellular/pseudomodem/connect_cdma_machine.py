@@ -4,8 +4,8 @@
 
 import logging
 
-import connect_machine
-import pm_errors
+from . import connect_machine
+from . import pm_errors
 
 from autotest_lib.client.cros.cellular import mm1_constants
 

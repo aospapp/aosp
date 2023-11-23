@@ -16,7 +16,7 @@ class infra_FirmwareAutoupdate(test.test):
 
     In the test lab, this step is suppressed, to prevent devices from
     inadvertently updating to a new firmware version as a consequence of
-    installing a new Chrome OS build for testing.  In particular,
+    installing a new ChromeOS build for testing.  In particular,
     because the firmware is updated whenever the bundled firmware is
     _different_, and not merely _more recent_, suppressing the update
     prevents unexpectedly downgrading the firmware.

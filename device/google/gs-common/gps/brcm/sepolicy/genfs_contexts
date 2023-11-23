@@ -1,0 +1,3 @@
+# GPS
+genfscon sysfs /devices/virtual/pps/pps0/assert_elapsed                         u:object_r:sysfs_gps_assert:s0
+

@@ -50,6 +50,8 @@ public abstract class DeviceAndProfileOwnerTestApi25 extends BaseDevicePolicyTes
     }
 
     @Test
+    // TODO: This can't be migrated until we support specifying alternative RemoteDPC configurations
+    // (in this case targeting preQ)
     public void testPermissionGrantPreMApp() throws Exception {
         installAppAsUser(SIMPLE_PRE_M_APP_APK, mUserId);
         executeDeviceTestMethod(".PermissionsTest", "testPermissionGrantState_preMApp_preQDeviceAdmin");
@@ -61,21 +63,7 @@ public abstract class DeviceAndProfileOwnerTestApi25 extends BaseDevicePolicyTes
                 "testPasswordConstraintsDoesntThrowAndPreservesValuesPreR");
     }
 
-    protected void executeDeviceTestClass(String className) throws Exception {
-        runDeviceTestsAsUser(DEVICE_ADMIN_PKG, className, mUserId);
-    }
-
     protected void executeDeviceTestMethod(String className, String testName) throws Exception {
         runDeviceTestsAsUser(DEVICE_ADMIN_PKG, className, testName, mUserId);
-    }
-
-    /**
-     * Start SimpleActivity synchronously in a particular user.
-     */
-    protected void startSimpleActivityAsUser(int userId) throws Exception {
-        installAppAsUser(TEST_APP_APK, userId);
-        String command = "am start -W --user " + userId + " " + TEST_APP_PKG + "/"
-                + TEST_APP_PKG + ".SimpleActivity";
-        getDevice().executeShellCommand(command);
     }
 }

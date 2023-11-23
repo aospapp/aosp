@@ -695,7 +695,7 @@ struct LibusbConnection : public Connection {
 
             Stop();
 
-            fdevent_run_on_main_thread([device]() {
+            fdevent_run_on_looper([device]() {
                 process_device(device);
                 libusb_unref_device(device);
             });
@@ -902,7 +902,7 @@ static void device_disconnected(libusb_device* device) {
         libusb_device* device = it->first;
         std::weak_ptr<LibusbConnection> connection_weak = it->second;
         usb_handles.erase(it);
-        fdevent_run_on_main_thread([connection_weak]() {
+        fdevent_run_on_looper([connection_weak]() {
             auto connection = connection_weak.lock();
             if (connection) {
                 connection->Stop();

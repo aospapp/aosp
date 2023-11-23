@@ -29,11 +29,23 @@ namespace art {
 enum class InstructionSet;
 class InstructionSetFeatures;
 
+enum class StubType {
+  kJNIDlsymLookupTrampoline,
+  kJNIDlsymLookupCriticalTrampoline,
+  kQuickGenericJNITrampoline,
+  kQuickIMTConflictTrampoline,
+  kQuickResolutionTrampoline,
+  kQuickToInterpreterBridge,
+  kNterpTrampoline,
+  kLast = kNterpTrampoline,
+};
+std::ostream& operator<<(std::ostream& stream, StubType stub_type);
+
 class PACKED(4) OatHeader {
  public:
   static constexpr std::array<uint8_t, 4> kOatMagic { { 'o', 'a', 't', '\n' } };
-  // Last oat version changed reason: Revert^4 "bss support for inlining BCP into non-BCP".
-  static constexpr std::array<uint8_t, 4> kOatVersion { { '2', '2', '5', '\0' } };
+  // Last oat version changed reason: ARM64: Enable implicit suspend checks; compiled code check.
+  static constexpr std::array<uint8_t, 4> kOatVersion { { '2', '3', '0', '\0' } };
 
   static constexpr const char* kDex2OatCmdLineKey = "dex2oat-cmdline";
   static constexpr const char* kDebuggableKey = "debuggable";
@@ -110,6 +122,8 @@ class PACKED(4) OatHeader {
   CompilerFilter::Filter GetCompilerFilter() const;
   bool IsConcurrentCopying() const;
   bool RequiresImage() const;
+
+  const uint8_t* GetOatAddress(StubType type) const;
 
  private:
   bool KeyHasValue(const char* key, const char* value, size_t value_size) const;

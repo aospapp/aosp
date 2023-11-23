@@ -2,6 +2,7 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
+PY_VERSION = 3
 AUTHOR = "vsuley@google.com"
 NAME = "video_AVAnalysis.vp9.720"
 PURPOSE = "Play bar-coded video on ChromeOS DUT so it can be recorded for analysis."

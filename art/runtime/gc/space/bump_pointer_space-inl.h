@@ -20,6 +20,7 @@
 #include "bump_pointer_space.h"
 
 #include "base/bit_utils.h"
+#include "mirror/object-inl.h"
 
 namespace art {
 namespace gc {
@@ -87,6 +88,11 @@ inline mirror::Object* BumpPointerSpace::AllocNonvirtual(size_t num_bytes) {
     bytes_allocated_.fetch_add(num_bytes, std::memory_order_relaxed);
   }
   return ret;
+}
+
+inline mirror::Object* BumpPointerSpace::GetNextObject(mirror::Object* obj) {
+  const uintptr_t position = reinterpret_cast<uintptr_t>(obj) + obj->SizeOf();
+  return reinterpret_cast<mirror::Object*>(RoundUp(position, kAlignment));
 }
 
 }  // namespace space

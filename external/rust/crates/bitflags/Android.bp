@@ -39,7 +39,6 @@ license {
 
 rust_test {
     name: "bitflags_test_src_lib",
-    // has rustc warnings
     host_supported: true,
     crate_name: "bitflags",
     cargo_env_compat: true,
@@ -65,7 +64,6 @@ rust_test {
 
 rust_test {
     name: "bitflags_test_tests_basic",
-    // has rustc warnings
     host_supported: true,
     crate_name: "bitflags",
     cargo_env_compat: true,
@@ -92,7 +90,6 @@ rust_test {
 
 rust_library {
     name: "libbitflags",
-    // has rustc warnings
     host_supported: true,
     crate_name: "bitflags",
     cargo_env_compat: true,
@@ -102,10 +99,11 @@ rust_library {
     features: ["default"],
     apex_available: [
         "//apex_available:platform",
-        "com.android.bluetooth",
+        "com.android.btservices",
         "com.android.compos",
         "com.android.virt",
     ],
+    product_available: true,
     vendor_available: true,
     min_sdk_version: "29",
 }

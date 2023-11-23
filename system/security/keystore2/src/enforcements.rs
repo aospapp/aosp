@@ -14,6 +14,7 @@
 
 //! This is the Keystore 2.0 Enforcements module.
 // TODO: more description to follow.
+use crate::ks_err;
 use crate::error::{map_binder_status, Error, ErrorCode};
 use crate::globals::{get_timestamp_service, ASYNC_TASK, DB, ENFORCEMENTS};
 use crate::key_parameter::{KeyParameter, KeyParameterValue};
@@ -95,14 +96,14 @@ impl AuthRequest {
             .unwrap()
             .take()
             .ok_or(Error::Km(ErrorCode::KEY_USER_NOT_AUTHENTICATED))
-            .context("In get_auth_tokens: No operation auth token received.")?;
+            .context(ks_err!("No operation auth token received."))?;
 
         let tst = match &self.state {
             AuthRequestState::TimeStampedOpAuth(recv) | AuthRequestState::TimeStamp(recv) => {
                 let result = recv.recv().context("In get_auth_tokens: Sender disconnected.")?;
-                Some(result.context(concat!(
-                    "In get_auth_tokens: Worker responded with error ",
-                    "from generating timestamp token."
+                Some(result.context(ks_err!(
+                    "Worker responded with error \
+                    from generating timestamp token.",
                 ))?)
             }
             AuthRequestState::OpAuth => None,
@@ -228,10 +229,7 @@ fn get_timestamp_token(challenge: i64) -> Result<TimeStampToken, Error> {
 fn timestamp_token_request(challenge: i64, sender: Sender<Result<TimeStampToken, Error>>) {
     if let Err(e) = sender.send(get_timestamp_token(challenge)) {
         log::info!(
-            concat!(
-                "In timestamp_token_request: Receiver hung up ",
-                "before timestamp token could be delivered. {:?}"
-            ),
+            concat!("Receiver hung up ", "before timestamp token could be delivered. {:?}"),
             e
         );
     }
@@ -322,7 +320,7 @@ impl AuthInfo {
                     .check_and_update_key_usage_count(key_id)
                     .context("Trying to update key usage count.")
             })
-            .context("In after_finish.")?;
+            .context(ks_err!())?;
         }
         Ok(())
     }
@@ -349,14 +347,14 @@ impl AuthInfo {
             DeferredAuthState::OpAuthRequired
             | DeferredAuthState::TimeStampedOpAuthRequired
             | DeferredAuthState::TimeStampRequired(_) => {
-                Err(Error::Km(ErrorCode::KEY_USER_NOT_AUTHENTICATED)).context(concat!(
-                    "In AuthInfo::get_auth_tokens: No operation auth token requested??? ",
-                    "This should not happen."
+                Err(Error::Km(ErrorCode::KEY_USER_NOT_AUTHENTICATED)).context(ks_err!(
+                    "No operation auth token requested??? \
+                    This should not happen."
                 ))
             }
             // This should not be reachable, because it should have been handled above.
             DeferredAuthState::Waiting(_) => {
-                Err(Error::sys()).context("In AuthInfo::get_auth_tokens: Cannot be reached.")
+                Err(Error::sys()).context(ks_err!("AuthInfo::get_auth_tokens: Cannot be reached.",))
             }
         }
     }
@@ -418,7 +416,7 @@ impl Enforcements {
                         key_usage_limited: None,
                         confirmation_token_receiver: None,
                     },
-                ))
+                ));
             }
         };
 
@@ -428,7 +426,7 @@ impl Enforcements {
             // Rule out WRAP_KEY purpose
             KeyPurpose::WRAP_KEY => {
                 return Err(Error::Km(Ec::INCOMPATIBLE_PURPOSE))
-                    .context("In authorize_create: WRAP_KEY purpose is not allowed here.");
+                    .context(ks_err!("WRAP_KEY purpose is not allowed here.",));
             }
             // Allow AGREE_KEY for EC keys only.
             KeyPurpose::AGREE_KEY => {
@@ -436,9 +434,8 @@ impl Enforcements {
                     if kp.get_tag() == Tag::ALGORITHM
                         && *kp.key_parameter_value() != KeyParameterValue::Algorithm(Algorithm::EC)
                     {
-                        return Err(Error::Km(Ec::UNSUPPORTED_PURPOSE)).context(
-                            "In authorize_create: key agreement is only supported for EC keys.",
-                        );
+                        return Err(Error::Km(Ec::UNSUPPORTED_PURPOSE))
+                            .context(ks_err!("key agreement is only supported for EC keys.",));
                     }
                 }
             }
@@ -449,10 +446,10 @@ impl Enforcements {
                     match *kp.key_parameter_value() {
                         KeyParameterValue::Algorithm(Algorithm::RSA)
                         | KeyParameterValue::Algorithm(Algorithm::EC) => {
-                            return Err(Error::Km(Ec::UNSUPPORTED_PURPOSE)).context(
-                                "In authorize_create: public operations on asymmetric keys are not \
-                                 supported.",
-                            );
+                            return Err(Error::Km(Ec::UNSUPPORTED_PURPOSE)).context(ks_err!(
+                                "public operations on asymmetric keys are \
+                                 not supported."
+                            ));
                         }
                         _ => {}
                     }
@@ -460,7 +457,7 @@ impl Enforcements {
             }
             _ => {
                 return Err(Error::Km(Ec::UNSUPPORTED_PURPOSE))
-                    .context("In authorize_create: specified purpose is not supported.");
+                    .context(ks_err!("authorize_create: specified purpose is not supported."));
             }
         }
         // The following variables are to record information from key parameters to be used in
@@ -505,23 +502,21 @@ impl Enforcements {
                 KeyParameterValue::ActiveDateTime(a) => {
                     if !Enforcements::is_given_time_passed(*a, true) {
                         return Err(Error::Km(Ec::KEY_NOT_YET_VALID))
-                            .context("In authorize_create: key is not yet active.");
+                            .context(ks_err!("key is not yet active."));
                     }
                 }
                 KeyParameterValue::OriginationExpireDateTime(o) => {
                     if (purpose == KeyPurpose::ENCRYPT || purpose == KeyPurpose::SIGN)
                         && Enforcements::is_given_time_passed(*o, false)
                     {
-                        return Err(Error::Km(Ec::KEY_EXPIRED))
-                            .context("In authorize_create: key is expired.");
+                        return Err(Error::Km(Ec::KEY_EXPIRED)).context(ks_err!("key is expired."));
                     }
                 }
                 KeyParameterValue::UsageExpireDateTime(u) => {
                     if (purpose == KeyPurpose::DECRYPT || purpose == KeyPurpose::VERIFY)
                         && Enforcements::is_given_time_passed(*u, false)
                     {
-                        return Err(Error::Km(Ec::KEY_EXPIRED))
-                            .context("In authorize_create: key is expired.");
+                        return Err(Error::Km(Ec::KEY_EXPIRED)).context(ks_err!("key is expired."));
                     }
                 }
                 KeyParameterValue::UserSecureID(s) => {
@@ -560,24 +555,23 @@ impl Enforcements {
         // authorize the purpose
         if !key_purpose_authorized {
             return Err(Error::Km(Ec::INCOMPATIBLE_PURPOSE))
-                .context("In authorize_create: the purpose is not authorized.");
+                .context(ks_err!("the purpose is not authorized."));
         }
 
         // if both NO_AUTH_REQUIRED and USER_SECURE_ID tags are present, return error
         if !user_secure_ids.is_empty() && no_auth_required {
-            return Err(Error::Km(Ec::INVALID_KEY_BLOB)).context(
-                "In authorize_create: key has both NO_AUTH_REQUIRED and USER_SECURE_ID tags.",
-            );
+            return Err(Error::Km(Ec::INVALID_KEY_BLOB))
+                .context(ks_err!("key has both NO_AUTH_REQUIRED and USER_SECURE_ID tags."));
         }
 
         // if either of auth_type or secure_id is present and the other is not present, return error
         if (user_auth_type.is_some() && user_secure_ids.is_empty())
             || (user_auth_type.is_none() && !user_secure_ids.is_empty())
         {
-            return Err(Error::Km(Ec::KEY_USER_NOT_AUTHENTICATED)).context(
-                "In authorize_create: Auth required, but either auth type or secure ids \
-                 are not present.",
-            );
+            return Err(Error::Km(Ec::KEY_USER_NOT_AUTHENTICATED)).context(ks_err!(
+                "Auth required, but either auth type or secure ids \
+                 are not present."
+            ));
         }
 
         // validate caller nonce for origination purposes
@@ -585,24 +579,22 @@ impl Enforcements {
             && !caller_nonce_allowed
             && op_params.iter().any(|kp| kp.tag == Tag::NONCE)
         {
-            return Err(Error::Km(Ec::CALLER_NONCE_PROHIBITED)).context(
-                "In authorize_create, NONCE is present, although CALLER_NONCE is not present",
-            );
+            return Err(Error::Km(Ec::CALLER_NONCE_PROHIBITED))
+                .context(ks_err!("NONCE is present, although CALLER_NONCE is not present"));
         }
 
         if unlocked_device_required {
             // check the device locked status. If locked, operations on the key are not
             // allowed.
             if self.is_device_locked(user_id) {
-                return Err(Error::Km(Ec::DEVICE_LOCKED))
-                    .context("In authorize_create: device is locked.");
+                return Err(Error::Km(Ec::DEVICE_LOCKED)).context(ks_err!("device is locked."));
             }
         }
 
         if let Some(level) = max_boot_level {
             if !SUPER_KEY.read().unwrap().level_accessible(level) {
                 return Err(Error::Km(Ec::BOOT_LEVEL_EXCEEDED))
-                    .context("In authorize_create: boot level is too late.");
+                    .context(ks_err!("boot level is too late."));
             }
         }
 
@@ -636,7 +628,7 @@ impl Enforcements {
             Some(
                 hat_and_last_off_body
                     .ok_or(Error::Km(Ec::KEY_USER_NOT_AUTHENTICATED))
-                    .context("In authorize_create: No suitable auth token found.")?,
+                    .context(ks_err!("No suitable auth token found."))?,
             )
         } else {
             None
@@ -649,16 +641,16 @@ impl Enforcements {
                 let token_age = now
                     .checked_sub(&hat.time_received())
                     .ok_or_else(Error::sys)
-                    .context(concat!(
-                        "In authorize_create: Overflow while computing Auth token validity. ",
-                        "Validity cannot be established."
+                    .context(ks_err!(
+                        "Overflow while computing Auth token validity. \
+                    Validity cannot be established."
                     ))?;
 
                 let on_body_extended = allow_while_on_body && last_off_body < hat.time_received();
 
                 if token_age.seconds() > key_time_out && !on_body_extended {
                     return Err(Error::Km(Ec::KEY_USER_NOT_AUTHENTICATED))
-                        .context("In authorize_create: matching auth token is expired.");
+                        .context(ks_err!("matching auth token is expired."));
                 }
                 Some(hat)
             }
@@ -832,20 +824,20 @@ impl Enforcements {
                     auth_token_entry.take_auth_token()
                 } else {
                     return Err(AuthzError::Rc(AuthzResponseCode::NO_AUTH_TOKEN_FOUND))
-                        .context("In get_auth_tokens: No auth token found.");
+                        .context(ks_err!("No auth token found."));
                 }
             } else {
                 return Err(AuthzError::Rc(AuthzResponseCode::NO_AUTH_TOKEN_FOUND)).context(
-                    concat!(
-                        "In get_auth_tokens: No auth token found for ",
-                        "the given challenge and passed-in auth token max age is zero."
+                    ks_err!(
+                        "No auth token found for \
+                    the given challenge and passed-in auth token max age is zero."
                     ),
                 );
             }
         };
         // Wait and obtain the timestamp token from secure clock service.
-        let tst = get_timestamp_token(challenge)
-            .context("In get_auth_tokens. Error in getting timestamp token.")?;
+        let tst =
+            get_timestamp_token(challenge).context(ks_err!("Error in getting timestamp token."))?;
         Ok((auth_token, tst))
     }
 }

@@ -19,11 +19,8 @@ package com.android.cts.verifier.biometrics;
 import android.app.AlertDialog;
 import android.content.Context;
 import android.content.DialogInterface;
-import android.content.res.Resources;
 import android.security.keystore.KeyGenParameterSpec;
 import android.security.keystore.KeyProperties;
-import android.util.Log;
-import android.widget.Toast;
 
 import java.security.KeyStore;
 import java.security.PrivateKey;
@@ -84,6 +81,18 @@ public class Utils {
         Cipher cipher = Cipher.getInstance(KeyProperties.KEY_ALGORITHM_AES + "/"
                 + KeyProperties.BLOCK_MODE_CBC + "/"
                 + KeyProperties.ENCRYPTION_PADDING_PKCS7);
+        cipher.init(Cipher.ENCRYPT_MODE, secretKey);
+        return cipher;
+    }
+
+    static Cipher initAeadCipher(String keyName) throws Exception {
+        KeyStore keyStore = KeyStore.getInstance("AndroidKeyStore");
+        keyStore.load(null);
+        SecretKey secretKey = (SecretKey) keyStore.getKey(keyName, null);
+
+        Cipher cipher = Cipher.getInstance(KeyProperties.KEY_ALGORITHM_AES + "/"
+                + KeyProperties.BLOCK_MODE_GCM + "/"
+                + KeyProperties.ENCRYPTION_PADDING_NONE);
         cipher.init(Cipher.ENCRYPT_MODE, secretKey);
         return cipher;
     }

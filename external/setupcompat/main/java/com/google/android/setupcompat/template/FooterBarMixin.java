@@ -73,6 +73,7 @@ public class FooterBarMixin implements Mixin {
   @VisibleForTesting final boolean applyPartnerResources;
   @VisibleForTesting final boolean applyDynamicColor;
   @VisibleForTesting final boolean useFullDynamicColor;
+  @VisibleForTesting final boolean footerButtonAlignEnd;
 
   @VisibleForTesting public LinearLayout buttonContainer;
   private FooterButton primaryButton;
@@ -174,6 +175,8 @@ public class FooterBarMixin implements Mixin {
       TemplateLayout layout, @Nullable AttributeSet attrs, @AttrRes int defStyleAttr) {
     context = layout.getContext();
     footerStub = layout.findManagedViewById(R.id.suc_layout_footer);
+    FooterButtonStyleUtils.clearSavedDefaultTextColor();
+
     this.applyPartnerResources =
         layout instanceof PartnerCustomizationLayout
             && ((PartnerCustomizationLayout) layout).shouldApplyPartnerResource();
@@ -204,6 +207,8 @@ public class FooterBarMixin implements Mixin {
         a.getColor(R.styleable.SucFooterBarMixin_sucFooterBarPrimaryFooterBackground, 0);
     footerBarSecondaryBackgroundColor =
         a.getColor(R.styleable.SucFooterBarMixin_sucFooterBarSecondaryFooterBackground, 0);
+    footerButtonAlignEnd =
+        a.getBoolean(R.styleable.SucFooterBarMixin_sucFooterBarButtonAlignEnd, false);
 
     int primaryBtn =
         a.getResourceId(R.styleable.SucFooterBarMixin_sucFooterBarPrimaryFooterButton, 0);
@@ -224,7 +229,6 @@ public class FooterBarMixin implements Mixin {
           /* isVisible= */ true, /* isUsingXml= */ true);
     }
 
-    FooterButtonStyleUtils.clearSavedDefaultTextColor();
   }
 
   protected boolean isFooterButtonAlignedEnd() {
@@ -233,7 +237,7 @@ public class FooterBarMixin implements Mixin {
       return PartnerConfigHelper.get(context)
           .getBoolean(context, PartnerConfig.CONFIG_FOOTER_BUTTON_ALIGNED_END, false);
     } else {
-      return false;
+      return footerButtonAlignEnd;
     }
   }
 
@@ -581,10 +585,12 @@ public class FooterBarMixin implements Mixin {
   @CallSuper
   protected void onFooterButtonInflated(Button button, @ColorInt int defaultButtonBackgroundColor) {
     // Try to set default background
-    if (defaultButtonBackgroundColor != 0) {
-      FooterButtonStyleUtils.updateButtonBackground(button, defaultButtonBackgroundColor);
-    } else {
-      // TODO: get button background color from activity theme
+    if (!applyDynamicColor) {
+      if (defaultButtonBackgroundColor != 0) {
+        FooterButtonStyleUtils.updateButtonBackground(button, defaultButtonBackgroundColor);
+      } else {
+        // TODO: get button background color from activity theme
+      }
     }
     buttonContainer.addView(button);
     autoSetButtonBarVisibility();
@@ -614,7 +620,7 @@ public class FooterBarMixin implements Mixin {
     return overrideTheme;
   }
 
-  @VisibleForTesting
+  /** Returns the {@link LinearLayout} of button container. */
   public LinearLayout getButtonContainer() {
     return buttonContainer;
   }

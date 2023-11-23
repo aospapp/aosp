@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # Copyright 2018 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -16,6 +17,10 @@ class autoupdate_Interruptions(update_engine_test.UpdateEngineTest):
 
     def cleanup(self):
         self._save_extra_update_engine_logs(number_of_logs=2)
+
+        # Clean up the nebraska usr dir.
+        self._clear_nebraska_dir()
+
         super(autoupdate_Interruptions, self).cleanup()
 
 
@@ -38,8 +43,8 @@ class autoupdate_Interruptions(update_engine_test.UpdateEngineTest):
         self._remove_update_engine_pref(self._UPDATE_CHECK_RESPONSE_HASH)
         self._restart_update_engine(ignore_status=True)
 
-        update_url = self.get_update_url_for_test(job_repo_url,
-                                                  full_payload=full_payload)
+        payload_url = self.get_payload_for_nebraska(job_repo_url,
+                                                    full_payload=full_payload)
         chromeos_version = self._host.get_release_version()
         active, inactive = kernel_utils.get_kernel_state(self._host)
         # Choose a random downloaded progress to interrupt the update.
@@ -48,10 +53,11 @@ class autoupdate_Interruptions(update_engine_test.UpdateEngineTest):
 
         # Login, start the update, logout
         self._run_client_test_and_check_result(
-            'autoupdate_LoginStartUpdateLogout', update_url=update_url,
-            progress_to_complete=progress,
-            full_payload=full_payload,
-            interrupt_network=interrupt == self._NETWORK_INTERRUPT)
+                'autoupdate_LoginStartUpdateLogout',
+                payload_url=payload_url,
+                progress_to_complete=progress,
+                full_payload=full_payload,
+                interrupt_network=interrupt == self._NETWORK_INTERRUPT)
 
         if interrupt in [self._REBOOT_INTERRUPT, self._SUSPEND_INTERRUPT]:
             if self._is_update_finished_downloading():
@@ -65,8 +71,9 @@ class autoupdate_Interruptions(update_engine_test.UpdateEngineTest):
                 self._host.reboot()
                 utils.poll_for_condition(self._get_update_engine_status,
                                          desc='update engine to start')
-                self._check_for_update(update_url, critical_update=True,
-                                       full_payload=full_payload)
+                # The client test created a nebraska startup config, so
+                # nebraska will be up after the reboot.
+                self._check_for_update(self._get_nebraska_update_url())
             elif interrupt == self._SUSPEND_INTERRUPT:
                 self._suspend_then_resume()
 
@@ -81,12 +88,13 @@ class autoupdate_Interruptions(update_engine_test.UpdateEngineTest):
                                      'left off after interruption.')
 
         self._wait_for_update_to_complete()
+        self._edit_nebraska_startup_config(no_update=True)
         self._host.reboot()
         # Check that update engine is ready after reboot.
         utils.poll_for_condition(self._get_update_engine_status,
                                  desc='update engine to start')
         # Do a final update check with no_update=True to get post reboot event.
-        self._check_for_update(update_url, no_update=True)
+        self._check_for_update(self._get_nebraska_update_url())
 
         # Verify the update was successful by checking hostlog and kernel.
         rootfs_hostlog, reboot_hostlog = self._create_hostlog_files()

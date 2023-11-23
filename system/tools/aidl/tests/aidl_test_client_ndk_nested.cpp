@@ -17,6 +17,7 @@
 #include <android/binder_auto_utils.h>
 #include <android/binder_manager.h>
 #include <binder/IServiceManager.h>
+#include <binder/ProcessState.h>
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 #include <utils/String16.h>
@@ -39,7 +40,9 @@ using testing::Optional;
 struct AidlTest : testing::Test {
   template <typename T>
   std::shared_ptr<T> getService() {
-    ndk::SpAIBinder binder = ndk::SpAIBinder(AServiceManager_getService(T::descriptor));
+    android::ProcessState::self()->setThreadPoolMaxThreadCount(1);
+    android::ProcessState::self()->startThreadPool();
+    ndk::SpAIBinder binder = ndk::SpAIBinder(AServiceManager_waitForService(T::descriptor));
     return T::fromBinder(binder);
   }
 };

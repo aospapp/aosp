@@ -127,11 +127,14 @@ class AbstractLogReader(object):
         Start line is set by set_start_* functions or
         since the start of the file if none were called.
 
+        All lines must be decoded as a string as Python 3
+        now differentiates between bytearrays and strings
+
         @return string of contents of file since start line.
         """
         logs = []
         for line in self.read_all_logs():
-            logs.append(line)
+            logs.append(line.decode())
         return ''.join(logs)
 
 

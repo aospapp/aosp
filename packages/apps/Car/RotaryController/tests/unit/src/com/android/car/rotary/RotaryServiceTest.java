@@ -186,7 +186,8 @@ public class RotaryServiceTest {
      *               button1  defaultFocus  button3
      *                                      (focused)
      * </pre>
-     * and {@link RotaryService#mFocusedNode} is not initialized.
+     * {@link RotaryService#mFocusedNode} is not initialized,
+     * and {@link RotaryService#mInRotaryMode} is set to true.
      */
     @Test
     public void testInitFocus_focusOnAlreadyFocusedView() {
@@ -202,6 +203,8 @@ public class RotaryServiceTest {
         Activity activity = mActivityRule.getActivity();
         Button button3 = activity.findViewById(R.id.button3);
         button3.post(() -> button3.requestFocus());
+        // TODO(b/246423854): Find out why we need to setInRotaryMode(true) explicitly
+        mRotaryService.setInRotaryMode(true);
         InstrumentationRegistry.getInstrumentation().waitForIdleSync();
         assertThat(button3.isFocused()).isTrue();
         assertNull(mRotaryService.getFocusedNode());
@@ -359,7 +362,8 @@ public class RotaryServiceTest {
      *                         /       \
      *            focusParkingView     button2(focused)
      * </pre>
-     * and {@link RotaryService#mFocusedNode} is null.
+     * {@link RotaryService#mFocusedNode} is null,
+     * and {@link RotaryService#mInRotaryMode} is set to true.
      */
     @Test
     public void testInitFocus_focusOnHostNode() {
@@ -401,6 +405,8 @@ public class RotaryServiceTest {
         List<AccessibilityWindowInfo> windows = Collections.singletonList(window);
         when(mRotaryService.getWindows()).thenReturn(windows);
 
+        // TODO(b/246423854): Find out why we need to setInRotaryMode(true) explicitly
+        mRotaryService.setInRotaryMode(true);
         boolean consumed = mRotaryService.initFocus();
         assertThat(mRotaryService.getFocusedNode()).isEqualTo(button2);
         assertThat(consumed).isFalse();

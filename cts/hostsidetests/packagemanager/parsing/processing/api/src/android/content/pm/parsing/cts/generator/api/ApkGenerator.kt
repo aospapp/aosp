@@ -63,7 +63,7 @@ object ApkGenerator {
     ): InstallResult {
         val hashCode = androidManifestXml.hashCode().absoluteValue
         val apkFile = getFileFromZip(tempFolder, "$hashCode.apk")
-        val error = device.installPackage(apkFile, false)
+        val error = device.installPackage(apkFile, false, "--bypass-low-target-sdk-block")
         return InstallResult(
             packageName = "$PACKAGE_NAME_PREFIX$hashCode",
             error = error.orEmpty(),

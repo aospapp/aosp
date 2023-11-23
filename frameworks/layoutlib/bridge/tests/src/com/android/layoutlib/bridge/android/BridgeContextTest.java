@@ -20,8 +20,7 @@ import com.android.ide.common.rendering.api.SessionParams;
 import com.android.layoutlib.bridge.Bridge;
 import com.android.layoutlib.bridge.impl.RenderAction;
 import com.android.layoutlib.bridge.impl.RenderActionTestUtil;
-import com.android.layoutlib.bridge.intensive.RenderTestBase;
-import com.android.layoutlib.bridge.intensive.setup.LayoutLibTestCallback;
+import com.android.layoutlib.bridge.intensive.LayoutLibTestCallback;
 import com.android.layoutlib.bridge.intensive.setup.LayoutPullParser;
 
 import org.junit.BeforeClass;
@@ -32,9 +31,12 @@ import android.R.style;
 import android.content.Context;
 import android.content.res.Configuration;
 import android.content.res.TypedArray;
+import android.os.PowerManager;
 import android.util.DisplayMetrics;
 import android.view.ContextThemeWrapper;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
@@ -147,5 +149,59 @@ public class BridgeContextTest extends RenderTestBase {
 
         assertNull(context.getSystemService("my_custom_service"));
         sRenderMessages.removeIf(message -> message.equals("Service my_custom_service was not found or is unsupported"));
+    }
+
+    @Test
+    public void dynamicTheming() throws ClassNotFoundException {
+        LayoutPullParser parser = LayoutPullParser.createFromPath("/empty.xml");
+        LayoutLibTestCallback layoutLibCallback =
+                new LayoutLibTestCallback(getLogger(), mDefaultClassLoader);
+        layoutLibCallback.initResources();
+        SessionParams params = getSessionParamsBuilder()
+                .setParser(parser)
+                .setCallback(layoutLibCallback)
+                .setTheme("Theme.Material", false)
+                .build();
+        DisplayMetrics metrics = new DisplayMetrics();
+        Configuration configuration = RenderAction.getConfiguration(params);
+        BridgeContext context = new BridgeContext(params.getProjectKey(), metrics, params.getResources(),
+                params.getAssets(), params.getLayoutlibCallback(), configuration,
+                params.getTargetSdkVersion(), params.isRtlSupported());
+        context.initResources(params.getAssets());
+        try {
+            assertEquals(-13749965, context.getResources().getColor(android.R.color.system_neutral1_800, null));
+
+            ((DynamicRenderResources) context.getRenderResources()).setWallpaper(
+                    "/com/android/layoutlib/testdata/wallpaper1.webp",
+                    configuration.isNightModeActive());
+            assertEquals(-13226195, context.getResources().getColor(android.R.color.system_neutral1_800, null));
+
+            ((DynamicRenderResources) context.getRenderResources()).setWallpaper(
+                    "/com/android/layoutlib/testdata/wallpaper2.webp",
+                    configuration.isNightModeActive());
+            assertEquals(-13749969, context.getResources().getColor(android.R.color.system_neutral1_800, null));
+        } finally {
+            context.disposeResources();
+        }
+    }
+
+    @Test
+    public void noCrashInPowerManager() throws ClassNotFoundException {
+        LayoutPullParser parser = LayoutPullParser.createFromPath("/empty.xml");
+        LayoutLibTestCallback layoutLibCallback =
+                new LayoutLibTestCallback(getLogger(), mDefaultClassLoader);
+        layoutLibCallback.initResources();
+        SessionParams params = getSessionParamsBuilder().setParser(parser).setCallback(layoutLibCallback).setTheme(
+                "Theme.Material", false).build();
+        DisplayMetrics metrics = new DisplayMetrics();
+        Configuration configuration = RenderAction.getConfiguration(params);
+        BridgeContext context =
+                new BridgeContext(params.getProjectKey(), metrics, params.getResources(), params.getAssets(), params.getLayoutlibCallback(), configuration,
+                        params.getTargetSdkVersion(), params.isRtlSupported());
+
+        PowerManager powerManager = (PowerManager)context.getSystemService(Context.POWER_SERVICE);
+        // Check that the following calls do not trigger a native crash
+        assertFalse(powerManager.isPowerSaveMode());
+        assertTrue(powerManager.isInteractive());
     }
 }

@@ -18,6 +18,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="android.os.lib.app">
 
+    <uses-permission android:name="android.permission.INTERACT_ACROSS_USERS"/>
+
     <application>
     </application>
 

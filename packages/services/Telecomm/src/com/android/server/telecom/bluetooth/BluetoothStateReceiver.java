@@ -46,6 +46,7 @@ public class BluetoothStateReceiver extends BroadcastReceiver {
         INTENT_FILTER.addAction(BluetoothHearingAid.ACTION_ACTIVE_DEVICE_CHANGED);
         INTENT_FILTER.addAction(BluetoothLeAudio.ACTION_LE_AUDIO_CONNECTION_STATE_CHANGED);
         INTENT_FILTER.addAction(BluetoothLeAudio.ACTION_LE_AUDIO_ACTIVE_DEVICE_CHANGED);
+        INTENT_FILTER.setPriority(IntentFilter.SYSTEM_HIGH_PRIORITY);
     }
 
     // If not in a call, BSR won't listen to the Bluetooth stack's HFP on/off messages, since

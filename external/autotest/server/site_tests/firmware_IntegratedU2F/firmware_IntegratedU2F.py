@@ -6,7 +6,7 @@ from __future__ import print_function
 
 import logging
 import time
-import StringIO
+import six
 import subprocess
 
 from autotest_lib.client.common_lib import error, utils
@@ -161,7 +161,8 @@ class firmware_IntegratedU2F(FirmwareTest):
             logging.info('pressed power button')
             time.sleep(self.SHORT_WAIT)
             # send enter to the test process
-            self.u2ftest_job.sp.stdin.write('\n')
+            self.u2ftest_job.sp.stdin.write(b'\n')
+            self.u2ftest_job.sp.stdin.flush()
             logging.info('hit enter')
             self.output = ''
         return self.u2ftest_job.sp.poll() is not None
@@ -170,10 +171,10 @@ class firmware_IntegratedU2F(FirmwareTest):
     def get_u2ftest_output(self):
         """Read the new output"""
         self.u2ftest_job.process_output()
+        output = self.stdout.getvalue()
         self.stdout.seek(self.last_len)
-        output = self.stdout.read().strip()
-        self.last_len = self.stdout.len
-        return output
+        self.last_len = len(output)
+        return self.stdout.read().strip()
 
     def run_u2ftest(self):
         """Run U2FTest with the U2F device"""
@@ -184,7 +185,7 @@ class firmware_IntegratedU2F(FirmwareTest):
                                                  self.dev_path))
         full_ssh_command = '%s "%s"' % (self.host.ssh_command(options='-tt'),
             u2ftest_cmd)
-        self.stdout = StringIO.StringIO()
+        self.stdout = six.StringIO()
         # Start running U2FTest in the background.
         self.u2ftest_job = utils.BgJob(full_ssh_command,
                                        nickname='u2ftest',

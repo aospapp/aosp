@@ -24,6 +24,7 @@
 #include "lang_id/common/lite_base/integral-types.h"
 #include "lang_id/common/lite_base/logging.h"
 #include "lang_id/common/lite_base/macros.h"
+#include "absl/strings/string_view.h"
 
 namespace libtextclassifier3 {
 namespace mobile {
@@ -33,10 +34,10 @@ class Parameter {
  public:
   Parameter() {}
 
-  void set_name(const std::string &name) { name_ = name; }
+  void set_name(absl::string_view name) { name_ = std::string(name); }
   const std::string &name() const { return name_; }
 
-  void set_value(const std::string &value) { value_ = value; }
+  void set_value(absl::string_view value) { value_ = std::string(value); }
   const std::string &value() const { return value_; }
 
  private:
@@ -52,13 +53,13 @@ class FeatureFunctionDescriptor {
 
   // Accessors for the feature function type.  The function type is the string
   // that the feature extractor code is registered under.
-  void set_type(const std::string &type) { type_ = type; }
+  void set_type(absl::string_view type) { type_ = std::string(type); }
   const std::string &type() const { return type_; }
 
   // Accessors for the feature function name.  The function name (if available)
   // is used for some log messages.  Otherwise, a more precise, but also more
   // verbose name based on the feature specification is used.
-  void set_name(const std::string &name) { name_ = name; }
+  void set_name(absl::string_view name) { name_ = std::string(name); }
   const std::string &name() const { return name_; }
 
   // Accessors for the default (name-less) parameter.

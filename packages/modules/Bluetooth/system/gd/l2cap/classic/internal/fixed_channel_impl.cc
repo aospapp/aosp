@@ -47,8 +47,13 @@ void FixedChannelImpl::RegisterOnCloseCallback(os::Handler* user_handler,
 }
 
 void FixedChannelImpl::OnClosed(hci::ErrorCode status) {
-  ASSERT_LOG(!closed_, "Device %s Cid 0x%x closed twice, old status 0x%x, new status 0x%x", device_.ToString().c_str(),
-             cid_, static_cast<int>(close_reason_), static_cast<int>(status));
+  ASSERT_LOG(
+      !closed_,
+      "Device %s Cid 0x%x closed twice, old status 0x%x, new status 0x%x",
+      ADDRESS_TO_LOGGABLE_CSTR(device_),
+      cid_,
+      static_cast<int>(close_reason_),
+      static_cast<int>(status));
   closed_ = true;
   close_reason_ = status;
   acquired_ = false;
@@ -66,12 +71,12 @@ void FixedChannelImpl::OnClosed(hci::ErrorCode status) {
 void FixedChannelImpl::Acquire() {
   ASSERT_LOG(user_handler_ != nullptr, "Must register OnCloseCallback before calling any methods");
   if (closed_) {
-    LOG_WARN("%s is already closed", ToString().c_str());
+    LOG_WARN("%s is already closed", ToLoggableStr(*this).c_str());
     ASSERT(!acquired_);
     return;
   }
   if (acquired_) {
-    LOG_INFO("%s was already acquired", ToString().c_str());
+    LOG_INFO("%s was already acquired", ToLoggableStr(*this).c_str());
     return;
   }
   acquired_ = true;
@@ -81,12 +86,12 @@ void FixedChannelImpl::Acquire() {
 void FixedChannelImpl::Release() {
   ASSERT_LOG(user_handler_ != nullptr, "Must register OnCloseCallback before calling any methods");
   if (closed_) {
-    LOG_WARN("%s is already closed", ToString().c_str());
+    LOG_WARN("%s is already closed", ToLoggableStr(*this).c_str());
     ASSERT(!acquired_);
     return;
   }
   if (!acquired_) {
-    LOG_INFO("%s was already released", ToString().c_str());
+    LOG_INFO("%s was already released", ToLoggableStr(*this).c_str());
     return;
   }
   acquired_ = false;

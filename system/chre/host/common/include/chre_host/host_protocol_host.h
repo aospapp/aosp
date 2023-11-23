@@ -107,6 +107,14 @@ class HostProtocolHost : public ::chre::HostProtocolCommon {
   static void encodeHubInfoRequest(flatbuffers::FlatBufferBuilder &builder);
 
   /**
+   * Encodes a message sending boot debug configuration to CHRE
+   *
+   * @param builder A newly constructed FlatBufferBuilder that will be used to
+   *        construct the message
+   */
+  static void encodeDebugConfiguration(flatbuffers::FlatBufferBuilder &builder);
+
+  /**
    * Encodes a message requesting to load a nanoapp specified by the included
    * (possibly fragmented) binary payload and metadata.
    *

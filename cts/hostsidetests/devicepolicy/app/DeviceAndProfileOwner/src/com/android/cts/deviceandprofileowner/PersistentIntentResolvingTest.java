@@ -38,7 +38,7 @@ public class PersistentIntentResolvingTest extends BaseDeviceAdminTest {
         filter.addAction(ExampleIntentReceivingActivity2.CONFIRM_ACTION);
 
         mReceiver = new ConfirmReceiver();
-        mContext.registerReceiver(mReceiver, filter);
+        mContext.registerReceiver(mReceiver, filter, Context.RECEIVER_EXPORTED);
 
         synchronized(this) {
             mReceivedConfirmationFrom1 = false;

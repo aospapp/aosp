@@ -123,9 +123,9 @@ static void do_test(void)
 }
 
 static struct tst_option options[] = {
-	{"d", &debug, "-d       enable debug"},
-	{"f:", &file, "-f x     binary_bios_measurement file (required)\n"},
-	{NULL, NULL, NULL}
+	{"d", &debug, "Enable debug"},
+	{"f:", &file, "binary_bios_measurement file (required)\n"},
+	{}
 };
 
 static struct tst_test test = {

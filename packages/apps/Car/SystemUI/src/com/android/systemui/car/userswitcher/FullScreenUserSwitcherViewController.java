@@ -33,6 +33,7 @@ import com.android.systemui.car.window.OverlayViewController;
 import com.android.systemui.car.window.OverlayViewGlobalStateController;
 import com.android.systemui.dagger.SysUISingleton;
 import com.android.systemui.dagger.qualifiers.Main;
+import com.android.systemui.settings.UserTracker;
 
 import javax.inject.Inject;
 
@@ -42,6 +43,7 @@ import javax.inject.Inject;
 @SysUISingleton
 public class FullScreenUserSwitcherViewController extends OverlayViewController {
     private final Context mContext;
+    private final UserTracker mUserTracker;
     private final Resources mResources;
     private final CarServiceProvider mCarServiceProvider;
     private final int mShortAnimationDuration;
@@ -52,11 +54,13 @@ public class FullScreenUserSwitcherViewController extends OverlayViewController 
     @Inject
     public FullScreenUserSwitcherViewController(
             Context context,
+            UserTracker userTracker,
             @Main Resources resources,
             CarServiceProvider carServiceProvider,
             OverlayViewGlobalStateController overlayViewGlobalStateController) {
         super(R.id.fullscreen_user_switcher_stub, overlayViewGlobalStateController);
         mContext = context;
+        mUserTracker = userTracker;
         mResources = resources;
         mCarServiceProvider = carServiceProvider;
         mCarServiceProvider.addListener(car -> {
@@ -86,6 +90,7 @@ public class FullScreenUserSwitcherViewController extends OverlayViewController 
         GridLayoutManager layoutManager = new GridLayoutManager(mContext,
                 mResources.getInteger(R.integer.user_fullscreen_switcher_num_col));
         mUserGridView.setLayoutManager(layoutManager);
+        mUserGridView.setUserTracker(mUserTracker);
         mUserGridView.buildAdapter();
         mUserGridView.setUserSelectionListener(mUserSelectionListener);
         registerCarUserManagerIfPossible();

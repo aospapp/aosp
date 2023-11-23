@@ -55,6 +55,7 @@ static uint32_t gNPolicies = 0;
 static uint32_t gNCpus = 0;
 static std::vector<std::vector<uint32_t>> gPolicyFreqs;
 static std::vector<std::vector<uint32_t>> gPolicyCpus;
+static std::vector<uint32_t> gCpuIndexMap;
 static std::set<uint32_t> gAllFreqs;
 static unique_fd gTisTotalMapFd;
 static unique_fd gTisMapFd;
@@ -108,7 +109,7 @@ static bool initGlobals() {
         free(dirlist[i]);
     }
     free(dirlist);
-
+    uint32_t max_cpu_number = 0;
     for (const auto &policy : policyFileNames) {
         std::vector<uint32_t> freqs;
         for (const auto &name : {"available", "boost"}) {
@@ -127,28 +128,39 @@ static bool initGlobals() {
         std::string path = StringPrintf("%s/%s/%s", basepath, policy.c_str(), "related_cpus");
         auto cpus = readNumbersFromFile(path);
         if (!cpus) return false;
+        for (auto cpu : *cpus) {
+            if(cpu > max_cpu_number)
+                max_cpu_number = cpu;
+        }
         gPolicyCpus.emplace_back(*cpus);
+    }
+    gCpuIndexMap = std::vector<uint32_t>(max_cpu_number+1, -1);
+    uint32_t cpuorder = 0;
+    for (const auto &cpuList : gPolicyCpus) {
+        for (auto cpu : cpuList) {
+            gCpuIndexMap[cpu] = cpuorder++;
+        }
     }
 
     gTisTotalMapFd =
-            unique_fd{bpf_obj_get(BPF_FS_PATH "map_time_in_state_total_time_in_state_map")};
+            unique_fd{bpf_obj_get(BPF_FS_PATH "map_timeInState_total_time_in_state_map")};
     if (gTisTotalMapFd < 0) return false;
 
-    gTisMapFd = unique_fd{bpf_obj_get(BPF_FS_PATH "map_time_in_state_uid_time_in_state_map")};
+    gTisMapFd = unique_fd{bpf_obj_get(BPF_FS_PATH "map_timeInState_uid_time_in_state_map")};
     if (gTisMapFd < 0) return false;
 
     gConcurrentMapFd =
-            unique_fd{bpf_obj_get(BPF_FS_PATH "map_time_in_state_uid_concurrent_times_map")};
+            unique_fd{bpf_obj_get(BPF_FS_PATH "map_timeInState_uid_concurrent_times_map")};
     if (gConcurrentMapFd < 0) return false;
 
     gUidLastUpdateMapFd =
-            unique_fd{bpf_obj_get(BPF_FS_PATH "map_time_in_state_uid_last_update_map")};
+            unique_fd{bpf_obj_get(BPF_FS_PATH "map_timeInState_uid_last_update_map")};
     if (gUidLastUpdateMapFd < 0) return false;
 
-    gPidTisMapFd = unique_fd{mapRetrieveRO(BPF_FS_PATH "map_time_in_state_pid_time_in_state_map")};
+    gPidTisMapFd = unique_fd{mapRetrieveRO(BPF_FS_PATH "map_timeInState_pid_time_in_state_map")};
     if (gPidTisMapFd < 0) return false;
 
-    unique_fd trackedPidMapFd(mapRetrieveWO(BPF_FS_PATH "map_time_in_state_pid_tracked_map"));
+    unique_fd trackedPidMapFd(mapRetrieveWO(BPF_FS_PATH "map_timeInState_pid_tracked_map"));
     if (trackedPidMapFd < 0) return false;
 
     gInitialized = true;
@@ -156,7 +168,7 @@ static bool initGlobals() {
 }
 
 static int retrieveProgramFd(const std::string &eventType, const std::string &eventName) {
-    std::string path = StringPrintf(BPF_FS_PATH "prog_time_in_state_tracepoint_%s_%s",
+    std::string path = StringPrintf(BPF_FS_PATH "prog_timeInState_tracepoint_%s_%s",
                                     eventType.c_str(), eventName.c_str());
     return retrieveProgram(path.c_str());
 }
@@ -200,7 +212,7 @@ bool startTrackingUidTimes() {
     if (!initGlobals()) return false;
     if (gTracking) return true;
 
-    unique_fd cpuPolicyFd(mapRetrieveWO(BPF_FS_PATH "map_time_in_state_cpu_policy_map"));
+    unique_fd cpuPolicyFd(mapRetrieveWO(BPF_FS_PATH "map_timeInState_cpu_policy_map"));
     if (cpuPolicyFd < 0) return false;
 
     for (uint32_t i = 0; i < gPolicyCpus.size(); ++i) {
@@ -209,7 +221,7 @@ bool startTrackingUidTimes() {
         }
     }
 
-    unique_fd freqToIdxFd(mapRetrieveWO(BPF_FS_PATH "map_time_in_state_freq_to_idx_map"));
+    unique_fd freqToIdxFd(mapRetrieveWO(BPF_FS_PATH "map_timeInState_freq_to_idx_map"));
     if (freqToIdxFd < 0) return false;
     freq_idx_key_t key;
     for (uint32_t i = 0; i < gNPolicies; ++i) {
@@ -224,23 +236,23 @@ bool startTrackingUidTimes() {
         }
     }
 
-    unique_fd cpuLastUpdateFd(mapRetrieveWO(BPF_FS_PATH "map_time_in_state_cpu_last_update_map"));
+    unique_fd cpuLastUpdateFd(mapRetrieveWO(BPF_FS_PATH "map_timeInState_cpu_last_update_map"));
     if (cpuLastUpdateFd < 0) return false;
     std::vector<uint64_t> zeros(get_nprocs_conf(), 0);
     uint32_t zero = 0;
     if (writeToMapEntry(cpuLastUpdateFd, &zero, zeros.data(), BPF_ANY)) return false;
 
-    unique_fd nrActiveFd(mapRetrieveWO(BPF_FS_PATH "map_time_in_state_nr_active_map"));
+    unique_fd nrActiveFd(mapRetrieveWO(BPF_FS_PATH "map_timeInState_nr_active_map"));
     if (nrActiveFd < 0) return false;
     if (writeToMapEntry(nrActiveFd, &zero, &zero, BPF_ANY)) return false;
 
-    unique_fd policyNrActiveFd(mapRetrieveWO(BPF_FS_PATH "map_time_in_state_policy_nr_active_map"));
+    unique_fd policyNrActiveFd(mapRetrieveWO(BPF_FS_PATH "map_timeInState_policy_nr_active_map"));
     if (policyNrActiveFd < 0) return false;
     for (uint32_t i = 0; i < gNPolicies; ++i) {
         if (writeToMapEntry(policyNrActiveFd, &i, &zero, BPF_ANY)) return false;
     }
 
-    unique_fd policyFreqIdxFd(mapRetrieveWO(BPF_FS_PATH "map_time_in_state_policy_freq_idx_map"));
+    unique_fd policyFreqIdxFd(mapRetrieveWO(BPF_FS_PATH "map_timeInState_policy_freq_idx_map"));
     if (policyFreqIdxFd < 0) return false;
     for (uint32_t i = 0; i < gNPolicies; ++i) {
         auto freqIdx = getPolicyFreqIdx(i);
@@ -277,7 +289,7 @@ std::optional<std::vector<std::vector<uint64_t>>> getTotalCpuFreqTimes() {
         for (uint32_t policyIdx = 0; policyIdx < gNPolicies; ++policyIdx) {
             if (freqIdx >= gPolicyFreqs[policyIdx].size()) continue;
             for (const auto &cpu : gPolicyCpus[policyIdx]) {
-                out[policyIdx][freqIdx] += vals[cpu];
+                out[policyIdx][freqIdx] += vals[gCpuIndexMap[cpu]];
             }
         }
     }
@@ -300,11 +312,11 @@ std::optional<std::vector<std::vector<uint64_t>>> getUidCpuFreqTimes(uint32_t ui
     }
 
     std::vector<tis_val_t> vals(gNCpus);
-    time_key_t key = {.uid = uid};
     for (uint32_t i = 0; i <= (maxFreqCount - 1) / FREQS_PER_ENTRY; ++i) {
-        key.bucket = i;
+        const time_key_t key = {.uid = uid, .bucket = i};
         if (findMapEntry(gTisMapFd, &key, vals.data())) {
-            if (errno != ENOENT || getFirstMapKey(gTisMapFd, &key)) return {};
+            time_key_t tmpKey;
+            if (errno != ENOENT || getFirstMapKey(gTisMapFd, &tmpKey)) return {};
             continue;
         }
 
@@ -316,7 +328,8 @@ std::optional<std::vector<std::vector<uint64_t>>> getUidCpuFreqTimes(uint32_t ui
             auto end = nextOffset < gPolicyFreqs[j].size() ? begin + FREQS_PER_ENTRY : out[j].end();
 
             for (const auto &cpu : gPolicyCpus[j]) {
-                std::transform(begin, end, std::begin(vals[cpu].ar), begin, std::plus<uint64_t>());
+                std::transform(begin, end, std::begin(vals[gCpuIndexMap[cpu]].ar), begin,
+                               std::plus<uint64_t>());
             }
         }
     }
@@ -382,7 +395,8 @@ getUidsUpdatedCpuFreqTimes(uint64_t *lastUpdate) {
             auto end = nextOffset < gPolicyFreqs[i].size() ? begin + FREQS_PER_ENTRY :
                 map[key.uid][i].end();
             for (const auto &cpu : gPolicyCpus[i]) {
-                std::transform(begin, end, std::begin(vals[cpu].ar), begin, std::plus<uint64_t>());
+                std::transform(begin, end, std::begin(vals[gCpuIndexMap[cpu]].ar), begin,
+                               std::plus<uint64_t>());
             }
         }
         prevKey = key;
@@ -412,10 +426,11 @@ std::optional<concurrent_time_t> getUidConcurrentTimes(uint32_t uid, bool retry)
     concurrent_time_t ret = {.active = std::vector<uint64_t>(gNCpus, 0)};
     for (const auto &cpuList : gPolicyCpus) ret.policy.emplace_back(cpuList.size(), 0);
     std::vector<concurrent_val_t> vals(gNCpus);
-    time_key_t key = {.uid = uid};
-    for (key.bucket = 0; key.bucket <= (gNCpus - 1) / CPUS_PER_ENTRY; ++key.bucket) {
+    for (uint32_t i = 0; i <= (gNCpus - 1) / CPUS_PER_ENTRY; ++i) {
+        const time_key_t key = {.uid = uid, .bucket = i};
         if (findMapEntry(gConcurrentMapFd, &key, vals.data())) {
-            if (errno != ENOENT || getFirstMapKey(gConcurrentMapFd, &key)) return {};
+            time_key_t tmpKey;
+            if (errno != ENOENT || getFirstMapKey(gConcurrentMapFd, &tmpKey)) return {};
             continue;
         }
         auto offset = key.bucket * CPUS_PER_ENTRY;
@@ -436,8 +451,8 @@ std::optional<concurrent_time_t> getUidConcurrentTimes(uint32_t uid, bool retry)
                                                                      : ret.policy[policy].end();
 
             for (const auto &cpu : gPolicyCpus[policy]) {
-                std::transform(policyBegin, policyEnd, std::begin(vals[cpu].policy), policyBegin,
-                               std::plus<uint64_t>());
+                std::transform(policyBegin, policyEnd, std::begin(vals[gCpuIndexMap[cpu]].policy),
+                               policyBegin, std::plus<uint64_t>());
             }
         }
     }
@@ -505,8 +520,8 @@ std::optional<std::unordered_map<uint32_t, concurrent_time_t>> getUidsUpdatedCon
                                                                 : ret[key.uid].policy[policy].end();
 
             for (const auto &cpu : gPolicyCpus[policy]) {
-                std::transform(policyBegin, policyEnd, std::begin(vals[cpu].policy), policyBegin,
-                               std::plus<uint64_t>());
+                std::transform(policyBegin, policyEnd, std::begin(vals[gCpuIndexMap[cpu]].policy),
+                               policyBegin, std::plus<uint64_t>());
             }
         }
     } while (prevKey = key, !getNextMapKey(gConcurrentMapFd, &prevKey, &key));
@@ -559,10 +574,10 @@ bool startTrackingProcessCpuTimes(pid_t pid) {
     if (!gInitialized && !initGlobals()) return false;
 
     unique_fd trackedPidHashMapFd(
-            mapRetrieveWO(BPF_FS_PATH "map_time_in_state_pid_tracked_hash_map"));
+            mapRetrieveWO(BPF_FS_PATH "map_timeInState_pid_tracked_hash_map"));
     if (trackedPidHashMapFd < 0) return false;
 
-    unique_fd trackedPidMapFd(mapRetrieveWO(BPF_FS_PATH "map_time_in_state_pid_tracked_map"));
+    unique_fd trackedPidMapFd(mapRetrieveWO(BPF_FS_PATH "map_timeInState_pid_tracked_map"));
     if (trackedPidMapFd < 0) return false;
 
     for (uint32_t index = 0; index < MAX_TRACKED_PIDS; index++) {
@@ -589,7 +604,7 @@ bool startAggregatingTaskCpuTimes(pid_t pid, uint16_t aggregationKey) {
     if (!gInitialized && !initGlobals()) return false;
 
     unique_fd taskAggregationMapFd(
-            mapRetrieveWO(BPF_FS_PATH "map_time_in_state_pid_task_aggregation_map"));
+            mapRetrieveWO(BPF_FS_PATH "map_timeInState_pid_task_aggregation_map"));
     if (taskAggregationMapFd < 0) return false;
 
     return writeToMapEntry(taskAggregationMapFd, &pid, &aggregationKey, BPF_ANY) == 0;
@@ -639,7 +654,7 @@ getAggregatedTaskCpuFreqTimes(pid_t tgid, const std::vector<uint16_t> &aggregati
                 auto end = nextOffset < gPolicyFreqs[j].size() ? begin + FREQS_PER_ENTRY
                                                                : map[key.aggregation_key][j].end();
                 for (const auto &cpu : gPolicyCpus[j]) {
-                    std::transform(begin, end, std::begin(vals[cpu].ar), begin,
+                    std::transform(begin, end, std::begin(vals[gCpuIndexMap[cpu]].ar), begin,
                                    std::plus<uint64_t>());
                 }
             }

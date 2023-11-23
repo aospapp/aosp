@@ -29,17 +29,17 @@ PRODUCT_OTA_ENFORCE_VINTF_KERNEL_REQUIREMENTS := false
 $(call inherit-product, $(SRC_TARGET_DIR)/product/emulated_storage.mk)
 
 # vndk
-PRODUCT_PACKAGES := vndk-sp
+PRODUCT_PACKAGES += vndk-sp
 
 # HACK: Avoid usb crash
 PRODUCT_PRODUCT_PROPERTIES := \
     persist.adb.nonblocking_ffs=0 \
     ro.adb.nonblocking_ffs=0
 
-# Display
+# DRM HAL
 PRODUCT_PACKAGES += \
-    android.hardware.drm@1.3-service.clearkey \
-    android.hardware.drm@1.3-service.widevine
+    android.hardware.drm-service.clearkey \
+    android.hardware.drm-service.widevine
 
 # Mesa
 PRODUCT_PACKAGES += \
@@ -245,6 +245,8 @@ PRODUCT_COPY_FILES +=  \
     frameworks/native/data/etc/android.hardware.usb.host.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.hardware.usb.host.xml \
     frameworks/native/data/etc/android.software.opengles.deqp.level-2020-03-01.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.software.opengles.deqp.level.xml \
     frameworks/native/data/etc/android.software.device_admin.xml:$(TARGET_COPY_OUT_VENDOR)/etc/permissions/android.software.device_admin.xml
+
+TARGET_PRODUCT_PROP := $(LOCAL_PATH)/product.prop
 
 DEVICE_MANIFEST_FILE := device/linaro/dragonboard/manifest.xml
 DEVICE_MATRIX_FILE := device/linaro/dragonboard/compatibility_matrix.xml

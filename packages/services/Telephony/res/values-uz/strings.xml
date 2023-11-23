@@ -108,21 +108,21 @@
     <string name="sum_cfu_enabled_indicator" msgid="9030139213402432776">"Barcha qo‘ng‘iroqlar yo‘naltirilmoqda"</string>
     <string name="sum_cfu_enabled" msgid="5806923046528144526">"Barcha qo‘ng‘iroqlar <xliff:g id="PHONENUMBER">{0}</xliff:g>ga yo‘naltirilmoqda"</string>
     <string name="sum_cfu_enabled_no_number" msgid="7287752761743377930">"Raqam mavjud emas"</string>
-    <string name="sum_cfu_disabled" msgid="5010617134210809853">"Yoqilmagan"</string>
+    <string name="sum_cfu_disabled" msgid="5010617134210809853">"Oʻchiq"</string>
     <string name="labelCFB" msgid="615265213360512768">"Agar raqam band bo‘lsa"</string>
     <string name="messageCFB" msgid="1958017270393563388">"Ushbu raqamga yo‘naltirilsin"</string>
     <string name="sum_cfb_enabled" msgid="332037613072049492">"<xliff:g id="PHONENUMBER">{0}</xliff:g> raqamiga yo‘naltiriladi"</string>
-    <string name="sum_cfb_disabled" msgid="3589913334164866035">"Yoqilmagan"</string>
+    <string name="sum_cfb_disabled" msgid="3589913334164866035">"Oʻchiq"</string>
     <string name="disable_cfb_forbidden" msgid="4831494744351633961">"Telefoningiz band bo‘lganda qo‘ng‘iroqlarni boshqa raqamga yo‘naltirishni o‘chirish xususiyati tarmoq operatoringizda yo‘q."</string>
     <string name="labelCFNRy" msgid="3403533792248457946">"Agar javob berilmasa"</string>
     <string name="messageCFNRy" msgid="7644434155765359009">"Ushbu raqamga yo‘naltirilsin"</string>
     <string name="sum_cfnry_enabled" msgid="3000500837493854799">"<xliff:g id="PHONENUMBER">{0}</xliff:g> raqamiga yo‘naltiriladi"</string>
-    <string name="sum_cfnry_disabled" msgid="1990563512406017880">"Yoqilmagan"</string>
+    <string name="sum_cfnry_disabled" msgid="1990563512406017880">"Oʻchiq"</string>
     <string name="disable_cfnry_forbidden" msgid="3174731413216550689">"Telefoningiz javob bermayotganda qo‘ng‘iroqlarni boshqa raqamga yo‘naltirishni o‘chirish xususiyati operatoringizda yo‘q."</string>
     <string name="labelCFNRc" msgid="4163399350778066013">"Agar raqam tarmoqdan tashqarida bo‘lsa"</string>
     <string name="messageCFNRc" msgid="6980340731313007250">"Ushbu raqamga yo‘naltirilsin"</string>
     <string name="sum_cfnrc_enabled" msgid="1799069234006073477">"<xliff:g id="PHONENUMBER">{0}</xliff:g> raqamiga yo‘naltiriladi"</string>
-    <string name="sum_cfnrc_disabled" msgid="739289696796917683">"Yoqilmagan"</string>
+    <string name="sum_cfnrc_disabled" msgid="739289696796917683">"Oʻchiq"</string>
     <string name="disable_cfnrc_forbidden" msgid="775348748084726890">"Telefoningiz o‘chiq bo‘lganida qo‘ng‘iroqlarni boshqa raqamga yo‘naltirishni o‘chirish xususiyati tarmoq operatoringizda yo‘q."</string>
     <string name="registration_cf_forbidden" msgid="4386482610771190420">"Operatoringiz tarmog‘i orqali chaqiruvlarni uzatib bo‘lmaydi"</string>
     <string name="cdma_call_waiting" msgid="4565070960879673216">"Chaqiruvdagi kutish rejimi yoqilsinmi?"</string>
@@ -133,6 +133,7 @@
     <string name="cdma_call_waiting_in_ims_off" msgid="1099246114368636334">"IMS asosidagi CDMA chaqiruvlari uchun kutish rejimi faolsizlantirildi"</string>
     <string name="updating_title" msgid="6130548922615719689">"Chaqiruv sozlamalari"</string>
     <string name="call_settings_admin_user_only" msgid="7238947387649986286">"Faqat administrator qo‘ng‘iroq sozlamalarini o‘zgartirishi mumkin."</string>
+    <string name="phone_account_settings_user_restriction" msgid="9142685151087208396">"Telefondagi hisob sozlamalarini faqat administrator yoki ishxona foydalanuvchisi oʻzgartirishi mumkin."</string>
     <string name="call_settings_with_label" msgid="8460230435361579511">"Sozlamalar (<xliff:g id="SUBSCRIPTIONLABEL">%s</xliff:g>)"</string>
     <string name="error_updating_title" msgid="2024290892676808965">"Chaqiruv sozlamalarida xato"</string>
     <string name="reading_settings" msgid="1605904432450871183">"Sozlamalar olinmoqda…"</string>
@@ -556,6 +557,7 @@
     <string name="incall_error_supp_service_hold" msgid="8535056414643540997">"Qo‘ng‘iroqlarni ushlab turib bo‘lmadi."</string>
     <string name="incall_error_wfc_only_no_wireless_network" msgid="5860742792811400109">"Qo‘ng‘iroq qilish uchun simsiz tarmoqqa ulaning"</string>
     <string name="incall_error_promote_wfc" msgid="9164896813931363415">"Qo‘ng‘iroq qilish uchun Wi-Fi qo‘ng‘iroqlar funksiyasini yoqing."</string>
+    <string name="incall_error_satellite_enabled" msgid="1936541518147323016">"Telefon qilish uchun sputnik rejimini faolsizlantiring."</string>
     <string name="emergency_information_hint" msgid="9208897544917793012">"Favqulodda vaziyatlar uchun axborot"</string>
     <string name="emergency_information_owner_hint" msgid="6256909888049185316">"Egasi"</string>
     <string name="emergency_information_confirm_hint" msgid="5109017615894918914">"Axborotni ochish uchun yana bir marta bosing"</string>
@@ -671,7 +673,7 @@
     <string name="sim_label_emergency_calls" msgid="9078241989421522310">"Favqulodda qo‘ng‘iroqlar"</string>
     <string name="sim_description_emergency_calls" msgid="5146872803938897296">"Faqat favqulodda qo‘ng‘iroqlar"</string>
     <string name="sim_description_default" msgid="7474671114363724971">"SIM karta, teshik: <xliff:g id="SLOT_ID">%s</xliff:g>"</string>
-    <string name="accessibility_settings_activity_title" msgid="7883415189273700298">"Maxsus imkoniyatlar"</string>
+    <string name="accessibility_settings_activity_title" msgid="7883415189273700298">"Qulayliklar"</string>
     <string name="status_hint_label_incoming_wifi_call" msgid="2606052595898044071">"Wi-Fi orqali qo‘ng‘iroq:"</string>
     <string name="status_hint_label_wifi_call" msgid="942993035689809853">"Wi-Fi qo‘ng‘irog‘i"</string>
     <string name="message_decode_error" msgid="1061856591500290887">"Xabarni kodsizlashda xatolik yuz berdi."</string>
@@ -713,6 +715,7 @@
     <string name="clh_callFailed_powerOff_txt" msgid="8279934912560765361">"Parvoz rejimi yoniq"</string>
     <string name="clh_callFailed_simError_txt" msgid="5128538525762326413">"SIM kartaga kirishga ruxsat berilmagan"</string>
     <string name="clh_incall_error_out_of_service_txt" msgid="2736010617446749869">"Uyali aloqa tarmog‘idan foydalanib bo‘lmaydi"</string>
+    <string name="clh_callFailed_satelliteEnabled_txt" msgid="1675517238240377396">"Sputnik rejimi yoniq"</string>
     <string name="clh_callFailed_unassigned_number_txt" msgid="141967660286695682">"Siz chaqiruv qilmoqchi bo‘lgan telefon raqami bilan muammo mavjud. Xatolik kodi: 1."</string>
     <string name="clh_callFailed_no_route_to_destination_txt" msgid="4805015149822352308">"Chaqiruv amalga oshmadi. Xatolik kodi: 3."</string>
     <string name="clh_callFailed_channel_unacceptable_txt" msgid="4062754579408613021">"Chaqiruv amalga oshmadi. Xatolik kodi: 6."</string>
@@ -764,7 +767,7 @@
     <string name="clh_callFailed_interworking_unspecified_txt" msgid="7969686413930847182">"Chaqiruv amalga oshmadi. Xatolik kodi: 127."</string>
     <string name="labelCallBarring" msgid="4180377113052853173">"Chaqiruvlarni taqiqlash"</string>
     <string name="sum_call_barring_enabled" msgid="5184331188926370824">"Yoniq"</string>
-    <string name="sum_call_barring_disabled" msgid="5699448000600153096">"Yoqilmagan"</string>
+    <string name="sum_call_barring_disabled" msgid="5699448000600153096">"Oʻchiq"</string>
     <string name="call_barring_baoc" msgid="7400892586336429326">"Barcha chiquvchi chaqiruvlar"</string>
     <string name="call_barring_baoc_enabled" msgid="3131509193386668182">"Barcha chiquvchi chaqiruvlarni bloklash bekor qilinsinmi?"</string>
     <string name="call_barring_baoc_disabled" msgid="8534224684091141509">"Barcha chiquvchi chaqiruvlar bloklansinmi?"</string>
@@ -837,6 +840,7 @@
     <string name="dsds_dialog_cancel" msgid="3245958947099586655">"Bekor qilish"</string>
     <string name="removable_esim_string" msgid="7931369811671787649">"Olinadigan eSIM kartani birlamchi qilib belgilash"</string>
     <string name="radio_info_radio_power" msgid="8805595022160471587">"Radio signal quvvati"</string>
+    <string name="simulate_out_of_service_string" msgid="7787925611727597193">"Xizmatdan tashqari simulyatsiya (faqat nosozliklarni aniqlash dasturi uchun)"</string>
     <string name="radioInfo_menu_viewADN" msgid="4533179730908559846">"SIM kartadagi abonentlar ro‘yxatini ochish"</string>
     <string name="radioInfo_menu_viewFDN" msgid="1847236480527032061">"Ruxsat etilgan raqamlar ro‘yxatini ochish"</string>
     <string name="radioInfo_menu_viewSDN" msgid="2613431584522392842">"Xizmatlarni terish raqamlarini ochish"</string>
@@ -861,6 +865,7 @@
     <string name="radioInfo_data_connected" msgid="7637335645634239508">"Ulangan"</string>
     <string name="radioInfo_data_suspended" msgid="8695262782642002785">"Bloklangan"</string>
     <string name="radioInfo_unknown" msgid="5401423738500672850">"Noma’lum"</string>
+    <string name="radioInfo_imei_primary" msgid="5948747378637224400">"Asosiy"</string>
     <string name="radioInfo_display_packets" msgid="6794302192441084157">"pkts"</string>
     <string name="radioInfo_display_bytes" msgid="7701006329222413797">"bayt"</string>
     <string name="radioInfo_display_dbm" msgid="7491944975710865703">"dBm"</string>
@@ -887,10 +892,12 @@
     <string name="radio_info_ppp_sent_label" msgid="6542208429356199695">"Yuborilgan trafik:"</string>
     <string name="radio_info_message_waiting_label" msgid="1886549432566952078">"Parallel xabar:"</string>
     <string name="radio_info_phone_number_label" msgid="2533852539562512203">"Telefon raqami:"</string>
-    <string name="radio_info_band_mode_label" msgid="23480556225515290">"Radiostansiyani tanlash"</string>
     <string name="radio_info_voice_network_type_label" msgid="2395347336419593265">"Ovozli aloqa uchun tarmoq turi:"</string>
     <string name="radio_info_data_network_type_label" msgid="8886597029237501929">"Trafik uchun tarmoq turi:"</string>
     <string name="radio_info_override_network_type_label" msgid="4176280017221092005">"Tarmoq turini almashtirish:"</string>
+    <string name="radio_info_voice_raw_registration_state_label" msgid="2822988327145825128">"Voice dastlabki roʻyxatdan oʻtkazish holati:"</string>
+    <string name="radio_info_data_raw_registration_state_label" msgid="2895895513822604539">"Maʼlumotlarni dastlabki roʻyxatdan oʻtkazish holati:"</string>
+    <string name="radio_info_wlan_data_raw_registration_state_label" msgid="6396894835757296612">"WLAN maʼlumotlarini dastlabki roʻyxatdan oʻtkazish holati:"</string>
     <string name="phone_index_label" msgid="6222406512768964268">"Telefon kodini tanlang"</string>
     <string name="radio_info_set_perferred_label" msgid="7408131389363136210">"Afzal tarmoq turini tanlash:"</string>
     <string name="radio_info_ping_hostname_v4" msgid="6951237885381284790">"www.google.com uchun ping, IPv4 so‘rovining host nomi:"</string>
@@ -919,4 +926,9 @@
     <string name="call_quality_notification_bluetooth_details" msgid="8348950331707346711">"Bluetooth signali kuchsiz. Baland ovoz rejimini yoqish tavsiya etiladi."</string>
     <string name="call_quality_notification_name" msgid="3476828289553948830">"Chaqiruv sifati haqida bildirishnoma"</string>
     <string name="notification_channel_sip_account" msgid="1261816025156179637">"To‘xtatilgan SIP hisoblar"</string>
+    <string name="send_from_work_profile_title" msgid="7044759579507604732">"Shaxsiy ilova orqali xabar yuborish imkonsiz"</string>
+    <string name="send_from_work_profile_description" msgid="2174402508727161974">"Tashkilotingiz faqat ishga oid ilovalar orqali xabarlar yuborishga ruxsat beradi"</string>
+    <string name="send_from_work_profile_cancel" msgid="177746511030381711">"Bekor qilish"</string>
+    <string name="send_from_work_profile_action_str" msgid="6892775562934243337">"Ish profiliga almashish"</string>
+    <string name="install_messages_on_work_profile_action_str" msgid="3773440996395152903">"Ishga oid xabar almashinuv ilovasini oʻrnating"</string>
 </resources>

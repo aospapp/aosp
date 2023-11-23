@@ -25,6 +25,8 @@ android_test {
     ],
     defaults: ["cts_defaults"],
     sdk_version: "test_current",
+    min_sdk_version: "31",
+    dxflags: ["--multi-dex"],
     static_libs: [
         "androidx.test.ext.junit",
         "androidx.test.rules",

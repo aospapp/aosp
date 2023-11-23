@@ -36,7 +36,7 @@
     <string name="callFailed_powerOff" msgid="2212239757387143765">"Перадатчык выключаны"</string>
     <string name="callFailed_simError" msgid="510948380244092037">"Няма SIM-карты або памылка SIM-карты"</string>
     <string name="callFailed_outOfService" msgid="2917536349269880601">"Сетка сотавай сувязі недаступная"</string>
-    <string name="callFailed_fdn_only" msgid="584249308311672690">"Выходныя выклікі абмежаваны закрытай абаненцкай групай."</string>
+    <string name="callFailed_fdn_only" msgid="584249308311672690">"Выходныя выклікі абмежаваны дазволенымі нумарамі."</string>
     <string name="callFailed_dialToUssd" msgid="6794913139176808973">"Выклік заменены на USSD-запыт"</string>
     <string name="callFailed_dialToSs" msgid="6749473185855000519">"Выклік заменены на SS-запыт"</string>
     <string name="callFailed_dialToDial" msgid="391531243214210803">"Зроблена замена на іншы нумар"</string>

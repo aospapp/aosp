@@ -16,16 +16,12 @@
 
 package android.media.cts;
 
-import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.PackageManager;
-
 import android.media.AudioDeviceInfo;
 import android.media.AudioManager;
-
-import android.util.Log;
 
 public class DeviceUtils {
     private static final String TAG = "DeviceUtils";

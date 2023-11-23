@@ -24,6 +24,10 @@ package android.hardware.graphics.common;
 @Backing(type="int")
 enum Hdr {
     /**
+     * Invalid HDR type
+     */
+    INVALID = 0,
+    /**
      * Device supports Dolby Vision HDR
      */
     DOLBY_VISION = 1,
@@ -39,4 +43,8 @@ enum Hdr {
      * Device supports HDR10+
      */
     HDR10_PLUS = 4,
+    /**
+     * If present, indicates that device supports Dolby Vision only up to 4k30hz graphics mode
+     */
+    DOLBY_VISION_4K30 = 5,
 }

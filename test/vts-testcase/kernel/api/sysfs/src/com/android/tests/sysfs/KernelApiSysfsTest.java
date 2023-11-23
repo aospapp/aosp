@@ -27,6 +27,7 @@ import com.android.tradefed.testtype.junit4.BaseHostJUnit4Test;
 import com.android.tradefed.util.FileUtil;
 import com.android.tradefed.util.TargetFileUtils;
 import com.android.tradefed.util.TargetFileUtils.FilePermission;
+import com.android.tradefed.log.LogUtil.CLog;
 import com.google.common.base.Strings;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -75,7 +76,7 @@ public class KernelApiSysfsTest extends BaseHostJUnit4Test {
                 TargetFileUtils.isReadOnly(filePath, getDevice()));
         String content = getDevice().pullFileContents(filePath).trim();
         // Confirm the content is integer.
-        Integer.parseInt(content);
+        Long.parseLong(content);
     }
 
     private void isReadWriteAndIntegerContent(String filePath) throws Exception {
@@ -83,7 +84,7 @@ public class KernelApiSysfsTest extends BaseHostJUnit4Test {
                 TargetFileUtils.isReadWriteOnly(filePath, getDevice()));
         String content = getDevice().pullFileContents(filePath).trim();
         // Confirm the content is integer.
-        Integer.parseInt(content);
+        Long.parseLong(content);
     }
 
     /**
@@ -136,7 +137,7 @@ public class KernelApiSysfsTest extends BaseHostJUnit4Test {
                 if (!Strings.isNullOrEmpty(content)) {
                     String[] availFreqs = content.split(" ");
                     for (String freq : availFreqs) {
-                        Integer.parseInt(freq);
+                        Long.parseLong(freq);
                     }
                 }
             }
@@ -149,7 +150,7 @@ public class KernelApiSysfsTest extends BaseHostJUnit4Test {
                     for (String line : content.split("\\n")) {
                         String[] values = line.split(" ");
                         for (String value : values) {
-                            Integer.parseInt(value);
+                            Long.parseLong(value);
                         }
                     }
                 }
@@ -189,18 +190,42 @@ public class KernelApiSysfsTest extends BaseHostJUnit4Test {
         }
     }
 
+    /* Read a config option from /proc/config.gz. If the option is missing, return null. */
+    private String getKernelConfigValue(String config) throws Exception {
+        assertTrue(config.startsWith("CONFIG_"));
+        Pattern p = Pattern.compile(config + "=(.*)");
+        String output =
+                getDevice().executeShellCommand("zcat /proc/config.gz | grep " + config);
+        Matcher m = p.matcher(output);
+        if (!m.find())
+            return null;
+        else
+            return m.group(1);
+    }
+
+    /* Read a string value from the config and return it without quotes. */
+    private String getKernelConfigUnquotedString(String config) throws Exception {
+        String value = getKernelConfigValue(config);
+        if (value == null)
+            return value;
+        int len = value.length();
+        /*
+         * Assuming that the config contains a quoted string. If this is not the case, use
+         * getKernelConfigValue() instead.
+         */
+        assertTrue((len >= 2) && (value.charAt(0) == '"') && (value.charAt(len - 1) == '"'));
+        value = value.substring(1, len - 1);
+        return value;
+    }
+
     /* If RTC is present, check that /dev/rtc matches CONFIG_RTC_HCTOSYS_DEVICE */
     @Test
     public void testRtcHctosys() throws Exception {
         String[] rtcList = findFiles("/sys/class/rtc", "rtc*");
         assumeTrue("Device has RTC", rtcList.length != 0);
-        String output = getDevice().executeShellCommand(
-                "gzip -dc /proc/config.gz | grep CONFIG_RTC_HCTOSYS_DEVICE");
-        Pattern p = Pattern.compile("CONFIG_RTC_HCTOSYS_DEVICE=\"(.*)\"");
-        Matcher m = p.matcher(output);
-        if (!m.find())
+        String rtc = getKernelConfigUnquotedString("CONFIG_RTC_HCTOSYS_DEVICE");
+        if (rtc == null)
             fail("Could not find CONFIG_RTC_HCTOSYS_DEVICE");
-        String rtc = m.group(1);
         String rtc_link = getDevice().executeShellCommand("readlink /dev/rtc");
         if (rtc_link.isEmpty()) {
             if (getDevice().doesFileExist("/dev/rtc0")) {
@@ -266,21 +291,31 @@ public class KernelApiSysfsTest extends BaseHostJUnit4Test {
         }
     }
 
+    /* Get the kernel version (at least the major/minor numbers) as an array of integers. */
+    private int[] getKernelVersion() throws Exception {
+        String versionStr = getDevice().executeShellCommand("uname -r");
+        Pattern p = Pattern.compile("([0-9.]+)");
+        Matcher m = p.matcher(versionStr);
+        assertTrue("Bad version: " + versionStr, m.find());
+        int[] res = Arrays.stream(m.group(1).split("\\.")).mapToInt(Integer::parseInt).toArray();
+        assertTrue("Missing major or minor version: " + Arrays.toString(res), res.length > 1);
+        return res;
+    }
+
     /* /sys/module/kfence/parameters/sample_interval contains KFENCE sampling rate. */
     @Test
     public void testKfenceSampleRate() throws Exception {
         final int kRecommendedSampleRate = 500;
-        String versionPath = "/proc/version";
-        String versionStr = getDevice().pullFileContents(versionPath).trim();
-        Pattern p = Pattern.compile("Linux version ([0-9]+)\\.([0-9]+)");
-        Matcher m = p.matcher(versionStr);
-        assertTrue("Bad version " + versionPath, m.find());
-        int kernel_major = Integer.parseInt(m.group(1));
-        int kernel_minor = Integer.parseInt(m.group(2));
+        int[] version = getKernelVersion();
+        int kernel_major = version[0];
+        int kernel_minor = version[1];
+
+        assumeTrue("CONFIG_ARM64 not set, skipping the test",
+                   getKernelConfigValue("CONFIG_ARM64") != null);
 
         // Do not require KFENCE for kernels < 5.10.
-        if ((kernel_major < 5) || ((kernel_major == 5) && (kernel_minor < 10)))
-            return;
+        assumeTrue(kernel_major >= 5);
+        assumeTrue(kernel_major > 5 || kernel_minor >= 10);
 
         String filePath = "/sys/module/kfence/parameters/sample_interval";
         assertTrue("Failed readwrite check of " + filePath,
@@ -290,5 +325,25 @@ public class KernelApiSysfsTest extends BaseHostJUnit4Test {
         assertTrue(
                 "Bad KFENCE sample rate: " + sampleRate + ", should be " + kRecommendedSampleRate,
                 sampleRate == kRecommendedSampleRate);
+    }
+
+    /* Ensure kernel stack initialization is enabled. */
+    @Test
+    public void testKernelStackInitialization() throws Exception {
+        int[] version = getKernelVersion();
+        int kernel_major = version[0];
+        int kernel_minor = version[1];
+
+        // Do not require stack initialization for kernels < 5.4.
+        assumeTrue(kernel_major >= 5);
+        assumeTrue(kernel_major > 5 || kernel_minor >= 4);
+
+        /*
+         * Upstream Linux kernels may use CONFIG_INIT_STACK_ALL instead, but new (>= 5.4)
+         * android-common kernels only have CONFIG_INIT_STACK_ALL_ZERO.
+         */
+        String configName = "CONFIG_INIT_STACK_ALL_ZERO";
+        String hasInitialization = getKernelConfigValue(configName);
+        assertTrue(configName + " not enabled in the kernel config", hasInitialization != null);
     }
 }

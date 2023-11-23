@@ -218,7 +218,7 @@ public class JdwpSecurityHostTest extends DeviceTestCase implements IBuildReceiv
             // Read the output for 5s in a separate thread before stopping the command.
             Thread t = new Thread(this);
             t.start();
-            Thread.sleep(5000);
+            RunUtil.getDefault().sleep(5000);
 
             // Kill the 'adb jdwp' process and wait for the thread to stop.
             adbProcess.destroy();

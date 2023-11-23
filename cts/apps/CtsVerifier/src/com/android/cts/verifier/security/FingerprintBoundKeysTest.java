@@ -24,6 +24,8 @@ import android.app.KeyguardManager;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.pm.PackageManager;
+import android.hardware.biometrics.BiometricManager;
+import android.hardware.biometrics.BiometricManager.Authenticators;
 import android.hardware.fingerprint.FingerprintManager;
 import android.os.Bundle;
 import android.os.CancellationSignal;
@@ -70,6 +72,8 @@ public class FingerprintBoundKeysTest extends PassFailButtons.Activity {
 
     protected boolean useStrongBox;
 
+    private BiometricManager mBiometricManager;
+
     private FingerprintManager mFingerprintManager;
     private KeyguardManager mKeyguardManager;
     private FingerprintAuthDialogFragment mFingerprintDialog;
@@ -92,6 +96,10 @@ public class FingerprintBoundKeysTest extends PassFailButtons.Activity {
         getPassButton().setEnabled(false);
         requestPermissions(new String[]{Manifest.permission.USE_BIOMETRIC},
                 BIOMETRIC_REQUEST_PERMISSION_CODE);
+
+        mBiometricManager = getSystemService(BiometricManager.class);
+
+        checkBiometricStrength();
     }
 
     @Override
@@ -132,6 +140,28 @@ public class FingerprintBoundKeysTest extends PassFailButtons.Activity {
             Button startTestButton = findViewById(R.id.sec_start_test_button);
             startTestButton.setEnabled(false);
         }
+    }
+
+    private void checkBiometricStrength()
+    {
+        if (!hasStrongBiometrics())
+        {
+            // Disable the start button
+            Button startTestButton = findViewById(R.id.sec_start_test_button);
+            startTestButton.setEnabled(false);
+
+            // Show a message that STRONG Biometrics is not supported and user can
+            // pass the test.
+            showToast("Device does not support STRONG Biometric level of authentication.");
+
+            // Allow to pass the test
+            getPassButton().setEnabled(true);
+        }
+    }
+
+    private boolean hasStrongBiometrics() {
+        return mBiometricManager.canAuthenticate(Authenticators.BIOMETRIC_STRONG)
+                != BiometricManager.BIOMETRIC_ERROR_NO_HARDWARE;
     }
 
     protected void startTest() {

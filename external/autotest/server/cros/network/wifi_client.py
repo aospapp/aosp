@@ -1,3 +1,4 @@
+# Lint as: python2, python3
 # Copyright (c) 2013 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
@@ -106,7 +107,7 @@ class WiFiClient(site_linux_system.LinuxSystem):
 
     # List of interface names we won't consider for use as "the" WiFi interface
     # on Android or CastOS hosts.
-    WIFI_IF_BLACKLIST = ['p2p0', 'wfd0']
+    WIFI_IF_BLOCKLIST = ['p2p0', 'wfd0']
 
     UNKNOWN_BOARD_TYPE = 'unknown'
 
@@ -132,8 +133,7 @@ class WiFiClient(site_linux_system.LinuxSystem):
         if not uname_result.exit_status and uname_result.stdout.find(' ') < 0:
             kernel_arch = uname_result.stdout.strip()
         cpu_info = self.host.run('cat /proc/cpuinfo').stdout.splitlines()
-        cpu_count = len(filter(lambda x: x.lower().startswith('bogomips'),
-                               cpu_info))
+        cpu_count = len([x for x in cpu_info if x.lower().startswith('bogomips')])
         cpu_count_str = ''
         if cpu_count:
             cpu_count_str = 'x%d' % cpu_count
@@ -154,7 +154,7 @@ class WiFiClient(site_linux_system.LinuxSystem):
         result = self.host.run("iw dev %s get power_save" % self.wifi_if)
         output = result.stdout.rstrip()       # NB: chop \n
         # Output should be either "Power save: on" or "Power save: off".
-        find_re = re.compile('([^:]+):\s+(\w+)')
+        find_re = re.compile(r'([^:]+):\s+(\w+)')
         find_results = find_re.match(output)
         if not find_results:
             raise error.TestFail('Failed to find power_save parameter '
@@ -328,7 +328,7 @@ class WiFiClient(site_linux_system.LinuxSystem):
         super(WiFiClient, self).__init__(client_host, 'client',
                                          inherit_interfaces=True)
         self._command_ip = 'ip'
-        self._command_iptables = 'iptables'
+        self._command_iptables = 'iptables -w 5'
         self._command_ping6 = 'ping6'
         self._command_wpa_cli = 'wpa_cli'
         self._machine_id = None
@@ -339,7 +339,7 @@ class WiFiClient(site_linux_system.LinuxSystem):
             # Look up the WiFi device (and its MAC) on the client.
             devs = self.iw_runner.list_interfaces(desired_if_type='managed')
             devs = [dev for dev in devs
-                    if dev.if_name not in self.WIFI_IF_BLACKLIST]
+                    if dev.if_name not in self.WIFI_IF_BLOCKLIST]
             if not devs:
                 raise error.TestFail('No wlan devices found on %s.' %
                                      self.host.hostname)
@@ -367,7 +367,6 @@ class WiFiClient(site_linux_system.LinuxSystem):
         self._wpa_mon = wpa_mon.WpaMon(self.host, self.wifi_if)
         logging.debug('WiFi interface is: %r',
                       self._interface.device_description)
-        self._firewall_rules = []
         # All tests that use this object assume the interface starts enabled.
         self.set_device_enabled(self._wifi_if, True)
         # Turn off powersave mode by default.
@@ -450,33 +449,6 @@ class WiFiClient(site_linux_system.LinuxSystem):
         self.powersave_switch(False)
         self.shill.clean_profiles()
         super(WiFiClient, self).close()
-
-
-    def firewall_open(self, proto, src):
-        """Opens up firewall to run netperf tests.
-
-        By default, we have a firewall rule for NFQUEUE (see crbug.com/220736).
-        In order to run netperf test, we need to add a new firewall rule BEFORE
-        this NFQUEUE rule in the INPUT chain.
-
-        @param proto a string, test traffic protocol, e.g. udp, tcp.
-        @param src a string, subnet/mask.
-
-        @return a string firewall rule added.
-
-        """
-        rule = 'INPUT -s %s/32 -p %s -m %s -j ACCEPT' % (src, proto, proto)
-        self.host.run('%s -I %s' % (self._command_iptables, rule))
-        self._firewall_rules.append(rule)
-        return rule
-
-
-    def firewall_cleanup(self):
-        """Cleans up firewall rules."""
-        for rule in self._firewall_rules:
-            self.host.run('%s -D %s' % (self._command_iptables, rule))
-        self._firewall_rules = []
-
 
     def sync_host_times(self):
         """Set time on our DUT to match local time."""
@@ -625,7 +597,7 @@ class WiFiClient(site_linux_system.LinuxSystem):
             """
             is_requested_bss = lambda iw_bss: iw_bss.bss == bssid
             scan_results = self.iw_runner.scan(self.wifi_if)
-            return scan_results and filter(is_requested_bss, scan_results)
+            return scan_results and list(filter(is_requested_bss, scan_results))
         try:
             utils.poll_for_condition(
                 condition=dut_sees_bss,
@@ -636,7 +608,7 @@ class WiFiClient(site_linux_system.LinuxSystem):
 
 
     def wait_for_bsses(self, ssid, num_bss_expected, timeout_seconds=15):
-      """Wait for all BSSes associated with given SSID to be discovered in the
+        """Wait for all BSSes associated with given SSID to be discovered in the
       scan.
 
       @param ssid string name of network being queried
@@ -644,41 +616,42 @@ class WiFiClient(site_linux_system.LinuxSystem):
       @param timeout_seconds int seconds to wait for BSSes to be discovered
 
       """
-      # If the scan returns None, return 0, else return the matching count
+        # If the scan returns None, return 0, else return the matching count
 
-      # Wrap num_bss_actual as a mutable object, list, so that an inner function
-      # can update the value without making an assignment to it. Without any
-      # assignment, the inner function will look for the variable in outer scope
-      # instead of creating a new local one.
-      num_bss_actual = [0]
-      def are_all_bsses_discovered():
-          """Determine if all BSSes associated with the SSID from parent
+        # Wrap num_bss_actual as a mutable object, list, so that an inner function
+        # can update the value without making an assignment to it. Without any
+        # assignment, the inner function will look for the variable in outer scope
+        # instead of creating a new local one.
+        num_bss_actual = [0]
+
+        def are_all_bsses_discovered():
+            """Determine if all BSSes associated with the SSID from parent
           function are discovered in the scan
 
           @return boolean representing whether the expected bss count matches
           how many in the scan match the given ssid
           """
-          self.claim_wifi_if() # Stop shill/supplicant scans
-          try:
-            scan_results = self.iw_runner.scan(
-                    self.wifi_if,
-                    frequencies=[],
-                    ssids=[ssid])
-            if scan_results is None:
-                return False
-            num_bss_actual[0] = sum(ssid == bss.ssid for bss in scan_results)
-            return num_bss_expected == num_bss_actual[0]
-          finally:
-            self.release_wifi_if()
-      try:
-          utils.poll_for_condition(
-              condition=are_all_bsses_discovered,
-              timeout=timeout_seconds,
-              sleep_interval=0.5)
-      except utils.TimeoutError:
-          raise error.TestFail('Failed to discover all BSSes. Found %d,'
-                               ' wanted %d with SSID %s' %
-                               (num_bss_actual[0], num_bss_expected, ssid))
+            self.claim_wifi_if()  # Stop shill/supplicant scans
+            try:
+                scan_results = self.iw_runner.scan(self.wifi_if,
+                                                   frequencies=[],
+                                                   ssids=[ssid])
+                if scan_results is None:
+                    return False
+                num_bss_actual[0] = sum(ssid == bss.ssid
+                                        for bss in scan_results)
+                return num_bss_expected == num_bss_actual[0]
+            finally:
+                self.release_wifi_if()
+
+        try:
+            utils.poll_for_condition(condition=are_all_bsses_discovered,
+                                     timeout=timeout_seconds,
+                                     sleep_interval=0.5)
+        except utils.TimeoutError:
+            raise error.TestFail('Failed to discover all BSSes. Found %d,'
+                                 ' wanted %d with SSID %s' %
+                                 (num_bss_actual[0], num_bss_expected, ssid))
 
     def wait_for_service_states(self, ssid, states, timeout_seconds):
         """Waits for a WiFi service to achieve one of |states|.
@@ -730,16 +703,16 @@ class WiFiClient(site_linux_system.LinuxSystem):
         return result.stdout, result.stderr
 
 
-    def clear_supplicant_blacklist(self):
-        """Clear's the AP blacklist on the DUT.
+    def clear_supplicant_blocklist(self):
+        """Clear's the AP blocklist on the DUT.
 
         @return stdout and stderror returns passed from wpa_cli command.
 
         """
-        result = self._wpa_cli_proxy.run_wpa_cli_cmd('blacklist clear',
-                                                     check_result=False);
-        logging.info('wpa_cli blacklist clear: out:%r err:%r', result.stdout,
-                     result.stderr)
+        result = self._wpa_cli_proxy.run_wpa_cli_cmd('bssid_ignore clear',
+                                                     check_result=False)
+        logging.info('wpa_cli bssid_ignore clear: out:%r err:%r',
+                     result.stdout, result.stderr)
         return result.stdout, result.stderr
 
 
@@ -1057,8 +1030,13 @@ class WiFiClient(site_linux_system.LinuxSystem):
             logging.info('Reassociate time: %.2f seconds', reassociate_time)
 
 
-    def wait_for_connection(self, ssid, timeout_seconds=30, freq=None,
-                            ping_ip=None, desired_subnet=None):
+    def wait_for_connection(self,
+                            ssid,
+                            timeout_seconds=30,
+                            freq=None,
+                            ping_ip=None,
+                            desired_subnet=None,
+                            source_iface=None):
         """Verifies a connection to network ssid, optionally verifying
         frequency, ping connectivity and subnet.
 
@@ -1116,7 +1094,8 @@ class WiFiClient(site_linux_system.LinuxSystem):
                     return False
 
             if ping_ip:
-                ping_config = ping_runner.PingConfig(ping_ip)
+                ping_config = ping_runner.PingConfig(ping_ip,
+                                                     source_iface=source_iface)
                 self.ping(ping_config)
 
             return ConnectTime(state[0], conn_time)
@@ -1202,17 +1181,17 @@ class WiFiClient(site_linux_system.LinuxSystem):
 
         lines = result.stdout.strip().split('\n')
         disconnect_reasons = []
-        disconnect_reason_regex = re.compile(' to (\D?\d+)')
+        disconnect_reason_regex = re.compile(r' to (\D?\d+)')
 
         found = False
         for line in reversed(lines):
-          match = disconnect_reason_regex.search(line)
-          if match is not None:
-            disconnect_reasons.append(match.group(1))
-            found = True
-          else:
-            if (found):
-                break
+            match = disconnect_reason_regex.search(line)
+            if match is not None:
+                disconnect_reasons.append(match.group(1))
+                found = True
+            else:
+                if (found):
+                    break
         return list(reversed(disconnect_reasons))
 
 
@@ -1281,9 +1260,9 @@ class WiFiClient(site_linux_system.LinuxSystem):
         # where 1941 is an arbitrary PID number. By checking if the last
         # instance of this message contains the substring "not connected", we
         # can determine whether or not shill was connected on its last resume.
-        connection_status_log_regex_str = 'INFO:wifi\.cc.*OnAfterResume'
-        not_connected_substr = 'not connected'
-        connected_substr = 'connected'
+        connection_status_log_regex_str = str(r'INFO:wifi\.cc.*OnAfterResume')
+        not_connected_substr = str(r'not connected')
+        connected_substr = str(r'connected')
 
         cmd = ('grep -E %s /var/log/net.log | tail -1' %
                connection_status_log_regex_str)
@@ -1314,7 +1293,7 @@ class WiFiClient(site_linux_system.LinuxSystem):
         # wake on WiFi was throttled. This is an example of the error message:
         #     [...] [ERROR:wake_on_wifi.cc(1304)] OnDarkResume: Too many dark \
         #       resumes; disabling wake on WiFi temporarily
-        dark_resume_log_regex_str = 'ERROR:wake_on_wifi\.cc.*OnDarkResume:.*'
+        dark_resume_log_regex_str = str(r'ERROR:wake_on_wifi\.cc.*OnDarkResume:.*')
         throttled_msg_substr = ('Too many dark resumes; disabling wake on '
                                    'WiFi temporarily')
 

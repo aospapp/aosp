@@ -242,6 +242,16 @@ const std::array<uint8_t, ETH_ALEN>& ClientInterfaceImpl::GetMacAddress() {
   return interface_mac_addr_;
 }
 
+void ClientInterfaceImpl::UpdateBandInfo() {
+  LOG(INFO) << "UpdateBandInfo";
+  if (!netlink_utils_->GetWiphyInfo(wiphy_index_,
+                               &band_info_,
+                               &scan_capabilities_,
+                               &wiphy_features_)) {
+    LOG(ERROR) << "Failed to get wiphy info from kernel";
+  }
+}
+
 const BandInfo& ClientInterfaceImpl::GetBandInfo() const {
   return band_info_;
 }

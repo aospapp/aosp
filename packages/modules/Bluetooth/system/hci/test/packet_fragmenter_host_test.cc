@@ -25,7 +25,7 @@
 #include "osi/test/AllocationTestHarness.h"
 #include "stack/include/bt_hdr.h"
 
-extern void allocation_tracker_uninit(void);
+void allocation_tracker_uninit(void);
 
 enum kPacketOrder {
   kStart = 1,

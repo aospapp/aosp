@@ -40,6 +40,10 @@ PERFETTO_CONFIG = struct(
         # internal builds.
         version_header = ["//:cc_perfetto_version_header"],
 
+        # Target exposing platform-specific functionality for base. This is
+        # overriden in Google internal builds.
+        base_platform = ["//:perfetto_base_default_platform"],
+
         zlib = ["@perfetto_dep_zlib//:zlib"],
         jsoncpp = ["@perfetto_dep_jsoncpp//:jsoncpp"],
         linenoise = ["@perfetto_dep_linenoise//:linenoise"],
@@ -96,6 +100,11 @@ PERFETTO_CONFIG = struct(
     # making the targets public in the google internal tree.
     proto_library_visibility = "//visibility:private",
 
+    # Allow Bazel embedders to change the visibility of the Go protos.
+    # Go protos have all sorts of strange behaviour in Google3 so need special
+    # handling as the rules for other languages do not work for Go.
+    go_proto_library_visibility = "//visibility:private",
+
     # This struct allows the embedder to customize copts and other args passed
     # to rules like cc_binary. Prefixed rules (e.g. perfetto_cc_binary) will
     # look into this struct before falling back on native.cc_binary().
@@ -118,8 +127,11 @@ PERFETTO_CONFIG = struct(
         py_library = None,
         py_proto_library = None,
 
-        # We only need this for internal binaries. No other embeedder should
-        # care about this.
-        gensignature_internal_only = None,
+        go_proto_library = None,
     ),
+
+    # The default copts which we use to compile C++ code.
+    default_copts = [
+        "-std=c++17",
+    ]
 )

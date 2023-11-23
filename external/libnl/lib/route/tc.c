@@ -1,12 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-only */
 /*
- * lib/route/tc.c		Traffic Control
- *
- *	This library is free software; you can redistribute it and/or
- *	modify it under the terms of the GNU Lesser General Public
- *	License as published by the Free Software Foundation version 2.1
- *	of the License.
- *
  * Copyright (c) 2003-2011 Thomas Graf <tgraf@suug.ch>
  */
 
@@ -536,7 +529,7 @@ int rtnl_tc_set_kind(struct rtnl_tc *tc, const char *kind)
 	    || strlen (kind) >= sizeof (tc->tc_kind))
 		return -NLE_INVAL;
 
-	_nl_strncpy(tc->tc_kind, kind, sizeof(tc->tc_kind));
+	_nl_strncpy_assert(tc->tc_kind, kind, sizeof(tc->tc_kind));
 
 	tc->ce_mask |= TCA_ATTR_KIND;
 
@@ -815,14 +808,17 @@ int rtnl_tc_clone(struct nl_object *dstobj, struct nl_object *srcobj)
 	struct rtnl_tc *src = TC_CAST(srcobj);
 	struct rtnl_tc_ops *ops;
 
+	dst->tc_opts = NULL;
+	dst->tc_xstats = NULL;
+	dst->tc_subdata = NULL;
+	dst->tc_link = NULL;
+	dst->tc_ops = NULL;
+
 	if (src->tc_link) {
 		nl_object_get(OBJ_CAST(src->tc_link));
 		dst->tc_link = src->tc_link;
 	}
 
-	dst->tc_opts = NULL;
-	dst->tc_xstats = NULL;
-	dst->tc_subdata = NULL;
 	dst->ce_mask &= ~(TCA_ATTR_OPTS |
 	                  TCA_ATTR_XSTATS);
 
@@ -844,18 +840,19 @@ int rtnl_tc_clone(struct nl_object *dstobj, struct nl_object *srcobj)
 		if (!(dst->tc_subdata = nl_data_clone(src->tc_subdata))) {
 			return -NLE_NOMEM;
 		}
-	}
 
-	ops = rtnl_tc_get_ops(src);
-	if (ops && ops->to_clone) {
-		void *a = rtnl_tc_data(dst), *b = rtnl_tc_data(src);
+		/* Warning: if the data contains pointer, then at this point, dst->tc_subdata
+		 * will alias those pointers.
+		 *
+		 * ops->to_clone() MUST fix that.
+		 *
+		 * If the type is actually "struct rtnl_act", then to_clone() must also
+		 * fix dangling "a_next" pointer. */
 
-		if (!a)
-			return 0;
-		else if (!b)
-			return -NLE_NOMEM;
-
-		return ops->to_clone(a, b);
+		ops = rtnl_tc_get_ops(src);
+		if (ops && ops->to_clone) {
+			return ops->to_clone(rtnl_tc_data(dst), rtnl_tc_data(src));
+		}
 	}
 
 	return 0;
@@ -952,22 +949,19 @@ void rtnl_tc_dump_stats(struct nl_object *obj, struct nl_dump_params *p)
 
 	res = nl_cancel_down_bytes(tc->tc_stats[RTNL_TC_BYTES], &unit);
 
-	nl_dump_line(p,
-	             "       %10.2f %3s   %10u   %-10u %-10u %-10u %-10u\n",
-	             res, unit,
-	             tc->tc_stats[RTNL_TC_PACKETS],
-	             tc->tc_stats[RTNL_TC_DROPS],
-	             tc->tc_stats[RTNL_TC_OVERLIMITS],
-	             tc->tc_stats[RTNL_TC_QLEN],
-	             tc->tc_stats[RTNL_TC_BACKLOG]);
+	nl_dump_line(
+		p,
+		"       %10.2f %3s   %10llu   %-10llu %-10llu %-10llu %-10llu\n",
+		res, unit, (long long unsigned)tc->tc_stats[RTNL_TC_PACKETS],
+		(long long unsigned)tc->tc_stats[RTNL_TC_DROPS],
+		(long long unsigned)tc->tc_stats[RTNL_TC_OVERLIMITS],
+		(long long unsigned)tc->tc_stats[RTNL_TC_QLEN],
+		(long long unsigned)tc->tc_stats[RTNL_TC_BACKLOG]);
 
 	res = nl_cancel_down_bytes(tc->tc_stats[RTNL_TC_RATE_BPS], &unit);
 
-	nl_dump_line(p,
-	             "       %10.2f %3s/s %10u/s\n",
-	             res,
-	             unit,
-	             tc->tc_stats[RTNL_TC_RATE_PPS]);
+	nl_dump_line(p, "       %10.2f %3s/s %10llu/s\n", res, unit,
+		     (long long unsigned)tc->tc_stats[RTNL_TC_RATE_PPS]);
 }
 
 uint64_t rtnl_tc_compare(struct nl_object *aobj, struct nl_object *bobj,

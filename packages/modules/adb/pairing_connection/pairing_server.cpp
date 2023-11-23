@@ -231,12 +231,6 @@ uint16_t PairingServerCtx::SetupServer() {
     if (server_fd_.get() == -1) {
         PLOG(ERROR) << "Failed to start pairing connection server";
         return 0;
-    } else if (fcntl(server_fd_.get(), F_SETFD, FD_CLOEXEC) != 0) {
-        PLOG(ERROR) << "Failed to make server socket cloexec";
-        return 0;
-    } else if (fcntl(server_fd_.get(), F_SETFD, O_NONBLOCK) != 0) {
-        PLOG(ERROR) << "Failed to make server socket nonblocking";
-        return 0;
     }
 
     StartConnectionEventsThread();

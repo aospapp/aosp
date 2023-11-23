@@ -13,10 +13,38 @@ import (
 
 type selects map[string]reflect.Value
 
-func getStringListValues(list bazel.StringListAttribute) (reflect.Value, []selects) {
-	value := reflect.ValueOf(list.Value)
-	if !list.HasConfigurableValues() {
+func getStringValue(str bazel.StringAttribute) (reflect.Value, []selects) {
+	value := reflect.ValueOf(str.Value)
+
+	if !str.HasConfigurableValues() {
 		return value, []selects{}
+	}
+
+	ret := selects{}
+	for _, axis := range str.SortedConfigurationAxes() {
+		configToStrs := str.ConfigurableValues[axis]
+		for config, strs := range configToStrs {
+			selectKey := axis.SelectKey(config)
+			ret[selectKey] = reflect.ValueOf(strs)
+		}
+	}
+
+	// if there is a select, use the base value as the conditions default value
+	if len(ret) > 0 {
+		if _, ok := ret[bazel.ConditionsDefaultSelectKey]; !ok {
+			ret[bazel.ConditionsDefaultSelectKey] = value
+			value = reflect.Zero(value.Type())
+		}
+	}
+
+	return value, []selects{ret}
+}
+
+func getStringListValues(list bazel.StringListAttribute) (reflect.Value, []selects, bool) {
+	value := reflect.ValueOf(list.Value)
+	prepend := list.Prepend
+	if !list.HasConfigurableValues() {
+		return value, []selects{}, prepend
 	}
 
 	var ret []selects
@@ -32,7 +60,7 @@ func getStringListValues(list bazel.StringListAttribute) (reflect.Value, []selec
 		}
 	}
 
-	return value, ret
+	return value, ret, prepend
 }
 
 func getLabelValue(label bazel.LabelAttribute) (reflect.Value, []selects) {
@@ -81,8 +109,9 @@ func getBoolValue(boolAttr bazel.BoolAttribute) (reflect.Value, []selects) {
 
 	return value, []selects{ret}
 }
-func getLabelListValues(list bazel.LabelListAttribute) (reflect.Value, []selects) {
+func getLabelListValues(list bazel.LabelListAttribute) (reflect.Value, []selects, bool) {
 	value := reflect.ValueOf(list.Value.Includes)
+	prepend := list.Prepend
 	var ret []selects
 	for _, axis := range list.SortedConfigurationAxes() {
 		configToLabels := list.ConfigurableValues[axis]
@@ -108,7 +137,7 @@ func getLabelListValues(list bazel.LabelListAttribute) (reflect.Value, []selects
 		}
 	}
 
-	return value, ret
+	return value, ret, prepend
 }
 
 func labelListSelectValue(selectKey string, list bazel.LabelList, emitEmptyList bool) (bool, reflect.Value) {
@@ -131,17 +160,30 @@ var (
 // select statements.
 func prettyPrintAttribute(v bazel.Attribute, indent int) (string, error) {
 	var value reflect.Value
+	// configurableAttrs is the list of individual select statements to be
+	// concatenated together. These select statements should be along different
+	// axes. For example, one element may be
+	// `select({"//color:red": "one", "//color:green": "two"})`, and the second
+	// element may be `select({"//animal:cat": "three", "//animal:dog": "four"}).
+	// These selects should be sorted by axis identifier.
 	var configurableAttrs []selects
+	var prepend bool
 	var defaultSelectValue *string
 	var emitZeroValues bool
 	// If true, print the default attribute value, even if the attribute is zero.
 	shouldPrintDefault := false
 	switch list := v.(type) {
+	case bazel.StringAttribute:
+		if err := list.Collapse(); err != nil {
+			return "", err
+		}
+		value, configurableAttrs = getStringValue(list)
+		defaultSelectValue = &bazelNone
 	case bazel.StringListAttribute:
-		value, configurableAttrs = getStringListValues(list)
+		value, configurableAttrs, prepend = getStringListValues(list)
 		defaultSelectValue = &emptyBazelList
 	case bazel.LabelListAttribute:
-		value, configurableAttrs = getLabelListValues(list)
+		value, configurableAttrs, prepend = getLabelListValues(list)
 		emitZeroValues = list.EmitEmptyList
 		defaultSelectValue = &emptyBazelList
 		if list.ForceSpecifyEmptyList && (!value.IsNil() || list.HasConfigurableValues()) {
@@ -173,22 +215,28 @@ func prettyPrintAttribute(v bazel.Attribute, indent int) (string, error) {
 
 		ret += s
 	}
-	// Convenience function to append selects components to an attribute value.
-	appendSelects := func(selectsData selects, defaultValue *string, s string) (string, error) {
+	// Convenience function to prepend/append selects components to an attribute value.
+	concatenateSelects := func(selectsData selects, defaultValue *string, s string, prepend bool) (string, error) {
 		selectMap, err := prettyPrintSelectMap(selectsData, defaultValue, indent, emitZeroValues)
 		if err != nil {
 			return "", err
 		}
-		if s != "" && selectMap != "" {
-			s += " + "
+		var left, right string
+		if prepend {
+			left, right = selectMap, s
+		} else {
+			left, right = s, selectMap
 		}
-		s += selectMap
+		if left != "" && right != "" {
+			left += " + "
+		}
+		left += right
 
-		return s, nil
+		return left, nil
 	}
 
 	for _, configurableAttr := range configurableAttrs {
-		ret, err = appendSelects(configurableAttr, defaultSelectValue, ret)
+		ret, err = concatenateSelects(configurableAttr, defaultSelectValue, ret, prepend)
 		if err != nil {
 			return "", err
 		}
@@ -208,7 +256,7 @@ func prettyPrintSelectMap(selectMap map[string]reflect.Value, defaultValue *stri
 	}
 
 	var selects string
-	for _, selectKey := range android.SortedStringKeys(selectMap) {
+	for _, selectKey := range android.SortedKeys(selectMap) {
 		if selectKey == bazel.ConditionsDefaultSelectKey {
 			// Handle default condition later.
 			continue

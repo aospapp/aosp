@@ -26,11 +26,11 @@ import com.android.dx.mockito.inline.extended.ExtendedMockito
 import com.android.permissioncontroller.PermissionControllerApplication
 import com.android.permissioncontroller.permission.model.livedatatypes.LightAppPermGroup
 import com.android.permissioncontroller.permission.model.livedatatypes.LightPermission
-import com.android.permissioncontroller.permission.ui.model.v33.ReviewPermissionsViewModel
-import com.android.permissioncontroller.permission.ui.model.v33.ReviewPermissionsViewModel.PermissionTarget.PERMISSION_BACKGROUND
-import com.android.permissioncontroller.permission.ui.model.v33.ReviewPermissionsViewModel.PermissionTarget.PERMISSION_BOTH
-import com.android.permissioncontroller.permission.ui.model.v33.ReviewPermissionsViewModel.PermissionTarget.PERMISSION_FOREGROUND
-import com.android.permissioncontroller.permission.ui.model.v33.ReviewPermissionsViewModel.SummaryMessage
+import com.android.permissioncontroller.permission.ui.model.ReviewPermissionsViewModel
+import com.android.permissioncontroller.permission.ui.model.ReviewPermissionsViewModel.PermissionTarget.PERMISSION_BACKGROUND
+import com.android.permissioncontroller.permission.ui.model.ReviewPermissionsViewModel.PermissionTarget.PERMISSION_BOTH
+import com.android.permissioncontroller.permission.ui.model.ReviewPermissionsViewModel.PermissionTarget.PERMISSION_FOREGROUND
+import com.android.permissioncontroller.permission.ui.model.ReviewPermissionsViewModel.SummaryMessage
 import com.android.permissioncontroller.permission.utils.Utils
 import com.android.settingslib.RestrictedLockUtils
 import org.junit.After
@@ -42,10 +42,10 @@ import org.mockito.Mock
 import org.mockito.Mockito.doReturn
 import org.mockito.Mockito.mock
 import org.mockito.Mockito.spy
+import org.mockito.Mockito.`when` as whenever
 import org.mockito.MockitoAnnotations
 import org.mockito.MockitoSession
 import org.mockito.quality.Strictness
-import org.mockito.Mockito.`when` as whenever
 
 /**
  * Unit tests for [ReviewPermissionsViewModel]

@@ -68,7 +68,7 @@ public class SupplicantStateTrackerTest extends WifiBaseTest {
     private Message getSupplicantStateChangeMessage(int networkId, WifiSsid wifiSsid,
             String bssid, SupplicantState newSupplicantState) {
         return Message.obtain(null, WifiMonitor.SUPPLICANT_STATE_CHANGE_EVENT, 0, 0,
-                new StateChangeResult(networkId, wifiSsid, bssid, newSupplicantState));
+                new StateChangeResult(networkId, wifiSsid, bssid, 0, newSupplicantState));
     }
 
     @Before

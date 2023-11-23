@@ -18,9 +18,11 @@
 
 #include <deque>
 
+#include <netdutils/NetNativeTestBase.h>
+
 #include "NetdConstants.h"
 
-class IptablesBaseTest : public ::testing::Test {
+class IptablesBaseTest : public NetNativeTestBase {
 public:
     IptablesBaseTest();
 

@@ -9,5 +9,5 @@ soong_config_module_type {
     module_type: "cc_defaults",
     config_namespace: "glog",
     bool_variables: ["enable_glog"],
-    properties: ["cflags", "shared_libs", "header_libs"],
+    properties: ["cflags", "shared_libs", "header_libs","export_header_lib_headers"],
 }

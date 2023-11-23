@@ -35,9 +35,44 @@ from __future__ import print_function
 import collections
 import logging
 import random
+import six
 from six.moves import range
 import socket
 import struct
+
+
+def get_ord(value):
+    """
+    Helper method for getting the ordinal value of a character in a byte string
+    during the Python 2 to Python 3 migration.
+
+    In Python 2, the function ord() provides the ordinal value of a character.
+    In Python 3, the byte is its own ordinal value.
+    """
+    if six.PY2:
+        return ord(value)
+    return value
+
+
+def get_bytes(value):
+    """
+    Helper method for converting a string into a byte string during the Python 2
+    to Python 3 migration.
+    """
+    if six.PY2:
+        return value
+    return value.encode('ISO-8859-1')
+
+
+def get_string(value):
+    """
+    Helper method for converting a byte string into a string during the Python 2
+    to Python 3 migration.
+    """
+
+    if six.PY2:
+        return value
+    return value.decode('ISO-8859-1')
 
 
 def CreatePacketPieceClass(super_class, field_format):
@@ -88,7 +123,7 @@ class IpAddressOption(Option):
 class IpListOption(Option):
     @staticmethod
     def pack(value):
-        return "".join([socket.inet_aton(addr) for addr in value])
+        return b"".join([socket.inet_aton(addr) for addr in value])
 
     @staticmethod
     def unpack(byte_string):
@@ -99,21 +134,25 @@ class IpListOption(Option):
 class RawOption(Option):
     @staticmethod
     def pack(value):
-        return value
+        return get_bytes(value)
 
     @staticmethod
     def unpack(byte_string):
-        return byte_string
+        return get_string(byte_string)
 
 
 class ByteListOption(Option):
     @staticmethod
     def pack(value):
-        return "".join(chr(v) for v in value)
+        if six.PY2:
+            return "".join(chr(v) for v in value)
+        return bytes(value)
 
     @staticmethod
     def unpack(byte_string):
-        return [ord(c) for c in byte_string]
+        if six.PY2:
+            return [ord(c) for c in byte_string]
+        return byte_string
 
 
 class ClasslessStaticRoutesOption(Option):
@@ -126,9 +165,9 @@ class ClasslessStaticRoutesOption(Option):
     @staticmethod
     def pack(value):
         route_list = value
-        byte_string = ""
+        byte_string = b""
         for prefix_size, destination, router in route_list:
-            byte_string += chr(prefix_size)
+            byte_string += get_bytes(chr(prefix_size))
             # Encode only the significant octets of the destination
             # that fall within the prefix.
             destination_address_count = (prefix_size + 7) // 8
@@ -143,7 +182,7 @@ class ClasslessStaticRoutesOption(Option):
         route_list = []
         offset = 0
         while offset < len(byte_string):
-            prefix_size = ord(byte_string[offset])
+            prefix_size = get_ord(byte_string[offset])
             destination_address_count = (prefix_size + 7) // 8
             entry_end = offset + 1 + destination_address_count + 4
             if entry_end > len(byte_string):
@@ -153,7 +192,7 @@ class ClasslessStaticRoutesOption(Option):
             destination_address = byte_string[offset:destination_address_end]
             # Pad the destination address bytes with zero byte octets to
             # fill out an IPv4 address.
-            destination_address += '\x00' * (4 - destination_address_count)
+            destination_address += b'\x00' * (4 - destination_address_count)
             router_address = byte_string[destination_address_end:entry_end]
             route_list.append((prefix_size,
                                socket.inet_ntoa(destination_address),
@@ -179,16 +218,18 @@ class DomainListOption(Option):
     @staticmethod
     def pack(value):
         domain_list = value
-        byte_string = ""
+        byte_string = b""
         for domain in domain_list:
             for part in domain.split("."):
-                byte_string += chr(len(part))
-                byte_string += part
-            byte_string += "\x00"
+                byte_string += get_bytes(chr(len(part)))
+                byte_string += get_bytes(part)
+            byte_string += b"\x00"
         return byte_string
 
     @staticmethod
     def unpack(byte_string):
+        if six.PY3:
+            byte_string = byte_string.decode('ISO-8859-1')
         domain_list = []
         offset = 0
         try:
@@ -512,7 +553,7 @@ class DhcpPacket(object):
         # reason, DHCP allocated 12 bytes to this field.  Ease the burden on
         # developers and hide this detail.
         while len(hwmac_addr) < 12:
-            hwmac_addr += chr(OPTION_PAD)
+            hwmac_addr += get_bytes(chr(OPTION_PAD))
 
         packet = DhcpPacket()
         packet.set_field(FIELD_OP, FIELD_VALUE_OP_CLIENT_REQUEST)
@@ -664,13 +705,14 @@ class DhcpPacket(object):
                                                         field.offset +
                                                         field.size])
         offset = OPTIONS_START_OFFSET
-        domain_search_list_byte_string = ""
-        while offset < len(byte_str) and ord(byte_str[offset]) != OPTION_END:
-            data_type = ord(byte_str[offset])
+        domain_search_list_byte_string = b""
+        while offset < len(byte_str) and get_ord(
+                byte_str[offset]) != OPTION_END:
+            data_type = get_ord(byte_str[offset])
             offset += 1
             if data_type == OPTION_PAD:
                 continue
-            data_length = ord(byte_str[offset])
+            data_length = get_ord(byte_str[offset])
             offset += 1
             data = byte_str[offset: offset + data_length]
             offset += data_length
@@ -750,7 +792,7 @@ class DhcpPacket(object):
         if not self.is_valid:
             return None
         # A list of byte strings to be joined into a single string at the end.
-        data = []
+        data = b""
         offset = 0
         for field in DHCP_ALL_FIELDS:
             if field not in self._fields:
@@ -759,9 +801,9 @@ class DhcpPacket(object):
             while offset < field.offset:
                 # This should only happen when we're padding the fields because
                 # we're not filling in legacy BOOTP stuff.
-                data.append("\x00")
+                data += b"\x00"
                 offset += 1
-            data.append(field_data)
+            data += field_data
             offset += field.size
         # Last field processed is the magic cookie, so we're ready for options.
         # Have to process options
@@ -770,18 +812,16 @@ class DhcpPacket(object):
             if option_value is None:
                 continue
             serialized_value = option.pack(option_value)
-            data.append(struct.pack("BB",
-                                    option.number,
-                                    len(serialized_value)))
+            data += struct.pack("BB", option.number, len(serialized_value))
             offset += 2
-            data.append(serialized_value)
+            data += serialized_value
             offset += len(serialized_value)
-        data.append(chr(OPTION_END))
+        data += get_bytes(chr(OPTION_END))
         offset += 1
         while offset < DHCP_MIN_PACKET_SIZE:
-            data.append(chr(OPTION_PAD))
+            data += get_bytes(chr(OPTION_PAD))
             offset += 1
-        return "".join(data)
+        return data
 
     def __str__(self):
         options = [k.name + "=" + str(v) for k, v in self._options.items()]

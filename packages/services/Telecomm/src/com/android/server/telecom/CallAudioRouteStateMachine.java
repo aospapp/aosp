@@ -48,6 +48,8 @@ import com.android.server.telecom.bluetooth.BluetoothRouteManager;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Objects;
+import java.util.Set;
+import java.util.concurrent.Executor;
 
 /**
  * This class describes the available routes of a call as a state machine.
@@ -80,14 +82,16 @@ public class CallAudioRouteStateMachine extends StateMachine {
                 WiredHeadsetManager wiredHeadsetManager,
                 StatusBarNotifier statusBarNotifier,
                 CallAudioManager.AudioServiceFactory audioServiceFactory,
-                int earpieceControl) {
+                int earpieceControl,
+                Executor asyncTaskExecutor) {
             return new CallAudioRouteStateMachine(context,
                     callsManager,
                     bluetoothManager,
                     wiredHeadsetManager,
                     statusBarNotifier,
                     audioServiceFactory,
-                    earpieceControl);
+                    earpieceControl,
+                    asyncTaskExecutor);
         }
     }
     /** Values for CallAudioRouteStateMachine constructor's earPieceRouting arg. */
@@ -106,6 +110,9 @@ public class CallAudioRouteStateMachine extends StateMachine {
 
     /** Direct the audio stream through the device's speakerphone. */
     public static final int ROUTE_SPEAKER       = CallAudioState.ROUTE_SPEAKER;
+
+    /** Direct the audio stream through another device. */
+    public static final int ROUTE_STREAMING     = CallAudioState.ROUTE_STREAMING;
 
     /** Valid values for msg.what */
     public static final int CONNECT_WIRED_HEADSET = 1;
@@ -127,6 +134,10 @@ public class CallAudioRouteStateMachine extends StateMachine {
     // weren't the ones who turned it on/off
     public static final int SPEAKER_ON = 1006;
     public static final int SPEAKER_OFF = 1007;
+
+    // Messages denoting that the streaming route switch request was sent.
+    public static final int STREAMING_FORCE_ENABLED = 1008;
+    public static final int STREAMING_FORCE_DISABLED = 1009;
 
     public static final int USER_SWITCH_EARPIECE = 1101;
     public static final int USER_SWITCH_BLUETOOTH = 1102;
@@ -544,6 +555,9 @@ public class CallAudioRouteStateMachine extends StateMachine {
                 case DISCONNECT_DOCK:
                     // Nothing to do here
                     return HANDLED;
+                case STREAMING_FORCE_ENABLED:
+                    transitionTo(mStreamingState);
+                    return HANDLED;
                 default:
                     return NOT_HANDLED;
             }
@@ -627,6 +641,9 @@ public class CallAudioRouteStateMachine extends StateMachine {
                         reinitialize();
                         mCallAudioManager.notifyAudioOperationsComplete();
                     }
+                    return HANDLED;
+                case STREAMING_FORCE_ENABLED:
+                    transitionTo(mStreamingState);
                     return HANDLED;
                 default:
                     return NOT_HANDLED;
@@ -1105,6 +1122,9 @@ public class CallAudioRouteStateMachine extends StateMachine {
                 case DISCONNECT_DOCK:
                     // Nothing to do here
                     return HANDLED;
+                case STREAMING_FORCE_ENABLED:
+                    transitionTo(mStreamingState);
+                    return HANDLED;
                 default:
                     return NOT_HANDLED;
             }
@@ -1330,7 +1350,69 @@ public class CallAudioRouteStateMachine extends StateMachine {
                 case DISCONNECT_DOCK:
                     sendInternalMessage(SWITCH_BASELINE_ROUTE, INCLUDE_BLUETOOTH_IN_BASELINE);
                     return HANDLED;
+                case STREAMING_FORCE_ENABLED:
+                    transitionTo(mStreamingState);
+                    return HANDLED;
                default:
+                    return NOT_HANDLED;
+            }
+        }
+    }
+
+    class StreamingState extends AudioState {
+        @Override
+        public void enter() {
+            super.enter();
+            updateSystemAudioState();
+        }
+
+        @Override
+        public void updateSystemAudioState() {
+            updateInternalCallAudioState();
+            setSystemAudioState(mCurrentCallAudioState);
+        }
+
+        @Override
+        public boolean isActive() {
+            return true;
+        }
+
+        @Override
+        public int getRouteCode() {
+            return CallAudioState.ROUTE_STREAMING;
+        }
+
+        @Override
+        public boolean processMessage(Message msg) {
+            if (super.processMessage(msg) == HANDLED) {
+                return HANDLED;
+            }
+            switch (msg.what) {
+                case SWITCH_EARPIECE:
+                case USER_SWITCH_EARPIECE:
+                case SPEAKER_OFF:
+                    // Nothing to do here
+                    return HANDLED;
+                case SPEAKER_ON:
+                    // fall through
+                case BT_AUDIO_CONNECTED:
+                case SWITCH_BLUETOOTH:
+                case USER_SWITCH_BLUETOOTH:
+                case SWITCH_HEADSET:
+                case USER_SWITCH_HEADSET:
+                case SWITCH_SPEAKER:
+                case USER_SWITCH_SPEAKER:
+                    return HANDLED;
+                case SWITCH_FOCUS:
+                    if (msg.arg1 == NO_FOCUS) {
+                        reinitialize();
+                        mCallAudioManager.notifyAudioOperationsComplete();
+                    }
+                    return HANDLED;
+                case STREAMING_FORCE_DISABLED:
+                    reinitialize();
+                    return HANDLED;
+                default:
                     return NOT_HANDLED;
             }
         }
@@ -1398,6 +1480,9 @@ public class CallAudioRouteStateMachine extends StateMachine {
     private final QuiescentHeadsetRoute mQuiescentHeadsetRoute = new QuiescentHeadsetRoute();
     private final QuiescentBluetoothRoute mQuiescentBluetoothRoute = new QuiescentBluetoothRoute();
     private final QuiescentSpeakerRoute mQuiescentSpeakerRoute = new QuiescentSpeakerRoute();
+    private final StreamingState mStreamingState = new StreamingState();
+
+    private final Executor mAsyncTaskExecutor;
 
     /**
      * A few pieces of hidden state. Used to avoid exponential explosion of number of explicit
@@ -1437,7 +1522,8 @@ public class CallAudioRouteStateMachine extends StateMachine {
             WiredHeadsetManager wiredHeadsetManager,
             StatusBarNotifier statusBarNotifier,
             CallAudioManager.AudioServiceFactory audioServiceFactory,
-            int earpieceControl) {
+            int earpieceControl,
+            Executor asyncTaskExecutor) {
         super(NAME);
         mContext = context;
         mCallsManager = callsManager;
@@ -1447,7 +1533,7 @@ public class CallAudioRouteStateMachine extends StateMachine {
         mStatusBarNotifier = statusBarNotifier;
         mAudioServiceFactory = audioServiceFactory;
         mLock = callsManager.getLock();
-
+        mAsyncTaskExecutor = asyncTaskExecutor;
         createStates(earpieceControl);
     }
 
@@ -1459,7 +1545,7 @@ public class CallAudioRouteStateMachine extends StateMachine {
             WiredHeadsetManager wiredHeadsetManager,
             StatusBarNotifier statusBarNotifier,
             CallAudioManager.AudioServiceFactory audioServiceFactory,
-            int earpieceControl, Looper looper) {
+            int earpieceControl, Looper looper, Executor asyncTaskExecutor) {
         super(NAME, looper);
         mContext = context;
         mCallsManager = callsManager;
@@ -1469,6 +1555,7 @@ public class CallAudioRouteStateMachine extends StateMachine {
         mStatusBarNotifier = statusBarNotifier;
         mAudioServiceFactory = audioServiceFactory;
         mLock = callsManager.getLock();
+        mAsyncTaskExecutor = asyncTaskExecutor;
 
         createStates(earpieceControl);
     }
@@ -1494,6 +1581,7 @@ public class CallAudioRouteStateMachine extends StateMachine {
         addState(mQuiescentHeadsetRoute);
         addState(mQuiescentBluetoothRoute);
         addState(mQuiescentSpeakerRoute);
+        addState(mStreamingState);
 
 
         mStateNameToRouteCode = new HashMap<>(8);
@@ -1506,12 +1594,14 @@ public class CallAudioRouteStateMachine extends StateMachine {
         mStateNameToRouteCode.put(mActiveBluetoothRoute.getName(), ROUTE_BLUETOOTH);
         mStateNameToRouteCode.put(mActiveHeadsetRoute.getName(), ROUTE_WIRED_HEADSET);
         mStateNameToRouteCode.put(mActiveSpeakerRoute.getName(), ROUTE_SPEAKER);
+        mStateNameToRouteCode.put(mStreamingState.getName(), ROUTE_STREAMING);
 
         mRouteCodeToQuiescentState = new HashMap<>(4);
         mRouteCodeToQuiescentState.put(ROUTE_EARPIECE, mQuiescentEarpieceRoute);
         mRouteCodeToQuiescentState.put(ROUTE_BLUETOOTH, mQuiescentBluetoothRoute);
         mRouteCodeToQuiescentState.put(ROUTE_SPEAKER, mQuiescentSpeakerRoute);
         mRouteCodeToQuiescentState.put(ROUTE_WIRED_HEADSET, mQuiescentHeadsetRoute);
+        mRouteCodeToQuiescentState.put(ROUTE_STREAMING, mStreamingState);
     }
 
     public void setCallAudioManager(CallAudioManager callAudioManager) {
@@ -1539,15 +1629,23 @@ public class CallAudioRouteStateMachine extends StateMachine {
         mAvailableRoutes = mDeviceSupportedRoutes & getCurrentCallSupportedRoutes();
         mIsMuted = initState.isMuted();
         mWasOnSpeaker = false;
-        mContext.registerReceiver(mMuteChangeReceiver,
-                new IntentFilter(AudioManager.ACTION_MICROPHONE_MUTE_CHANGED));
-        mContext.registerReceiver(mMuteChangeReceiver,
-                new IntentFilter(AudioManager.STREAM_MUTE_CHANGED_ACTION));
-        mContext.registerReceiver(mSpeakerPhoneChangeReceiver,
-                new IntentFilter(AudioManager.ACTION_SPEAKERPHONE_STATE_CHANGED));
+        IntentFilter micMuteChangedFilter = new IntentFilter(
+                AudioManager.ACTION_MICROPHONE_MUTE_CHANGED);
+        micMuteChangedFilter.setPriority(IntentFilter.SYSTEM_HIGH_PRIORITY);
+        mContext.registerReceiver(mMuteChangeReceiver, micMuteChangedFilter);
+
+        IntentFilter muteChangedFilter = new IntentFilter(AudioManager.STREAM_MUTE_CHANGED_ACTION);
+        muteChangedFilter.setPriority(IntentFilter.SYSTEM_HIGH_PRIORITY);
+        mContext.registerReceiver(mMuteChangeReceiver, muteChangedFilter);
+
+        IntentFilter speakerChangedFilter = new IntentFilter(
+                AudioManager.ACTION_SPEAKERPHONE_STATE_CHANGED);
+        speakerChangedFilter.setPriority(IntentFilter.SYSTEM_HIGH_PRIORITY);
+        mContext.registerReceiver(mSpeakerPhoneChangeReceiver, speakerChangedFilter);
 
         mStatusBarNotifier.notifyMute(initState.isMuted());
-        mStatusBarNotifier.notifySpeakerphone(initState.getRoute() == CallAudioState.ROUTE_SPEAKER);
+        // We used to call mStatusBarNotifier.notifySpeakerphone, but that makes no sense as there
+        // is never a call at this boot (init) time.
         setInitialState(mRouteCodeToQuiescentState.get(initState.getRoute()));
         start();
     }
@@ -1640,6 +1738,10 @@ public class CallAudioRouteStateMachine extends StateMachine {
 
     private void setSpeakerphoneOn(boolean on) {
         Log.i(this, "turning speaker phone %s", on);
+        final boolean hasAnyCalls = mCallsManager.hasAnyCalls();
+        // These APIs are all via two-way binder calls so can potentially block Telecom.  Since none
+        // of this has to happen in the Telecom lock we'll offload it to the async executor.
+
         AudioDeviceInfo speakerDevice = null;
         for (AudioDeviceInfo info : mAudioManager.getAvailableCommunicationDevices()) {
             if (info.getType() == AudioDeviceInfo.TYPE_BUILTIN_SPEAKER) {
@@ -1655,11 +1757,15 @@ public class CallAudioRouteStateMachine extends StateMachine {
             }
         } else {
             AudioDeviceInfo curDevice = mAudioManager.getCommunicationDevice();
-            if (curDevice != null && curDevice.getType() == AudioDeviceInfo.TYPE_BUILTIN_SPEAKER) {
+            if (curDevice != null
+                    && curDevice.getType() == AudioDeviceInfo.TYPE_BUILTIN_SPEAKER) {
                 mAudioManager.clearCommunicationDevice();
             }
         }
-        mStatusBarNotifier.notifySpeakerphone(speakerOn);
+        final boolean isSpeakerOn = speakerOn;
+        mAsyncTaskExecutor.execute(() -> {
+            mStatusBarNotifier.notifySpeakerphone(hasAnyCalls && isSpeakerOn);
+        });
     }
 
     private void setBluetoothOn(String address) {
@@ -1764,16 +1870,18 @@ public class CallAudioRouteStateMachine extends StateMachine {
             if (force || !newCallAudioState.equals(mLastKnownCallAudioState)) {
                 mStatusBarNotifier.notifyMute(newCallAudioState.isMuted());
                 mCallsManager.onCallAudioStateChanged(mLastKnownCallAudioState, newCallAudioState);
-                updateAudioForForegroundCall(newCallAudioState);
+                updateAudioStateForTrackedCalls(newCallAudioState);
                 mLastKnownCallAudioState = newCallAudioState;
             }
         }
     }
 
-    private void updateAudioForForegroundCall(CallAudioState newCallAudioState) {
-        Call call = mCallsManager.getForegroundCall();
-        if (call != null && call.getConnectionService() != null) {
-            call.getConnectionService().onCallAudioStateChanged(call, newCallAudioState);
+    private void updateAudioStateForTrackedCalls(CallAudioState newCallAudioState) {
+        Set<Call> calls = mCallsManager.getTrackedCalls();
+        for (Call call : calls) {
+            if (call != null && call.getConnectionService() != null) {
+                call.getConnectionService().onCallAudioStateChanged(call, newCallAudioState);
+            }
         }
     }
 

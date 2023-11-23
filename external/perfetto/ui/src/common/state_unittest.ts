@@ -13,11 +13,12 @@
 // limitations under the License.
 
 import {createEmptyState} from './empty_state';
-import {getContainingTrackId, State, TrackKindPriority} from './state';
+import {getContainingTrackId, PrimaryTrackSortKey, State} from './state';
+import {deserializeStateObject, serializeStateObject} from './upload_utils';
 
 test('createEmptyState', () => {
   const state: State = createEmptyState();
-  expect(state.nextId).toEqual(0);
+  expect(state.engine).toEqual(undefined);
 });
 
 test('getContainingTrackId', () => {
@@ -27,7 +28,7 @@ test('getContainingTrackId', () => {
     engineId: 'engine',
     kind: 'Foo',
     name: 'a track',
-    trackKindPriority: TrackKindPriority.ORDINARY,
+    trackSortKey: PrimaryTrackSortKey.ORDINARY_TRACK,
     config: {},
   };
 
@@ -36,7 +37,7 @@ test('getContainingTrackId', () => {
     engineId: 'engine',
     kind: 'Foo',
     name: 'b track',
-    trackKindPriority: TrackKindPriority.ORDINARY,
+    trackSortKey: PrimaryTrackSortKey.ORDINARY_TRACK,
     config: {},
     trackGroup: 'containsB',
   };
@@ -44,4 +45,23 @@ test('getContainingTrackId', () => {
   expect(getContainingTrackId(state, 'z')).toEqual(null);
   expect(getContainingTrackId(state, 'a')).toEqual(null);
   expect(getContainingTrackId(state, 'b')).toEqual('containsB');
+});
+
+test('state is serializable', () => {
+  const state: State = createEmptyState();
+  const json = serializeStateObject(state);
+  const restored: State = deserializeStateObject(json);
+
+  // Remove nonSerializableState from original
+  const serializableState: any = state as any;
+  delete serializableState['nonSerializableState'];
+
+  // Remove any undefined values from original as JSON doesn't serialize them
+  for (const key in serializableState) {
+    if (serializableState[key] === undefined) {
+      delete serializableState[key];
+    }
+  }
+
+  expect(serializableState).toEqual(restored);
 });

@@ -30,10 +30,12 @@ import android.os.UserHandle;
 import android.provider.Settings;
 import android.text.TextUtils;
 import android.view.accessibility.AccessibilityManager;
+import android.util.ArrayMap;
 
 import androidx.annotation.Keep;
 import androidx.preference.Preference;
 import androidx.preference.PreferenceGroup;
+import androidx.preference.PreferenceCategory;
 import androidx.preference.SwitchPreference;
 import androidx.preference.TwoStatePreference;
 
@@ -43,9 +45,11 @@ import com.android.settingslib.RestrictedPreference;
 import com.android.settingslib.accessibility.AccessibilityUtils;
 import com.android.tv.settings.R;
 import com.android.tv.settings.SettingsPreferenceFragment;
+import com.android.tv.settings.overlay.FlavorUtils;
 
 import java.util.List;
 import java.util.Set;
+import java.util.Map;
 
 /**
  * Fragment for Accessibility settings
@@ -54,11 +58,50 @@ import java.util.Set;
 public class AccessibilityFragment extends SettingsPreferenceFragment {
     private static final String TOGGLE_HIGH_TEXT_CONTRAST_KEY = "toggle_high_text_contrast";
     private static final String TOGGLE_AUDIO_DESCRIPTION_KEY = "toggle_audio_description";
-    private static final String ACCESSIBILITY_SERVICES_KEY = "system_accessibility_services";
+    private static final String TOGGLE_BOLD_TEXT_KEY = "toggle_bold_text";
+    private static final String COLOR_CORRECTION_TWOPANEL_KEY = "color_correction_only_twopanel";
+    private static final String COLOR_CORRECTION_CLASSIC_KEY = "color_correction_only_classic";
+    private static final int BOLD_TEXT_ADJUSTMENT = 500;
+    private static final int FIRST_PREFERENCE_IN_CATEGORY_INDEX = -1;
 
-    private PreferenceGroup mServicesPref;
+    PreferenceCategory mServicesPrefCategory;
+
+    private final Map<ComponentName, PreferenceCategory>
+            mServiceComponentNameToPreferenceCategoryMap = new ArrayMap<>();
+
+    private enum AccessibilityCategory {
+        SCREEN_READERS("accessibility_screen_readers_category",
+                R.array.config_preinstalled_screen_reader_services),
+        DISPLAY("accessibility_display_category",
+                R.array.config_preinstalled_display_services),
+        INTERACTION_CONTROLS("accessibility_interaction_controls_category",
+                R.array.config_preinstalled_interaction_control_services),
+        AUDIO_AND_ONSCREEN_TEXT("accessibility_audio_and_onscreen_text_category",
+                R.array.config_preinstalled_audio_and_onscreen_text_services),
+        EXPERIMENTAL("accessibility_experimental_category",
+                R.array.config_preinstalled_experimental_services),
+        SERVICES("accessibility_services_category",
+                R.array.config_preinstalled_additional_services);
+
+        final String key;
+        final int servicesArrayId;
+
+        AccessibilityCategory(String key, int servicesArrayId) {
+            this.key = key;
+            this.servicesArrayId = servicesArrayId;
+        }
+
+        String getKey() {
+            return this.key;
+        }
+
+        int getServicesArrayId() {
+            return this.servicesArrayId;
+        }
+    }
+
     private AccessibilityManager.AccessibilityStateChangeListener
-            mAccessibilityStateChangeListener = enabled -> refreshServices(mServicesPref);
+            mAccessibilityStateChangeListener = enabled -> refreshServices();
 
     /**
      * Create a new instance of the fragment
@@ -71,9 +114,7 @@ public class AccessibilityFragment extends SettingsPreferenceFragment {
     @Override
     public void onResume() {
         super.onResume();
-        if (mServicesPref != null) {
-            refreshServices(mServicesPref);
-        }
+        refreshServices();
     }
 
     @Override
@@ -81,7 +122,7 @@ public class AccessibilityFragment extends SettingsPreferenceFragment {
         super.onStop();
         AccessibilityManager am = (AccessibilityManager)
                 getContext().getSystemService(ACCESSIBILITY_SERVICE);
-        if (am != null && mServicesPref != null) {
+        if (am != null) {
             am.removeAccessibilityStateChangeListener(mAccessibilityStateChangeListener);
         }
     }
@@ -101,14 +142,24 @@ public class AccessibilityFragment extends SettingsPreferenceFragment {
                 getContext().getContentResolver(),
                 Settings.Secure.ENABLED_ACCESSIBILITY_AUDIO_DESCRIPTION_BY_DEFAULT, 0) == 1);
 
-        mServicesPref = (PreferenceGroup) findPreference(ACCESSIBILITY_SERVICES_KEY);
-        if (mServicesPref != null) {
-            refreshServices(mServicesPref);
-            AccessibilityManager am = (AccessibilityManager)
-                    getContext().getSystemService(ACCESSIBILITY_SERVICE);
-            if (am != null) {
-                am.addAccessibilityStateChangeListener(mAccessibilityStateChangeListener);
-            }
+        final TwoStatePreference boldTextPreference =
+                (TwoStatePreference) findPreference(TOGGLE_BOLD_TEXT_KEY);
+        boldTextPreference.setChecked(Settings.Secure.getInt(
+                getContext().getContentResolver(),
+                Settings.Secure.FONT_WEIGHT_ADJUSTMENT, 0) == BOLD_TEXT_ADJUSTMENT);
+
+        Preference colorCorrectionPreferenceToSetVisible = FlavorUtils.isTwoPanel(getContext())
+                ? (Preference) findPreference(COLOR_CORRECTION_TWOPANEL_KEY)
+                : (Preference) findPreference(COLOR_CORRECTION_CLASSIC_KEY);
+        colorCorrectionPreferenceToSetVisible.setVisible(true);
+
+        mServicesPrefCategory = findPreference(AccessibilityCategory.SERVICES.getKey());
+        populateServiceToPreferenceCategoryMaps();
+        refreshServices();
+        AccessibilityManager am = (AccessibilityManager)
+                getContext().getSystemService(ACCESSIBILITY_SERVICE);
+        if (am != null) {
+            am.addAccessibilityStateChangeListener(mAccessibilityStateChangeListener);
         }
     }
 
@@ -130,12 +181,32 @@ public class AccessibilityFragment extends SettingsPreferenceFragment {
                     Settings.Secure.ENABLED_ACCESSIBILITY_AUDIO_DESCRIPTION_BY_DEFAULT,
                     (((SwitchPreference) preference).isChecked() ? 1 : 0));
             return true;
+        } else if (TextUtils.equals(preference.getKey(), TOGGLE_BOLD_TEXT_KEY)) {
+            logToggleInteracted(
+                    TvSettingsEnums.SYSTEM_A11Y_BOLD_TEXT,
+                    ((SwitchPreference) preference).isChecked());
+            Settings.Secure.putInt(getActivity().getContentResolver(),
+                    Settings.Secure.FONT_WEIGHT_ADJUSTMENT,
+                    (((SwitchPreference) preference).isChecked() ? BOLD_TEXT_ADJUSTMENT : 0));
+            return true;
         } else {
             return super.onPreferenceTreeClick(preference);
         }
     }
 
-    private void refreshServices(PreferenceGroup group) {
+    private void populateServiceToPreferenceCategoryMaps() {
+        for (AccessibilityCategory accessibilityCategory : AccessibilityCategory.values()) {
+            String[] services = getResources().getStringArray(
+                    accessibilityCategory.getServicesArrayId());
+            PreferenceCategory prefCategory = findPreference(accessibilityCategory.getKey());
+            for (int i = 0; i < services.length; i++) {
+                ComponentName component = ComponentName.unflattenFromString(services[i]);
+                mServiceComponentNameToPreferenceCategoryMap.put(component, prefCategory);
+            }
+        }
+    }
+
+    private void refreshServices() {
         DevicePolicyManager dpm = getContext().getSystemService(DevicePolicyManager.class);
         final List<AccessibilityServiceInfo> installedServiceInfos =
                 getActivity().getSystemService(AccessibilityManager.class)
@@ -153,7 +224,6 @@ public class AccessibilityFragment extends SettingsPreferenceFragment {
             final ServiceInfo serviceInfo = accInfo.getResolveInfo().serviceInfo;
             final ComponentName componentName = new ComponentName(serviceInfo.packageName,
                     serviceInfo.name);
-
             final boolean serviceEnabled = accessibilityEnabled
                     && enabledServices.contains(componentName);
             // permittedServices null means all accessibility services are allowed.
@@ -166,7 +236,7 @@ public class AccessibilityFragment extends SettingsPreferenceFragment {
             final String key = "ServicePref:" + componentName.flattenToString();
             RestrictedPreference servicePref = findPreference(key);
             if (servicePref == null) {
-                servicePref = new RestrictedPreference(group.getContext());
+                servicePref = new RestrictedPreference(getContext());
                 servicePref.setKey(key);
             }
             servicePref.setTitle(title);
@@ -193,8 +263,21 @@ public class AccessibilityFragment extends SettingsPreferenceFragment {
                 servicePref.setFragment(null);
             }
 
-            group.addPreference(servicePref);
+            // Make the screen reader component be the first preference in its preference category.
+            final String screenReaderFlattenedComponentName = getResources().getString(
+                    R.string.accessibility_screen_reader_flattened_component_name);
+            if (componentName.flattenToString().equals(screenReaderFlattenedComponentName)) {
+                servicePref.setOrder(FIRST_PREFERENCE_IN_CATEGORY_INDEX);
+            }
+
+            PreferenceCategory prefCategory = mServicesPrefCategory;
+            if (mServiceComponentNameToPreferenceCategoryMap.containsKey(componentName)) {
+                prefCategory = mServiceComponentNameToPreferenceCategoryMap.get(componentName);
+            }
+            // The method "addPreference" only adds the preference if it is not there already.
+            prefCategory.addPreference(servicePref);
         }
+        mServicesPrefCategory.setVisible(mServicesPrefCategory.getPreferenceCount() != 0);
     }
 
     @Override

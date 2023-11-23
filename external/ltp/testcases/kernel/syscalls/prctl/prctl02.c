@@ -1,36 +1,43 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 /*
  * Copyright (c) Wipro Technologies Ltd, 2002.  All Rights Reserved.
+ */
+
+/*\
+ * [Description]
  *
- * 1) prctl() fails with EINVAL when an invalid value is given for option
- * 2) prctl() fails with EINVAL when option is PR_SET_PDEATHSIG & arg2 is
- * not zero or a valid signal number.
- * 3) prctl() fails with EINVAL when option is PR_SET_DUMPABLE & arg2 is
- * neither SUID_DUMP_DISABLE nor SUID_DUMP_USER.
- * 4) prctl() fails with EFAULT when arg2 is an invalid address.
- * 5) prctl() fails with EFAULT when option is PR_SET_SECCOMP & arg2 is
- * SECCOMP_MODE_FILTER & arg3 is an invalid address.
- * 6) prctl() fails with EACCES when option is PR_SET_SECCOMP & arg2 is
- * SECCOMP_MODE_FILTER & the process does not have the CAP_SYS_ADMIN
- * capability.
- * 7) prctl() fails with EINVAL when option is PR_SET_TIMING & arg2 is not
- * not PR_TIMING_STATISTICAL.
- * 8,9) prctl() fails with EINVAL when option is PR_SET_NO_NEW_PRIVS & arg2
- * is not equal to 1 or arg3 is nonzero.
- * 10) prctl() fails with EINVAL when options is PR_GET_NO_NEW_PRIVS & arg2,
- * arg3, arg4, or arg5 is nonzero.
- * 11) prctl() fails with EINVAL when options is PR_SET_THP_DISABLE & arg3,
- * arg4, arg5 is non-zero.
- * 12) prctl() fails with EINVAL when options is PR_GET_THP_DISABLE & arg2,
- * arg3, arg4, or arg5 is nonzero.
- * 13) prctl() fails with EINVAL when options is PR_CAP_AMBIENT & an unused
- * argument such as arg4 is nonzero.
- * 14) prctl() fails with EINVAL when option is PR_GET_SPECULATION_CTRL and
- * unused arguments is nonzero.
- * 15) prctl() fails with EPERM when option is PR_SET_SECUREBITS and the
- * caller does not have the CAP_SETPCAP capability.
- * 16) prctl() fails with EPERM when option is PR_CAPBSET_DROP and the caller
- * does not have the CAP_SETPCAP capability.
+ * - EINVAL when an invalid value is given for option
+ * - EINVAL when option is PR_SET_PDEATHSIG & arg2 is not zero or a valid
+ *   signal number
+ * - EINVAL when option is PR_SET_DUMPABLE & arg2 is neither
+ *   SUID_DUMP_DISABLE nor SUID_DUMP_USER
+ * - EFAULT when arg2 is an invalid address
+ * - EFAULT when option is PR_SET_SECCOMP & arg2 is SECCOMP_MODE_FILTER &
+ *   arg3 is an invalid address
+ * - EACCES when option is PR_SET_SECCOMP & arg2 is SECCOMP_MODE_FILTER &
+ *   the process does not have the CAP_SYS_ADMIN capability
+ * - EINVAL when option is PR_SET_TIMING & arg2 is not PR_TIMING_STATISTICAL
+ * - EINVAL when option is PR_SET_NO_NEW_PRIVS & arg2 is not equal to 1 &
+ *   arg3 is zero
+ * - EINVAL when option is PR_SET_NO_NEW_PRIVS & arg2 is equal to 1 & arg3
+ *   is nonzero
+ * - EINVAL when options is PR_GET_NO_NEW_PRIVS & arg2, arg3, arg4, or arg5
+ *   is nonzero
+ * - EINVAL when options is PR_SET_THP_DISABLE & arg3, arg4, arg5 is non-zero.
+ * - EINVAL when options is PR_GET_THP_DISABLE & arg2, arg3, arg4, or arg5 is
+ *   nonzero
+ * - EINVAL when options is PR_CAP_AMBIENT & arg2 has an invalid value
+ * - EINVAL when options is PR_CAP_AMBIENT & an unused argument such as arg4,
+ *   arg5, or, in the case of PR_CAP_AMBIENT_CLEAR_ALL, arg3 is nonzero
+ * - EINVAL when options is PR_CAP_AMBIENT & arg2 is PR_CAP_AMBIENT_LOWER,
+ *   PR_CAP_AMBIENT_RAISE, or PR_CAP_AMBIENT_IS_SET and arg3 does not specify
+ *   a valid capability
+ * - EINVAL when option is PR_GET_SPECULATION_CTRL and unused arguments is
+ *   nonzero
+ * - EPERM when option is PR_SET_SECUREBITS and the caller does not have the
+ *   CAP_SETPCAP capability
+ * - EPERM when option is PR_CAPBSET_DROP and the caller does not have the
+ *   CAP_SETPCAP capability
  */
 
 #include <errno.h>
@@ -66,6 +73,8 @@ static unsigned long bad_addr;
 static unsigned long num_0;
 static unsigned long num_1 = 1;
 static unsigned long num_2 = 2;
+static unsigned long num_PR_CAP_AMBIENT_CLEAR_ALL = PR_CAP_AMBIENT_CLEAR_ALL;
+static unsigned long num_PR_CAP_AMBIENT_IS_SET = PR_CAP_AMBIENT_IS_SET;
 static unsigned long num_invalid = ULONG_MAX;
 static int seccomp_nsup;
 static int nonewprivs_nsup;
@@ -93,6 +102,8 @@ static struct tcase {
 	{PR_SET_THP_DISABLE, &num_0, &num_1, EINVAL, "PR_SET_THP_DISABLE"},
 	{PR_GET_THP_DISABLE, &num_1, &num_1, EINVAL, "PR_GET_THP_DISABLE"},
 	{PR_CAP_AMBIENT, &num_invalid, &num_0, EINVAL, "PR_CAP_AMBIENT"},
+	{PR_CAP_AMBIENT, &num_PR_CAP_AMBIENT_CLEAR_ALL, &num_1, EINVAL, "PR_CAP_AMBIENT"},
+	{PR_CAP_AMBIENT, &num_PR_CAP_AMBIENT_IS_SET, &num_invalid, EINVAL, "PR_CAP_AMBIENT"},
 	{PR_GET_SPECULATION_CTRL, &num_0, &num_invalid, EINVAL, "PR_GET_SPECULATION_CTRL"},
 	{PR_SET_SECUREBITS, &num_0, &num_0, EPERM, "PR_SET_SECUREBITS"},
 	{PR_CAPBSET_DROP, &num_1, &num_0, EPERM, "PR_CAPBSET_DROP"},
@@ -174,7 +185,7 @@ static void setup(void)
 	if (TST_ERR == EINVAL)
 		thpdisable_nsup = 1;
 
-	TEST(prctl(PR_CAP_AMBIENT, PR_CAP_AMBIENT_CLEAR_ALL, 0, 0, 0, 0));
+	TEST(prctl(PR_CAP_AMBIENT, PR_CAP_AMBIENT_CLEAR_ALL, 0, 0, 0));
 	if (TST_ERR == EINVAL)
 		capambient_nsup = 1;
 

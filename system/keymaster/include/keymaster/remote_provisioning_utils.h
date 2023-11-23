@@ -30,6 +30,7 @@ constexpr keymaster_error_t kStatusInvalidMac = static_cast<keymaster_error_t>(-
 constexpr keymaster_error_t kStatusProductionKeyInTestRequest = static_cast<keymaster_error_t>(-3);
 constexpr keymaster_error_t kStatusTestKeyInProductionRequest = static_cast<keymaster_error_t>(-4);
 constexpr keymaster_error_t kStatusInvalidEek = static_cast<keymaster_error_t>(-5);
+constexpr keymaster_error_t kStatusRemoved = static_cast<keymaster_error_t>(-6);
 
 template <typename T> class StatusOr {
   public:
@@ -68,7 +69,7 @@ template <typename T> class StatusOr {
 StatusOr<std::pair<std::vector<uint8_t> /* EEK pub */, std::vector<uint8_t> /* EEK ID */>>
 validateAndExtractEekPubAndId(bool testMode, const KeymasterBlob& endpointEncryptionCertChain);
 
-StatusOr<std::vector<uint8_t> /* pubkeys */>
+StatusOr<cppbor::Array /* pubkeys */>
 validateAndExtractPubkeys(bool testMode, uint32_t numKeys, KeymasterBlob* keysToSign,
                           const cppcose::HmacSha256Function& macFunction);
 

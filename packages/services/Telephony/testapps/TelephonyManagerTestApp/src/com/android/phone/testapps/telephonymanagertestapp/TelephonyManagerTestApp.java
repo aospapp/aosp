@@ -35,6 +35,7 @@ import java.lang.reflect.Parameter;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Locale;
 
 /**
  * Main activity.
@@ -158,7 +159,8 @@ public class TelephonyManagerTestApp extends ListActivity implements
             mFilteredMethods.addAll(mMethods);
         } else {
             for (Method method : mMethods) {
-                if (method.getName().toLowerCase().contains(text.toLowerCase())) {
+                if (method.getName().toLowerCase(Locale.ROOT)
+                        .contains(text.toLowerCase(Locale.ROOT))) {
                     mFilteredMethods.add(method);
                 }
             }

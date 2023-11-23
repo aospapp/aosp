@@ -100,7 +100,7 @@ public class ReportDetails {
             final IncidentHeaderProto header = incident.getHeader(i);
             if (header.hasReason()) {
                 final String reason = header.getReason();
-                if (reason != null && reason.length() > 0) {
+                if (reason.length() > 0) {
                     result.add(reason);
                 }
             }
@@ -110,7 +110,7 @@ public class ReportDetails {
     /**
      * Read images from the IncidentMinimal.
      *
-     * @throw ParseException if there was an error reading them.
+     * @throws ParseException if there was an error reading them.
      */
     private static void parseImages(ArrayList<Drawable> result, IncidentMinimal incident,
             Resources res) throws ParseException {
@@ -122,9 +122,6 @@ public class ReportDetails {
             final int setsCount = section.getSetsCount();
             for (int i = 0; i < setsCount; i++) {
                 final RestrictedImageSetProto set = section.getSets(i);
-                if (set == null) {
-                    continue;
-                }
                 final int imageCount = set.getImagesCount();
                 for (int j = 0; j < imageCount; j++) {
                     // Hard cap on number of images, as a guardrail.
@@ -135,18 +132,12 @@ public class ReportDetails {
                     }
 
                     final RestrictedImageProto image = set.getImages(j);
-                    if (image == null) {
-                        continue;
-                    }
                     final String mimeType = image.getMimeType();
                     if (!("image/jpeg".equals(mimeType)
                             || "image/png".equals(mimeType))) {
                         throw new ParseException("Unsupported image type " + mimeType);
                     }
                     final ByteString bytes = image.getImageData();
-                    if (bytes == null) {
-                        continue;
-                    }
                     final byte[] buf = bytes.toByteArray();
                     if (buf.length == 0) {
                         continue;

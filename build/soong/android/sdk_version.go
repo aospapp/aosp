@@ -25,12 +25,15 @@ type SdkContext interface {
 	SdkVersion(ctx EarlyModuleContext) SdkSpec
 	// SystemModules returns the system_modules property of the current module, or an empty string if it is not set.
 	SystemModules() string
-	// MinSdkVersion returns SdkSpec that corresponds to the min_sdk_version property of the current module,
+	// MinSdkVersion returns ApiLevel that corresponds to the min_sdk_version property of the current module,
 	// or from sdk_version if it is not set.
-	MinSdkVersion(ctx EarlyModuleContext) SdkSpec
-	// TargetSdkVersion returns the SdkSpec that corresponds to the target_sdk_version property of the current module,
+	MinSdkVersion(ctx EarlyModuleContext) ApiLevel
+	// ReplaceMaxSdkVersionPlaceholder returns Apilevel to replace the maxSdkVersion property of permission and
+	// uses-permission tags if it is set.
+	ReplaceMaxSdkVersionPlaceholder(ctx EarlyModuleContext) ApiLevel
+	// TargetSdkVersion returns the ApiLevel that corresponds to the target_sdk_version property of the current module,
 	// or from sdk_version if it is not set.
-	TargetSdkVersion(ctx EarlyModuleContext) SdkSpec
+	TargetSdkVersion(ctx EarlyModuleContext) ApiLevel
 }
 
 // SdkKind represents a particular category of an SDK spec like public, system, test, etc.
@@ -41,12 +44,14 @@ const (
 	SdkNone
 	SdkCore
 	SdkCorePlatform
+	SdkIntraCore // API surface provided by one core module to another
 	SdkPublic
 	SdkSystem
 	SdkTest
 	SdkModule
 	SdkSystemServer
 	SdkPrivate
+	SdkToolchain // API surface provided by ART to compile other API domains
 )
 
 // String returns the string representation of this SdkKind
@@ -66,12 +71,51 @@ func (k SdkKind) String() string {
 		return "core"
 	case SdkCorePlatform:
 		return "core_platform"
+	case SdkIntraCore:
+		return "intracore"
 	case SdkModule:
 		return "module-lib"
 	case SdkSystemServer:
 		return "system-server"
+	case SdkToolchain:
+		return "toolchain"
 	default:
 		return "invalid"
+	}
+}
+
+// JavaLibraryName returns the soong module containing the Java APIs of that API surface.
+func (k SdkKind) JavaLibraryName(c Config) string {
+	name := k.DefaultJavaLibraryName()
+	return JavaApiLibraryName(c, name)
+}
+
+// JavaApiLibraryName returns the name of .txt equivalent of a java_library, but does
+// not check if either module exists.
+// TODO: Return .txt (single-tree or multi-tree equivalents) based on config
+func JavaApiLibraryName(c Config, name string) string {
+	if c.BuildFromTextStub() {
+		return name + ".from-text"
+	}
+	return name
+}
+
+func (k SdkKind) DefaultJavaLibraryName() string {
+	switch k {
+	case SdkPublic:
+		return "android_stubs_current"
+	case SdkSystem:
+		return "android_system_stubs_current"
+	case SdkTest:
+		return "android_test_stubs_current"
+	case SdkCore:
+		return "core.current.stubs"
+	case SdkModule:
+		return "android_module_lib_stubs_current"
+	case SdkSystemServer:
+		return "android_system_server_stubs_current"
+	default:
+		panic(fmt.Errorf("APIs of API surface %v cannot be provided by a single Soong module\n", k))
 	}
 }
 
@@ -178,14 +222,7 @@ func (s SdkSpec) EffectiveVersion(ctx EarlyModuleContext) (ApiLevel, error) {
 	if ctx.DeviceSpecific() || ctx.SocSpecific() {
 		s = s.ForVendorPartition(ctx)
 	}
-	if !s.ApiLevel.IsPreview() {
-		return s.ApiLevel, nil
-	}
-	ret := ctx.Config().DefaultAppTargetSdk(ctx)
-	if ret.IsPreview() {
-		return FutureApiLevel, nil
-	}
-	return ret, nil
+	return s.ApiLevel.EffectiveVersion(ctx)
 }
 
 // EffectiveVersionString converts an SdkSpec into the concrete version string that the module
@@ -199,15 +236,12 @@ func (s SdkSpec) EffectiveVersionString(ctx EarlyModuleContext) (string, error) 
 	if ctx.DeviceSpecific() || ctx.SocSpecific() {
 		s = s.ForVendorPartition(ctx)
 	}
-	if !s.ApiLevel.IsPreview() {
-		return s.ApiLevel.String(), nil
-	}
-	return ctx.Config().DefaultAppTargetSdk(ctx).String(), nil
+	return s.ApiLevel.EffectiveVersionString(ctx)
 }
 
 var (
 	SdkSpecNone         = SdkSpec{SdkNone, NoneApiLevel, "(no version)"}
-	SdkSpecPrivate      = SdkSpec{SdkPrivate, FutureApiLevel, ""}
+	SdkSpecPrivate      = SdkSpec{SdkPrivate, PrivateApiLevel, ""}
 	SdkSpecCorePlatform = SdkSpec{SdkCorePlatform, FutureApiLevel, "core_platform"}
 )
 
@@ -230,7 +264,7 @@ func SdkSpecFromWithConfig(config Config, str string) SdkSpec {
 
 		var kindString string
 		if sep == 0 {
-			return SdkSpec{SdkInvalid, NoneApiLevel, str}
+			return SdkSpec{SdkInvalid, NewInvalidApiLevel(str), str}
 		} else if sep == -1 {
 			kindString = ""
 		} else {
@@ -258,7 +292,7 @@ func SdkSpecFromWithConfig(config Config, str string) SdkSpec {
 
 		apiLevel, err := ApiLevelFromUserWithConfig(config, versionString)
 		if err != nil {
-			return SdkSpec{SdkInvalid, apiLevel, str}
+			return SdkSpec{SdkInvalid, NewInvalidApiLevel(versionString), str}
 		}
 		return SdkSpec{kind, apiLevel, str}
 	}
@@ -284,4 +318,19 @@ func (s SdkSpec) ValidateSystemSdk(ctx EarlyModuleContext) bool {
 		return false
 	}
 	return true
+}
+
+func init() {
+	RegisterMakeVarsProvider(pctx, javaSdkMakeVars)
+}
+
+// Export the name of the soong modules representing the various Java API surfaces.
+func javaSdkMakeVars(ctx MakeVarsContext) {
+	ctx.Strict("ANDROID_PUBLIC_STUBS", SdkPublic.JavaLibraryName(ctx.Config()))
+	ctx.Strict("ANDROID_SYSTEM_STUBS", SdkSystem.JavaLibraryName(ctx.Config()))
+	ctx.Strict("ANDROID_TEST_STUBS", SdkTest.JavaLibraryName(ctx.Config()))
+	ctx.Strict("ANDROID_MODULE_LIB_STUBS", SdkModule.JavaLibraryName(ctx.Config()))
+	ctx.Strict("ANDROID_SYSTEM_SERVER_STUBS", SdkSystemServer.JavaLibraryName(ctx.Config()))
+	// TODO (jihoonkang): Create a .txt equivalent for core.current.stubs
+	ctx.Strict("ANDROID_CORE_STUBS", SdkCore.JavaLibraryName(ctx.Config()))
 }

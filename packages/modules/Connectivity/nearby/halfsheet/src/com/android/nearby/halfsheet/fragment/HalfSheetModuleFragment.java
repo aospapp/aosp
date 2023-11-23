@@ -15,7 +15,7 @@
  */
 package com.android.nearby.halfsheet.fragment;
 
-import static com.android.nearby.halfsheet.HalfSheetActivity.TAG;
+import static com.android.nearby.halfsheet.constants.Constant.TAG;
 import static com.android.nearby.halfsheet.fragment.HalfSheetModuleFragment.HalfSheetFragmentState.NOT_STARTED;
 
 import android.os.Bundle;

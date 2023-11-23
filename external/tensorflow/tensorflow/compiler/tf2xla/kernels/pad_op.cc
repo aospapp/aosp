@@ -65,8 +65,8 @@ class PadOp : public XlaOpKernel {
     xla::PaddingConfig config;
     for (int i = 0; i < dims; ++i) {
       auto* dim = config.add_dimensions();
-      int before = pad_literal.Get<int64>({i, 0});
-      int after = pad_literal.Get<int64>({i, 1});
+      int before = pad_literal.Get<int64_t>({i, 0});
+      int after = pad_literal.Get<int64_t>({i, 1});
       OP_REQUIRES(ctx, before >= 0 && after >= 0,
                   errors::InvalidArgument(
                       "Paddings must be non-negative: ", before, " ", after));
@@ -110,7 +110,7 @@ class PadOp : public XlaOpKernel {
         high_pad_size = xla::ConvertElementType(high_pad_size, xla::S32);
         // Low pad has to be static.
         xla::XlaOp low_pad_size = xla::ConstantR0<int32>(
-            ctx->builder(), pad_literal.Get<int64>({i, 0}));
+            ctx->builder(), pad_literal.Get<int64_t>({i, 0}));
         xla::XlaOp input_size = xla::GetDimensionSize(input, i);
         xla::XlaOp total_size = low_pad_size + input_size + high_pad_size;
         auto size_upper_bound_status_or =

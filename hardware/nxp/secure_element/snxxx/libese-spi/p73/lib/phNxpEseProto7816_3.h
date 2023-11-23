@@ -1,6 +1,6 @@
 /******************************************************************************
  *
- *  Copyright 2018-2021 NXP
+ *  Copyright 2018-2022 NXP
  *
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -118,6 +118,14 @@ typedef enum phNxpEseProto7816_TransceiveStates {
 } phNxpEseProto7816_TransceiveStates_t;
 
 /*!
+ * \brief reset type used in 7816-3 stack
+ */
+typedef enum phNxpEseProto7816_ResetType {
+  RESET_TYPE_NONE,
+  RESET_TYPE_RECOVERY
+} phNxpEseProto7816_ResetType_t;
+
+/*!
  * \brief I-frame information structure for ISO 7816-3
  *
  * This structure holds the  information of I-frame used for sending
@@ -232,7 +240,7 @@ typedef struct phNxpEseProto7816_NextTx_Info {
 } phNxpEseProto7816_NextTx_Info_t;
 
 /*!
- * \brief Last sent Tx ransceive data
+ * \brief Last sent Tx transceive data
  *
  * This structure holds the information of the last sent
  * I-frame/R-frame/S-frame
@@ -256,7 +264,7 @@ typedef struct phNxpEseRx_Cntx {
 } phNxpEseRx_Cntx_t;
 
 /*!
- * \brief Proprietery: Secure timer value updates
+ * \brief Proprietary: Secure timer value updates
  *
  * This structure holds the secure timer value
  *
@@ -318,8 +326,8 @@ typedef struct phNxpEseProto7816 {
 /*!
  * \brief 7816-3 protocol stack init params
  *
- * This structure holds the parameters to be passed to open 7816-3 protocl stack
- *instance
+ * This structure holds the parameters to be passed to open 7816-3 protocol
+ *stack instance
  *
  */
 typedef struct phNxpEseProto7816InitParam {
@@ -465,10 +473,6 @@ typedef struct phNxpEseProto7816_PCB_bits {
 /*!
  * \brief APIs exposed from the 7816-3 protocol layer
  */
-#define RESET_TYPE_NONE 0x00
-/*!
- * \brief APIs exposed from the 7816-3 protocol layer
- */
 #define EXTENDED_FRAME_MARKER 0xFF
 /*!
  * \brief APIs exposed from the 7816-3 protocol layer
@@ -494,6 +498,10 @@ typedef struct phNxpEseProto7816_PCB_bits {
  * \brief OS version on SE for SN220
  */
 #define PH_SE_OS_VERSION_20 0x20
+/*!
+ * \brief OS version on SE for SN220
+ */
+#define PH_SE_OS_VERSION_21 0x21
 /*!
  * \brief Default wait extension notification interval
  */

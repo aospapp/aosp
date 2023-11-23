@@ -16,8 +16,10 @@
 
 package com.android.bluetooth.gatt;
 
+import android.bluetooth.BluetoothAssignedNumbers.OrganizationId;
 import android.bluetooth.BluetoothUuid;
 import android.bluetooth.le.ScanFilter;
+import android.bluetooth.le.TransportBlockFilter;
 import android.os.ParcelUuid;
 
 import java.util.Arrays;
@@ -39,12 +41,18 @@ import java.util.UUID;
     public static final int TYPE_LOCAL_NAME = 4;
     public static final int TYPE_MANUFACTURER_DATA = 5;
     public static final int TYPE_SERVICE_DATA = 6;
+    public static final int TYPE_TRANSPORT_DISCOVERY_DATA = 7;
+    public static final int TYPE_ADVERTISING_DATA_TYPE = 8;
 
     // Max length is 31 - 3(flags) - 2 (one byte for length and one byte for type).
     private static final int MAX_LEN_PER_FIELD = 26;
 
     // Values defined in bluedroid.
     private static final byte DEVICE_TYPE_ALL = 2;
+
+    // Meta data type for Transport Block Filter
+    public static final int TYPE_INVALID = 0x00;
+    public static final int TYPE_WIFI_NAN_HASH = 0x01; // WIFI NAN HASH type
 
     class Entry {
         public byte type;
@@ -56,8 +64,14 @@ import java.util.UUID;
         public String name;
         public int company;
         public int company_mask;
+        public int ad_type;
         public byte[] data;
         public byte[] data_mask;
+        public int org_id;
+        public int tds_flags;
+        public int tds_flags_mask;
+        public int meta_data_type;
+        public byte[] meta_data;
     }
 
     private Set<Entry> mEntries = new HashSet<Entry>();
@@ -145,6 +159,29 @@ import java.util.UUID;
         mEntries.add(entry);
     }
 
+    void addTransportDiscoveryData(int orgId, int tdsFlags, int tdsFlagsMask,
+            byte[] transportData, byte[] transportDataMask, int metaDataType, byte[] metaData) {
+        Entry entry = new Entry();
+        entry.type = TYPE_TRANSPORT_DISCOVERY_DATA;
+        entry.org_id = orgId;
+        entry.tds_flags = tdsFlags;
+        entry.tds_flags_mask = tdsFlagsMask;
+        entry.data = transportData;
+        entry.data_mask = transportDataMask;
+        entry.meta_data_type = metaDataType;
+        entry.meta_data = metaData;
+        mEntries.add(entry);
+    }
+
+    void addAdvertisingDataType(int adType, byte[] data, byte[] dataMask) {
+        Entry entry = new Entry();
+        entry.type = TYPE_ADVERTISING_DATA_TYPE;
+        entry.ad_type = adType;
+        entry.data = data;
+        entry.data_mask = dataMask;
+        mEntries.add(entry);
+    }
+
     Entry pop() {
         if (mEntries.isEmpty()) {
             return null;
@@ -225,6 +262,25 @@ import java.util.UUID;
             if (serviceData != null && serviceDataMask != null) {
                 addServiceData(serviceData, serviceDataMask);
             }
+        }
+        if (filter.getAdvertisingDataType() > 0) {
+            addAdvertisingDataType(filter.getAdvertisingDataType(),
+                    filter.getAdvertisingData(), filter.getAdvertisingDataMask());
+        }
+        final TransportBlockFilter transportBlockFilter = filter.getTransportBlockFilter();
+        if (transportBlockFilter != null) {
+            if (transportBlockFilter.getOrgId()
+                    == OrganizationId.WIFI_ALLIANCE_NEIGHBOR_AWARENESS_NETWORKING) {
+                addTransportDiscoveryData(transportBlockFilter.getOrgId(),
+                        transportBlockFilter.getTdsFlags(), transportBlockFilter.getTdsFlagsMask(),
+                        null, null, TYPE_WIFI_NAN_HASH, transportBlockFilter.getWifiNanHash());
+            } else {
+                addTransportDiscoveryData(transportBlockFilter.getOrgId(),
+                        transportBlockFilter.getTdsFlags(), transportBlockFilter.getTdsFlagsMask(),
+                        transportBlockFilter.getTransportData(),
+                        transportBlockFilter.getTransportDataMask(), TYPE_INVALID, null);
+            }
+
         }
     }
 

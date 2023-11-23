@@ -19,6 +19,13 @@
 
     <uses-permission android:name="android.permission.USE_EXACT_ALARM"/>
 
+    <queries>
+        <package android:name="android.alarmmanager.alarmtestapp.cts" />
+        <package android:name="android.alarmmanager.alarmtestapp.cts.sdk30" />
+        <package android:name="android.alarmmanager.alarmtestapp.cts.policy_permission_32" />
+        <package android:name="android.alarmmanager.alarmtestapp.cts.user_permission_32" />
+    </queries>
+
     <application android:label="Cts Alarm Manager Test"
                  android:debuggable="true">
         <!-- Needs to be debuggable to allow overriding compat change ids -->

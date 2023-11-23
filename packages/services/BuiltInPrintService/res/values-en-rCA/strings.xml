@@ -33,11 +33,11 @@
     <string name="waiting_to_send" msgid="2022115199902822180">"Waiting to send"</string>
     <string name="unreadable_input" msgid="2199948329556527912">"Could not read document"</string>
     <string name="media_size_l" msgid="164416542021598181">"L"</string>
-    <string name="media_size_5x7in" msgid="1275128379533195285">"5 x 7 in"</string>
-    <string name="media_size_89x119mm" msgid="6828167243395807385">"89 x 119 mm"</string>
-    <string name="media_size_54x86mm" msgid="1301991206183343895">"54 x 86 mm"</string>
-    <string name="media_size_8x10in" msgid="1872576638522812402">"8 x 10 in"</string>
-    <string name="media_size_4x6in" msgid="3093276425529958253">"4 x 6 in"</string>
+    <string name="media_size_5x7in" msgid="1275128379533195285">"5x7 in"</string>
+    <string name="media_size_89x119mm" msgid="6828167243395807385">"89x119 mm"</string>
+    <string name="media_size_54x86mm" msgid="1301991206183343895">"54x86 mm"</string>
+    <string name="media_size_8x10in" msgid="1872576638522812402">"8x10 in"</string>
+    <string name="media_size_4x6in" msgid="3093276425529958253">"4x6 in"</string>
     <string name="printer_description" msgid="8580767673213837142">"%1$s – %2$s"</string>
     <string name="title_activity_add_printer" msgid="9119216095769228566">"Add printer"</string>
     <string name="add_printer_by_ip" msgid="562864787592910327">"Add printer by IP address"</string>
@@ -60,7 +60,7 @@
     <string name="forget" msgid="892068061425802502">"Forget"</string>
     <string name="connects_via_wifi_direct" msgid="652300632780158437">"Connects via Wi-Fi Direct"</string>
     <string name="connects_via_network" msgid="5990041581556733898">"Connects via current network at <xliff:g id="IP_ADDRESS">%1$s</xliff:g>"</string>
-    <string name="recommendation_summary" msgid="2979700524954307566">"The default print service provides basic options. Other options for this printer may be available from another print service."</string>
+    <string name="recommendation_summary" msgid="2979700524954307566">"The Default Print Service provides basic options. Other options for this printer may be available from another print service."</string>
     <string name="recommendations_heading" msgid="5086762263560605249">"Recommended services"</string>
     <string name="recommendation_install_summary" msgid="374785283809791669">"Select to install"</string>
     <string name="recommendation_enable_summary" msgid="3500907868251326224">"Select to enable"</string>
@@ -71,9 +71,9 @@
     <string name="accept" msgid="4426153292469698134">"Accept"</string>
     <string name="reject" msgid="24751635160440693">"Reject"</string>
     <string name="connections" msgid="8895413761760117180">"Connections"</string>
-    <string name="wifi_direct_problem" msgid="8995174986718516990">"Default print service cannot find Wi-Fi Direct printers"</string>
+    <string name="wifi_direct_problem" msgid="8995174986718516990">"Default Print Service cannot find Wi-Fi Direct printers"</string>
     <string name="disable_wifi_direct" msgid="4824677957241687577">"Disable Wi-Fi Direct"</string>
-    <string name="wifi_direct_permission_rationale" msgid="4671416845852665202">"Default print service needs Nearby devices permission to find nearby printers."</string>
+    <string name="wifi_direct_permission_rationale" msgid="4671416845852665202">"Default Print Service needs nearby devices permission to find nearby printers."</string>
     <string name="fix" msgid="7784394272611365393">"Review permission"</string>
     <string name="print" msgid="7851318072404916362">"Print"</string>
 </resources>

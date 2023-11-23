@@ -74,6 +74,7 @@ public class MockView extends View {
     private boolean mCalledOnResolvePointerIcon = false;
     private boolean mCalledOnVisibilityAggregated = false;
     private boolean mCalledRequestFocus = false;
+    private boolean mCalledPerformHapticFeedback = false;
 
     private int mOldWidth = -1;
     private int mOldHeight = -1;
@@ -658,6 +659,16 @@ public class MockView extends View {
         return mLastAggregatedVisibility;
     }
 
+    public boolean hasCalledPerformHapticFeedback() {
+        return mCalledPerformHapticFeedback;
+    }
+
+    @Override
+    public boolean performHapticFeedback(int feedbackConstant) {
+        mCalledPerformHapticFeedback = true;
+        return super.performHapticFeedback(feedbackConstant);
+    }
+
     public void reset() {
         mCalledOnCreateContextMenu = false;
 
@@ -698,6 +709,7 @@ public class MockView extends View {
         mCalledOnResolvePointerIcon = false;
         mCalledOnVisibilityAggregated = false;
         mCalledRequestFocus = false;
+        mCalledPerformHapticFeedback = false;
 
         mOldWidth = -1;
         mOldHeight = -1;

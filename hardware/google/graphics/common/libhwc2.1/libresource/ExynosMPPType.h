@@ -18,7 +18,13 @@
 #define _EXYNOSMPPTYPE_H
 
 #include <system/graphics.h>
+#include <utils/String8.h>
+
+#include <unordered_map>
+
 #include "DeconHeader.h"
+
+using namespace android;
 
 /*
  * physical types
@@ -28,16 +34,15 @@
 typedef enum {
     MPP_DPP_G = 0,
     MPP_DPP_GF,
+    MPP_DPP_GFS,
     MPP_DPP_VG,
     MPP_DPP_VGS,
     MPP_DPP_VGF,
     MPP_DPP_VGFS,
     MPP_DPP_VGRFS,
-    /* DPP count */
-    /* If you add DPP, You should increase this value */
-    MPP_DPP_NUM = 7,
+    MPP_DPP_NUM,
 
-    MPP_MSC = 7,
+    MPP_MSC,
     MPP_G2D,
     MPP_P_TYPE_MAX
 } mpp_phycal_type_t;
@@ -46,6 +51,7 @@ typedef enum {
 typedef enum {
     MPP_LOGICAL_DPP_G = 0x01,
     MPP_LOGICAL_DPP_GF = 0x02,
+    MPP_LOGICAL_DPP_GFS = 0x03,
     MPP_LOGICAL_DPP_VG = 0x04,
     MPP_LOGICAL_DPP_VGS = 0x08,
     MPP_LOGICAL_DPP_VGF = 0x10,
@@ -60,7 +66,7 @@ typedef enum {
      * Increase MPP_LOGICAL_TYPE_NUM
      * if type is added
      */
-    MPP_LOGICAL_TYPE_NUM = 12
+    MPP_LOGICAL_TYPE_NUM = 13
 } mpp_logical_type_t;
 
 enum {
@@ -79,6 +85,28 @@ enum {
     MPP_ATTR_HDR10                  = 0x00200000,
 
     MPP_ATTR_HDR10PLUS              = 0x10000000,
+};
+
+// Resource TDM (Time-Division Muliplexing)
+typedef enum {
+    TDM_ATTR_SRAM_AMOUNT,
+    TDM_ATTR_AFBC,
+    TDM_ATTR_SBWC,
+    TDM_ATTR_ITP, // CSC //
+    TDM_ATTR_ROT_90,
+    TDM_ATTR_SCALE,
+    TDM_ATTR_WCG,
+    TDM_ATTR_MAX,
+} tdm_attr_t;
+
+const std::unordered_map<tdm_attr_t, String8> HWAttrs = {
+    {TDM_ATTR_SRAM_AMOUNT, String8("SRAM")},
+    {TDM_ATTR_AFBC,        String8("AFBC")},
+    {TDM_ATTR_SBWC,        String8("SBWC")},
+    {TDM_ATTR_ITP,         String8("CSC")}, // CSC //
+    {TDM_ATTR_ROT_90,      String8("ROT")},
+    {TDM_ATTR_SCALE,       String8("SCALE")},
+    {TDM_ATTR_WCG,         String8("WCG")},
 };
 
 typedef struct feature_support_t {
@@ -109,5 +137,20 @@ typedef struct dpp_channel_map {
     uint32_t    idma; // DECON_IDMA
     decon_idma_type channel;
 } dpp_channel_map_t;
+
+/*
+ * pre_assign_info: all display_descriptors that want to reserve
+ */
+struct exynos_mpp_t {
+    int physicalType;
+    int logicalType;
+    char name[16];
+    uint32_t physical_index;
+    uint32_t logical_index;
+    uint32_t pre_assign_info;
+    // For TDM
+    uint32_t hw_block_index;
+    uint32_t axi_port_index;
+};
 
 #endif

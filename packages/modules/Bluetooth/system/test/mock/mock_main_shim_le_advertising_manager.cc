@@ -21,25 +21,23 @@
 
 #include <map>
 #include <string>
-
-extern std::map<std::string, int> mock_function_count_map;
+#include <vector>
 
 #include "btif/include/btif_common.h"
 #include "gd/common/init_flags.h"
 #include "include/hardware/ble_advertiser.h"
 #include "main/shim/le_advertising_manager.h"
 #include "stack/include/ble_advertiser.h"
-
-#include <vector>
+#include "test/common/mock_functions.h"
 
 #ifndef UNUSED_ATTR
 #define UNUSED_ATTR
 #endif
 
 BleAdvertiserInterface* bluetooth::shim::get_ble_advertiser_instance() {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return nullptr;
 }
 void bluetooth::shim::init_advertising_manager() {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
 }

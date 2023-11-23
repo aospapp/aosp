@@ -45,7 +45,6 @@ import android.net.ip.IIpClientCallbacks;
 import android.net.ip.IpClient;
 import android.net.networkstack.aidl.NetworkMonitorParameters;
 import android.net.shared.PrivateDnsConfig;
-import android.net.util.SharedLog;
 import android.os.Build;
 import android.os.HandlerThread;
 import android.os.IBinder;
@@ -60,11 +59,12 @@ import androidx.annotation.VisibleForTesting;
 
 import com.android.internal.annotations.GuardedBy;
 import com.android.internal.util.IndentingPrintWriter;
+import com.android.net.module.util.SharedLog;
 import com.android.networkstack.NetworkStackNotifier;
 import com.android.networkstack.R;
 import com.android.networkstack.apishim.common.ShimUtils;
+import com.android.networkstack.ipmemorystore.IpMemoryStoreService;
 import com.android.server.connectivity.NetworkMonitor;
-import com.android.server.connectivity.ipmemorystore.IpMemoryStoreService;
 import com.android.server.util.PermissionUtil;
 
 import java.io.FileDescriptor;
@@ -421,8 +421,8 @@ public class NetworkStackService extends Service {
             if (cb != null) cb.onStatusAvailable(0);
         }
 
-        @Override
-        protected void dump(@NonNull FileDescriptor fd, @NonNull PrintWriter fout,
+        @Override @VisibleForTesting(otherwise = VisibleForTesting.PROTECTED)
+        public void dump(@NonNull FileDescriptor fd, @NonNull PrintWriter fout,
                 @Nullable String[] args) {
             checkDumpPermission();
 

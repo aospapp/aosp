@@ -26,8 +26,6 @@
 #include <map>
 #include <string>
 
-extern std::map<std::string, int> mock_function_count_map;
-
 // Mock include file to share data between tests and mock
 #include "test/mock/mock_osi_allocator.h"
 
@@ -51,27 +49,27 @@ struct osi_strndup osi_strndup;
 
 // Mocked functions, if any
 void* osi_calloc(size_t size) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return test::mock::osi_allocator::osi_calloc(size);
 }
 void osi_free(void* ptr) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   test::mock::osi_allocator::osi_free(ptr);
 }
 void osi_free_and_reset(void** p_ptr) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   test::mock::osi_allocator::osi_free_and_reset(p_ptr);
 }
 void* osi_malloc(size_t size) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return test::mock::osi_allocator::osi_malloc(size);
 }
 char* osi_strdup(const char* str) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return test::mock::osi_allocator::osi_strdup(str);
 }
 char* osi_strndup(const char* str, size_t len) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return test::mock::osi_allocator::osi_strndup(str, len);
 }
 // Mocked functions complete

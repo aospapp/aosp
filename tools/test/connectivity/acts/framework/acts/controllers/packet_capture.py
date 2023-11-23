@@ -28,7 +28,6 @@ from acts.libs.logging import log_stream
 from acts.libs.proc.process import Process
 from acts import asserts
 
-import logging
 import os
 import threading
 import time
@@ -71,6 +70,7 @@ class PcapProperties(object):
         pcap_fname: File name of the tcpdump output file
         pcap_file: File object for the tcpdump output file
     """
+
     def __init__(self, proc, pcap_fname, pcap_file):
         """Initialize object."""
         self.proc = proc
@@ -93,6 +93,7 @@ class PacketCapture(object):
         pcap_properties: dict that specifies packet capture properties for a
             band.
     """
+
     def __init__(self, configs):
         """Initialize objects.
 
@@ -122,22 +123,25 @@ class PacketCapture(object):
         Create mon0/mon1 for 2G/5G monitor mode and wlan2 for managed mode.
         """
         if mode == 'monitor':
-            self.ssh.run('ifconfig wlan%s down' % iface[-1], ignore_status=True)
+            self.ssh.run('ifconfig wlan%s down' % iface[-1],
+                         ignore_status=True)
         self.ssh.run('iw dev %s del' % iface, ignore_status=True)
-        self.ssh.run('iw phy%s interface add %s type %s'
-                     % (iface[-1], iface, mode), ignore_status=True)
+        self.ssh.run('iw phy%s interface add %s type %s' %
+                     (iface[-1], iface, mode),
+                     ignore_status=True)
         self.ssh.run('ip link set %s up' % iface, ignore_status=True)
         result = self.ssh.run('iw dev %s info' % iface, ignore_status=True)
         if result.stderr or iface not in result.stdout:
-            raise PacketCaptureError('Failed to configure interface %s' % iface)
+            raise PacketCaptureError('Failed to configure interface %s' %
+                                     iface)
 
     def _cleanup_interface(self, iface):
         """Clean up monitor mode interfaces."""
         self.ssh.run('iw dev %s del' % iface, ignore_status=True)
         result = self.ssh.run('iw dev %s info' % iface, ignore_status=True)
         if not result.stderr or 'No such device' not in result.stderr:
-            raise PacketCaptureError('Failed to cleanup monitor mode for %s'
-                                     % iface)
+            raise PacketCaptureError('Failed to cleanup monitor mode for %s' %
+                                     iface)
 
     def _parse_scan_results(self, scan_result):
         """Parses the scan dump output and returns list of dictionaries.
@@ -225,8 +229,8 @@ class PacketCapture(object):
 
         iface = BAND_IFACE[band]
         if bandwidth == 20:
-            self.ssh.run('iw dev %s set channel %s' %
-                         (iface, channel), ignore_status=True)
+            self.ssh.run('iw dev %s set channel %s' % (iface, channel),
+                         ignore_status=True)
         else:
             center_freq = None
             for i, j in CENTER_CHANNEL_MAP[VHT_CHANNEL[bandwidth]]["channels"]:
@@ -235,9 +239,10 @@ class PacketCapture(object):
                     break
             asserts.assert_true(center_freq,
                                 "No match channel in VHT channel list.")
-            self.ssh.run('iw dev %s set freq %s %s %s' %
-                (iface, FREQUENCY_MAP[channel],
-                bandwidth, center_freq), ignore_status=True)
+            self.ssh.run(
+                'iw dev %s set freq %s %s %s' %
+                (iface, FREQUENCY_MAP[channel], bandwidth, center_freq),
+                ignore_status=True)
 
         result = self.ssh.run('iw dev %s info' % iface, ignore_status=True)
         if result.stderr or 'channel %s' % channel not in result.stdout:
@@ -269,11 +274,13 @@ class PacketCapture(object):
         pcap_file = open(pcap_fname, 'w+b')
 
         tcpdump_cmd = 'tcpdump -i %s -w - -U 2>/dev/null' % (BAND_IFACE[band])
-        cmd = formatter.SshFormatter().format_command(
-            tcpdump_cmd, None, self.ssh_settings, extra_flags={'-q': None})
+        cmd = formatter.SshFormatter().format_command(tcpdump_cmd,
+                                                      None,
+                                                      self.ssh_settings,
+                                                      extra_flags={'-q': None})
         pcap_proc = Process(cmd)
-        pcap_proc.set_on_output_callback(
-            lambda msg: pcap_file.write(msg), binary=True)
+        pcap_proc.set_on_output_callback(lambda msg: pcap_file.write(msg),
+                                         binary=True)
         pcap_proc.start()
 
         self.pcap_properties[band] = PcapProperties(pcap_proc, pcap_fname,

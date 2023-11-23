@@ -12,9 +12,7 @@
 //
 
 #define __STDC_LIMIT_MACROS
-#ifndef __STDC_CONSTANT_MACROS
 #define __STDC_CONSTANT_MACROS
-#endif
 
 #include <stdio.h>
 #include <time.h>
@@ -143,7 +141,7 @@ void GUIDData::Zero(void) {
 void GUIDData::Randomize(void) {
    int i, uuidGenerated = 0;
 
-#ifdef _UUID_UUID_H
+#if defined (_UUID_UUID_H) || defined (_UL_LIBUUID_UUID_H)
    uuid_generate(uuidData);
    ReverseBytes(&uuidData[0], 4);
    ReverseBytes(&uuidData[4], 2);

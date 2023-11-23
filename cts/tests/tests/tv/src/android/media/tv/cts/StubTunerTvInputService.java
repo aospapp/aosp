@@ -22,6 +22,7 @@ import android.content.Context;
 import android.database.Cursor;
 import android.graphics.Canvas;
 import android.graphics.Color;
+import android.media.AudioPresentation;
 import android.media.tv.TvContract;
 import android.media.tv.TvInputInfo;
 import android.media.tv.TvInputManager;
@@ -35,6 +36,9 @@ import java.util.Arrays;
 import java.util.List;
 
 public class StubTunerTvInputService extends TvInputService {
+    public static final AudioPresentation TEST_AUDIO_PRESENTATION =
+            new AudioPresentation.Builder(1).setProgramId(123).build();
+
     private static final List<TvTrackInfo> mTrackList = new ArrayList<>();
 
     public static void clearTracks() {
@@ -158,6 +162,7 @@ public class StubTunerTvInputService extends TvInputService {
                 }
             }
             notifyVideoAvailable();
+            notifyAudioPresentationChanged(Arrays.asList(TEST_AUDIO_PRESENTATION));
             return true;
         }
 

@@ -17,10 +17,12 @@
 #include "chre/platform/shared/platform_pal.h"
 
 #include "chre/platform/slpi/power_control_util.h"
+#include "chre/util/macros.h"
 
 namespace chre {
 
-void PlatformPal::prePalApiCall() const {
+void PlatformPal::prePalApiCall(PalType palType) const {
+  UNUSED_VAR(palType);
   slpiForceBigImage();
 }
 

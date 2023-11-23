@@ -866,5 +866,20 @@
     [
         "RenderbufferStorageMultisampleEXT",
         "FramebufferTexture2DMultisampleEXT"
+    ],
+
+    "GL_EXT_polygon_offset_clamp":
+    [
+        "PolygonOffsetClampEXT"
+    ],
+
+    "GL_EXT_shader_framebuffer_fetch_non_coherent":
+    [
+        "FramebufferFetchBarrierEXT"
+    ],
+
+    "GL_MESA_framebuffer_flip_y":
+    [
+        "FramebufferParameteriMESA"
     ]
 }

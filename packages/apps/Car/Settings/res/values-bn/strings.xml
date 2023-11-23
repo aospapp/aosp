@@ -24,14 +24,13 @@
     <string name="auto_brightness_title" msgid="9124647862844666581">"অভিযোজিত উজ্জ্বলতা"</string>
     <string name="auto_brightness_summary" msgid="2002570577219479702">"পরিবেশ অনুযায়ী স্ক্রিনের উজ্জ্বলতা অ্যাডজাস্ট করুন"</string>
     <string name="condition_night_display_title" msgid="3777509730126972675">"নাইট লাইট চালু আছে"</string>
-    <string name="night_mode_tile_label" msgid="6603597795502131664">"রাতের মোড"</string>
     <string name="network_and_internet" msgid="4229023630498537530">"নেটওয়ার্ক এবং ইন্টারনেট"</string>
     <string name="mobile_network_settings" msgid="1708621113321368597">"মোবাইল নেটওয়ার্ক"</string>
     <string name="mobile_network_summary_count" msgid="760865625847664029">"{count,plural, =1{#টি সিম কার্ড}one{#টি সিম কার্ড}other{#টি সিম কার্ড}}"</string>
     <string name="mobile_network_active_sim" msgid="1901674954229832811">"অ্যাক্টিভ / সিম"</string>
     <string name="mobile_network_inactive_sim" msgid="3644984830926224318">"অ্যাক্টিভ নয় এমন / সিম"</string>
-    <string name="mobile_network_active_esim" msgid="5864100786496761032">"অ্যাক্টিভ / ডাউনলোড করা সিম"</string>
-    <string name="mobile_network_inactive_esim" msgid="1397332352238119032">"অ্যাক্টিভ নয় এমন / ডাউনলোড করা সিম"</string>
+    <string name="mobile_network_active_esim" msgid="5175362818078597096">"অ্যাক্টিভ / ই-সিম"</string>
+    <string name="mobile_network_inactive_esim" msgid="7273712403773327964">"ইনঅ্যাক্টিভ / ই-সিম"</string>
     <string name="mobile_network_list_add_more" msgid="6174294462747070655">"আরও যোগ করুন"</string>
     <string name="mobile_network_toggle_title" msgid="3515647310810280063">"মোবাইল ডেটা"</string>
     <string name="mobile_network_toggle_summary" msgid="8698267487987697148">"মোবাইল নেটওয়ার্ক ব্যবহার করে ডেটা অ্যাক্সেস করুন"</string>
@@ -177,8 +176,9 @@
     <string name="network_connection_request_dialog_showall" msgid="776613149566461487">"সব দেখুন"</string>
     <string name="progress_scanning" msgid="7191583064717479795">"সার্চ করা হচ্ছে"</string>
     <string name="bluetooth_settings_title" msgid="3794688574569688649">"ব্লুটুথ"</string>
+    <string name="bluetooth_toggle_title" msgid="1431803611346881088">"ব্লুটুথ ব্যবহার করুন"</string>
     <string name="bluetooth_device" msgid="3178478829314083240">"নামবিহীন ডিভাইস"</string>
-    <string name="bluetooth_paired_devices" msgid="6463199569164652410">"পেয়ার করা ডিভাইসগুলি"</string>
+    <string name="bluetooth_paired_devices" msgid="6463199569164652410">"পেয়ার করা ডিভাইস"</string>
     <string name="bluetooth_pair_new_device" msgid="6948753485443263095">"নতুন ডিভাইস পেয়ার করুন"</string>
     <string name="bluetooth_pair_new_device_summary" msgid="2497221247690369031">"পেয়ার করার জন্য ব্লুটুথ চালু হবে"</string>
     <string name="bluetooth_disconnect_title" msgid="7675271355910637528">"ডিভাইস ডিসকানেক্ট করতে চান?"</string>
@@ -221,6 +221,9 @@
     <string name="bluetooth_notif_title" msgid="8374602799367803335">"পেয়ার করার অনুরোধ"</string>
     <string name="bluetooth_notif_message" msgid="1060821000510108726">"<xliff:g id="DEVICE_NAME">%1$s</xliff:g> এর সঙ্গে পেয়ার করতে ট্যাপ করুন।"</string>
     <string name="bluetooth_device_picker" msgid="673238198452345475">"ব্লুটুথ ডিভাইস বেছে নিন"</string>
+    <string name="bluetooth_bonded_bluetooth_toggle_content_description" msgid="6800772154405846597">"ব্লুটুথ"</string>
+    <string name="bluetooth_bonded_phone_toggle_content_description" msgid="8152794643249938377">"ফোন করুন"</string>
+    <string name="bluetooth_bonded_media_toggle_content_description" msgid="7803420585378155404">"মিডিয়া"</string>
     <string name="language_settings" msgid="2079258598337245546">"ভাষা"</string>
     <string name="languages_and_input_settings" msgid="3672322610529408248">"ভাষাগুলি ও ইনপুট"</string>
     <string name="language_picker_list_suggested_header" msgid="7593893806003415948">"সাজেস্ট করা হয়েছে"</string>
@@ -300,14 +303,16 @@
     <string name="apps_and_notifications_settings" msgid="8704585874333781975">"অ্যাপ ও বিজ্ঞপ্তি"</string>
     <string name="all_applications" msgid="7798210477486822168">"সব অ্যাপ দেখুন"</string>
     <string name="default_applications" msgid="1558183275638697087">"ডিফল্ট অ্যাপ"</string>
+    <string name="performance_impacting_apps" msgid="3439260699394720569">"পারফর্ম্যান্স প্রভাবিত করে এমন অ্যাপ"</string>
     <string name="app_permissions" msgid="32799922508313948">"অ্যাপের অনুমতি"</string>
     <string name="app_permissions_summary" msgid="5402214755935368418">"আপনার ডেটায় অ্যাপের অ্যাক্সেস কন্ট্রোল করুন"</string>
     <string name="applications_settings" msgid="794261395191035632">"অ্যাপের তথ্য"</string>
-    <string name="force_stop" msgid="2153183697014720520">"জোর করে বন্ধ করুন"</string>
-    <string name="force_stop_dialog_title" msgid="3342850939200388694">"জোর করে বন্ধ করবেন?"</string>
+    <string name="force_stop" msgid="1616958676171167028">"অ্যাপ বন্ধ করুন"</string>
+    <string name="force_stop_dialog_title" msgid="4481858344628934971">"অ্যাপ বন্ধ করবেন?"</string>
     <string name="force_stop_dialog_text" msgid="4354954014318432599">"আপনি একটি অ্যাপকে জোর করে বন্ধ করলে, তা সঠিক ভাবে কাজ নাও করতে পারে।"</string>
-    <string name="prioritize_app_performance_dialog_title" msgid="2561577032540073080">"\'অ্যাপ পারফর্ম্যান্সে অগ্রাধিকার দিন\' বিকল্প চালু করবেন?"</string>
-    <string name="prioritize_app_performance_dialog_text" msgid="572525689800110355">"এটা চালু করা হলে সিস্টেম অস্থিতিশীল হওয়ার অথবা হার্ডওয়্যারে দীর্ঘমেয়াদী প্রভাব পড়ার সম্ভাবনা রয়েছে। আপনি কি চালিয়ে যেতে চান?"</string>
+    <string name="force_stop_success_toast_text" msgid="2986272849275894254">"<xliff:g id="APP_NAME">%1$s</xliff:g> বন্ধ করা হয়েছে।"</string>
+    <string name="prioritize_app_performance_dialog_title" msgid="3205297520523665568">"অ্যাপ পারফর্ম্যান্সকে অগ্রাধিকার দেবেন?"</string>
+    <string name="prioritize_app_performance_dialog_text" msgid="4321564728229192878">"এর ফলে সিস্টেমের সম্ভাব্য ক্ষতি হতে পারে বা হার্ডওয়্যারের উপরে দীর্ঘমেয়াদি প্রভাব পড়তে পারে। আপনি কি এগিয়ে যেতে চান?"</string>
     <string name="prioritize_app_performance_dialog_action_on" msgid="3556735049873419163">"হ্যাঁ"</string>
     <string name="prioritize_app_performance_dialog_action_off" msgid="2813324718753199319">"না, থাক"</string>
     <string name="disable_text" msgid="4358165448648990820">"বন্ধ করুন"</string>
@@ -378,6 +383,7 @@
     <string name="apps_permission_manager_title" msgid="8776335943862484131">"অনুমতি ম্যানেজার"</string>
     <string name="apps_permission_manager_summary" msgid="4180424218228141274">"আপনার ডেটায় অ্যাপের অ্যাক্সেস কন্ট্রোল করুন"</string>
     <string name="apps_default_apps_summary" msgid="2017792579839972926">"Assistant এবং আরও অনেক কিছুর জন্য"</string>
+    <string name="performance_impacting_apps_summary" msgid="7762122057244111162">"{count,plural, =1{#টি অ্যাপ পারফর্ম্যান্স প্রভাবিত করছে}one{#টি অ্যাপ পারফর্ম্যান্স প্রভাবিত করছে}other{#টি অ্যাপ পারফর্ম্যান্স প্রভাবিত করছে}}"</string>
     <string name="apps_special_app_access_summary" msgid="6464767436309742163">"সিস্টেম এবং অন্যান্য সেটিংসের জন্য"</string>
     <string name="special_access" msgid="5730278220917123811">"অ্যাপের বিশেষ অ্যাক্সেস"</string>
     <string name="show_system" msgid="4401355756969485287">"সিস্টেম অ্যাপ দেখুন"</string>
@@ -391,6 +397,8 @@
     <string name="notification_listener_revoke_warning_summary" msgid="4904973394539125407">"আপনি যদি <xliff:g id="NOTIFICATION_LISTENER_NAME">%1$s</xliff:g>-এর জন্য বিজ্ঞপ্তির অ্যাক্সেস বন্ধ করেন, তাহলে \'বিরক্ত করবে না\' এর অ্যাক্সেসও বন্ধ হয়ে যেতে পারে।"</string>
     <string name="notification_listener_revoke_warning_confirm" msgid="2759583507454984812">"বন্ধ করুন"</string>
     <string name="notification_listener_revoke_warning_cancel" msgid="4399941651358241154">"বাতিল করুন"</string>
+    <string name="performance_impacting_apps_description" msgid="7361464904617808444">"এইসব অ্যাপ সিস্টেম পারফর্ম্যান্সের উপরে নেতিবাচক প্রভাব ফেলে এবং ব্যাকগ্রাউন্ডে রান করা থেকে এগুলিকে আটকানো হয়েছে।\nব্যাকগ্রাউন্ডে চলার জন্য অ্যাপকে অগ্রাধিকার দিন ও এই তালিকা থেকে সেটি সরিয়ে দিন।"</string>
+    <string name="performance_impacting_apps_button_label" msgid="8277507326717608783">"অ্যাপকে অগ্রাধিকার দিন"</string>
     <string name="premium_sms_access_title" msgid="1409118461646148686">"প্রিমিয়াম এসএমএস অ্যাক্সেস"</string>
     <string name="premium_sms_access_description" msgid="7119026067677052169">"প্রিমিয়াম এসএমএসের জন্য অর্থ খরচ হতে পারে এবং আপনার পরিষেবা প্রদানকারীর বিলে যোগ করা হবে৷ আপনি যদি কোনও অ্যাপের জন্য অনুমতি চালু করেন তাহলে আপনি সেই অ্যাপ ব্যবহার করে প্রিমিয়াম এসএমএস পাঠাতে পারবেন।"</string>
     <string name="usage_access_title" msgid="7153427122072303254">"ব্যবহারের তথ্যে অ্যাক্সেস"</string>
@@ -401,22 +409,27 @@
     <string name="location_settings_title" msgid="901334356682423679">"লোকেশন"</string>
     <string name="location_toggle_title" msgid="836779750812064601">"লোকেশন ব্যবহার করুন"</string>
     <string name="location_toggle_summary" msgid="7977868708102299495">"আপনার নির্দিষ্ট করা অ্যাপকে লোকেশন অ্যাক্সেস করার অনুমতি দিন"</string>
-    <string name="location_toggle_off_warning" msgid="8396854289251143748">"এটি বন্ধ করে দিলে, কোনও অ্যাপই লোকেশন অ্যাক্সেস করতে পারবে না। ড্রাইভার অ্যাসিস্ট্যান্স অ্যাপ এখনও অ্যাক্সেস করতে পারবে।"</string>
-    <string name="location_driver_assistance_toggle_title" msgid="9201622805420459957">"\'ড্রাইভার অ্যাসিস্ট্যান্স\'-এর জন্য লোকেশন ব্যবহার করুন"</string>
+    <string name="location_toggle_off_warning" msgid="5959449346865136081">"আপনি এটি বন্ধ করলে, \'ড্রাইভার অ্যাসিস্ট্যান্স\'-এর জন্য প্রয়োজনীয় অ্যাপ বাদে বাকি সব অ্যাপের ক্ষেত্রে লোকেশন অ্যাক্সেস সংক্রান্ত অনুমতি এটি সরিয়ে দেবে"</string>
+    <string name="location_driver_assistance_toggle_title" msgid="3780157378527924932">"\'ড্রাইভার অ্যাসিস্ট্যান্স\'-এর জন্য লোকেশন ব্যবহার করুন"</string>
     <string name="location_driver_assistance_toggle_off_title" msgid="2218532550578204718">"গাড়ির লোকেশন বন্ধ করা আছে"</string>
-    <string name="location_driver_assistance_toggle_off_summary" msgid="1516786816178866919">"\'ড্রাইভার অ্যাসিস্ট্যান্স\' থাকা অ্যাপের লোকেশনে অ্যাক্সেস নেই"</string>
+    <string name="location_driver_assistance_toggle_off_summary" msgid="6040822988891113026">"ড্রাইভার অ্যাসিস্ট্যান্স সুবিধাযুক্ত অ্যাপ আপনার লোকেশন অ্যাক্সেস করতে পারবে না"</string>
     <string name="location_driver_assistance_action_text" msgid="1887309495010247883">"পরিবর্তন করুন"</string>
     <string name="location_driver_assistance_toggle_summary" msgid="2732591196508054649">"এমন অ্যাপে অনুমতি দিন যা লোকেশন অ্যাক্সেস করে আপনাকে গাড়ি চালানোয় সাহায্য করে"</string>
-    <string name="location_driver_assistance_toggle_off_warning" msgid="8097738968253492982">"আপনি এটি বন্ধ করলে, লোকেশন সংক্রান্ত তথ্যের উপরে নির্ভর করে থাকা সব ড্রাইভার অ্যাসিস্ট্যান্স অ্যাপ বন্ধ হয়ে যাবে।"</string>
+    <string name="location_driver_assistance_toggle_off_warning" msgid="2733124752598498356">"আপনি এটি বন্ধ করলে, লোকেশন সংক্রান্ত তথ্যের উপরে নির্ভর করে কাজ করা ড্রাইভার অ্যাসিস্ট্যান্স অ্যাপ বন্ধ হয়ে যাবে"</string>
     <string name="driver_assistance_warning_confirm_label" msgid="2873799611160864931">"যাইহোক বন্ধ করুন"</string>
-    <string name="location_settings_recent_requests_title" msgid="6345634382240930628">"সাম্প্রতিক লোকেশনের অনুরোধ"</string>
-    <string name="location_settings_recent_requests_empty_message" msgid="7789667070033674910">"কোনও সাম্প্রতিক লোকেশনের অনুরোধ নেই"</string>
+    <string name="location_recently_accessed" msgid="522888989582110975">"সম্প্রতি অ্যাক্সেস করা হয়েছে"</string>
+    <string name="location_settings_recently_accessed_title" msgid="6016264778609426382">"সম্প্রতি অ্যাক্সেস করা হয়েছে"</string>
+    <string name="location_settings_recently_accessed_view_all_title" msgid="6344830628885781448">"সব দেখুন"</string>
+    <string name="location_no_recent_access" msgid="2859914321242257931">"কোনও সাম্প্রতিক অ্যাপ নেই"</string>
+    <string name="driver_assistance_label" msgid="9217315205754658940">"<xliff:g id="TIME">%1$s</xliff:g> • ড্রাইভার অ্যাসিস্ট্যান্স"</string>
+    <string name="location_driver_assistance_privacy_policy_header_content" msgid="8118086439003674350">"\'ড্রাইভার অ্যাসিস্ট্যান্স\' ফিচারের জন্য এই গাড়ির লোকেশন অ্যাক্সেসের অনুমতি রয়েছে এমন অ্যাপ"</string>
+    <string name="location_driver_assistance_privacy_policy_button_text" msgid="669921557502414704">"গোপনীয়তা নীতি"</string>
     <string name="location_settings_app_permissions_title" msgid="6446735313354321564">"অ্যাপ-লেবেল অনুমতি"</string>
     <string name="location_settings_services_title" msgid="1186133632690970468">"লোকেশন পরিষেবা"</string>
     <string name="location_use_location_title" msgid="117735895374606680">"লোকেশন ব্যবহার করুন"</string>
     <string name="location_settings_footer" msgid="296892848338100051">"আপনি কোথায় আছেন তা জানতে \'লোকেশন\' সেটিংস আপনার মোবাইলের জিপিএস, ওয়াই-ফাই, মোবাইল নেটওয়ার্ক ও সেন্সর ব্যবহার করতে পারে।"</string>
     <string name="driver_assistance_settings_title" msgid="4915804073177128915">"\'ড্রাইভার অ্যাসিস্ট্যান্স\'"</string>
-    <string name="adas_settings_footer" msgid="5128483877858058534">"\'ড্রাইভার অ্যাসিস্ট্যান্স\' ফিচার থাকা অ্যাপে পাঠানো লোকেশন সম্পর্কিত তথ্যে এমন কোনও তথ্য থাকে না, যা দিয়ে আপনাকে শনাক্ত করা যায়। সর্বাধিক ২ দিন সেভ থাকার পরে এটি মুছে যায়।"</string>
+    <string name="adas_settings_footer" msgid="6697021691244459156">"ড্রাইভার অ্যাসিস্ট্যান্স সুবিধাযুক্ত অ্যাপে পাঠানো লোকেশন সম্পর্কিত তথ্যে, আপনাকে শনাক্ত করা যায় এমন কোনও তথ্য থাকে না। মুছে ফেলার আগে এটি সর্বাধিক ২ দিনের জন্য সেভ করে রাখা হয়।"</string>
     <string name="microphone_settings_title" msgid="7125554350537136922">"মাইক্রোফোন"</string>
     <string name="microphone_toggle_title" msgid="911586035332827275">"মাইক্রোফোন ব্যবহার করুন"</string>
     <string name="microphone_toggle_summary" msgid="2682653449849128626">"সব অ্যাপকে আপনার মাইক্রোফোন ব্যবহার করার অনুমতি দিন"</string>
@@ -432,6 +445,9 @@
     <string name="system_update_settings_title" msgid="8448588267784138855">"সিস্টেম আপডেট"</string>
     <string name="system_advanced_title" msgid="6303355131691523362">"উন্নত"</string>
     <string name="system_advanced_summary" msgid="5833643795981791953">"এই বিষয়ে, আইন সংক্রান্ত তথ্য, রিসেট করা এবং আরও অনেক কিছু"</string>
+    <string name="restart_infotainment_system_title" msgid="5174129167446756511">"ইনফোটেইনমেন্ট সিস্টেম রিস্টার্ট করুন"</string>
+    <string name="restart_infotainment_system_dialog_text" msgid="6395281407323116808">"আপনার গাড়ির ইনফোটেইনমেন্ট সিস্টেম রিস্টার্ট করতে কয়েক মিনিট সময় লাগতে পারে। আপনি কি চালিয়ে যেতে চান?"</string>
+    <string name="continue_confirmation" msgid="1598892163951467191">"এগিয়ে যান"</string>
     <string name="firmware_version" msgid="8491753744549309333">"Android ভার্সন"</string>
     <string name="security_patch" msgid="4794276590178386903">"Android সুরক্ষার প্যাচ লেবেল"</string>
     <string name="hardware_info" msgid="3973165746261507658">"মডেল ও হার্ডওয়্যার"</string>
@@ -472,11 +488,11 @@
     <string name="developer_options_settings" msgid="1530739225109118480">"ডেভেলপারের জন্য বিকল্প"</string>
     <string name="reset_options_title" msgid="4388902952861833420">"রিসেট করার বিকল্প"</string>
     <string name="reset_options_summary" msgid="5508201367420359293">"নেটওয়ার্ক, অ্যাপ অথবা ডিভাইস রিসেট"</string>
-    <string name="reset_network_title" msgid="1284233059990797263">"নেটওয়ার্ক রিসেট করুন"</string>
-    <string name="reset_network_desc" msgid="602381374544634925">"এর ফলে সমস্ত নেটওয়ার্ক সেটিংস রিসেট করা হবে, এগুলি সহ:"</string>
-    <string name="reset_network_item_wifi" msgid="7569481589699982698"><li>"ওয়াই-ফাই"</li></string>
+    <string name="reset_network_title" msgid="3077846909739832734">"ওয়াই-ফাই ও ব্লুটুথ রিসেট করুন"</string>
+    <string name="reset_network_desc" msgid="3332203703135823033">"এর ফলে ওয়াই-ফাই ও ব্লুটুথ সেটিংস রিসেট হয়ে যাবে, আগে থেকে কানেক্ট থাকা মেমরি সরানো হচ্ছে:"</string>
+    <string name="reset_network_item_wifi" msgid="2876370861806060314"><li>"ওয়াই-ফাই নেটওয়ার্ক ও পাসওয়ার্ড"</li></string>
     <string name="reset_network_item_mobile" msgid="5747282716664480997"><li>"মোবাইল ডেটা"</li></string>
-    <string name="reset_network_item_bluetooth" msgid="6035019931106921284"><li>"ব্লুটুথ"</li></string>
+    <string name="reset_network_item_bluetooth" msgid="7475279871421815601"><li>"ফোন ও অন্যান্য ব্লুটুথ ডিভাইস"</li></string>
     <string name="reset_esim_title" msgid="8132107637911831211">"সব গাড়ির ই-সিম মুছে ফেলুন"</string>
     <string name="reset_esim_desc" msgid="1437276625485586740">"এতে আপনার এর পরিষেবার প্ল্যান বাতিল হবে না।"</string>
     <string name="reset_esim_error_title" msgid="7245109418130525492">"ই-সিমগুলি রিসেট করা যাচ্ছে না"</string>
@@ -574,7 +590,7 @@
     <string name="storage_clear_user_data_text" msgid="8787615136779130680">"স্টোরেজ মুছুন"</string>
     <string name="storage_clear_cache_btn_text" msgid="8449547925966775612">"ক্যাশ মুছুন"</string>
     <string name="storage_clear_data_dlg_title" msgid="5863775997588969879">"অ্যাপ ডেটা মুছতে চান?"</string>
-    <string name="storage_clear_data_dlg_text" msgid="795055288575727801">"এই অ্যাপের সমস্ত ডেটা স্থায়ীভাবে মুছে যাবে। সমস্ত ফাইল, সেটিংস, অ্যাকাউন্ট, ডেটাবেস ইত্যাদি সবই।"</string>
+    <string name="storage_clear_data_dlg_text" msgid="3255314337644212283">"এই অ্যাপের ডেটা স্থায়ীভাবে মুছে ফেলা হবে। ফাইল, সেটিংস, ডেটাবেস এবং অন্যান্য অ্যাপ ডেটা এর মধ্যে অন্তর্ভুক্ত।"</string>
     <string name="storage_clear_failed_dlg_text" msgid="6710485971686866306">"অ্যাপের জন্য স্টোরেজ মোছা যায়নি।"</string>
     <string name="storage_unmount_success" msgid="1553591517580407021">"<xliff:g id="NAME">%1$s</xliff:g>-কে নিরাপদে সরিয়ে দেওয়া হয়েছে"</string>
     <string name="storage_unmount_failure" msgid="4591934911541762883">"<xliff:g id="NAME">%1$s</xliff:g>-কে নিরাপদে সরানো যায়নি"</string>
@@ -675,6 +691,7 @@
     <string name="lockpassword_cancel_label" msgid="5791237697404166450">"বাতিল করুন"</string>
     <string name="lockpassword_confirm_label" msgid="5918463281546146953">"নিশ্চিত করুন"</string>
     <string name="choose_lock_password_hints" msgid="3903696950202491593">"কমপক্ষে ৪টি অক্ষর থাকা আবশ্যক"</string>
+    <string name="locktype_unavailable" msgid="2678317466336249126">"এই ধরনের লক উপলভ্য নয়।"</string>
     <string name="lockpassword_pin_contains_non_digits" msgid="3044526271686839923">"শুধুমাত্র ০-৯ এর মতো সংখ্যা থাকতে পারে।"</string>
     <string name="lockpassword_pin_recently_used" msgid="7901918311213276207">"ডিভাইস অ্যাডমিন একটি সাম্প্রতিক পিন ব্যবহার করতে দেয় না"</string>
     <string name="lockpassword_pin_denylisted_by_admin" msgid="3752574009492336468">"আপনার আইটি অ্যাডমিন একই ধরনের পিন ব্লক করে দেয়। অন্য একটি পিন ব্যবহার করে চেষ্টা করুন।"</string>
@@ -699,7 +716,6 @@
     <string name="lockpassword_pin_too_long" msgid="8315542764465856288">"{count,plural, =1{অবশ্যই #টি সংখ্যার কম হতে হবে}one{অবশ্যই #টি সংখ্যার কম হতে হবে}other{অবশ্যই #টি সংখ্যার কম হতে হবে}}"</string>
     <string name="lockpassword_pin_no_sequential_digits" msgid="6511579896796310956">"সংখ্যাগুলি ছোট থেকে বড় ক্রমে, বড় থেকে ছোট ক্রমে বা একই সংখ্যাকে বার বার লেখা যাবে না"</string>
     <string name="setup_lock_settings_options_button_label" msgid="3337845811029780896">"স্ক্রিন লকের বিকল্প"</string>
-    <string name="build_info_fmt" msgid="5592554123908086426">"<xliff:g id="FINGERPRINT">%1$s</xliff:g>\n<xliff:g id="DATE">%2$s</xliff:g> : <xliff:g id="NUM_DAYS">%3$s</xliff:g> দিন আগে"</string>
     <string name="credentials_reset" msgid="873900550885788639">"ক্রেডেনশিয়াল মুছে ফেলুন"</string>
     <string name="credentials_reset_summary" msgid="6067911547500459637">"সব সার্টিফিকেট সরান"</string>
     <string name="credentials_reset_hint" msgid="3459271621754137661">"সমস্ত কন্টেন্ট সরাতে চান?"</string>
@@ -722,6 +738,8 @@
     <string name="exit_retail_mode_dialog_confirmation_button_text" msgid="3147249675355968649">"ডেমো মোড ছেড়ে যান"</string>
     <string name="suggestion_dismiss_button" msgid="4539412646977050641">"খারিজ করুন"</string>
     <string name="restricted_while_driving" msgid="6587569249519274524">"ড্রাইভ করার সময় এই ফিচার কাজ করবে না"</string>
+    <string name="restricted_for_passenger" msgid="7240117443887727753">"সেটিং পরিবর্তন করতে ড্রাইভারকে অনুরোধ করুন"</string>
+    <string name="restricted_for_driver" msgid="3364388937671526800">"আপনি এই অ্যাকশন পারফর্ম করতে পারবেন না"</string>
     <string name="add_user_restricted_while_driving" msgid="1037301074725362944">"ড্রাইভ করার সময় প্রোফাইল যোগ করতে পারবেন না"</string>
     <string name="default_search_query" msgid="3137420627428857068">"সার্চ"</string>
     <string name="assistant_and_voice_setting_title" msgid="737733881661819853">"Assistant ও ভয়েস"</string>
@@ -737,6 +755,7 @@
     <string name="add_a_profile_button_text" msgid="8027395095117925114">"প্রোফাইল যোগ করুন"</string>
     <string name="delete_this_profile_text" msgid="6035404714526922665">"এই প্রোফাইল মুছুন"</string>
     <string name="add_profile_text" msgid="9118410102199116969">"প্রোফাইল যোগ করুন"</string>
+    <string name="cannot_remove_driver_profile" msgid="4109363161608717969">"প্রোফাইলে এখন ড্রাইভার হিসেবে সাইন-ইন করা আছে। ড্রাইভার হিসেবে প্রোফাইল ব্যবহার না করলে আবার চেষ্টা করুন।"</string>
     <string name="qc_display_brightness" msgid="2939655289816201170">"ডিসপ্লের উজ্জ্বলতা"</string>
     <string name="qc_bluetooth_off_devices_info" msgid="8420985279976892700">"আপনার ডিভাইস দেখার জন্য, ব্লুটুথ চালু করুন"</string>
     <string name="qc_bluetooth_on_no_devices_info" msgid="7573736950041887300">"ডিভাইস পেয়ার করার জন্য, ব্লুটুথ সেটিংস খুলুন"</string>
@@ -769,6 +788,7 @@
     <string name="number_of_device_admins" msgid="7508826094096451485">"{count,plural, =1{#টি অ্যাপ যা চালু আছে}one{#টি অ্যাপ যা চালু আছে}other{#টি অ্যাপ যা চালু আছে}}"</string>
     <string name="number_of_device_admins_none" msgid="5547493703413973954">"কোনও অ্যাপ চালু নেই"</string>
     <string name="work_policy_privacy_settings" msgid="5263835989260149968">"<xliff:g id="ORGANIZATION_NAME">%1$s</xliff:g>-এর গাড়ি সংক্রান্ত নীতি"</string>
+    <string name="work_policy_privacy_settings_no_org_name" msgid="8011687012493940230">"গাড়ি সংক্রান্ত নীতি"</string>
     <string name="work_policy_privacy_settings_summary" msgid="5321618399949880194">"প্রতিষ্ঠানের ম্যানেজার সেটিংস ম্যানেজ করেন"</string>
     <string name="footer_learn_more_content_description" msgid="7749452309729272078">"<xliff:g id="SERVICE">%1$s</xliff:g> সম্পর্কে আরও জানুন"</string>
     <string name="enterprise_privacy_settings" msgid="6496900796150572727">"ম্যানেজ করা গাড়ির তথ্য"</string>

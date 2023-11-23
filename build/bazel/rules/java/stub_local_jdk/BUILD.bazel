@@ -1,0 +1,8 @@
+package(default_visibility = ["//visibility:public"])
+
+#The Kotlin rules directly refer to @local_jdk//jar, this alias is defined to
+# keep this reference valid.
+alias(
+    name = "jar",
+    actual = "@//prebuilts/jdk/jdk17:jar",
+)

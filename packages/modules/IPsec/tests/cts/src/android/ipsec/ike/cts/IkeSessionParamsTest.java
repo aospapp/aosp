@@ -16,6 +16,8 @@
 
 package android.ipsec.ike.cts;
 
+import static android.net.ipsec.ike.IkeSessionParams.ESP_ENCAP_TYPE_UDP;
+import static android.net.ipsec.ike.IkeSessionParams.ESP_IP_VERSION_IPV6;
 import static android.net.ipsec.ike.IkeSessionParams.IKE_OPTION_ACCEPT_ANY_REMOTE_ID;
 import static android.net.ipsec.ike.IkeSessionParams.IKE_OPTION_EAP_ONLY_AUTH;
 import static android.net.ipsec.ike.IkeSessionParams.IKE_OPTION_INITIAL_CONTACT;
@@ -523,5 +525,27 @@ public final class IkeSessionParamsTest extends IkeSessionTestBase {
             fail("Expected UnsupportedOperationException for setting IKE_OPTION_MOBIKE before S");
         } catch (UnsupportedOperationException expected) {
         }
+    }
+
+    @Test
+    @IgnoreUpTo(Build.VERSION_CODES.TIRAMISU)
+    public void testSetIpVersion() throws Exception {
+        final IkeSessionParams sessionParams = createIkeParamsBuilderMinimum()
+                .setIpVersion(ESP_IP_VERSION_IPV6)
+                .build();
+
+        verifyIkeParamsMinimum(sessionParams);
+        assertEquals(ESP_IP_VERSION_IPV6, sessionParams.getIpVersion());
+    }
+
+    @Test
+    @IgnoreUpTo(Build.VERSION_CODES.TIRAMISU)
+    public void testSetEncapType() throws Exception {
+        final IkeSessionParams sessionParams = createIkeParamsBuilderMinimum()
+                .setEncapType(ESP_ENCAP_TYPE_UDP)
+                .build();
+
+        verifyIkeParamsMinimum(sessionParams);
+        assertEquals(ESP_ENCAP_TYPE_UDP, sessionParams.getEncapType());
     }
 }

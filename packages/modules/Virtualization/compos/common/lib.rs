@@ -21,9 +21,6 @@ pub mod compos_client;
 pub mod odrefresh;
 pub mod timeouts;
 
-/// Special CID indicating "any".
-pub const VMADDR_CID_ANY: u32 = -1i32 as u32;
-
 /// VSock port that the CompOS server listens on for RPC binder connections. This should be out of
 /// future port range (if happens) that microdroid may reserve for system components.
 pub const COMPOS_VSOCK_PORT: u32 = 6432;
@@ -48,19 +45,28 @@ pub const INSTANCE_IMAGE_FILE: &str = "instance.img";
 /// The file that holds the idsig for the CompOS Payload APK.
 pub const IDSIG_FILE: &str = "idsig";
 
-/// The file that holds the idsig for the build manifest APK (that makes enumerated files from
-/// /system available in CompOS).
+/// The file that holds the idsig for the build manifest APK that makes enumerated files from
+/// /system available in CompOS.
 pub const IDSIG_MANIFEST_APK_FILE: &str = "idsig_manifest_apk";
 
-/// The path within our config APK of our default VM configuration file, used at boot time.
-pub const DEFAULT_VM_CONFIG_PATH: &str = "assets/vm_config.json";
+/// The file that holds the idsig for the build manifest APK that makes enumerated files from
+/// /system_ext available in CompOS.
+pub const IDSIG_MANIFEST_EXT_APK_FILE: &str = "idsig_manifest_ext_apk";
 
-/// The path within our config APK of the VM configuration file we use when compiling staged
-/// APEXes before reboot.
-pub const PREFER_STAGED_VM_CONFIG_PATH: &str = "assets/vm_config_staged.json";
+/// The Android path of fs-verity build manifest APK for /system.
+pub const BUILD_MANIFEST_APK_PATH: &str = "/system/etc/security/fsverity/BuildManifest.apk";
 
-/// Number of CPUs to run dex2oat (actually the entire compos VM) with
-pub const DEX2OAT_THREADS_PROP_NAME: &str = "dalvik.vm.boot-dex2oat-threads";
+/// The Android path of fs-verity build manifest APK for /system_ext.
+pub const BUILD_MANIFEST_SYSTEM_EXT_APK_PATH: &str =
+    "/system_ext/etc/security/fsverity/BuildManifestSystemExt.apk";
 
-/// Set of host-side CPUs to run dex2oat (actually the entire compos VM) on
-pub const DEX2OAT_CPU_SET_PROP_NAME: &str = "dalvik.vm.boot-dex2oat-cpu-set";
+/// Returns the path of proper VM config for the current device.
+pub fn get_vm_config_path(has_system_ext: bool, prefer_staged: bool) -> String {
+    match (has_system_ext, prefer_staged) {
+        (false, false) => "assets/vm_config.json",
+        (false, true) => "assets/vm_config_staged.json",
+        (true, false) => "assets/vm_config_system_ext.json",
+        (true, true) => "assets/vm_config_system_ext_staged.json",
+    }
+    .to_owned()
+}

@@ -1,0 +1,53 @@
+diff --git a/patches/panic_unwind_tests.patch b/patches/panic_unwind_tests.patch
+index adf431e..e69de29 100644
+--- a/patches/panic_unwind_tests.patch
++++ b/patches/panic_unwind_tests.patch
+@@ -1,24 +0,0 @@
+-diff --git a/tests/sync_broadcast.rs b/tests/sync_broadcast.rs
+-index 9aa3484..53ee7d8 100644
+---- a/tests/sync_broadcast.rs
+-+++ b/tests/sync_broadcast.rs
+-@@ -292,6 +292,7 @@ fn capacity_too_big() {
+-
+- #[test]
+-+#[cfg(panic = "unwind")]
+- #[cfg(not(tokio_wasm))] // wasm currently doesn't support unwinding
+- fn panic_in_clone() {
+-     use std::panic::{self, AssertUnwindSafe};
+-
+-diff --git a/tests/sync_watch.rs b/tests/sync_watch.rs
+-index 34f9b78..e8eacce 100644
+---- a/tests/sync_watch.rs
+-+++ b/tests/sync_watch.rs
+-@@ -214,6 +214,7 @@ fn reopened_after_subscribe() {
+-
+- #[test]
+-+#[cfg(panic = "unwind")]
+- #[cfg(not(tokio_wasm))] // wasm currently doesn't support unwinding
+- fn send_modify_panic() {
+-     let (tx, mut rx) = watch::channel("one");
+-
+diff --git a/tests/sync_broadcast.rs b/tests/sync_broadcast.rs
+index 67c378b..cd66924 100644
+--- a/tests/sync_broadcast.rs
++++ b/tests/sync_broadcast.rs
+@@ -291,6 +291,7 @@ fn capacity_too_big() {
+ }
+ 
+ #[test]
++#[cfg(panic = "unwind")]
+ #[cfg(not(tokio_wasm))] // wasm currently doesn't support unwinding
+ fn panic_in_clone() {
+     use std::panic::{self, AssertUnwindSafe};
+diff --git a/tests/sync_watch.rs b/tests/sync_watch.rs
+index 34f9b78..d4f8ce8 100644
+--- a/tests/sync_watch.rs
++++ b/tests/sync_watch.rs
+@@ -213,6 +213,7 @@ fn reopened_after_subscribe() {
+ }
+ 
+ #[test]
++#[cfg(panic = "unwind")]
+ #[cfg(not(tokio_wasm))] // wasm currently doesn't support unwinding
+ fn send_modify_panic() {
+     let (tx, mut rx) = watch::channel("one");

@@ -70,7 +70,7 @@ PERFETTO_TRACK_EVENT_STATIC_STORAGE();
 Finally, initialize track events after the client library is brought up:
 
 ```C++
-int main(int argv, char** argc) {
+int main(int argc, char** argv) {
   ...
   perfetto::Tracing::Initialize(args);
   perfetto::TrackEvent::Register();  // Add this.
@@ -206,7 +206,7 @@ tracing. *Debug* and *slow* categories are categories with special tags:
   - `"slow"` categories record enough data that they can affect the interactive
     performance of your app.
 
-Category tags can be can be defined like this:
+Category tags can be defined like this:
 
 ```C++
 perfetto::Category("rendering.debug")
@@ -285,7 +285,7 @@ as follows:
 
 ```C++
 perfetto::DynamicCategory dynamic_category{"nodejs.something"};
-TRACE_EVENT(dynamic_category, "SomeEvent", ...);
+TRACE_EVENT_BEGIN(dynamic_category, "SomeEvent", ...);
 ```
 
 TIP: It's also possible to use dynamic event names by passing `nullptr` as
@@ -301,6 +301,51 @@ PERFETTO_DEFINE_TEST_CATEGORY_PREFIXES(
    "dontship"   // Applies to dontship.*.
 );
 ```
+
+## Dynamic event names
+
+Ideally all event name should be compile time string constants. For example:
+
+```C++
+TRACE_EVENT_BEGIN("rendering", "DrawGame");
+```
+
+Here `"DrawGame"` is a compile time string. If we pass a dynamic string here,
+we will get compile time static_assert failure. For example :
+
+```C++
+const char* name = "DrawGame";
+TRACE_EVENT_BEGIN("rendering", name);  // Error. Event name is not static.
+```
+
+There are two ways to use dynamic event name:
+
+1) If the event name is actually dynamic (e.g., std::string), write it using
+   `perfetto::DynamicString`:
+
+```C++
+  TRACE_EVENT("category", perfetto::DynamicString{dynamic_name});
+```
+
+Note: Below is the old way of using dynamic event names. It's not recommended
+      anymore.
+
+```C++
+TRACE_EVENT("category", nullptr, [&](perfetto::EventContext ctx) {
+  ctx.event()->set_name(dynamic_name);
+});
+```
+
+2) If the name is static, but the pointer is computed at runtime, wrap it
+   with perfetto::StaticString:
+
+```C++
+TRACE_EVENT("category", perfetto::StaticString{name});
+TRACE_EVENT("category", perfetto::StaticString{i % 2 == 0 ? "A" : "B"});
+```
+
+DANGER: Using perfetto::StaticString with strings whose contents change
+        dynamically can cause silent trace data corruption.
 
 ## Performance
 
@@ -507,6 +552,33 @@ track, call EraseTrackDescriptor:
 
 ```C++
 perfetto::TrackEvent::EraseTrackDescriptor(track);
+```
+
+### Flows
+
+Flows can be used to link two (or more) events (slices or instants), to mark
+them as related.
+
+The link is displayed as an arrow in the UI, when one of the events is selected:
+
+![A flow between two slices in the Perfetto UI](
+  /docs/images/flows.png "A flow between two slices in the Perfetto UI")
+
+```C++
+// The same identifier is used in both the related slices.
+uint64_t request_id = GetRequestId();
+
+{
+  TRACE_EVENT("rendering", "HandleRequestPhase1",
+              perfetto::Flow::ProcessScoped(request_id));
+  //...
+}
+
+std::thread t1([&] {
+  TRACE_EVENT("rendering", "HandleRequestPhase2",
+              perfetto::TerminatingFlow::ProcessScoped(request_id));
+  //...
+});
 ```
 
 ### Counters

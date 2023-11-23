@@ -119,7 +119,7 @@ public:
     // Select the currently marked candidate, point after it in the text, and invalidate self
     int32_t   acceptMarked( UText *text );
   
-    // Back up from the current candidate to the next shorter one; return TRUE if that exists
+    // Back up from the current candidate to the next shorter one; return true if that exists
     // and point the text after it
     UBool     backUp( UText *text );
   
@@ -165,9 +165,9 @@ UBool
 PossibleWord::backUp( UText *text ) {
     if (current > 0) {
         utext_setNativeIndex(text, offset + cuLengths[--current]);
-        return TRUE;
+        return true;
     }
-    return FALSE;
+    return false;
 }
 
 /*
@@ -1054,9 +1054,10 @@ foundBest:
  */
 static const uint32_t kuint32max = 0xFFFFFFFF;
 CjkBreakEngine::CjkBreakEngine(DictionaryMatcher *adoptDictionary, LanguageType type, UErrorCode &status)
-: DictionaryBreakEngine(), fDictionary(adoptDictionary) {
+: DictionaryBreakEngine(), fDictionary(adoptDictionary), isCj(false) {
     UTRACE_ENTRY(UTRACE_UBRK_CREATE_BREAK_ENGINE);
     UTRACE_DATA1(UTRACE_INFO, "dictbe=%s", "Hani");
+    fMlBreakEngine = nullptr;
     nfkcNorm2 = Normalizer2::getNFKCInstance(status);
     // Korean dictionary only includes Hangul syllables
     fHangulWordSet.applyPattern(UnicodeString(u"[\\uac00-\\ud7a3]"), status);
@@ -1073,11 +1074,20 @@ CjkBreakEngine::CjkBreakEngine(DictionaryMatcher *adoptDictionary, LanguageType 
         if (U_SUCCESS(status)) {
             setCharacters(fHangulWordSet);
         }
-    } else { //Chinese and Japanese
+    } else { // Chinese and Japanese
         UnicodeSet cjSet(UnicodeString(u"[[:Han:][:Hiragana:][:Katakana:]\\u30fc\\uff70\\uff9e\\uff9f]"), status);
+        isCj = true;
         if (U_SUCCESS(status)) {
             setCharacters(cjSet);
+#if UCONFIG_USE_ML_PHRASE_BREAKING
+            fMlBreakEngine = new MlBreakEngine(fDigitOrOpenPunctuationOrAlphabetSet,
+                                               fClosePunctuationSet, status);
+            if (fMlBreakEngine == nullptr) {
+                status = U_MEMORY_ALLOCATION_ERROR;
+            }
+#else
             initJapanesePhraseParameter(status);
+#endif
         }
     }
     UTRACE_EXIT_STATUS(status);
@@ -1085,6 +1095,7 @@ CjkBreakEngine::CjkBreakEngine(DictionaryMatcher *adoptDictionary, LanguageType 
 
 CjkBreakEngine::~CjkBreakEngine(){
     delete fDictionary;
+    delete fMlBreakEngine;
 }
 
 // The katakanaCost values below are based on the length frequencies of all
@@ -1146,7 +1157,7 @@ CjkBreakEngine::divideUpDictionaryRange( UText *inText,
 
         // Input UText is in one contiguous UTF-16 chunk.
         // Use Read-only aliasing UnicodeString.
-        inString.setTo(FALSE,
+        inString.setTo(false,
                        inText->chunkContents + rangeStart - inText->chunkNativeStart,
                        rangeEnd - rangeStart);
     } else {
@@ -1251,7 +1262,15 @@ CjkBreakEngine::divideUpDictionaryRange( UText *inText,
             }
         }
     }
-                
+
+#if UCONFIG_USE_ML_PHRASE_BREAKING
+    // PhraseBreaking is supported in ja and ko; MlBreakEngine only supports ja.
+    if (isPhraseBreaking && isCj) {
+        return fMlBreakEngine->divideUpRange(inText, rangeStart, rangeEnd, foundBreaks, inString,
+                                             inputMap, status);
+    }
+#endif
+
     // bestSnlp[i] is the snlp of the best segmentation of the first i
     // code points in the range to be matched.
     UVector32 bestSnlp(numCodePts + 1, status);
@@ -1362,16 +1381,18 @@ CjkBreakEngine::divideUpDictionaryRange( UText *inText,
             int32_t prevIdx = numCodePts;
 
             int32_t codeUnitIdx = -1;
+            int32_t prevCodeUnitIdx = -1;
             int32_t length = -1;
             for (int32_t i = prev.elementAti(numCodePts); i > 0; i = prev.elementAti(i)) {
                 codeUnitIdx = inString.moveIndex32(0, i);
+                prevCodeUnitIdx = inString.moveIndex32(0, prevIdx);
                 // Calculate the length by using the code unit.
-                length = inString.moveIndex32(0, prevIdx) - codeUnitIdx;
+                length = prevCodeUnitIdx - codeUnitIdx;
                 prevIdx = i;
                 // Keep the breakpoint if the pattern is not in the fSkipSet and continuous Katakana
                 // characters don't occur.
                 if (!fSkipSet.containsKey(inString.tempSubString(codeUnitIdx, length))
-                    && (!isKatakana(inString.char32At(codeUnitIdx -1))
+                    && (!isKatakana(inString.char32At(inString.moveIndex32(codeUnitIdx, -1)))
                            || !isKatakana(inString.char32At(codeUnitIdx)))) {
                     t_boundary.addElement(i, status);
                     numBreaks++;

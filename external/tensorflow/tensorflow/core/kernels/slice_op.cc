@@ -37,16 +37,16 @@ namespace tensorflow {
 namespace {
 
 void IntTensorToInt64Vec(const Tensor& tensor,
-                         gtl::InlinedVector<int64, 4>* out) {
+                         gtl::InlinedVector<int64_t, 4>* out) {
   out->resize(tensor.NumElements());
-  int64* out_ptr = out->data();
+  int64_t* out_ptr = out->data();
   if (tensor.dtype() == DT_INT32) {
     const int32* tensor_ptr = tensor.flat<int32>().data();
     for (int64_t i = 0; i < tensor.NumElements(); ++i) {
       out_ptr[i] = tensor_ptr[i];
     }
   } else if (tensor.dtype() == DT_INT64) {
-    const int64* tensor_ptr = tensor.flat<int64>().data();
+    const int64_t* tensor_ptr = tensor.flat<int64_t>().data();
     for (int64_t i = 0; i < tensor.NumElements(); ++i) {
       out_ptr[i] = tensor_ptr[i];
     }
@@ -63,8 +63,8 @@ typedef Eigen::GpuDevice GPUDevice;
 void SharedSliceValidation(OpKernelContext* context, const Tensor& input,
                            TensorShape* output_shape, bool* is_identity,
                            bool* slice_dim0,
-                           gtl::InlinedVector<int64, 4>* begin,
-                           gtl::InlinedVector<int64, 4>* size) {
+                           gtl::InlinedVector<int64_t, 4>* begin,
+                           gtl::InlinedVector<int64_t, 4>* size) {
   const Tensor& begin_tensor = context->input(1);
   const Tensor& size_tensor = context->input(2);
 
@@ -157,8 +157,8 @@ class SliceOp : public OpKernel {
   explicit SliceOp(OpKernelConstruction* context) : OpKernel(context) {}
 
   void Compute(OpKernelContext* context) override {
-    gtl::InlinedVector<int64, 4> begin;
-    gtl::InlinedVector<int64, 4> size;
+    gtl::InlinedVector<int64_t, 4> begin;
+    gtl::InlinedVector<int64_t, 4> size;
     const Tensor& input = context->input(0);
     Tensor* result = nullptr;
     bool done = false;
@@ -217,8 +217,8 @@ class SliceOp : public OpKernel {
 
  private:
   template <int NDIM>
-  void HandleCase(OpKernelContext* context, gtl::ArraySlice<int64> begin,
-                  gtl::ArraySlice<int64> size, const Tensor& input,
+  void HandleCase(OpKernelContext* context, gtl::ArraySlice<int64_t> begin,
+                  gtl::ArraySlice<int64_t> size, const Tensor& input,
                   Tensor* result) {
     Eigen::DSizes<Eigen::DenseIndex, NDIM> indices;
     Eigen::DSizes<Eigen::DenseIndex, NDIM> sizes;
@@ -320,20 +320,20 @@ TF_CALL_int8(REGISTER_GPU);
 TF_CALL_int64(REGISTER_GPU);
 TF_CALL_GPU_ALL_TYPES(REGISTER_GPU);
 
-// A special GPU kernel for int32.
+#undef REGISTER_GPU
+
+#endif  // GOOGLE_CUDA || TENSORFLOW_USE_ROCM
+
+// A special DEVICE_DEFAULT kernel for int32.
 // TODO(b/25387198): Also enable int32 in device memory. This kernel
 // registration requires all int32 inputs and outputs to be in host memory.
 REGISTER_KERNEL_BUILDER(Name("Slice")
-                            .Device(DEVICE_GPU)
+                            .Device(DEVICE_DEFAULT)
                             .TypeConstraint<int32>("T")
                             .HostMemory("input")
                             .HostMemory("begin")
                             .HostMemory("size")
                             .HostMemory("output"),
                         SliceOp<CPUDevice, int32>);
-
-#undef REGISTER_GPU
-
-#endif  // GOOGLE_CUDA || TENSORFLOW_USE_ROCM
 
 }  // namespace tensorflow

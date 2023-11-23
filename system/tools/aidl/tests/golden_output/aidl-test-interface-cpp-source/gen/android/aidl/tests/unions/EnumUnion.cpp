@@ -4,6 +4,8 @@ namespace android {
 namespace aidl {
 namespace tests {
 namespace unions {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
 ::android::status_t EnumUnion::readFromParcel(const ::android::Parcel* _aidl_parcel) {
   ::android::status_t _aidl_ret_status;
   int32_t _aidl_tag;
@@ -29,8 +31,6 @@ namespace unions {
       set<longEnum>(std::move(_aidl_value));
     }
     return ::android::OK; }
-  #pragma clang diagnostic push
-  #pragma clang diagnostic ignored "-Wdeprecated-declarations"
   case deprecatedField: {
     int32_t _aidl_value;
     if ((_aidl_ret_status = _aidl_parcel->readInt32(&_aidl_value)) != ::android::OK) return _aidl_ret_status;
@@ -41,7 +41,6 @@ namespace unions {
       set<deprecatedField>(std::move(_aidl_value));
     }
     return ::android::OK; }
-  #pragma clang diagnostic pop
   }
   return ::android::BAD_VALUE;
 }
@@ -58,6 +57,7 @@ namespace unions {
   }
   __assert2(__FILE__, __LINE__, __PRETTY_FUNCTION__, "can't reach here");
 }
+#pragma clang diagnostic pop
 }  // namespace unions
 }  // namespace tests
 }  // namespace aidl

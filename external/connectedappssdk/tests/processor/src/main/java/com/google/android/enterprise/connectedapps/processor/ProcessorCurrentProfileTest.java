@@ -53,7 +53,7 @@ public class ProcessorCurrentProfileTest {
                 annotatedNotesProvider(annotationPrinter),
                 annotatedNotesCrossProfileType(annotationPrinter));
 
-    assertThat(compilation).generatedSourceFile(NOTES_PACKAGE + ".ProfileNotesType_CurrentProfile");
+    assertThat(compilation).generatedSourceFile(NOTES_PACKAGE + ".NotesType_CurrentProfile");
   }
 
   @Test
@@ -66,10 +66,9 @@ public class ProcessorCurrentProfileTest {
                 annotatedNotesCrossProfileType(annotationPrinter));
 
     assertThat(compilation)
-        .generatedSourceFile(NOTES_PACKAGE + ".ProfileNotesType_CurrentProfile")
+        .generatedSourceFile(NOTES_PACKAGE + ".NotesType_CurrentProfile")
         .contentsAsUtf8String()
-        .contains(
-            "class ProfileNotesType_CurrentProfile implements" + " ProfileNotesType_SingleSender");
+        .contains("class NotesType_CurrentProfile implements NotesType_SingleSender");
   }
 
   @Test
@@ -82,9 +81,8 @@ public class ProcessorCurrentProfileTest {
                 annotatedNotesCrossProfileType(annotationPrinter));
 
     assertThat(compilation)
-        .generatedSourceFile(NOTES_PACKAGE + ".ProfileNotesType_CurrentProfile")
+        .generatedSourceFile(NOTES_PACKAGE + ".NotesType_CurrentProfile")
         .contentsAsUtf8String()
-        .contains(
-            "public ProfileNotesType_CurrentProfile(Context context, NotesType crossProfileType)");
+        .contains("public NotesType_CurrentProfile(Context context, NotesType crossProfileType)");
   }
 }

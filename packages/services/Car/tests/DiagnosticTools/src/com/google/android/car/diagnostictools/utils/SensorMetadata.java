@@ -32,7 +32,7 @@ import java.util.Map;
  * Provides support for arbitrary translation, scaling (conversion) following the format [Scaled
  * Data Value] = [Offset] + [Scale] x [Raw Decimal Data Value], and mapping from integer to String.
  */
-public class SensorMetadata {
+public final class SensorMetadata {
 
     private static final String TRANSLATION_KEY = "translation";
     private static final String NAME_KEY = "name";

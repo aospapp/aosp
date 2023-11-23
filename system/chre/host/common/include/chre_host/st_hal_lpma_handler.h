@@ -17,6 +17,7 @@
 #ifndef ST_HAL_LPMA_HANDLER_H_
 #define ST_HAL_LPMA_HANDLER_H_
 
+#include <hardware_legacy/power.h>
 #include <condition_variable>
 #include <cstdio>
 #include <functional>
@@ -25,15 +26,24 @@
 
 #include "chre_host/log.h"
 
+#ifdef CHRE_ST_LPMA_HANDLER_AIDL
+#include <aidl/android/hardware/soundtrigger3/ISoundTriggerHw.h>
+#include <android/binder_manager.h>
+#include <android/binder_process.h>
+#else
 #include <android/hardware/soundtrigger/2.0/ISoundTriggerHw.h>
-#include <hardware_legacy/power.h>
+#endif  // CHRE_ST_LPMA_HANDLER_AIDL
 
+#ifdef CHRE_ST_LPMA_HANDLER_AIDL
+using aidl::android::hardware::soundtrigger3::ISoundTriggerHw;
+#else
 using android::hardware::hidl_death_recipient;
 using android::hardware::Return;
 using android::hardware::soundtrigger::V2_0::ISoundTriggerHw;
 using android::hardware::soundtrigger::V2_0::SoundModelHandle;
 using android::hardware::soundtrigger::V2_0::SoundModelType;
 using android::hidl::base::V1_0::IBase;
+#endif  // CHRE_ST_LPMA_HANDLER_AIDL
 
 namespace android {
 namespace chre {
@@ -47,37 +57,10 @@ namespace chre {
  */
 class StHalLpmaHandler {
  public:
-  //! Class to handle when a connected ST HAL service dies
-  class StHalDeathRecipient : public hidl_death_recipient {
-   public:
-    StHalDeathRecipient() = delete;
-    explicit StHalDeathRecipient(std::function<void()> cb) : mCallback(cb) {}
-
-    /**
-     * Callback that is called when a connected service dies. It mainly
-     * resets the LPMA Enabled flag, and unblocks the LPMA processing thread.
-     * It is to be used in conjunction with linkToDeath(), which we do
-     * in checkConnectionToStHalServiceLocked().
-     */
-    virtual void serviceDied(uint64_t /* cookie */,
-                             const wp<IBase> & /* who */) override {
-      mCallback();
-    }
-
-   private:
-    std::function<void()> mCallback;
-  };
-
   StHalLpmaHandler() = delete;
-
   explicit StHalLpmaHandler(bool allowed);
 
-  ~StHalLpmaHandler() {
-    if (mThread.has_value()) {
-      // TODO: Change this to join after adding proper handler
-      mThread->detach();
-    }
-  }
+  ~StHalLpmaHandler();
 
   /**
    * If LPMA is enabled, starts a worker thread to load/unload models.
@@ -91,6 +74,49 @@ class StHalLpmaHandler {
    * @param enabled Whether LPMA is to be enabled or disabled.
    */
   void enable(bool enabled);
+
+ private:
+  const bool mIsLpmaAllowed;
+  bool mCurrentLpmaEnabled;
+  bool mTargetLpmaEnabled;
+  bool mCondVarPredicate;
+  bool mStThreadShouldExit = false;
+
+  int mRetryCount;
+  useconds_t mRetryDelay;
+
+  std::optional<std::thread> mThread;
+  std::mutex mMutex;
+  std::condition_variable mCondVar;
+
+#ifdef CHRE_ST_LPMA_HANDLER_AIDL
+  int32_t mLpmaHandle = 0;
+  std::shared_ptr<ISoundTriggerHw> mStHalService;
+#else
+  //! Class to handle when a connected ST HAL service dies
+  class StHalDeathRecipient : public hidl_death_recipient {
+   public:
+    StHalDeathRecipient() = delete;
+    explicit StHalDeathRecipient(std::function<void()> cb) : mCallback(cb) {}
+
+    /**
+     * Callback that is called when a connected service dies. It mainly
+     * resets the LPMA Enabled flag, and unblocks the LPMA processing thread.
+     * It is to be used in conjunction with linkToDeath(), which we do
+     * in checkConnectionToStHalServiceLocked().
+     */
+    void serviceDied(uint64_t /* cookie */,
+                     const wp<IBase> & /* who */) override {
+      mCallback();
+    }
+
+   private:
+    std::function<void()> mCallback;
+  };
+  SoundModelHandle mLpmaHandle = 0;
+  sp<StHalDeathRecipient> mDeathRecipient;
+  sp<ISoundTriggerHw> mStHalService;
+#endif  // CHRE_ST_LPMA_HANDLER_AIDL
 
   /**
    * Loads the LPMA use case via the SoundTrigger HAL HIDL service.
@@ -109,27 +135,31 @@ class StHalLpmaHandler {
   void unload();
 
   /**
+   * If CHRE_LPMA_REQUEST_START_RECOGNITION is defined, calls startRecognition()
+   * on the currently loaded model. No-op otherwise.
+   *
+   * @return true on success
+   */
+  bool start();
+
+  //! Invokes stopRecognition() on the currently loaded model
+  /**
+   * If CHRE_LPMA_REQUEST_START_RECOGNITION is defined, calls stopRecognition()
+   * on the currently loaded model. No-op otherwise.
+   *
+   * @return true on success
+   */
+  void stop();
+
+  // Convenience methods
+  bool loadAndStart();
+  void stopAndUnload();
+
+  /**
    * Entry point for the thread that loads/unloads sound models from the
    * ST HAL
    */
-  void StHalLpmaHandlerThreadEntry();
-
- private:
-  const bool mIsLpmaAllowed;
-  bool mCurrentLpmaEnabled;
-  bool mTargetLpmaEnabled;
-  bool mCondVarPredicate;
-  SoundModelHandle mLpmaHandle = 0;
-
-  int mRetryCount;
-  useconds_t mRetryDelay;
-
-  std::optional<std::thread> mThread;
-  std::mutex mMutex;
-  std::condition_variable mCondVar;
-
-  sp<StHalDeathRecipient> mDeathRecipient;
-  sp<ISoundTriggerHw> mStHalService;
+  void stHalLpmaHandlerThreadEntry();
 
   /**
    * Checks for a valid connection to the ST HAL service, reconnects if not
@@ -145,22 +175,13 @@ class StHalLpmaHandler {
   void onStHalServiceDeath();
 
   /**
-   * This function blocks on a condition variable and when notified, based
-   * on its current state and as notified by enable(), performs a load or
-   * unload. The function also resets the delay and retry counts if the current
-   * and next states match
+   * Invoke Hal to load or unload LPMA depending on the status of
+   * mTargetLpmaEnabled and mCurrentLpmaEnabled
    *
-   * @return true if the state update succeeded, and we don't need to retry with
-   * a delay
+   * @param locked lock that holds the mutex that guards mTargetLpmaEnabled
    */
-  bool waitOnStHalRequestAndProcess();
-
-  /**
-   * Delay retrying a load if a state update failed
-   */
-  void delay();
+  void stHalRequestAndProcessLocked(std::unique_lock<std::mutex> const &locked);
 };
-
 }  // namespace chre
 }  // namespace android
 

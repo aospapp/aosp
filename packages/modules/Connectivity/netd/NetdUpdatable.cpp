@@ -16,19 +16,20 @@
 
 #define LOG_TAG "NetdUpdatable"
 
-#include "NetdUpdatable.h"
+#include "BpfHandler.h"
 
 #include <android-base/logging.h>
 #include <netdutils/Status.h>
 
 #include "NetdUpdatablePublic.h"
 
+static android::net::BpfHandler sBpfHandler;
+
 int libnetd_updatable_init(const char* cg2_path) {
     android::base::InitLogging(/*argv=*/nullptr);
     LOG(INFO) << __func__ << ": Initializing";
 
-    android::net::gNetdUpdatable = android::net::NetdUpdatable::getInstance();
-    android::netdutils::Status ret = android::net::gNetdUpdatable->mBpfHandler.init(cg2_path);
+    android::netdutils::Status ret = sBpfHandler.init(cg2_path);
     if (!android::netdutils::isOk(ret)) {
         LOG(ERROR) << __func__ << ": BPF handler init failed";
         return -ret.code();
@@ -37,25 +38,9 @@ int libnetd_updatable_init(const char* cg2_path) {
 }
 
 int libnetd_updatable_tagSocket(int sockFd, uint32_t tag, uid_t chargeUid, uid_t realUid) {
-    if (android::net::gNetdUpdatable == nullptr) return -EPERM;
-    return android::net::gNetdUpdatable->mBpfHandler.tagSocket(sockFd, tag, chargeUid, realUid);
+    return sBpfHandler.tagSocket(sockFd, tag, chargeUid, realUid);
 }
 
 int libnetd_updatable_untagSocket(int sockFd) {
-    if (android::net::gNetdUpdatable == nullptr) return -EPERM;
-    return android::net::gNetdUpdatable->mBpfHandler.untagSocket(sockFd);
+    return sBpfHandler.untagSocket(sockFd);
 }
-
-namespace android {
-namespace net {
-
-NetdUpdatable* gNetdUpdatable = nullptr;
-
-NetdUpdatable* NetdUpdatable::getInstance() {
-    // Instantiated on first use.
-    static NetdUpdatable instance;
-    return &instance;
-}
-
-}  // namespace net
-}  // namespace android

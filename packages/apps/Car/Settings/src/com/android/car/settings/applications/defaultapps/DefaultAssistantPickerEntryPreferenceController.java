@@ -31,7 +31,7 @@ import androidx.annotation.VisibleForTesting;
 
 import com.android.car.settings.common.FragmentController;
 import com.android.car.ui.preference.CarUiTwoActionIconPreference;
-import com.android.internal.app.AssistUtils;
+import com.android.internal.util.CollectionUtils;
 import com.android.settingslib.applications.DefaultAppInfo;
 
 import java.util.List;
@@ -43,25 +43,25 @@ import java.util.List;
 public class DefaultAssistantPickerEntryPreferenceController extends
         DefaultAppsPickerEntryBasePreferenceController {
 
-    @VisibleForTesting
-    static final Intent ASSISTANT_SERVICE = new Intent(
+    private static final Intent ASSISTANT_SERVICE = new Intent(
             VoiceInteractionService.SERVICE_INTERFACE);
 
-    private final AssistUtils mAssistUtils;
+    private final RoleManager mRoleManager;
 
     public DefaultAssistantPickerEntryPreferenceController(Context context, String preferenceKey,
             FragmentController fragmentController, CarUxRestrictions uxRestrictions) {
         super(context, preferenceKey, fragmentController, uxRestrictions);
-        mAssistUtils = new AssistUtils(context);
+        mRoleManager = getContext().getSystemService(RoleManager.class);
     }
 
     @Nullable
     @Override
     protected DefaultAppInfo getCurrentDefaultAppInfo() {
-        ComponentName cn = mAssistUtils.getAssistComponentForUser(getCurrentProcessUserId());
+        ComponentName cn = getComponentName();
         if (cn == null) {
             return null;
         }
+
         return new DefaultAppInfo(getContext(), getContext().getPackageManager(),
                 getCurrentProcessUserId(), cn);
     }
@@ -81,12 +81,23 @@ public class DefaultAssistantPickerEntryPreferenceController extends
     @Nullable
     @Override
     protected Intent getSettingIntent(@Nullable DefaultAppInfo info) {
-        ComponentName cn = mAssistUtils.getAssistComponentForUser(getCurrentProcessUserId());
+        ComponentName cn = getComponentName();
         if (cn == null) {
             return null;
         }
 
-        Intent probe = ASSISTANT_SERVICE.setPackage(cn.getPackageName());
+        return new Intent(Intent.ACTION_MAIN).setComponent(cn);
+    }
+
+    private ComponentName getComponentName() {
+        String assistantPkgName = CollectionUtils.firstOrNull(
+                mRoleManager.getRoleHolders(RoleManager.ROLE_ASSISTANT));
+
+        if (assistantPkgName == null) {
+            return null;
+        }
+
+        Intent probe = ASSISTANT_SERVICE.setPackage(assistantPkgName);
         PackageManager pm = getContext().getPackageManager();
         List<ResolveInfo> services = pm.queryIntentServices(probe, PackageManager.GET_META_DATA);
         if (services == null || services.isEmpty()) {
@@ -98,11 +109,11 @@ public class DefaultAssistantPickerEntryPreferenceController extends
             return null;
         }
 
-        return new Intent(Intent.ACTION_MAIN).setComponent(
-                new ComponentName(cn.getPackageName(), activity));
+        return new ComponentName(assistantPkgName, activity);
     }
 
-    private String getAssistSettingsActivity(PackageManager pm, ResolveInfo resolveInfo) {
+    @VisibleForTesting
+    String getAssistSettingsActivity(PackageManager pm, ResolveInfo resolveInfo) {
         VoiceInteractionServiceInfo voiceInfo = new VoiceInteractionServiceInfo(pm,
                 resolveInfo.serviceInfo);
         if (!voiceInfo.getSupportsAssist()) {

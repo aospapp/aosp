@@ -113,20 +113,26 @@ static InOutSpec specs[] =
   {
     "data/test-abidiff/test-crc-0.xml",
     "data/test-abidiff/test-crc-1.xml",
-    "data/test-abidiff/empty-report.txt",
+    "data/test-abidiff/test-crc-report-0-1.txt",
     "output/test-abidiff/test-crc-report-0-1.txt"
   },
   {
     "data/test-abidiff/test-crc-1.xml",
     "data/test-abidiff/test-crc-0.xml",
-    "data/test-abidiff/empty-report.txt",
+    "data/test-abidiff/test-crc-report-1-0.txt",
     "output/test-abidiff/test-crc-report-1-0.txt"
   },
   {
     "data/test-abidiff/test-crc-1.xml",
     "data/test-abidiff/test-crc-2.xml",
-    "data/test-abidiff/test-crc-report.txt",
+    "data/test-abidiff/test-crc-report-1-2.txt",
     "output/test-abidiff/test-crc-report-1-2.txt"
+  },
+  {
+    "data/test-abidiff/test-namespace-0.xml",
+    "data/test-abidiff/test-namespace-1.xml",
+    "data/test-abidiff/test-namespace-report.txt",
+    "output/test-abidiff/test-namespace-report-0-1.txt"
   },
   {
     "data/test-abidiff/test-PR27616-v0.xml",

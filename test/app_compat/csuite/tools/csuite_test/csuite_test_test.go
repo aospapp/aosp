@@ -16,6 +16,7 @@ package csuite
 
 import (
 	"android/soong/android"
+	"android/soong/java"
 	"io/ioutil"
 	"os"
 	"strings"
@@ -25,108 +26,89 @@ import (
 var buildDir string
 
 func TestBpContainsTestHostPropsThrowsError(t *testing.T) {
-	ctx, _ := createContextAndConfig(t, `
+	createContextAndConfigExpectingErrors(t, `
 		csuite_test {
 			name: "plan_name",
 			test_config_template: "config_template.xml",
 			data_native_bins: "bin"
 		}
-	`)
-
-	_, errs := ctx.ParseBlueprintsFiles("Android.bp")
-
-	android.FailIfNoMatchingErrors(t, `unrecognized property`, errs)
+	`,
+		"unrecognized property",
+	)
 }
 
 func TestBpContainsManifestThrowsError(t *testing.T) {
-	ctx, _ := createContextAndConfig(t, `
+	createContextAndConfigExpectingErrors(t, `
 		csuite_test {
 			name: "plan_name",
 			test_config_template: "config_template.xml",
 			test_config: "AndroidTest.xml"
 		}
-	`)
-
-	_, errs := ctx.ParseBlueprintsFiles("Android.bp")
-
-	android.FailIfNoMatchingErrors(t, `unrecognized property`, errs)
+	`,
+		"unrecognized property",
+	)
 }
 
 func TestBpMissingNameThrowsError(t *testing.T) {
-	ctx, _ := createContextAndConfig(t, `
+	createContextAndConfigExpectingErrors(t, `
 		csuite_test {
 			test_config_template: "config_template.xml"
 		}
-	`)
-
-	_, errs := ctx.ParseBlueprintsFiles("Android.bp")
-
-	android.FailIfNoMatchingErrors(t, `'name' is missing`, errs)
+	`,
+		`'name' is missing`,
+	)
 }
 
 func TestBpMissingTemplatePathThrowsError(t *testing.T) {
-	ctx, config := createContextAndConfig(t, `
+	createContextAndConfigExpectingErrors(t, `
 		csuite_test {
 			name: "plan_name",
 		}
-	`)
-
-	ctx.ParseBlueprintsFiles("Android.bp")
-	_, errs := ctx.PrepareBuildActions(config)
-
-	android.FailIfNoMatchingErrors(t, `'test_config_template' is missing`, errs)
+	`,
+		`'test_config_template' is missing`,
+	)
 }
 
 func TestBpTemplatePathUnexpectedFileExtensionThrowsError(t *testing.T) {
-	ctx, config := createContextAndConfig(t, `
+	createContextAndConfigExpectingErrors(t, `
 		csuite_test {
 			name: "plan_name",
 			test_config_template: "config_template.xml.template"
 		}
-	`)
-
-	ctx.ParseBlueprintsFiles("Android.bp")
-	_, errs := ctx.PrepareBuildActions(config)
-
-	android.FailIfNoMatchingErrors(t, `Config template path should ends with .xml`, errs)
+	`,
+		`Config template path should ends with .xml`,
+	)
 }
 
 func TestBpExtraTemplateUnexpectedFileExtensionThrowsError(t *testing.T) {
-	ctx, config := createContextAndConfig(t, `
+	createContextAndConfigExpectingErrors(t, `
 		csuite_test {
 			name: "plan_name",
 			test_config_template: "config_template.xml",
 			extra_test_config_templates: ["another.xml.template"]
 		}
-	`)
-
-	ctx.ParseBlueprintsFiles("Android.bp")
-	_, errs := ctx.PrepareBuildActions(config)
-
-	android.FailIfNoMatchingErrors(t, `Config template path should ends with .xml`, errs)
+	`,
+		`Config template path should ends with .xml`,
+	)
 }
 
 func TestBpValidExtraTemplateDoesNotThrowError(t *testing.T) {
-	ctx, config := createContextAndConfig(t, `
+	createContextAndConfig(t, `
 		csuite_test {
 			name: "plan_name",
 			test_config_template: "config_template.xml",
 			extra_test_config_templates: ["another.xml"]
 		}
 	`)
-
-	parseBpAndBuild(t, ctx, config)
 }
 
 func TestValidBpMissingPlanIncludeDoesNotThrowError(t *testing.T) {
-	ctx, config := createContextAndConfig(t, `
+	createContextAndConfig(t, `
 		csuite_test {
 			name: "plan_name",
 			test_config_template: "config_template.xml"
 		}
 	`)
-
-	parseBpAndBuild(t, ctx, config)
 }
 
 func TestValidBpMissingPlanIncludeGeneratesPlanXmlWithoutPlaceholders(t *testing.T) {
@@ -136,8 +118,6 @@ func TestValidBpMissingPlanIncludeGeneratesPlanXmlWithoutPlaceholders(t *testing
 			test_config_template: "config_template.xml"
 		}
 	`)
-
-	parseBpAndBuild(t, ctx, config)
 
 	module := ctx.ModuleForTests("plan_name", config.BuildOS.String()+"_common")
 	content := android.ContentFromFileRuleForTests(t, module.Output("config/plan_name.xml"))
@@ -154,8 +134,6 @@ func TestGeneratedTestPlanContainsPlanName(t *testing.T) {
 		}
 	`)
 
-	parseBpAndBuild(t, ctx, config)
-
 	module := ctx.ModuleForTests("plan_name", config.BuildOS.String()+"_common")
 	content := android.ContentFromFileRuleForTests(t, module.Output("config/plan_name.xml"))
 	if !strings.Contains(content, "plan_name") {
@@ -170,8 +148,6 @@ func TestGeneratedTestPlanContainsTemplatePath(t *testing.T) {
 			test_config_template: "config_template.xml"
 		}
 	`)
-
-	parseBpAndBuild(t, ctx, config)
 
 	module := ctx.ModuleForTests("plan_name", config.BuildOS.String()+"_common")
 	content := android.ContentFromFileRuleForTests(t, module.Output("config/plan_name.xml"))
@@ -188,8 +164,6 @@ func TestGeneratedTestPlanContainsExtraTemplatePath(t *testing.T) {
 			extra_test_config_templates: ["extra.xml"]
 		}
 	`)
-
-	parseBpAndBuild(t, ctx, config)
 
 	module := ctx.ModuleForTests("plan_name", config.BuildOS.String()+"_common")
 	content := android.ContentFromFileRuleForTests(t, module.Output("config/plan_name.xml"))
@@ -209,8 +183,6 @@ func TestGeneratedTestPlanDoesNotContainExtraTemplatePath(t *testing.T) {
 		}
 	`)
 
-	parseBpAndBuild(t, ctx, config)
-
 	module := ctx.ModuleForTests("plan_name", config.BuildOS.String()+"_common")
 	content := android.ContentFromFileRuleForTests(t, module.Output("config/plan_name.xml"))
 	if strings.Contains(content, "extra-templates") {
@@ -226,8 +198,6 @@ func TestTemplateFileCopyRuleExists(t *testing.T) {
 		}
 	`)
 
-	parseBpAndBuild(t, ctx, config)
-
 	params := ctx.ModuleForTests("plan_name", config.BuildOS.String()+"_common").Rule("CSuite")
 	assertFileCopyRuleExists(t, params, "config_template.xml", "config/plan_name/config_template.xml.template")
 }
@@ -241,8 +211,6 @@ func TestExtraTemplateFileCopyRuleExists(t *testing.T) {
 		}
 	`)
 
-	parseBpAndBuild(t, ctx, config)
-
 	params := ctx.ModuleForTests("plan_name", config.BuildOS.String()+"_common").Rule("CSuite")
 	assertFileCopyRuleExists(t, params, "config_template.xml", "config/plan_name/extra.xml.template")
 }
@@ -255,8 +223,6 @@ func TestGeneratedTestPlanContainsPlanInclude(t *testing.T) {
 			test_plan_include: "include.xml"
 		}
 	`)
-
-	parseBpAndBuild(t, ctx, config)
 
 	module := ctx.ModuleForTests("plan_name", config.BuildOS.String()+"_common")
 	content := android.ContentFromFileRuleForTests(t, module.Output("config/plan_name.xml"))
@@ -274,8 +240,6 @@ func TestPlanIncludeFileCopyRuleExists(t *testing.T) {
 		}
 	`)
 
-	parseBpAndBuild(t, ctx, config)
-
 	params := ctx.ModuleForTests("plan_name", config.BuildOS.String()+"_common").Rule("CSuite")
 	assertFileCopyRuleExists(t, params, "include.xml", "config/includes/plan_name.xml")
 }
@@ -289,14 +253,6 @@ func TestMain(m *testing.M) {
 	}
 
 	os.Exit(run())
-}
-
-func parseBpAndBuild(t *testing.T, ctx *android.TestContext, config android.Config) {
-	_, parsingErrs := ctx.ParseBlueprintsFiles("Android.bp")
-	_, buildErrs := ctx.PrepareBuildActions(config)
-
-	android.FailIfErrored(t, parsingErrs)
-	android.FailIfErrored(t, buildErrs)
 }
 
 func assertFileCopyRuleExists(t *testing.T, params android.TestingBuildParams, src string, dst string) {
@@ -370,11 +326,25 @@ func tearDown() {
 }
 
 func createContextAndConfig(t *testing.T, bp string) (*android.TestContext, android.Config) {
-	t.Helper()
-	config := android.TestArchConfig(buildDir, nil, bp, nil)
-	ctx := android.NewTestArchContext(config)
-	ctx.RegisterModuleType("csuite_test", CSuiteTestFactory)
-	ctx.Register()
+	return createContextAndConfigExpectingErrors(t, bp, "")
+}
 
-	return ctx, config
+func createContextAndConfigExpectingErrors(t *testing.T, bp string, error string) (*android.TestContext, android.Config) {
+	t.Helper()
+
+	testPreparer := android.GroupFixturePreparers(
+		java.PrepareForTestWithJavaDefaultModules,
+		android.FixtureRegisterWithContext(func(ctx android.RegistrationContext) {
+			ctx.RegisterModuleType("csuite_test", CSuiteTestFactory)
+		}),
+		android.FixtureWithRootAndroidBp(bp),
+	)
+
+	if error != "" {
+		testPreparer = testPreparer.ExtendWithErrorHandler(android.FixtureExpectsOneErrorPattern(error))
+	}
+
+	result := testPreparer.RunTest(t)
+
+	return result.TestContext, result.Config
 }

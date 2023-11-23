@@ -109,9 +109,9 @@
 #ifndef OPENSSL_HEADER_CRYPTO_INTERNAL_H
 #define OPENSSL_HEADER_CRYPTO_INTERNAL_H
 
-#include <GFp/base.h> // Must be first.
+#include <ring-core/base.h> // Must be first.
 
-#include "GFp/check.h"
+#include "ring-core/check.h"
 
 #if defined(__GNUC__) && \
     (__GNUC__ * 10000 + __GNUC_MINOR__ * 100 + __GNUC_PATCHLEVEL__) < 40800
@@ -123,6 +123,15 @@
 #define alignas(x) __declspec(align(x))
 #else
 #include <stdalign.h>
+#endif
+
+// Some C compilers require a useless cast when dealing with arrays for the
+// reason explained in
+// https://gustedt.wordpress.com/2011/02/12/const-and-arrays/
+#if defined(__clang__) || defined(_MSC_VER)
+#define RING_CORE_POINTLESS_ARRAY_CONST_CAST(cast)
+#else
+#define RING_CORE_POINTLESS_ARRAY_CONST_CAST(cast) cast
 #endif
 
 #if (!defined(_MSC_VER) || defined(__clang__)) && defined(OPENSSL_64_BIT)
@@ -259,12 +268,12 @@ static inline uint32_t CRYPTO_bswap4(uint32_t x) {
 }
 #endif
 
-#if !defined(GFp_NOSTDLIBINC)
+#if !defined(RING_CORE_NOSTDLIBINC)
 #include <string.h>
 #endif
 
-static inline void *GFp_memcpy(void *dst, const void *src, size_t n) {
-#if !defined(GFp_NOSTDLIBINC)
+static inline void *OPENSSL_memcpy(void *dst, const void *src, size_t n) {
+#if !defined(RING_CORE_NOSTDLIBINC)
   if (n == 0) {
     return dst;
   }
@@ -279,8 +288,8 @@ static inline void *GFp_memcpy(void *dst, const void *src, size_t n) {
 #endif
 }
 
-static inline void *GFp_memset(void *dst, int c, size_t n) {
-#if !defined(GFp_NOSTDLIBINC)
+static inline void *OPENSSL_memset(void *dst, int c, size_t n) {
+#if !defined(RING_CORE_NOSTDLIBINC)
   if (n == 0) {
     return dst;
   }

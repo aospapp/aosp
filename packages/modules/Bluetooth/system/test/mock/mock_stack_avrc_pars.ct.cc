@@ -19,17 +19,17 @@
  *   Functions generated:4
  */
 
+#include <string.h>
+
 #include <map>
 #include <string>
 
-extern std::map<std::string, int> mock_function_count_map;
-
-#include <string.h>
 #include "avrc_api.h"
 #include "avrc_defs.h"
 #include "osi/include/log.h"
 #include "osi/include/osi.h"
 #include "stack/avrc/avrc_int.h"
+#include "test/common/mock_functions.h"
 
 #ifndef UNUSED_ATTR
 #define UNUSED_ATTR
@@ -37,17 +37,17 @@ extern std::map<std::string, int> mock_function_count_map;
 
 tAVRC_STS AVRC_Ctrl_ParsResponse(tAVRC_MSG* p_msg, tAVRC_RESPONSE* p_result,
                                  uint8_t* p_buf, uint16_t* buf_len) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return 0;
 }
 tAVRC_STS AVRC_ParsResponse(tAVRC_MSG* p_msg, tAVRC_RESPONSE* p_result,
                             UNUSED_ATTR uint8_t* p_buf,
                             UNUSED_ATTR uint16_t buf_len) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return 0;
 }
 tAVRC_STS avrc_parse_notification_rsp(uint8_t* p_stream, uint16_t len,
                                       tAVRC_REG_NOTIF_RSP* p_rsp) {
-  mock_function_count_map[__func__]++;
+  inc_func_call_count(__func__);
   return 0;
 }

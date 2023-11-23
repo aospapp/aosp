@@ -1,0 +1,7 @@
+type disable-contaminant-detection-sh, domain;
+type disable-contaminant-detection-sh_exec, vendor_file_type, exec_type, file_type;
+init_daemon_domain(disable-contaminant-detection-sh)
+
+allow disable-contaminant-detection-sh vendor_toolbox_exec:file execute_no_trans;
+allow disable-contaminant-detection-sh sysfs_batteryinfo:dir r_dir_perms;
+allow disable-contaminant-detection-sh sysfs_batteryinfo:file rw_file_perms;

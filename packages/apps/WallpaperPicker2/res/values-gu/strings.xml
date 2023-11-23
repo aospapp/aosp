@@ -29,6 +29,8 @@
     <string name="static_wallpaper_presentation_mode_message" msgid="417940227049360906">"સેટ કરેલું વૉલપેપર"</string>
     <string name="rotating_wallpaper_presentation_mode_message" msgid="3361676041605733288">"દૈનિક વૉલપેપર"</string>
     <string name="wallpaper_destination_both" msgid="1124197176741944063">"હોમ અને લૉક સ્ક્રીન"</string>
+    <string name="choose_a_wallpaper_section_title" msgid="1009823506890453891">"વૉલપેપર પસંદ કરો"</string>
+    <string name="creative_wallpaper_title" msgid="8459226435723103934">"વૉલપેપર બનાવો"</string>
     <string name="home_screen_message" msgid="106444102822522813">"હોમ સ્ક્રીન"</string>
     <string name="lock_screen_message" msgid="1534506081955058013">"લૉક સ્ક્રીન"</string>
     <string name="home_and_lock_short_label" msgid="2937922943541927983">"હોમ અને લૉક"</string>
@@ -64,6 +66,7 @@
     <string name="explore_lock_screen" msgid="268938342103703665">"લૉક સ્ક્રીન વૉલપેપર માટે શોધખોળ કરો"</string>
     <string name="refresh_daily_wallpaper_home_content_description" msgid="2770445044556164259">"દૈનિક હોમ સ્ક્રીન વૉલપેપર રિફ્રેશ કરો"</string>
     <string name="refresh_daily_wallpaper_content_description" msgid="4362142658237147583">"દૈનિક વૉલપેપર રિફ્રેશ કરો"</string>
+    <string name="preview_screen_description" msgid="3386387053327775919">"વૉલપેપરનો પ્રીવ્યૂ બતાવતી સ્ક્રીન"</string>
     <string name="refreshing_daily_wallpaper_dialog_message" msgid="1975910873362855761">"દૈનિક વૉલપેપર રિફ્રેશ કરી રહ્યાં છીએ…"</string>
     <string name="refresh_daily_wallpaper_failed_message" msgid="4749879993812557166">"દૈનિક વૉલપેપર રિફ્રેશ કરવામાં નિષ્ફળ રહ્યાં. કૃપા કરીને તમારું નેટવર્ક કનેક્શન ચેક કરો અને ફરી પ્રયાસ કરો."</string>
     <string name="on_device_wallpapers_category_title" msgid="805819102071369004">"ઉપકરણ પરના વૉલપેપર"</string>
@@ -81,10 +84,12 @@
     <string name="tab_info" msgid="818614080690111416">"માહિતી"</string>
     <string name="tab_customize" msgid="2533745409174959960">"કસ્ટમાઇઝ કરો"</string>
     <string name="tab_effects" msgid="3213606157589233901">"ઇફેક્ટ"</string>
+    <string name="tab_share" msgid="6676269624804601227">"શેર કરો"</string>
     <string name="my_photos" msgid="8613021349284084982">"મારા ફોટા"</string>
     <string name="configure_wallpaper" msgid="849882179182976621">"સેટિંગ…"</string>
     <string name="delete_live_wallpaper" msgid="589212696102662329">"ડિલીટ કરો"</string>
-    <string name="delete_wallpaper_confirmation" msgid="33790318361863778">"તમારા ફોનમાંથી આ વૉલપેપર ડિલીટ કરીએ?"</string>
+    <string name="edit_live_wallpaper" msgid="3132060073690558045">"ફેરફાર કરો"</string>
+    <string name="delete_wallpaper_confirmation" msgid="1905114562243802354">"તમારા ડિવાઇસમાંથી આ વૉલપેપર ડિલીટ કરીએ?"</string>
     <string name="bottom_action_bar_back" msgid="8237013112999946725">"પાછળ"</string>
     <string name="bottom_action_bar_edit" msgid="1214742990893082138">"ફેરફાર કરો"</string>
     <string name="bottom_action_bar_download" msgid="3983122338076389421">"ડાઉનલોડ કરો"</string>
@@ -95,11 +100,19 @@
     <string name="previous_page_content_description" msgid="1138597031571078429">"પાછળ"</string>
     <string name="wallpaper_title" msgid="6754214682228331092">"વૉલપેપર"</string>
     <string name="wallpaper_preview_card_content_description" msgid="6049261033541034584">"વૉલપેપરનો પ્રીવ્યૂ કરો"</string>
+    <string name="lock_wallpaper_preview_card_content_description" msgid="5236839857695985498">"લૉક સ્ક્રીનના વૉલપેપરનો પ્રીવ્યૂ"</string>
+    <string name="home_wallpaper_preview_card_content_description" msgid="4059418716070821630">"હોમ સ્ક્રીનના વૉલપેપરનો પ્રીવ્યૂ"</string>
     <string name="collection_not_exist_msg" msgid="3504852962885064842">"સંગ્રહ અસ્તિત્વમાં નથી"</string>
+    <string name="wallpaper_exit_split_screen" msgid="1928870664619591636">"કૃપા કરીને સ્ક્રીન-વિભાજન મોડમાંથી બહાર નીકળો અને ફરીથી પ્રયાસ કરો"</string>
     <string name="cancel" msgid="4970902691067201584">"રદ કરો"</string>
     <string name="hide_ui_preview_text" msgid="6766076482511252295">"UIનો પ્રીવ્યૂ છુપાવો"</string>
     <string name="hint_hide_ui_preview" msgid="4527603797714586070">"પ્રીવ્યૂમાં UI છુપાવેલું છે. બતાવવા બે વાર ટૅપ કરો"</string>
     <string name="show_ui_preview_text" msgid="5993063062417070806">"UIનો પ્રીવ્યૂ બતાવો"</string>
+    <string name="hide_preview_controls_content_description" msgid="894958599274977655">"પ્રીવ્યૂના નિયંત્રણો બતાવવામાં આવ્યા છે. છુપાવવા માટે, બે વાર ટૅપ કરો"</string>
+    <string name="hide_preview_controls_action" msgid="3419260118386783295">"પ્રીવ્યૂના નિયંત્રણો છુપાવો"</string>
+    <string name="show_preview_controls_content_description" msgid="908147864005440602">"પ્રીવ્યૂના નિયંત્રણો છુપાવેલા છે. બતાવવા માટે, બે વાર ટૅપ કરો"</string>
+    <string name="show_preview_controls_action" msgid="7700775001986890400">"પ્રીવ્યૂના નિયંત્રણો બતાવો"</string>
+    <string name="hide_wallpaper_info_action" msgid="6572492484253895374">"વૉલપેપરની માહિતી છુપાવો"</string>
     <string name="hint_show_ui_preview" msgid="2744155435325318349">"પ્રીવ્યૂમાં UI બતાવેલું છે. છુપાવવા બે વાર ટૅપ કરો"</string>
     <string name="wallpaper_picker_entry_title" msgid="5185793991582084891">"વૉલપેપર બદલો"</string>
     <string name="lockscreen_wallpaper_preview_card_content_description" msgid="2244890820627302245">"લૉકસ્ક્રીન વૉલપેપરનો પ્રીવ્યૂ"</string>
@@ -111,4 +124,10 @@
     <string name="settings_snackbar_description" msgid="890168814524778486">"કૃપા કરીને સેટિંગમાં ફાઇલો અને મીડિયાનો ઍક્સેસ ચાલુ કરો."</string>
     <string name="settings_snackbar_enable" msgid="5992112808061426068">"ચાલુ કરો"</string>
     <string name="open_my_photos" msgid="4107196465713868381">"મારા ફોટા ખોલો"</string>
+    <string name="lock_screen_tab" msgid="6672930765010407652">"લૉક સ્ક્રીન"</string>
+    <string name="home_screen_tab" msgid="1080445697837877526">"હોમ સ્ક્રીન"</string>
+    <string name="reset" msgid="4945445169532850631">"રીસેટ કરો"</string>
+    <string name="reset_confirmation_dialog_title" msgid="3391905685838213712">"ફેરફારો રીસેટ કરીએ?"</string>
+    <string name="reset_confirmation_dialog_message" msgid="888669268626289603">"તમારા ફેરફારો સાચવવામાં આવશે નહીં"</string>
+    <string name="more_wallpapers" msgid="8116268433411881705">"વધુ વૉલપેપર"</string>
 </resources>

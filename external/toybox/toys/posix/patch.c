@@ -143,7 +143,7 @@ static int loosecmp(char *aa, char *bb)
 static int apply_one_hunk(void)
 {
   struct double_list *plist, *buf = 0, *check;
-  int matcheof, trail = 0, reverse = FLAG(R), backwarn = 0, allfuzz, fuzz, i;
+  int matcheof, trail = 0, backwarn = 0, allfuzz, fuzz, i;
   int (*lcmp)(char *aa, char *bb) = FLAG(l) ? (void *)loosecmp : (void *)strcmp;
 
   // Match EOF if there aren't as many ending context lines as beginning
@@ -157,7 +157,7 @@ static int apply_one_hunk(void)
     // Only allow fuzz if 2 context lines have multiple nonwhitespace chars.
     // avoids the "all context was blank or } lines" issue. Removed lines
     // count as context since they're matched.
-    if (c==' ' || c=="-+"[reverse]) {
+    if (c==' ' || c=="-+"[FLAG(R)]) {
       s = plist->data+1;
       while (isspace(*s)) s++;
       if (*s && s[1] && !isspace(s[1])) fuzz++;
@@ -167,7 +167,7 @@ static int apply_one_hunk(void)
   }
   matcheof = !trail || trail < TT.context;
   if (fuzz<2) allfuzz = 0;
-  else allfuzz = FLAG(F) ? TT.F : (TT.context ? TT.context-1 : 0);
+  else allfuzz = TT.F ? : TT.context ? TT.context-1 : 0;
 
   if (FLAG(x)) fprintf(stderr,"MATCHEOF=%c\n", matcheof ? 'Y' : 'N');
 
@@ -180,7 +180,7 @@ static int apply_one_hunk(void)
 
     // Figure out which line of hunk to compare with next. (Skip lines
     // of the hunk we'd be adding.)
-    while (plist && *plist->data == "+-"[reverse]) {
+    while (plist && *plist->data == "+-"[FLAG(R)]) {
       if (data && !lcmp(data, plist->data+1))
         if (!backwarn) backwarn = TT.linenum;
       plist = plist->next;
@@ -260,7 +260,7 @@ fuzzed:
   }
 out:
   // We have a match.  Emit changed data.
-  TT.state = "-+"[reverse];
+  TT.state = "-+"[FLAG(R)];
   while ((plist = dlist_pop(&TT.current_hunk))) {
     if (TT.state == *plist->data || *plist->data == ' ') {
       if (*plist->data == ' ') dprintf(TT.fileout, "%s\n", buf->data);
@@ -279,13 +279,13 @@ done:
 // read a filename that has been quoted or escaped
 static char *unquote_file(char *filename)
 {
-  char *s = filename, *t;
+  char *s = filename, *t, *newfile;
 
   // Return copy of file that wasn't quoted
   if (*s++ != '"' || !*s) return xstrdup(filename);
 
   // quoted and escaped filenames are larger than the original
-  for (t = filename = xmalloc(strlen(s) + 1); *s != '"'; s++) {
+  for (t = newfile = xmalloc(strlen(s) + 1); *s != '"'; s++) {
     if (!s[1]) error_exit("bad %s", filename);
 
     // don't accept escape sequences unless the filename is quoted
@@ -300,7 +300,7 @@ static char *unquote_file(char *filename)
   }
   *t = 0;
 
-  return filename;
+  return newfile;
 }
 
 // Read a patch file and find hunks, opening/creating/deleting files.
@@ -313,7 +313,7 @@ static char *unquote_file(char *filename)
 
 void patch_main(void)
 {
-  int reverse = FLAG(R), state = 0, patchlinenum = 0, strip = 0;
+  int state = 0, patchlinenum = 0, strip = 0;
   char *oldname = NULL, *newname = NULL;
 
   if (toys.optc == 2) TT.i = toys.optargs[1];
@@ -420,7 +420,7 @@ void patch_main(void)
         // If an original file was provided on the command line, it overrides
         // *all* files mentioned in the patch, not just the first.
         if (toys.optc) {
-          char **which = reverse ? &oldname : &newname;
+          char **which = FLAG(R) ? &oldname : &newname;
 
           free(*which);
           *which = strdup(toys.optargs[0]);
@@ -429,12 +429,12 @@ void patch_main(void)
           TT.p = 0;
         }
 
-        name = reverse ? oldname : newname;
+        name = FLAG(R) ? oldname : newname;
 
         // We're deleting oldname if new file is /dev/null (before -p)
         // or if new hunk is empty (zero context) after patching
-        if (!strcmp(name, "/dev/null") || !(reverse ? oldsum : newsum)) {
-          name = reverse ? newname : oldname;
+        if (!strcmp(name, "/dev/null") || !(FLAG(R) ? oldsum : newsum)) {
+          name = FLAG(R) ? newname : oldname;
           del++;
         }
 
@@ -449,7 +449,7 @@ void patch_main(void)
 
         if (del) {
           if (!FLAG(s)) printf("removing %s\n", name);
-          xunlink(name);
+          if (!FLAG(dry_run)) xunlink(name);
           state = 0;
         // If we've got a file to open, do so.
         } else if (!FLAG(p) || i <= TT.p) {
@@ -457,8 +457,11 @@ void patch_main(void)
           if ((!strcmp(oldname, "/dev/null") || !oldsum) && access(name, F_OK))
           {
             if (!FLAG(s)) printf("creating %s\n", name);
-            if (mkpath(name)) perror_exit("mkpath %s", name);
-            TT.filein = xcreate(name, O_CREAT|O_EXCL|O_RDWR, 0666);
+            if (FLAG(dry_run)) TT.filein = xopen("/dev/null", O_RDWR);
+            else {
+              if (mkpath(name)) perror_exit("mkpath %s", name);
+              TT.filein = xcreate(name, O_CREAT|O_EXCL|O_RDWR, 0666);
+            }
           } else {
             if (!FLAG(s)) printf("patching %s\n", name);
             TT.filein = xopenro(name);

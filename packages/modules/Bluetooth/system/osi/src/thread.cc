@@ -38,7 +38,7 @@
 #include "osi/include/fixed_queue.h"
 #include "osi/include/log.h"
 #include "osi/include/reactor.h"
-#include "osi/include/semaphore.h"
+#include "osi/semaphore.h"
 
 struct thread_t {
   std::atomic_bool is_joined{false};

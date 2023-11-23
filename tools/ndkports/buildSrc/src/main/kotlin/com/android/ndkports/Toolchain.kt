@@ -32,9 +32,12 @@ class Toolchain(val ndk: Ndk, val abi: Abi, val api: Int) {
     val sysrootLibs = ndk.sysrootDirectory.resolve("usr/lib/$binutilsTriple")
 
     val binDir = ndk.toolchainBinDirectory
-    val ar = binDir.resolve("$binutilsTriple-ar")
+    val ar = binDir.resolve("llvm-ar")
     val clang = binDir.resolve("$clangTriple-clang")
     val clangxx = binDir.resolve("$clangTriple-clang++")
-    val ranlib = binDir.resolve("$binutilsTriple-ranlib")
-    val strip = binDir.resolve("$binutilsTriple-strip")
+    val nm = binDir.resolve("llvm-nm")
+    val objdump = binDir.resolve("llvm-objdump")
+    val ranlib = binDir.resolve("llvm-ranlib")
+    val readelf = binDir.resolve("llvm-readelf")
+    val strip = binDir.resolve("llvm-strip")
 }

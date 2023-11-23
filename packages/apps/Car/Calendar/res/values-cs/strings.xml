@@ -24,10 +24,5 @@
     <!-- no translation found for phone_number (3879925006862072135) -->
     <skip />
     <string name="phone_number_with_pin" msgid="6760582665093825412">"<xliff:g id="NUMBER">%1$s</xliff:g> PIN: <xliff:g id="PIN_0">%2$s</xliff:g>"</string>
-    <plurals name="all_day_title" formatted="false" msgid="7938279592034934265">
-      <item quantity="few">%d celodenní události</item>
-      <item quantity="many">%d celodenní události</item>
-      <item quantity="other">%d celodenních událostí</item>
-      <item quantity="one">%d celodenní událost</item>
-    </plurals>
+    <string name="all_day_title" msgid="5963074297534975402">"{count,plural, =1{# celodenní událost}few{# celodenní události}many{# celodenní události}other{# celodenních událostí}}"</string>
 </resources>

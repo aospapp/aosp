@@ -8,12 +8,13 @@ AUTHOR = 'chromeos-bluetooth'
 NAME = 'bluetooth_AdapterSAHealth.sa_basic_test'
 PURPOSE = ('batch of Bluetooth stand along health tests')
 CRITERIA = 'Pass all health test'
-ATTRIBUTES = 'suite:bluetooth, suite:bluetooth_standalone, suite:bluetooth_standalone_cq, suite:infra_qual'
+ATTRIBUTES = 'suite:bluetooth, suite:bluetooth_standalone, suite:bluetooth_standalone_cq, suite:infra_qual, suite:bluetooth_floss_cq'
 TIME = 'MEDIUM'
 TEST_CATEGORY = 'Functional'
 TEST_CLASS = 'bluetooth'
 TEST_TYPE = 'server'
-DEPENDENCIES = 'bluetooth'
+DEPENDENCIES = 'bluetooth_state:NORMAL'
+PY_VERSION = 3
 
 DOC = """
     A Batch of Bluetooth stand alone health tests. This test is written as a

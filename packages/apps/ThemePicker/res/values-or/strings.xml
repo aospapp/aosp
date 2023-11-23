@@ -17,12 +17,33 @@
 
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
-    <string name="app_name" msgid="1647136562008520313">"ୱାଲପେପର୍ ଏବଂ ଷ୍ଟାଇଲ୍"</string>
+    <string name="app_name" msgid="1647136562008520313">"ୱାଲପେପର ଏବଂ ଷ୍ଟାଇଲ"</string>
     <string name="theme_title" msgid="2144932106319405101">"ଷ୍ଟାଇଲ୍"</string>
-    <string name="clock_title" msgid="2126046720254613991">"ଘଣ୍ଟା"</string>
-    <string name="grid_title" msgid="1688173478777254123">"ଆପ୍ ଗ୍ରିଡ୍"</string>
+    <string name="clock_title" msgid="1974314575211361352">"କଷ୍ଟମ ଘଣ୍ଟା"</string>
+    <string name="clock_description" msgid="3563839327378948">"କଷ୍ଟମ ଘଣ୍ଟା ବାଛ"</string>
+    <string name="clock_picker_entry_content_description" msgid="8377139273468595734">"ଏକ କଷ୍ଟମ ଘଣ୍ଟାକୁ ପରିବର୍ତ୍ତନ କରନ୍ତୁ"</string>
+    <string name="select_clock_action_description" msgid="5025888763471843648">"ଘଣ୍ଟା ଫେସ ବିକଳ୍ପ <xliff:g id="ID_1">%1$s</xliff:g>"</string>
+    <string name="clock_settings_title" msgid="2050906379377120431">"ଘଣ୍ଟାର ରଙ୍ଗ ଓ ସାଇଜ"</string>
+    <string name="clock_color_and_size_title" msgid="7146791234905111351">"ଘଣ୍ଟାର ରଙ୍ଗ ଓ ଆକାର"</string>
+    <string name="clock_color_and_size_description" msgid="6578061553012886817">"<xliff:g id="ID_1">%1$s</xliff:g>, <xliff:g id="ID_2">%2$s</xliff:g>"</string>
+    <string name="clock_color" msgid="8081608867289156163">"ରଙ୍ଗ"</string>
+    <string name="clock_color_red" msgid="3843504214807597810">"ଲାଲ"</string>
+    <string name="clock_color_orange" msgid="4175805201144275804">"କମଳା"</string>
+    <string name="clock_color_yellow" msgid="7391699163247349977">"ହଳଦିଆ"</string>
+    <string name="clock_color_green" msgid="1991157556500156596">"ସବୁଜ"</string>
+    <string name="clock_color_blue" msgid="4037792003465759149">"ନୀଳ"</string>
+    <string name="clock_color_indigo" msgid="8910855386698452917">"ଇଣ୍ଡିଗୋ"</string>
+    <string name="clock_color_violet" msgid="3454503847169375826">"ବାଇଗଣୀ"</string>
+    <string name="clock_color_gray" msgid="9221530636948859231">"ଧୂସର"</string>
+    <string name="clock_color_teal" msgid="7499223425741344251">"ଟିଲ"</string>
+    <string name="clock_size" msgid="5028923902364418263">"ଆକାର"</string>
+    <string name="clock_size_dynamic" msgid="1023930312455061642">"ଡାଇନାମିକ"</string>
+    <string name="clock_size_dynamic_description" msgid="2776620745774561662">"ଘଣ୍ଟାର ଆକାର ଲକ ସ୍କ୍ରିନର ବିଷୟବସ୍ତୁ ଅନୁସାରେ ପରିବର୍ତ୍ତନ ହୋଇଥାଏ"</string>
+    <string name="clock_size_large" msgid="3143248715744138979">"ବଡ଼"</string>
+    <string name="clock_size_small" msgid="2280449912094164133">"ଛୋଟ"</string>
+    <string name="grid_title" msgid="1688173478777254123">"ଆପ ଗ୍ରିଡ"</string>
     <string name="apply_theme_btn" msgid="6293081192321303991">"ପ୍ରୟୋଗ କରନ୍ତୁ"</string>
-    <string name="edit_custom_theme_lbl" msgid="5211377705710775224">"ଏଡିଟ୍ କରିବା ପାଇଁ ଟାପ୍ କରନ୍ତୁ"</string>
+    <string name="edit_custom_theme_lbl" msgid="5211377705710775224">"ଏଡିଟ କରିବା ପାଇଁ ଟାପ କରନ୍ତୁ"</string>
     <string name="keep_my_wallpaper" msgid="8012385376769568517">"ବର୍ତ୍ତମାନର ୱାଲ୍‌ପେପର୍‌କୁ ରଖନ୍ତୁ"</string>
     <string name="theme_preview_card_content_description" msgid="5989222908619535533">"ଷ୍ଟାଇଲ୍ ପ୍ରିଭ୍ୟୁ"</string>
     <string name="grid_preview_card_content_description" msgid="8449383777584714842">"ଗ୍ରିଡ୍ ପ୍ରିଭ୍ୟୁ"</string>
@@ -63,7 +84,7 @@
     <string name="icon_component_label" msgid="2625784884001407944">"ଆଇକନ୍ <xliff:g id="ID_1">%1$d</xliff:g>"</string>
     <string name="delete_custom_theme_confirmation" msgid="4452137183628769394">"କଷ୍ଟମ୍‌ ଶୈଳୀ ଡିଲିଟ୍ କରିବେ?"</string>
     <string name="delete_custom_theme_button" msgid="5102462988130208824">"ଡିଲିଟ୍‍ କରନ୍ତୁ"</string>
-    <string name="cancel" msgid="4651030493668562067">"ବାତିଲ୍ କରନ୍ତୁ"</string>
+    <string name="cancel" msgid="4651030493668562067">"ବାତିଲ କରନ୍ତୁ"</string>
     <string name="set_theme_wallpaper_dialog_message" msgid="2179661027350908003">"ଶୈଳୀ ଯୁକ୍ତ ୱାଲ୍‌ପେପର୍‌କୁ ସେଟ୍ କରନ୍ତୁ"</string>
     <string name="use_style_instead_title" msgid="1578754995763917502">"ଏହା ପରିବର୍ତ୍ତେ <xliff:g id="ID_1">%1$s</xliff:g> ବ୍ୟବହାର କରିବେ?"</string>
     <string name="use_style_instead_body" msgid="3051937045807471496">"ଆପଣ ବଛିଥିବା ଉପାଦାନଗୁଡ଼ିକ <xliff:g id="ID_1">%1$s</xliff:g> ଶୈଳୀ ସହ ମେଳ ହେଉଛି। ଏହା ପରିବର୍ତ୍ତେ ଆପଣ <xliff:g id="ID_2">%1$s</xliff:g>କୁ ବ୍ୟବହାର କରିବାକୁ ଚାହୁଁଛନ୍ତି କି?"</string>
@@ -81,12 +102,38 @@
     <string name="mode_title" msgid="2394873501427436055">"ଗାଢ଼ା ଥିମ୍"</string>
     <string name="mode_disabled_msg" msgid="9196245518435936512">"ବ୍ୟାଟେରୀ ସେଭର୍ ଯୋଗୁଁ ଅସ୍ଥାୟୀ ଭାବେ ଅକ୍ଷମ କରାଯାଇଛି"</string>
     <string name="mode_changed" msgid="2243581369395418584">"ଥିମ ପରିବର୍ତ୍ତନ କରାଯାଇଛି"</string>
-    <string name="themed_icon_title" msgid="7312460430471956558">"ଥିମ୍ ଯୁକ୍ତ ଆଇକନ୍"</string>
+    <string name="themed_icon_title" msgid="7312460430471956558">"ଥିମ ଯୁକ୍ତ ଆଇକନ"</string>
     <string name="beta_title" msgid="8703819523760746458">"ବିଟା"</string>
     <string name="gird_picker_entry_content_description" msgid="9087651470212293439">"ଆପ୍ ଗ୍ରିଡ୍ ପରିବର୍ତ୍ତନ କରନ୍ତୁ"</string>
     <string name="wallpaper_color_tab" msgid="1447926591721403840">"ୱାଲପେପର ରଙ୍ଗଗୁଡ଼ିକ"</string>
+    <string name="wallpaper_color_subheader" msgid="4044464573669965670">"ଆଇକନ, ଟେକ୍ସଟ ଓ ଅନେକ କିଛି ୱାଲପେପରରେ ରଙ୍ଗ ସହ ମେଳ ହୁଏ"</string>
     <string name="wallpaper_color_title" msgid="5687965239180986458">"ୱାଲପେପର ରଙ୍ଗ"</string>
     <string name="preset_color_tab" msgid="3133391839341329314">"ମୌଳିକ ରଙ୍ଗଗୁଡ଼ିକ"</string>
+    <string name="preset_color_tab_2" msgid="1444107326712562538">"ଅନ୍ୟ ରଙ୍ଗଗୁଡ଼ିକ"</string>
+    <string name="preset_color_subheader" msgid="8230588536141279371">"ଆଇକନ, ଘଣ୍ଟା ଓ ଆହୁରି ଅନେକ କିଛି ପାଇଁ ଯେ କୌଣସି ରଙ୍ଗ ବାଛ"</string>
     <string name="color_changed" msgid="7029571720331641235">"ରଙ୍ଗ ପରିବର୍ତ୍ତନ କରାଯାଇଛି"</string>
     <string name="adaptive_color_title" msgid="1336508599235896205">"ଡାଇନାମିକ"</string>
+    <string name="color_picker_title" msgid="6666830057938082864">"ସିଷ୍ଟମ ରଙ୍ଗ"</string>
+    <string name="keyguard_slot_name_bottom_start" msgid="8747677880200629719">"ବାମ ସର୍ଟକଟ"</string>
+    <string name="keyguard_slot_name_bottom_end" msgid="2525487375680217083">"ଡାହାଣ ସର୍ଟକଟ"</string>
+    <string name="keyguard_affordance_none" msgid="1751643933430782312">"କିଛି ନାହିଁ"</string>
+    <string name="keyguard_affordance_enablement_dialog_headline" msgid="365379085932610314">"ସର୍ଟକଟ ଯୋଗ କରାଯାଇପାରିବ ନାହିଁ"</string>
+    <string name="keyguard_affordance_enablement_dialog_action_template" msgid="8117011931337357438">"<xliff:g id="APPNAME">%1$s</xliff:g> ଖୋଲନ୍ତୁ"</string>
+    <string name="keyguard_affordance_enablement_dialog_message" msgid="6136286758939253570">"ଏକ ସର୍ଟକଟ ଭାବେ <xliff:g id="APPNAME">%1$s</xliff:g> ଆପ ଯୋଗ କରିବାକୁ, ଏହା ସୁନିଶ୍ଚିତ କରନ୍ତୁ"</string>
+    <string name="keyguard_affordance_enablement_dialog_dismiss_button" msgid="629754625264422508">"ହୋଇଗଲା"</string>
+    <string name="keyguard_quick_affordance_title" msgid="4242813186995735584">"ସର୍ଟକଟଗୁଡ଼ିକ"</string>
+    <string name="keyguard_quick_affordance_section_title" msgid="2806304242671717309">"ସର୍ଟକଟଗୁଡ଼ିକ"</string>
+    <string name="keyguard_quick_affordance_two_selected_template" msgid="1757099194522296363">"<xliff:g id="FIRST">%1$s</xliff:g>, <xliff:g id="SECOND">%2$s</xliff:g>"</string>
+    <string name="keyguard_quick_affordance_none_selected" msgid="8494127020144112003">"କିଛି ନାହିଁ"</string>
+    <string name="show_notifications_on_lock_screen" msgid="4157744243084646720">"ଲକ ସ୍କ୍ରିନରେ ବିଜ୍ଞପ୍ତିଗୁଡ଼ିକୁ ଦେଖାନ୍ତୁ"</string>
+    <string name="hide_notifications_on_lock_screen" msgid="7413548956484779174">"ଲକ ସ୍କ୍ରିନରେ ବିଜ୍ଞପ୍ତିଗୁଡ଼ିକୁ ଲୁଚାନ୍ତୁ"</string>
+    <string name="more_settings_section_title" msgid="1331425454775815958">"ଅଧିକ ଲକ ସ୍କ୍ରିନ ବିକଳ୍ପ"</string>
+    <string name="more_settings_section_description" msgid="1860115709122398325">"ଗୋପନୀୟତା, ବର୍ତ୍ତମାନ ପ୍ଲେ ହେଉଛି ଏବଂ ଆହୁରି ଅନେକ କିଛି"</string>
+    <string name="more_colors" msgid="3191071655353004591">"ଅଧିକ ରଙ୍ଗ"</string>
+    <string name="content_description_dynamic_color_option" msgid="2191721655642529886">"ପ୍ରାଥମିକ ଡାଇନାମିକ ଥିମ"</string>
+    <string name="content_description_neutral_color_option" msgid="3385443834001275301">"ପ୍ରାଥମିକ ନ୍ୟୁଟ୍ରାଲ ଥିମ"</string>
+    <string name="content_description_vibrant_color_option" msgid="2230249305878632821">"ପ୍ରାଥମିକ ଭାଇବ୍ରାଣ୍ଟ ଥିମ"</string>
+    <string name="content_description_expressive_color_option" msgid="6081295313456341282">"ପ୍ରାଥମିକ ଏକ୍ସପ୍ରେସିଭ ଥିମ"</string>
+    <string name="content_description_default_color_option" msgid="7011899327541080695">"ଡିଫଲ୍ଟ ରଙ୍ଗର ବିକଳ୍ପ"</string>
+    <string name="content_description_color_option" msgid="4169813692012119578">"ରଙ୍ଗର ବିକଳ୍ପ <xliff:g id="ID_1">%1$d</xliff:g>"</string>
 </resources>

@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: BSD-2-Clause
 #
-# Copyright (c) 2018-2021 Gavin D. Howard and contributors.
+# Copyright (c) 2018-2023 Gavin D. Howard and contributors.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions are met:
@@ -27,9 +27,14 @@
 # POSSIBILITY OF SUCH DAMAGE.
 #
 
-# Just print the usage and exit with an error.
+# Just print the usage and exit with an error. This can receive a message to
+# print.
+# @param 1  A message to print.
 usage() {
-	printf 'usage: %s [-a] [afl_compiler]\n' "$0" 1>&2
+	if [ $# -eq 1 ]; then
+		printf '%s\n\n' "$1"
+	fi
+	printf 'usage: %s [-a] [afl_compiler]\n' "$0"
 	printf '\n'
 	printf '       If -a is given, then an ASan ready build is created.\n'
 	printf '       Otherwise, a normal fuzz build is created.\n'
@@ -44,17 +49,20 @@ usage() {
 script="$0"
 scriptdir=$(dirname "$script")
 
+. "$scriptdir/functions.sh"
+
 asan=0
 
 # Process command-line arguments.
 while getopts "a" opt; do
 
 	case "$opt" in
-		a) asan=1 ; shift ;;
+		a) asan=1 ;;
 		?) usage "Invalid option: $opt" ;;
 	esac
 
 done
+shift $(($OPTIND - 1))
 
 if [ $# -lt 1 ]; then
 	CC=afl-clang-lto
@@ -69,10 +77,10 @@ cd "$scriptdir/.."
 
 set -e
 
+CFLAGS="-flto -fstack-protector-all -fsanitize=shadow-call-stack -ffixed-x18 -fsanitize=cfi -fvisibility=hidden"
+
 if [ "$asan" -ne 0 ]; then
-	CFLAGS="-flto -fsanitize=address"
-else
-	CFLAGS="-flto"
+	CFLAGS="$CFLAGS -fsanitize=address"
 fi
 
 # We want a debug build because asserts are counted as crashes too.

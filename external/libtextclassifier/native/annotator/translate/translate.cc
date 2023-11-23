@@ -21,6 +21,7 @@
 
 #include "annotator/collections.h"
 #include "annotator/entity-data_generated.h"
+#include "annotator/model_generated.h"
 #include "annotator/types.h"
 #include "lang_id/lang-id-wrapper.h"
 #include "utils/base/logging.h"
@@ -34,6 +35,10 @@ bool TranslateAnnotator::ClassifyText(
     const UnicodeText& context, CodepointSpan selection_indices,
     const std::string& user_familiar_language_tags,
     ClassificationResult* classification_result) const {
+  if (!(options_->enabled_modes() & ModeFlag_CLASSIFICATION)) {
+    return false;
+  }
+
   std::vector<TranslateAnnotator::LanguageConfidence> confidences;
   if (options_->algorithm() ==
       TranslateAnnotatorOptions_::Algorithm::Algorithm_BACKOFF) {

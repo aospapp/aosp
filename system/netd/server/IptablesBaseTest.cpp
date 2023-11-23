@@ -105,7 +105,7 @@ void IptablesBaseTest::expectIptablesRestoreCommands(const std::vector<std::stri
 }
 
 void IptablesBaseTest::expectIptablesRestoreCommands(const ExpectedIptablesCommands& expectedCmds) {
-    EXPECT_EQ(expectedCmds.size(), sRestoreCmds.size());
+    ASSERT_EQ(expectedCmds.size(), sRestoreCmds.size());
     for (size_t i = 0; i < expectedCmds.size(); i++) {
         EXPECT_EQ(expectedCmds[i], sRestoreCmds[i]) <<
             "iptables-restore command " << i << " differs";

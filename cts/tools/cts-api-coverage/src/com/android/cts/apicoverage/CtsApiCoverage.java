@@ -16,8 +16,13 @@
 
 package com.android.cts.apicoverage;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.io.MoreFiles.getFileExtension;
+
 import com.android.compatibility.common.util.CddTest;
 import com.android.compatibility.common.util.ReadElf;
+
+import com.google.common.collect.ImmutableList;
 
 import org.jf.dexlib2.DexFileFactory;
 import org.jf.dexlib2.Opcodes;
@@ -34,20 +39,23 @@ import org.xml.sax.XMLReader;
 import org.xml.sax.helpers.XMLReaderFactory;
 
 import java.io.File;
-import java.io.FilenameFilter;
 import java.io.FileOutputStream;
 import java.io.FileReader;
 import java.io.IOException;
 import java.io.OutputStream;
-import java.util.Arrays;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
+import java.util.stream.Stream;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.function.Predicate;
 
 import javax.xml.transform.TransformerException;
 
@@ -57,20 +65,14 @@ import javax.xml.transform.TransformerException;
  */
 public class CtsApiCoverage {
 
-    private static final FilenameFilter SUPPORTED_FILE_NAME_FILTER = new FilenameFilter() {
-        public boolean accept(File dir, String name) {
-            String fileName = name.toLowerCase();
-            return fileName.endsWith(".apk") || fileName.endsWith(".jar");
-        }
-    };
-
     private static final int FORMAT_TXT = 0;
 
     private static final int FORMAT_XML = 1;
 
     private static final int FORMAT_HTML = 2;
 
-    private static final String CDD_REQUIREMENT_ANNOTATION = "Lcom/android/compatibility/common/util/CddTest;";
+    private static final String CDD_REQUIREMENT_ANNOTATION =
+            "Lcom/android/compatibility/common/util/CddTest;";
 
     private static final String CDD_REQUIREMENT_ELEMENT_NAME = "requirement";
 
@@ -93,11 +95,15 @@ public class CtsApiCoverage {
         System.out.println("  -d PATH                path to dexdeps or expected to be in $PATH");
         System.out.println("  -a PATH                path to the API XML file");
         System.out.println(
-                "  -n PATH                path to the NDK API XML file, which can be updated via ndk-api-report with the ndk target");
-        System.out.println("  -p PACKAGENAMEPREFIX   report coverage only for package that start with");
+                "  -n PATH                path to the NDK API XML file, which can be updated via"
+                        + " ndk-api-report with the ndk target");
+        System.out.println(
+                "  -p PACKAGENAMEPREFIX   report coverage only for package that start with");
         System.out.println("  -t TITLE               report title");
         System.out.println("  -a API                 the Android API Level");
         System.out.println("  -b BITS                64 or 32 bits, default 64");
+        System.out.println("  -j PARALLELISM         number of tasks to run in parallel, defaults"
+                        + " to number of cpus");
         System.out.println();
         System.exit(1);
     }
@@ -114,6 +120,7 @@ public class CtsApiCoverage {
         int apiLevel = Integer.MAX_VALUE;
         String testCasesFolder = "";
         String bits = "64";
+        int parallelism = Runtime.getRuntime().availableProcessors();
 
         List<File> notFoundTestApks = new ArrayList<File>();
         int numTestApkArgs = 0;
@@ -146,19 +153,28 @@ public class CtsApiCoverage {
                     apiLevel = Integer.parseInt(getExpectedArg(args, ++i));
                 } else if ("-b".equals(args[i])) {
                     bits = getExpectedArg(args, ++i);
+                } else if ("-j".equals(args[i])) {
+                    parallelism = Integer.parseInt(getExpectedArg(args, ++i));
                 } else {
                     printUsage();
                 }
             } else {
-                File file = new File(args[i]);
+                Path file = Paths.get(args[i]);
                 numTestApkArgs++;
-                if (file.isDirectory()) {
-                    testApks.addAll(Arrays.asList(file.listFiles(SUPPORTED_FILE_NAME_FILTER)));
+                if (Files.isDirectory(file)) {
+                    List<String> extensions = ImmutableList.of("apk", "jar");
+                    try (Stream<Path> files = Files.walk(file, Integer.MAX_VALUE)) {
+                        Predicate<Path> filter =
+                                path -> extensions.contains(getFileExtension(path).toLowerCase());
+                        List<File> matchedFiles =
+                                files.filter(filter).map(Path::toFile).collect(toImmutableList());
+                        testApks.addAll(matchedFiles);
+                    }
                     testCasesFolder = args[i];
-                } else if (file.isFile()) {
-                    testApks.add(file);
+                } else if (Files.exists(file)) {
+                    testApks.add(file.toFile());
                 } else {
-                    notFoundTestApks.add(file);
+                    notFoundTestApks.add(file.toFile());
                 }
             }
         }
@@ -199,8 +215,7 @@ public class CtsApiCoverage {
         // Add superclass information into api coverage.
         apiCoverage.resolveSuperClasses();
 
-        ExecutorService service =
-            Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
+        ExecutorService service = Executors.newFixedThreadPool(parallelism);
         List<Future> tasks = new ArrayList<>();
         for (File testApk : testApks) {
             tasks.add(addApiCoverage(service, apiCoverage, testApk, dexDeps));
@@ -371,7 +386,8 @@ public class CtsApiCoverage {
         } else {
             System.err.println(
                     String.format(
-                            "warning: addNdkApiCoverage failed to get GTestApiReport from: %s @ %s bits",
+                            "warning: addNdkApiCoverage failed to get GTestApiReport from: %s @ %s"
+                                    + " bits",
                             testCasesFolder, bits));
         }
     }
@@ -393,7 +409,8 @@ public class CtsApiCoverage {
         } else {
             System.err.println(
                     String.format(
-                            "warning: addGTestNdkApiCoverage failed to get GTestApiReport from: %s @ %s bits",
+                            "warning: addGTestNdkApiCoverage failed to get GTestApiReport from: %s"
+                                    + " @ %s bits",
                             testCasesFolder, bits));
         }
     }

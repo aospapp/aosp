@@ -274,7 +274,7 @@ TEST_F(FakeNetworkPipeTest, ChangingCapacityWithPacketsInPipeTest) {
   std::unique_ptr<FakeNetworkPipe> pipe(
       new FakeNetworkPipe(&fake_clock_, std::move(network), &receiver));
 
-  // Add 20 packets of 1000 bytes, = 80 kb.
+  // Add 20 packets of 1000 bytes, = 160 kb.
   const int kNumPackets = 20;
   const int kPacketSize = 1000;
   SendPackets(pipe.get(), kNumPackets, kPacketSize);
@@ -379,7 +379,7 @@ TEST_F(FakeNetworkPipeTest, BurstLoss) {
   fake_clock_.AdvanceTimeMilliseconds(1000);
   pipe->Process();
 
-  // Check that the average loss is |kLossPercent| percent.
+  // Check that the average loss is `kLossPercent` percent.
   int lost_packets = kNumPackets - receiver.delivered_sequence_numbers_.size();
   double loss_fraction = lost_packets / static_cast<double>(kNumPackets);
 

@@ -39,6 +39,11 @@ using ::android::internal::Stability;
 
 namespace android {
 
+bool is_multiuser_uid_isolated(uid_t uid) {
+    uid_t appid = multiuser_get_app_id(uid);
+    return appid >= AID_ISOLATED_START && appid <= AID_ISOLATED_END;
+}
+
 #ifndef VENDORSERVICEMANAGER
 
 struct ManifestWithDescription {
@@ -49,14 +54,14 @@ static std::vector<ManifestWithDescription> GetManifestsWithDescription() {
 #ifdef __ANDROID_RECOVERY__
     auto vintfObject = vintf::VintfObjectRecovery::GetInstance();
     if (vintfObject == nullptr) {
-        LOG(ERROR) << "NULL VintfObjectRecovery!";
+        ALOGE("NULL VintfObjectRecovery!");
         return {};
     }
     return {ManifestWithDescription{vintfObject->getRecoveryHalManifest(), "recovery"}};
 #else
     auto vintfObject = vintf::VintfObject::GetInstance();
     if (vintfObject == nullptr) {
-        LOG(ERROR) << "NULL VintfObject!";
+        ALOGE("NULL VintfObject!");
         return {};
     }
     return {ManifestWithDescription{vintfObject->getDeviceHalManifest(), "device"},
@@ -68,10 +73,10 @@ static std::vector<ManifestWithDescription> GetManifestsWithDescription() {
 static bool forEachManifest(const std::function<bool(const ManifestWithDescription&)>& func) {
     for (const ManifestWithDescription& mwd : GetManifestsWithDescription()) {
         if (mwd.manifest == nullptr) {
-          LOG(ERROR) << "NULL VINTF MANIFEST!: " << mwd.description;
-          // note, we explicitly do not retry here, so that we can detect VINTF
-          // or other bugs (b/151696835)
-          continue;
+            ALOGE("NULL VINTF MANIFEST!: %s", mwd.description);
+            // note, we explicitly do not retry here, so that we can detect VINTF
+            // or other bugs (b/151696835)
+            continue;
         }
         if (func(mwd)) return true;
     }
@@ -87,8 +92,9 @@ struct AidlName {
         size_t firstSlash = name.find('/');
         size_t lastDot = name.rfind('.', firstSlash);
         if (firstSlash == std::string::npos || lastDot == std::string::npos) {
-            LOG(ERROR) << "VINTF HALs require names in the format type/instance (e.g. "
-                       << "some.package.foo.IFoo/default) but got: " << name;
+            ALOGE("VINTF HALs require names in the format type/instance (e.g. "
+                  "some.package.foo.IFoo/default) but got: %s",
+                  name.c_str());
             return false;
         }
         aname->package = name.substr(0, lastDot);
@@ -104,7 +110,7 @@ static bool isVintfDeclared(const std::string& name) {
 
     bool found = forEachManifest([&](const ManifestWithDescription& mwd) {
         if (mwd.manifest->hasAidlInstance(aname.package, aname.iface, aname.instance)) {
-            LOG(INFO) << "Found " << name << " in " << mwd.description << " VINTF manifest.";
+            ALOGI("Found %s in %s VINTF manifest.", name.c_str(), mwd.description);
             return true; // break
         }
         return false;  // continue
@@ -113,8 +119,8 @@ static bool isVintfDeclared(const std::string& name) {
     if (!found) {
         // Although it is tested, explicitly rebuilding qualified name, in case it
         // becomes something unexpected.
-        LOG(INFO) << "Could not find " << aname.package << "." << aname.iface << "/"
-                  << aname.instance << " in the VINTF manifest.";
+        ALOGI("Could not find %s.%s/%s in the VINTF manifest.", aname.package.c_str(),
+              aname.iface.c_str(), aname.instance.c_str());
     }
 
     return found;
@@ -135,10 +141,31 @@ static std::optional<std::string> getVintfUpdatableApex(const std::string& name)
             updatableViaApex = manifestInstance.updatableViaApex();
             return false; // break (libvintf uses opposite convention)
         });
+        if (updatableViaApex.has_value()) return true; // break (found match)
         return false; // continue
     });
 
     return updatableViaApex;
+}
+
+static std::vector<std::string> getVintfUpdatableInstances(const std::string& apexName) {
+    std::vector<std::string> instances;
+
+    forEachManifest([&](const ManifestWithDescription& mwd) {
+        mwd.manifest->forEachInstance([&](const auto& manifestInstance) {
+            if (manifestInstance.format() == vintf::HalFormat::AIDL &&
+                manifestInstance.updatableViaApex().has_value() &&
+                manifestInstance.updatableViaApex().value() == apexName) {
+                std::string aname = manifestInstance.package() + "." +
+                        manifestInstance.interface() + "/" + manifestInstance.instance();
+                instances.push_back(aname);
+            }
+            return true; // continue (libvintf uses opposite convention)
+        });
+        return false; // continue
+    });
+
+    return instances;
 }
 
 static std::optional<ConnectionInfo> getVintfConnectionInfo(const std::string& name) {
@@ -173,7 +200,9 @@ static std::optional<ConnectionInfo> getVintfConnectionInfo(const std::string& n
 static std::vector<std::string> getVintfInstances(const std::string& interface) {
     size_t lastDot = interface.rfind('.');
     if (lastDot == std::string::npos) {
-        LOG(ERROR) << "VINTF interfaces require names in Java package format (e.g. some.package.foo.IFoo) but got: " << interface;
+        ALOGE("VINTF interfaces require names in Java package format (e.g. some.package.foo.IFoo) "
+              "but got: %s",
+              interface.c_str());
         return {};
     }
     const std::string package = interface.substr(0, lastDot);
@@ -197,6 +226,18 @@ static bool meetsDeclarationRequirements(const sp<IBinder>& binder, const std::s
     return isVintfDeclared(name);
 }
 #endif  // !VENDORSERVICEMANAGER
+
+ServiceManager::Service::~Service() {
+    if (hasClients) {
+        // only expected to happen on process death, we don't store the service
+        // name this late (it's in the map that holds this service), but if it
+        // is happening, we might want to change 'unlinkToDeath' to explicitly
+        // clear this bit so that we can abort in other cases, where it would
+        // mean inconsistent logic in servicemanager (unexpected and tested, but
+        // the original lazy service impl here had that bug).
+        LOG(WARNING) << "a service was removed when there are clients";
+    }
+}
 
 ServiceManager::ServiceManager(std::unique_ptr<Access>&& access) : mAccess(std::move(access)) {
 // TODO(b/151696835): reenable performance hack when we solve bug, since with
@@ -249,13 +290,8 @@ sp<IBinder> ServiceManager::tryGetService(const std::string& name, bool startIfN
     if (auto it = mNameToService.find(name); it != mNameToService.end()) {
         service = &(it->second);
 
-        if (!service->allowIsolated) {
-            uid_t appid = multiuser_get_app_id(ctx.uid);
-            bool isIsolated = appid >= AID_ISOLATED_START && appid <= AID_ISOLATED_END;
-
-            if (isIsolated) {
-                return nullptr;
-            }
+        if (!service->allowIsolated && is_multiuser_uid_isolated(ctx.uid)) {
+            return nullptr;
         }
         out = service->binder;
     }
@@ -269,8 +305,13 @@ sp<IBinder> ServiceManager::tryGetService(const std::string& name, bool startIfN
     }
 
     if (out) {
-        // Setting this guarantee each time we hand out a binder ensures that the client-checking
-        // loop knows about the event even if the client immediately drops the service
+        // Force onClients to get sent, and then make sure the timerfd won't clear it
+        // by setting guaranteeClient again. This logic could be simplified by using
+        // a time-based guarantee. However, forcing onClients(true) to get sent
+        // right here is always going to be important for processes serving multiple
+        // lazy interfaces.
+        service->guaranteeClient = true;
+        CHECK(handleServiceClientCallback(2 /* sm + transaction */, name, false));
         service->guaranteeClient = true;
     }
 
@@ -296,48 +337,81 @@ Status ServiceManager::addService(const std::string& name, const sp<IBinder>& bi
     auto ctx = mAccess->getCallingContext();
 
     if (multiuser_get_app_id(ctx.uid) >= AID_APP) {
-        return Status::fromExceptionCode(Status::EX_SECURITY, "App UIDs cannot add services");
+        return Status::fromExceptionCode(Status::EX_SECURITY, "App UIDs cannot add services.");
     }
 
     if (!mAccess->canAdd(ctx, name)) {
-        return Status::fromExceptionCode(Status::EX_SECURITY, "SELinux denial");
+        return Status::fromExceptionCode(Status::EX_SECURITY, "SELinux denied.");
     }
 
     if (binder == nullptr) {
-        return Status::fromExceptionCode(Status::EX_ILLEGAL_ARGUMENT, "Null binder");
+        return Status::fromExceptionCode(Status::EX_ILLEGAL_ARGUMENT, "Null binder.");
     }
 
     if (!isValidServiceName(name)) {
-        LOG(ERROR) << "Invalid service name: " << name;
-        return Status::fromExceptionCode(Status::EX_ILLEGAL_ARGUMENT, "Invalid service name");
+        ALOGE("Invalid service name: %s", name.c_str());
+        return Status::fromExceptionCode(Status::EX_ILLEGAL_ARGUMENT, "Invalid service name.");
     }
 
 #ifndef VENDORSERVICEMANAGER
     if (!meetsDeclarationRequirements(binder, name)) {
         // already logged
-        return Status::fromExceptionCode(Status::EX_ILLEGAL_ARGUMENT, "VINTF declaration error");
+        return Status::fromExceptionCode(Status::EX_ILLEGAL_ARGUMENT, "VINTF declaration error.");
     }
 #endif  // !VENDORSERVICEMANAGER
+
+    if ((dumpPriority & DUMP_FLAG_PRIORITY_ALL) == 0) {
+        ALOGW("Dump flag priority is not set when adding %s", name.c_str());
+    }
 
     // implicitly unlinked when the binder is removed
     if (binder->remoteBinder() != nullptr &&
         binder->linkToDeath(sp<ServiceManager>::fromExisting(this)) != OK) {
-        LOG(ERROR) << "Could not linkToDeath when adding " << name;
-        return Status::fromExceptionCode(Status::EX_ILLEGAL_STATE, "linkToDeath failure");
+        ALOGE("Could not linkToDeath when adding %s", name.c_str());
+        return Status::fromExceptionCode(Status::EX_ILLEGAL_STATE, "Couldn't linkToDeath.");
+    }
+
+    auto it = mNameToService.find(name);
+    if (it != mNameToService.end()) {
+        const Service& existing = it->second;
+
+        // We could do better than this because if the other service dies, it
+        // may not have an entry here. However, this case is unlikely. We are
+        // only trying to detect when two different services are accidentally installed.
+
+        if (existing.ctx.uid != ctx.uid) {
+            ALOGW("Service '%s' originally registered from UID %u but it is now being registered "
+                  "from UID %u. Multiple instances installed?",
+                  name.c_str(), existing.ctx.uid, ctx.uid);
+        }
+
+        if (existing.ctx.sid != ctx.sid) {
+            ALOGW("Service '%s' originally registered from SID %s but it is now being registered "
+                  "from SID %s. Multiple instances installed?",
+                  name.c_str(), existing.ctx.sid.c_str(), ctx.sid.c_str());
+        }
+
+        ALOGI("Service '%s' originally registered from PID %d but it is being registered again "
+              "from PID %d. Bad state? Late death notification? Multiple instances installed?",
+              name.c_str(), existing.ctx.debugPid, ctx.debugPid);
     }
 
     // Overwrite the old service if it exists
-    mNameToService[name] = Service {
-        .binder = binder,
-        .allowIsolated = allowIsolated,
-        .dumpPriority = dumpPriority,
-        .debugPid = ctx.debugPid,
+    mNameToService[name] = Service{
+            .binder = binder,
+            .allowIsolated = allowIsolated,
+            .dumpPriority = dumpPriority,
+            .ctx = ctx,
     };
 
-    auto it = mNameToRegistrationCallback.find(name);
-    if (it != mNameToRegistrationCallback.end()) {
+    if (auto it = mNameToRegistrationCallback.find(name); it != mNameToRegistrationCallback.end()) {
+        // See also getService - handles case where client never gets the service,
+        // we want the service to quit.
+        mNameToService[name].guaranteeClient = true;
+        CHECK(handleServiceClientCallback(2 /* sm + transaction */, name, false));
+        mNameToService[name].guaranteeClient = true;
+
         for (const sp<IServiceCallback>& cb : it->second) {
-            mNameToService[name].guaranteeClient = true;
             // permission checked in registerForNotifications
             cb->onRegistration(name, binder);
         }
@@ -348,7 +422,7 @@ Status ServiceManager::addService(const std::string& name, const sp<IBinder>& bi
 
 Status ServiceManager::listServices(int32_t dumpPriority, std::vector<std::string>* outList) {
     if (!mAccess->canList(mAccess->getCallingContext())) {
-        return Status::fromExceptionCode(Status::EX_SECURITY);
+        return Status::fromExceptionCode(Status::EX_SECURITY, "SELinux denied.");
     }
 
     size_t toReserve = 0;
@@ -377,23 +451,33 @@ Status ServiceManager::registerForNotifications(
     auto ctx = mAccess->getCallingContext();
 
     if (!mAccess->canFind(ctx, name)) {
-        return Status::fromExceptionCode(Status::EX_SECURITY);
+        return Status::fromExceptionCode(Status::EX_SECURITY, "SELinux");
+    }
+
+    // note - we could allow isolated apps to get notifications if we
+    // keep track of isolated callbacks and non-isolated callbacks, but
+    // this is done since isolated apps shouldn't access lazy services
+    // so we should be able to use different APIs to keep things simple.
+    // Here, we disallow everything, because the service might not be
+    // registered yet.
+    if (is_multiuser_uid_isolated(ctx.uid)) {
+        return Status::fromExceptionCode(Status::EX_SECURITY, "isolated app");
     }
 
     if (!isValidServiceName(name)) {
-        LOG(ERROR) << "Invalid service name: " << name;
-        return Status::fromExceptionCode(Status::EX_ILLEGAL_ARGUMENT);
+        ALOGE("Invalid service name: %s", name.c_str());
+        return Status::fromExceptionCode(Status::EX_ILLEGAL_ARGUMENT, "Invalid service name.");
     }
 
     if (callback == nullptr) {
-        return Status::fromExceptionCode(Status::EX_NULL_POINTER);
+        return Status::fromExceptionCode(Status::EX_NULL_POINTER, "Null callback.");
     }
 
     if (OK !=
         IInterface::asBinder(callback)->linkToDeath(
                 sp<ServiceManager>::fromExisting(this))) {
-        LOG(ERROR) << "Could not linkToDeath when adding " << name;
-        return Status::fromExceptionCode(Status::EX_ILLEGAL_STATE);
+        ALOGE("Could not linkToDeath when adding %s", name.c_str());
+        return Status::fromExceptionCode(Status::EX_ILLEGAL_STATE, "Couldn't link to death.");
     }
 
     mNameToRegistrationCallback[name].push_back(callback);
@@ -413,7 +497,7 @@ Status ServiceManager::unregisterForNotifications(
     auto ctx = mAccess->getCallingContext();
 
     if (!mAccess->canFind(ctx, name)) {
-        return Status::fromExceptionCode(Status::EX_SECURITY);
+        return Status::fromExceptionCode(Status::EX_SECURITY, "SELinux denied.");
     }
 
     bool found = false;
@@ -424,8 +508,8 @@ Status ServiceManager::unregisterForNotifications(
     }
 
     if (!found) {
-        LOG(ERROR) << "Trying to unregister callback, but none exists " << name;
-        return Status::fromExceptionCode(Status::EX_ILLEGAL_STATE);
+        ALOGE("Trying to unregister callback, but none exists %s", name.c_str());
+        return Status::fromExceptionCode(Status::EX_ILLEGAL_STATE, "Nothing to unregister.");
     }
 
     return Status::ok();
@@ -435,7 +519,7 @@ Status ServiceManager::isDeclared(const std::string& name, bool* outReturn) {
     auto ctx = mAccess->getCallingContext();
 
     if (!mAccess->canFind(ctx, name)) {
-        return Status::fromExceptionCode(Status::EX_SECURITY);
+        return Status::fromExceptionCode(Status::EX_SECURITY, "SELinux denied.");
     }
 
     *outReturn = false;
@@ -463,7 +547,7 @@ binder::Status ServiceManager::getDeclaredInstances(const std::string& interface
     }
 
     if (outReturn->size() == 0 && allInstances.size() != 0) {
-        return Status::fromExceptionCode(Status::EX_SECURITY);
+        return Status::fromExceptionCode(Status::EX_SECURITY, "SELinux denied.");
     }
 
     return Status::ok();
@@ -474,7 +558,7 @@ Status ServiceManager::updatableViaApex(const std::string& name,
     auto ctx = mAccess->getCallingContext();
 
     if (!mAccess->canFind(ctx, name)) {
-        return Status::fromExceptionCode(Status::EX_SECURITY);
+        return Status::fromExceptionCode(Status::EX_SECURITY, "SELinux denied.");
     }
 
     *outReturn = std::nullopt;
@@ -485,12 +569,36 @@ Status ServiceManager::updatableViaApex(const std::string& name,
     return Status::ok();
 }
 
+Status ServiceManager::getUpdatableNames([[maybe_unused]] const std::string& apexName,
+                                         std::vector<std::string>* outReturn) {
+    auto ctx = mAccess->getCallingContext();
+
+    std::vector<std::string> apexUpdatableInstances;
+#ifndef VENDORSERVICEMANAGER
+    apexUpdatableInstances = getVintfUpdatableInstances(apexName);
+#endif
+
+    outReturn->clear();
+
+    for (const std::string& instance : apexUpdatableInstances) {
+        if (mAccess->canFind(ctx, instance)) {
+            outReturn->push_back(instance);
+        }
+    }
+
+    if (outReturn->size() == 0 && apexUpdatableInstances.size() != 0) {
+        return Status::fromExceptionCode(Status::EX_SECURITY, "SELinux denied.");
+    }
+
+    return Status::ok();
+}
+
 Status ServiceManager::getConnectionInfo(const std::string& name,
                                          std::optional<ConnectionInfo>* outReturn) {
     auto ctx = mAccess->getCallingContext();
 
     if (!mAccess->canFind(ctx, name)) {
-        return Status::fromExceptionCode(Status::EX_SECURITY);
+        return Status::fromExceptionCode(Status::EX_SECURITY, "SELinux denied.");
     }
 
     *outReturn = std::nullopt;
@@ -541,15 +649,17 @@ void ServiceManager::binderDied(const wp<IBinder>& who) {
 }
 
 void ServiceManager::tryStartService(const std::string& name) {
-    ALOGI("Since '%s' could not be found, trying to start it as a lazy AIDL service",
+    ALOGI("Since '%s' could not be found, trying to start it as a lazy AIDL service. (if it's not "
+          "configured to be a lazy service, it may be stuck starting or still starting).",
           name.c_str());
 
     std::thread([=] {
         if (!base::SetProperty("ctl.interface_start", "aidl/" + name)) {
-            LOG(INFO) << "Tried to start aidl service " << name
-                      << " as a lazy service, but was unable to. Usually this happens when a "
-                         "service is not installed, but if the service is intended to be used as a "
-                         "lazy service, then it may be configured incorrectly.";
+            ALOGI("Tried to start aidl service %s as a lazy service, but was unable to. Usually "
+                  "this happens when a "
+                  "service is not installed, but if the service is intended to be used as a "
+                  "lazy service, then it may be configured incorrectly.",
+                  name.c_str());
         }
     }).detach();
 }
@@ -557,35 +667,42 @@ void ServiceManager::tryStartService(const std::string& name) {
 Status ServiceManager::registerClientCallback(const std::string& name, const sp<IBinder>& service,
                                               const sp<IClientCallback>& cb) {
     if (cb == nullptr) {
-        return Status::fromExceptionCode(Status::EX_NULL_POINTER);
+        return Status::fromExceptionCode(Status::EX_NULL_POINTER, "Callback null.");
     }
 
     auto ctx = mAccess->getCallingContext();
     if (!mAccess->canAdd(ctx, name)) {
-        return Status::fromExceptionCode(Status::EX_SECURITY);
+        return Status::fromExceptionCode(Status::EX_SECURITY, "SELinux denied.");
     }
 
     auto serviceIt = mNameToService.find(name);
     if (serviceIt == mNameToService.end()) {
-        LOG(ERROR) << "Could not add callback for nonexistent service: " << name;
-        return Status::fromExceptionCode(Status::EX_ILLEGAL_ARGUMENT);
+        ALOGE("Could not add callback for nonexistent service: %s", name.c_str());
+        return Status::fromExceptionCode(Status::EX_ILLEGAL_ARGUMENT, "Service doesn't exist.");
     }
 
-    if (serviceIt->second.debugPid != IPCThreadState::self()->getCallingPid()) {
-        LOG(WARNING) << "Only a server can register for client callbacks (for " << name << ")";
-        return Status::fromExceptionCode(Status::EX_UNSUPPORTED_OPERATION);
+    if (serviceIt->second.ctx.debugPid != IPCThreadState::self()->getCallingPid()) {
+        ALOGW("Only a server can register for client callbacks (for %s)", name.c_str());
+        return Status::fromExceptionCode(Status::EX_UNSUPPORTED_OPERATION,
+                                         "Only service can register client callback for itself.");
     }
 
     if (serviceIt->second.binder != service) {
-        LOG(WARNING) << "Tried to register client callback for " << name
-            << " but a different service is registered under this name.";
-        return Status::fromExceptionCode(Status::EX_ILLEGAL_ARGUMENT);
+        ALOGW("Tried to register client callback for %s but a different service is registered "
+              "under this name.",
+              name.c_str());
+        return Status::fromExceptionCode(Status::EX_ILLEGAL_ARGUMENT, "Service mismatch.");
     }
 
     if (OK !=
         IInterface::asBinder(cb)->linkToDeath(sp<ServiceManager>::fromExisting(this))) {
-        LOG(ERROR) << "Could not linkToDeath when adding client callback for " << name;
-        return Status::fromExceptionCode(Status::EX_ILLEGAL_STATE);
+        ALOGE("Could not linkToDeath when adding client callback for %s", name.c_str());
+        return Status::fromExceptionCode(Status::EX_ILLEGAL_STATE, "Couldn't linkToDeath.");
+    }
+
+    // make sure all callbacks have been told about a consistent state - b/278038751
+    if (serviceIt->second.hasClients) {
+        cb->onClients(service, true);
     }
 
     mNameToClientCallback[name].push_back(cb);
@@ -621,67 +738,74 @@ ssize_t ServiceManager::Service::getNodeStrongRefCount() {
 
 void ServiceManager::handleClientCallbacks() {
     for (const auto& [name, service] : mNameToService) {
-        handleServiceClientCallback(name, true);
+        handleServiceClientCallback(1 /* sm has one refcount */, name, true);
     }
 }
 
-ssize_t ServiceManager::handleServiceClientCallback(const std::string& serviceName,
-                                                    bool isCalledOnInterval) {
+bool ServiceManager::handleServiceClientCallback(size_t knownClients,
+                                                 const std::string& serviceName,
+                                                 bool isCalledOnInterval) {
     auto serviceIt = mNameToService.find(serviceName);
     if (serviceIt == mNameToService.end() || mNameToClientCallback.count(serviceName) < 1) {
-        return -1;
+        return true; // return we do have clients a.k.a. DON'T DO ANYTHING
     }
 
     Service& service = serviceIt->second;
     ssize_t count = service.getNodeStrongRefCount();
 
-    // binder driver doesn't support this feature
-    if (count == -1) return count;
+    // binder driver doesn't support this feature, consider we have clients
+    if (count == -1) return true;
 
-    bool hasClients = count > 1; // this process holds a strong count
+    bool hasKernelReportedClients = static_cast<size_t>(count) > knownClients;
 
     if (service.guaranteeClient) {
-        // we have no record of this client
-        if (!service.hasClients && !hasClients) {
-            sendClientCallbackNotifications(serviceName, true);
+        if (!service.hasClients && !hasKernelReportedClients) {
+            sendClientCallbackNotifications(serviceName, true,
+                                            "service is guaranteed to be in use");
         }
 
         // guarantee is temporary
         service.guaranteeClient = false;
     }
 
-    // only send notifications if this was called via the interval checking workflow
-    if (isCalledOnInterval) {
-        if (hasClients && !service.hasClients) {
-            // client was retrieved in some other way
-            sendClientCallbackNotifications(serviceName, true);
-        }
+    // Regardless of this situation, we want to give this notification as soon as possible.
+    // This way, we have a chance of preventing further thrashing.
+    if (hasKernelReportedClients && !service.hasClients) {
+        sendClientCallbackNotifications(serviceName, true, "we now have a record of a client");
+    }
 
-        // there are no more clients, but the callback has not been called yet
-        if (!hasClients && service.hasClients) {
-            sendClientCallbackNotifications(serviceName, false);
+    // But limit rate of shutting down service.
+    if (isCalledOnInterval) {
+        if (!hasKernelReportedClients && service.hasClients) {
+            sendClientCallbackNotifications(serviceName, false,
+                                            "we now have no record of a client");
         }
     }
 
-    return count;
+    // May be different than 'hasKernelReportedClients'. We intentionally delay
+    // information about clients going away to reduce thrashing.
+    return service.hasClients;
 }
 
-void ServiceManager::sendClientCallbackNotifications(const std::string& serviceName, bool hasClients) {
+void ServiceManager::sendClientCallbackNotifications(const std::string& serviceName,
+                                                     bool hasClients, const char* context) {
     auto serviceIt = mNameToService.find(serviceName);
     if (serviceIt == mNameToService.end()) {
-        LOG(WARNING) << "sendClientCallbackNotifications could not find service " << serviceName;
+        ALOGW("sendClientCallbackNotifications could not find service %s when %s",
+              serviceName.c_str(), context);
         return;
     }
     Service& service = serviceIt->second;
 
-    CHECK(hasClients != service.hasClients) << "Record shows: " << service.hasClients
-        << " so we can't tell clients again that we have client: " << hasClients;
+    CHECK_NE(hasClients, service.hasClients) << context;
 
-    LOG(INFO) << "Notifying " << serviceName << " they have clients: " << hasClients;
+    ALOGI("Notifying %s they %s (previously: %s) have clients when %s", serviceName.c_str(),
+          hasClients ? "do" : "don't", service.hasClients ? "do" : "don't", context);
 
     auto ccIt = mNameToClientCallback.find(serviceName);
     CHECK(ccIt != mNameToClientCallback.end())
-        << "sendClientCallbackNotifications could not find callbacks for service ";
+            << "sendClientCallbackNotifications could not find callbacks for service when "
+            << context;
 
     for (const auto& callback : ccIt->second) {
         callback->onClients(service.binder, hasClients);
@@ -692,54 +816,61 @@ void ServiceManager::sendClientCallbackNotifications(const std::string& serviceN
 
 Status ServiceManager::tryUnregisterService(const std::string& name, const sp<IBinder>& binder) {
     if (binder == nullptr) {
-        return Status::fromExceptionCode(Status::EX_NULL_POINTER);
+        return Status::fromExceptionCode(Status::EX_NULL_POINTER, "Null service.");
     }
 
     auto ctx = mAccess->getCallingContext();
     if (!mAccess->canAdd(ctx, name)) {
-        return Status::fromExceptionCode(Status::EX_SECURITY);
+        return Status::fromExceptionCode(Status::EX_SECURITY, "SELinux denied.");
     }
 
     auto serviceIt = mNameToService.find(name);
     if (serviceIt == mNameToService.end()) {
-        LOG(WARNING) << "Tried to unregister " << name
-            << ", but that service wasn't registered to begin with.";
-        return Status::fromExceptionCode(Status::EX_ILLEGAL_STATE);
+        ALOGW("Tried to unregister %s, but that service wasn't registered to begin with.",
+              name.c_str());
+        return Status::fromExceptionCode(Status::EX_ILLEGAL_STATE, "Service not registered.");
     }
 
-    if (serviceIt->second.debugPid != IPCThreadState::self()->getCallingPid()) {
-        LOG(WARNING) << "Only a server can unregister itself (for " << name << ")";
-        return Status::fromExceptionCode(Status::EX_UNSUPPORTED_OPERATION);
+    if (serviceIt->second.ctx.debugPid != IPCThreadState::self()->getCallingPid()) {
+        ALOGW("Only a server can unregister itself (for %s)", name.c_str());
+        return Status::fromExceptionCode(Status::EX_UNSUPPORTED_OPERATION,
+                                         "Service can only unregister itself.");
     }
 
     sp<IBinder> storedBinder = serviceIt->second.binder;
 
     if (binder != storedBinder) {
-        LOG(WARNING) << "Tried to unregister " << name
-            << ", but a different service is registered under this name.";
-        return Status::fromExceptionCode(Status::EX_ILLEGAL_STATE);
+        ALOGW("Tried to unregister %s, but a different service is registered under this name.",
+              name.c_str());
+        return Status::fromExceptionCode(Status::EX_ILLEGAL_STATE,
+                                         "Different service registered under this name.");
     }
 
+    // important because we don't have timer-based guarantees, we don't want to clear
+    // this
     if (serviceIt->second.guaranteeClient) {
-        LOG(INFO) << "Tried to unregister " << name << ", but there is about to be a client.";
-        return Status::fromExceptionCode(Status::EX_ILLEGAL_STATE);
+        ALOGI("Tried to unregister %s, but there is about to be a client.", name.c_str());
+        return Status::fromExceptionCode(Status::EX_ILLEGAL_STATE,
+                                         "Can't unregister, pending client.");
     }
 
-    int clients = handleServiceClientCallback(name, false);
-
-    // clients < 0: feature not implemented or other error. Assume clients.
-    // Otherwise:
     // - kernel driver will hold onto one refcount (during this transaction)
     // - servicemanager has a refcount (guaranteed by this transaction)
-    // So, if clients > 2, then at least one other service on the system must hold a refcount.
-    if (clients < 0 || clients > 2) {
-        // client callbacks are either disabled or there are other clients
-        LOG(INFO) << "Tried to unregister " << name << ", but there are clients: " << clients;
-        // Set this flag to ensure the clients are acknowledged in the next callback
+    constexpr size_t kKnownClients = 2;
+
+    if (handleServiceClientCallback(kKnownClients, name, false)) {
+        ALOGI("Tried to unregister %s, but there are clients.", name.c_str());
+
+        // Since we had a failed registration attempt, and the HIDL implementation of
+        // delaying service shutdown for multiple periods wasn't ported here... this may
+        // help reduce thrashing, but we should be able to remove it.
         serviceIt->second.guaranteeClient = true;
-        return Status::fromExceptionCode(Status::EX_ILLEGAL_STATE);
+
+        return Status::fromExceptionCode(Status::EX_ILLEGAL_STATE,
+                                         "Can't unregister, known client.");
     }
 
+    ALOGI("Unregistering %s", name.c_str());
     mNameToService.erase(name);
 
     return Status::ok();
@@ -747,19 +878,25 @@ Status ServiceManager::tryUnregisterService(const std::string& name, const sp<IB
 
 Status ServiceManager::getServiceDebugInfo(std::vector<ServiceDebugInfo>* outReturn) {
     if (!mAccess->canList(mAccess->getCallingContext())) {
-        return Status::fromExceptionCode(Status::EX_SECURITY);
+        return Status::fromExceptionCode(Status::EX_SECURITY, "SELinux denied.");
     }
 
     outReturn->reserve(mNameToService.size());
     for (auto const& [name, service] : mNameToService) {
         ServiceDebugInfo info;
         info.name = name;
-        info.debugPid = service.debugPid;
+        info.debugPid = service.ctx.debugPid;
 
         outReturn->push_back(std::move(info));
     }
 
     return Status::ok();
+}
+
+void ServiceManager::clear() {
+    mNameToService.clear();
+    mNameToRegistrationCallback.clear();
+    mNameToClientCallback.clear();
 }
 
 }  // namespace android

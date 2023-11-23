@@ -41,6 +41,7 @@ cc_library_headers {
         "com.android.neuralnetworks",
         "test_com.android.neuralnetworks",
         "com.android.extservices",
+        "com.android.adservices",
     ],
 }
 

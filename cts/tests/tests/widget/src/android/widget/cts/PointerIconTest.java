@@ -21,6 +21,7 @@ import static org.junit.Assert.assertEquals;
 import android.app.Activity;
 import android.view.InputDevice;
 import android.view.MotionEvent;
+import android.view.MotionEvent.PointerCoords;
 import android.view.PointerIcon;
 import android.view.View;
 import android.widget.TabHost;
@@ -61,32 +62,54 @@ public class PointerIconTest {
         mHelpIcon = PointerIcon.getSystemIcon(mActivity, PointerIcon.TYPE_HELP);
     }
 
-    private void assertPointerIcon(String message, PointerIcon expectedIcon, View target) {
+    private void assertMousePointerIcon(String message, PointerIcon expectedIcon, View target) {
+        assertPointerIcon(message, expectedIcon, target, InputDevice.SOURCE_MOUSE,
+                MotionEvent.TOOL_TYPE_MOUSE);
+    }
+
+    private void assertStylusPointerIcon(String message, PointerIcon expectedIcon, View target) {
+        assertPointerIcon(message, expectedIcon, target, InputDevice.SOURCE_STYLUS,
+                MotionEvent.TOOL_TYPE_STYLUS);
+    }
+
+    private void assertPointerIcon(String message, PointerIcon expectedIcon, View target,
+            int source, @MotionEvent.ToolType int toolType) {
         final int[] topPos = new int[2];
         mTopView.getLocationOnScreen(topPos);
         final int[] targetPos = new int[2];
         target.getLocationOnScreen(targetPos);
         final int x = targetPos[0] + target.getWidth() / 2 - topPos[0];
         final int y = targetPos[1] + target.getHeight() / 2 - topPos[1];
-        final MotionEvent event = MotionEvent.obtain(0, 0, MotionEvent.ACTION_HOVER_MOVE, x, y, 0);
-        event.setSource(InputDevice.SOURCE_TOUCHSCREEN);
+
+        final PointerCoords[] pcs = new PointerCoords[1];
+        pcs[0] = new PointerCoords();
+        pcs[0].setAxisValue(MotionEvent.AXIS_X, x);
+        pcs[0].setAxisValue(MotionEvent.AXIS_Y, y);
+
+        final MotionEvent.PointerProperties[] pps = new MotionEvent.PointerProperties[1];
+        pps[0] = new MotionEvent.PointerProperties();
+        pps[0].toolType = toolType;
+
+        final MotionEvent event = MotionEvent.obtain(0, 0, MotionEvent.ACTION_HOVER_MOVE, 1, pps,
+                pcs, 0, 0, x, y, 0, 0, source, 0);
+
         assertEquals(message, expectedIcon, mTopView.onResolvePointerIcon(event, 0));
     }
 
-    private void assertDefaultWidgetPointerIconBehavior(View view) {
-        assertPointerIcon("Default pointer icon", mHandIcon, view);
+    private void assertDefaultWidgetMousePointerIconBehavior(View view) {
+        assertMousePointerIcon("Default pointer icon", mHandIcon, view);
 
         view.setEnabled(false);
-        assertPointerIcon("Disabled view has no pointer icon", null, view);
+        assertMousePointerIcon("Disabled view has no pointer icon", null, view);
 
         view.setEnabled(true);
-        assertPointerIcon("Enabled view has default pointer icon", mHandIcon, view);
+        assertMousePointerIcon("Enabled view has default pointer icon", mHandIcon, view);
 
         view.setPointerIcon(mHelpIcon);
-        assertPointerIcon("Override pointer icon", mHelpIcon, view);
+        assertMousePointerIcon("Override pointer icon", mHelpIcon, view);
 
         view.setPointerIcon(null);
-        assertPointerIcon("Revert to default pointer icon", mHandIcon, view);
+        assertMousePointerIcon("Revert to default pointer icon", mHandIcon, view);
     }
 
     private TabHost.TabSpec createTabSpec(TabHost tabHost, String label, PointerIcon pointerIcon) {
@@ -101,19 +124,19 @@ public class PointerIconTest {
     @UiThreadTest
     @Test
     public void testButton() {
-        assertDefaultWidgetPointerIconBehavior(mActivity.findViewById(R.id.button));
+        assertDefaultWidgetMousePointerIconBehavior(mActivity.findViewById(R.id.button));
     }
 
     @UiThreadTest
     @Test
     public void testImageButton() {
-        assertDefaultWidgetPointerIconBehavior(mActivity.findViewById(R.id.image_button));
+        assertDefaultWidgetMousePointerIconBehavior(mActivity.findViewById(R.id.image_button));
     }
 
     @UiThreadTest
     @Test
     public void testSpinnerButton() {
-        assertDefaultWidgetPointerIconBehavior(mActivity.findViewById(R.id.spinner));
+        assertDefaultWidgetMousePointerIconBehavior(mActivity.findViewById(R.id.spinner));
     }
 
     @FlakyTest(bugId = 124009655)
@@ -135,14 +158,28 @@ public class PointerIconTest {
             final TabWidget tabWidget = tabHost.getTabWidget();
 
             tabWidget.setEnabled(false);
-            assertPointerIcon("Disabled Tab 0", null, tabWidget.getChildTabViewAt(0));
-            assertPointerIcon("Disabled Tab 1", null, tabWidget.getChildTabViewAt(1));
-            assertPointerIcon("Disabled Tab 2", null, tabWidget.getChildTabViewAt(2));
+            assertMousePointerIcon("Disabled Tab 0", null, tabWidget.getChildTabViewAt(0));
+            assertMousePointerIcon("Disabled Tab 1", null, tabWidget.getChildTabViewAt(1));
+            assertMousePointerIcon("Disabled Tab 2", null, tabWidget.getChildTabViewAt(2));
 
             tabWidget.setEnabled(true);
-            assertPointerIcon("Tab 0", mHandIcon, tabWidget.getChildTabViewAt(0));
-            assertPointerIcon("Tab 1", mHandIcon, tabWidget.getChildTabViewAt(1));
-            assertPointerIcon("Tab 2", mHelpIcon, tabWidget.getChildTabViewAt(2));
+            assertMousePointerIcon("Tab 0", mHandIcon, tabWidget.getChildTabViewAt(0));
+            assertMousePointerIcon("Tab 1", mHandIcon, tabWidget.getChildTabViewAt(1));
+            assertMousePointerIcon("Tab 2", mHelpIcon, tabWidget.getChildTabViewAt(2));
         });
+    }
+
+    @UiThreadTest
+    @Test
+    public void testSetPointerIconIsNotUsedForStylusByDefault() {
+        final View view = mActivity.findViewById(R.id.empty_view);
+
+        assertMousePointerIcon("Default mouse pointer icon", null, view);
+        assertStylusPointerIcon("Default stylus pointer icon", null, view);
+
+        // setPointerIcon() should only affect the pointer icon for mouse devices by default.
+        view.setPointerIcon(mHandIcon);
+        assertMousePointerIcon("setPointerIcon applies to mouse pointers", mHandIcon, view);
+        assertStylusPointerIcon("setPointerIcon does not apply to stylus pointers", null, view);
     }
 }

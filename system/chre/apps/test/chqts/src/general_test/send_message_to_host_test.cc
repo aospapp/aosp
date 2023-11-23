@@ -23,9 +23,12 @@
 #include <shared/nano_string.h>
 #include <shared/send_message.h>
 
-#include <chre.h>
-
+#include <chre/util/nanoapp/log.h>
 #include "chre/util/toolchain.h"
+
+#include "chre_api/chre.h"
+
+#define LOG_TAG "[SendMessageToHostTest]"
 
 using nanoapp_testing::MessageType;
 using nanoapp_testing::sendFatalFailureToHost;
@@ -195,7 +198,7 @@ void SendMessageToHostTest::largeMessageCallback(void *message,
 }
 
 void SendMessageToHostTest::markSuccess(uint32_t stage) {
-  chreLog(CHRE_LOG_DEBUG, "Stage %" PRIu32 " succeeded", stage);
+  LOGD("Stage %" PRIu32 " succeeded", stage);
   uint32_t finishedBit = (1 << stage);
   if (sFinishedBitmask & finishedBit) {
     sendFatalFailureToHost("callback called multiple times for stage:", &stage);

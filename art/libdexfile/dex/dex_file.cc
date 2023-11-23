@@ -74,11 +74,6 @@ uint32_t DexFile::ChecksumMemoryRange(const uint8_t* begin, size_t size) {
   return adler32(adler32(0L, Z_NULL, 0), begin, size);
 }
 
-int DexFile::GetPermissions() const {
-  CHECK(container_.get() != nullptr);
-  return container_->GetPermissions();
-}
-
 bool DexFile::IsReadOnly() const {
   CHECK(container_.get() != nullptr);
   return container_->IsReadOnly();
@@ -96,17 +91,14 @@ bool DexFile::DisableWrite() const {
 
 DexFile::DexFile(const uint8_t* base,
                  size_t size,
-                 const uint8_t* data_begin,
-                 size_t data_size,
                  const std::string& location,
                  uint32_t location_checksum,
                  const OatDexFile* oat_dex_file,
-                 std::unique_ptr<DexFileContainer> container,
+                 std::shared_ptr<DexFileContainer> container,
                  bool is_compact_dex)
     : begin_(base),
       size_(size),
-      data_begin_(data_begin),
-      data_size_(data_size),
+      data_(GetDataRange(base, size, container.get())),
       location_(location),
       location_checksum_(location_checksum),
       header_(reinterpret_cast<const Header*>(base)),
@@ -132,6 +124,11 @@ DexFile::DexFile(const uint8_t* base,
   // any of the sections via a pointer.
   CHECK_ALIGNED(begin_, alignof(Header));
 
+  if (DataSize() < sizeof(Header)) {
+    // Don't go further if the data doesn't even contain a header.
+    return;
+  }
+
   InitializeSectionsFromMapList();
 }
 
@@ -143,7 +140,21 @@ DexFile::~DexFile() {
 }
 
 bool DexFile::Init(std::string* error_msg) {
+  CHECK_GE(container_->End(), reinterpret_cast<const uint8_t*>(header_));
+  size_t container_size = container_->End() - reinterpret_cast<const uint8_t*>(header_);
+  if (container_size < sizeof(Header)) {
+    *error_msg = StringPrintf("Unable to open '%s' : File size is too small to fit dex header",
+                              location_.c_str());
+    return false;
+  }
   if (!CheckMagicAndVersion(error_msg)) {
+    return false;
+  }
+  if (container_size < header_->file_size_) {
+    *error_msg = StringPrintf("Unable to open '%s' : File size is %zu but the header expects %u",
+                              location_.c_str(),
+                              container_size,
+                              header_->file_size_);
     return false;
   }
   return true;
@@ -173,12 +184,32 @@ bool DexFile::CheckMagicAndVersion(std::string* error_msg) const {
   return true;
 }
 
+ArrayRef<const uint8_t> DexFile::GetDataRange(const uint8_t* data,
+                                              size_t size,
+                                              DexFileContainer* container) {
+  CHECK(container != nullptr);
+  if (size >= sizeof(CompactDexFile::Header) && CompactDexFile::IsMagicValid(data)) {
+    auto header = reinterpret_cast<const CompactDexFile::Header*>(data);
+    // TODO: Remove. This is a hack. See comment of the Data method.
+    ArrayRef<const uint8_t> separate_data = container->Data();
+    if (separate_data.size() > 0) {
+      return separate_data;
+    }
+    // Shared compact dex data is located at the end after all dex files.
+    data += header->data_off_;
+    size = header->data_size_;
+  }
+  return {data, size};
+}
+
 void DexFile::InitializeSectionsFromMapList() {
-  const MapList* map_list = reinterpret_cast<const MapList*>(DataBegin() + header_->map_off_);
-  if (header_->map_off_ == 0 || header_->map_off_ > DataSize()) {
+  static_assert(sizeof(MapList) <= sizeof(Header));
+  DCHECK_GE(DataSize(), sizeof(MapList));
+  if (header_->map_off_ == 0 || header_->map_off_ > DataSize() - sizeof(MapList)) {
     // Bad offset. The dex file verifier runs after this method and will reject the file.
     return;
   }
+  const MapList* map_list = reinterpret_cast<const MapList*>(DataBegin() + header_->map_off_);
   const size_t count = map_list->size_;
 
   size_t map_limit = header_->map_off_ + count * sizeof(MapItem);

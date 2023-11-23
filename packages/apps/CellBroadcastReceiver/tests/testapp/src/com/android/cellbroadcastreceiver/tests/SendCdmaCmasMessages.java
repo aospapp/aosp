@@ -26,6 +26,7 @@ import android.provider.Telephony;
 import android.telephony.SmsCbCmasInfo;
 import android.telephony.SmsCbLocation;
 import android.telephony.SmsCbMessage;
+import android.text.TextUtils;
 
 import com.android.internal.telephony.CellBroadcastUtils;
 import com.android.internal.telephony.cdma.sms.SmsEnvelope;
@@ -60,50 +61,65 @@ public class SendCdmaCmasMessages {
                 AppOpsManager.OP_RECEIVE_EMERGECY_SMS, null, null, Activity.RESULT_OK, null, null);
     }
 
-    public static void testSendCmasPresAlert(Context context, int serialNumber) {
+    public static void testSendCmasPresAlert(Context context, int serialNumber,
+            String messageBody, String languageCode) {
         SmsCbMessage cbMessage = createCmasSmsMessage(
-                SmsEnvelope.SERVICE_CATEGORY_CMAS_PRESIDENTIAL_LEVEL_ALERT, serialNumber, "en",
-                PRES_ALERT, SmsCbCmasInfo.CMAS_CATEGORY_GEO,
+                SmsEnvelope.SERVICE_CATEGORY_CMAS_PRESIDENTIAL_LEVEL_ALERT, serialNumber,
+                TextUtils.isEmpty(languageCode) ? "en" : languageCode,
+                TextUtils.isEmpty(messageBody) ? PRES_ALERT : messageBody,
+                SmsCbCmasInfo.CMAS_CATEGORY_GEO,
                 SmsCbCmasInfo.CMAS_RESPONSE_TYPE_PREPARE, SmsCbCmasInfo.CMAS_SEVERITY_EXTREME,
                 SmsCbCmasInfo.CMAS_URGENCY_EXPECTED, SmsCbCmasInfo.CMAS_CERTAINTY_LIKELY);
 
         sendBroadcast(context, cbMessage);
     }
 
-    public static void testSendCmasExtremeAlert(Context context, int serialNumber) {
+    public static void testSendCmasExtremeAlert(Context context, int serialNumber,
+            String messageBody, String languageCode) {
         SmsCbMessage cbMessage = createCmasSmsMessage(
-                SmsEnvelope.SERVICE_CATEGORY_CMAS_EXTREME_THREAT, serialNumber, "en",
-                EXTREME_ALERT, SmsCbCmasInfo.CMAS_CATEGORY_MET,
+                SmsEnvelope.SERVICE_CATEGORY_CMAS_EXTREME_THREAT, serialNumber,
+                TextUtils.isEmpty(languageCode) ? "en" : languageCode,
+                TextUtils.isEmpty(messageBody) ? EXTREME_ALERT : messageBody,
+                SmsCbCmasInfo.CMAS_CATEGORY_MET,
                 SmsCbCmasInfo.CMAS_RESPONSE_TYPE_PREPARE, SmsCbCmasInfo.CMAS_SEVERITY_EXTREME,
                 SmsCbCmasInfo.CMAS_URGENCY_EXPECTED, SmsCbCmasInfo.CMAS_CERTAINTY_OBSERVED);
 
         sendBroadcast(context, cbMessage);
     }
 
-    public static void testSendCmasSevereAlert(Context context, int serialNumber) {
+    public static void testSendCmasSevereAlert(Context context, int serialNumber,
+            String messageBody, String languageCode) {
         SmsCbMessage cbMessage = createCmasSmsMessage(
-                SmsEnvelope.SERVICE_CATEGORY_CMAS_SEVERE_THREAT, serialNumber, "en",
-                SEVERE_ALERT, SmsCbCmasInfo.CMAS_CATEGORY_HEALTH,
+                SmsEnvelope.SERVICE_CATEGORY_CMAS_SEVERE_THREAT, serialNumber,
+                TextUtils.isEmpty(languageCode) ? "en" : languageCode,
+                TextUtils.isEmpty(messageBody) ? SEVERE_ALERT : messageBody,
+                SmsCbCmasInfo.CMAS_CATEGORY_HEALTH,
                 SmsCbCmasInfo.CMAS_RESPONSE_TYPE_AVOID, SmsCbCmasInfo.CMAS_SEVERITY_SEVERE,
                 SmsCbCmasInfo.CMAS_URGENCY_IMMEDIATE, SmsCbCmasInfo.CMAS_CERTAINTY_LIKELY);
 
         sendBroadcast(context, cbMessage);
     }
 
-    public static void testSendCmasAmberAlert(Context context, int serialNumber) {
+    public static void testSendCmasAmberAlert(Context context, int serialNumber,
+            String messageBody, String languageCode) {
         SmsCbMessage cbMessage = createCmasSmsMessage(
-                SmsEnvelope.SERVICE_CATEGORY_CMAS_CHILD_ABDUCTION_EMERGENCY, serialNumber, "en",
-                AMBER_ALERT, SmsCbCmasInfo.CMAS_CATEGORY_UNKNOWN,
+                SmsEnvelope.SERVICE_CATEGORY_CMAS_CHILD_ABDUCTION_EMERGENCY, serialNumber,
+                TextUtils.isEmpty(languageCode) ? "en" : languageCode,
+                TextUtils.isEmpty(messageBody) ? AMBER_ALERT : messageBody,
+                SmsCbCmasInfo.CMAS_CATEGORY_UNKNOWN,
                 SmsCbCmasInfo.CMAS_RESPONSE_TYPE_UNKNOWN, SmsCbCmasInfo.CMAS_SEVERITY_UNKNOWN,
                 SmsCbCmasInfo.CMAS_URGENCY_UNKNOWN, SmsCbCmasInfo.CMAS_CERTAINTY_UNKNOWN);
 
         sendBroadcast(context, cbMessage);
     }
 
-    public static void testSendCmasMonthlyTest(Context context, int serialNumber) {
+    public static void testSendCmasMonthlyTest(Context context, int serialNumber,
+            String messageBody, String languageCode) {
         SmsCbMessage cbMessage = createCmasSmsMessage(
-                SmsEnvelope.SERVICE_CATEGORY_CMAS_TEST_MESSAGE, serialNumber, "en",
-                MONTHLY_TEST_ALERT, SmsCbCmasInfo.CMAS_CATEGORY_UNKNOWN,
+                SmsEnvelope.SERVICE_CATEGORY_CMAS_TEST_MESSAGE, serialNumber,
+                TextUtils.isEmpty(languageCode) ? "en" : languageCode,
+                TextUtils.isEmpty(messageBody) ? MONTHLY_TEST_ALERT : messageBody,
+                SmsCbCmasInfo.CMAS_CATEGORY_UNKNOWN,
                 SmsCbCmasInfo.CMAS_RESPONSE_TYPE_UNKNOWN, SmsCbCmasInfo.CMAS_SEVERITY_UNKNOWN,
                 SmsCbCmasInfo.CMAS_URGENCY_UNKNOWN, SmsCbCmasInfo.CMAS_CERTAINTY_UNKNOWN);
 

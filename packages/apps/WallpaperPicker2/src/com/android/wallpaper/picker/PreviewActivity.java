@@ -25,10 +25,12 @@ import androidx.fragment.app.Fragment;
 import androidx.fragment.app.FragmentManager;
 
 import com.android.wallpaper.R;
+import com.android.wallpaper.config.BaseFlags;
 import com.android.wallpaper.model.ImageWallpaperInfo;
 import com.android.wallpaper.model.InlinePreviewIntentFactory;
 import com.android.wallpaper.model.WallpaperInfo;
 import com.android.wallpaper.module.InjectorProvider;
+import com.android.wallpaper.module.LargeScreenMultiPanesChecker;
 import com.android.wallpaper.picker.AppbarFragment.AppbarFragmentHost;
 import com.android.wallpaper.util.ActivityUtils;
 
@@ -61,7 +63,9 @@ public class PreviewActivity extends BasePreviewActivity implements AppbarFragme
         if (fragment == null) {
             Intent intent = getIntent();
             WallpaperInfo wallpaper = intent.getParcelableExtra(EXTRA_WALLPAPER_INFO);
-            boolean viewAsHome = intent.getBooleanExtra(EXTRA_VIEW_AS_HOME, true);
+            BaseFlags flags = InjectorProvider.getInjector().getFlags();
+            boolean viewAsHome = intent.getBooleanExtra(EXTRA_VIEW_AS_HOME, !flags
+                    .isFullscreenWallpaperPreviewEnabled(this));
             boolean testingModeEnabled = intent.getBooleanExtra(EXTRA_TESTING_MODE_ENABLED, false);
             fragment = InjectorProvider.getInjector().getPreviewFragment(
                     /* context */ this,
@@ -115,6 +119,14 @@ public class PreviewActivity extends BasePreviewActivity implements AppbarFragme
     public static class PreviewActivityIntentFactory implements InlinePreviewIntentFactory {
         @Override
         public Intent newIntent(Context context, WallpaperInfo wallpaper) {
+            LargeScreenMultiPanesChecker multiPanesChecker = new LargeScreenMultiPanesChecker();
+            // Launch a full preview activity for devices supporting multipanel mode
+            if (multiPanesChecker.isMultiPanesEnabled(context)
+                    && InjectorProvider.getInjector().getFlags()
+                        .isFullscreenWallpaperPreviewEnabled(context)) {
+                return FullPreviewActivity.newIntent(context, wallpaper);
+            }
+
             return PreviewActivity.newIntent(context, wallpaper);
         }
     }

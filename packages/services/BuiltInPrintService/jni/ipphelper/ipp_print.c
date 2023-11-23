@@ -28,9 +28,11 @@
 static status_t _init(const ifc_print_job_t *this_p, const char *printer_address, int port,
         const char *printer_uri, bool use_secure_uri);
 
-static status_t _validate_job(const ifc_print_job_t *this_p, wprint_job_params_t *job_params);
+static status_t _validate_job(const ifc_print_job_t *this_p, wprint_job_params_t *job_params,
+        const printer_capabilities_t *printer_caps);
 
-static status_t _start_job(const ifc_print_job_t *this_p, const wprint_job_params_t *job_params);
+static status_t _start_job(const ifc_print_job_t *this_p, const wprint_job_params_t *job_params,
+        const printer_capabilities_t *printer_caps);
 
 static int _send_data(const ifc_print_job_t *this_p, const char *buffer, size_t length);
 
@@ -170,7 +172,8 @@ static void _get_pwg_media_size(media_size_t media_size, float *mediaWidth, floa
 /*
  * Fills and returns an ipp request object with the given job parameters
  */
-static ipp_t *_fill_job(int ipp_op, char *printer_uri, const wprint_job_params_t *job_params) {
+static ipp_t *_fill_job(int ipp_op, char *printer_uri, const wprint_job_params_t *job_params,
+        const printer_capabilities_t *printer_caps) {
     LOGD("_fill_job: Enter");
     ipp_t *request = NULL; // IPP request object
     ipp_attribute_t *attrptr; // Attribute pointer
@@ -291,9 +294,27 @@ static ipp_t *_fill_job(int ipp_op, char *printer_uri, const wprint_job_params_t
         }
     }
 
+    // Add print-scaling attribute to the request
+    if (strlen(job_params->print_scaling) != 0) {
+        LOGD("_fill_job: setting print-scaling to %s", job_params->print_scaling);
+        ippAddString(request, IPP_TAG_JOB, IPP_TAG_KEYWORD, "print-scaling",
+                     NULL, job_params->print_scaling);
+    }
+
     // Add copies support if required and allowed
     if (job_params->copies_supported && (strcmp(job_params->print_format, PRINT_FORMAT_PDF) == 0)) {
         ippAddInteger(request, IPP_TAG_JOB, IPP_TAG_INTEGER, "copies", job_params->num_copies);
+    }
+
+    if (printer_caps->jobPagesPerSetSupported && job_params->job_pages_per_set > 0) {
+        unsigned int job_pages_per_set = job_params->job_pages_per_set;
+        if (strcmp(job_params->print_format, PRINT_FORMAT_PCLM) == 0
+            && wprintBlankPageForPclm(job_params, printer_caps)) {
+            job_pages_per_set++;
+            LOGD("_fill_job: incremented job_pages_per_set: %d", job_pages_per_set);
+        }
+        ippAddInteger(request, IPP_TAG_JOB, IPP_TAG_INTEGER, "job-pages-per-set",
+                job_pages_per_set);
     }
 
     // Add print quality if requested
@@ -304,15 +325,18 @@ static ipp_t *_fill_job(int ipp_op, char *printer_uri, const wprint_job_params_t
 
     ippAddResolution(request, IPP_TAG_JOB, "printer-resolution", IPP_RES_PER_INCH,
             job_params->pixel_units, job_params->pixel_units);
-    if (job_params->duplex == DUPLEX_MODE_BOOK) {
-        ippAddString(request, IPP_TAG_JOB, IPP_TAG_KEYWORD, IPP_SIDES_TAG, NULL,
-                IPP_SIDES_TWO_SIDED_LONG_EDGE);
-    } else if (job_params->duplex == DUPLEX_MODE_TABLET) {
-        ippAddString(request, IPP_TAG_JOB, IPP_TAG_KEYWORD, IPP_SIDES_TAG, NULL,
-                IPP_SIDES_TWO_SIDED_SHORT_EDGE);
-    } else {
-        ippAddString(request, IPP_TAG_JOB, IPP_TAG_KEYWORD, IPP_SIDES_TAG, NULL,
-                IPP_SIDES_ONE_SIDED);
+
+    if (printer_caps->sidesSupported) {
+        if (job_params->duplex == DUPLEX_MODE_BOOK) {
+            ippAddString(request, IPP_TAG_JOB, IPP_TAG_KEYWORD, IPP_SIDES_TAG, NULL,
+                    IPP_SIDES_TWO_SIDED_LONG_EDGE);
+        } else if (job_params->duplex == DUPLEX_MODE_TABLET) {
+            ippAddString(request, IPP_TAG_JOB, IPP_TAG_KEYWORD, IPP_SIDES_TAG, NULL,
+                    IPP_SIDES_TWO_SIDED_SHORT_EDGE);
+        } else {
+            ippAddString(request, IPP_TAG_JOB, IPP_TAG_KEYWORD, IPP_SIDES_TAG, NULL,
+                    IPP_SIDES_ONE_SIDED);
+        }
     }
 
     if (job_params->color_space == COLOR_SPACE_MONO) {
@@ -409,7 +433,8 @@ static ipp_t *_fill_job(int ipp_op, char *printer_uri, const wprint_job_params_t
     return request;
 }
 
-static status_t  _validate_job(const ifc_print_job_t *this_p, wprint_job_params_t *job_params) {
+static status_t _validate_job(const ifc_print_job_t *this_p, wprint_job_params_t *job_params,
+        const printer_capabilities_t *printer_caps) {
     LOGD("_validate_job: Enter");
     status_t result = ERROR;
     ipp_print_job_t *ipp_job;
@@ -437,7 +462,7 @@ static status_t  _validate_job(const ifc_print_job_t *this_p, wprint_job_params_
             ipp_job->useragent = job_params->useragent;
         }
 
-        request = _fill_job(IPP_VALIDATE_JOB, ipp_job->printer_uri, job_params);
+        request = _fill_job(IPP_VALIDATE_JOB, ipp_job->printer_uri, job_params, printer_caps);
 
         if (ipp_job->useragent != NULL) {
             httpSetDefaultField(ipp_job->http, HTTP_FIELD_USER_AGENT, ipp_job->useragent);
@@ -477,7 +502,8 @@ static status_t  _validate_job(const ifc_print_job_t *this_p, wprint_job_params_
     return result;
 }
 
-static status_t _start_job(const ifc_print_job_t *this_p, const wprint_job_params_t *job_params) {
+static status_t _start_job(const ifc_print_job_t *this_p, const wprint_job_params_t *job_params,
+        const printer_capabilities_t *printer_caps) {
     LOGD("_start_job: Enter");
     status_t result;
     ipp_print_job_t *ipp_job;
@@ -499,7 +525,7 @@ static status_t _start_job(const ifc_print_job_t *this_p, const wprint_job_param
         if ((job_params->useragent != NULL) && (strlen(job_params->useragent) > 0)) {
             ipp_job->useragent = job_params->useragent;
         }
-        request = _fill_job(IPP_PRINT_JOB, ipp_job->printer_uri, job_params);
+        request = _fill_job(IPP_PRINT_JOB, ipp_job->printer_uri, job_params, printer_caps);
 
         if (request == NULL) {
             continue;

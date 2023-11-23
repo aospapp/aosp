@@ -693,7 +693,7 @@ public class CrossProfileCallbackTest {
                 installationListenerWithStringParam(annotationStrings));
 
     assertThat(compilation)
-        .generatedSourceFile("com.google.android.enterprise.notes.ProfileNotesType_Bundler")
+        .generatedSourceFile("com.google.android.enterprise.notes.NotesType_Bundler")
         .contentsAsUtf8String()
         .contains(".writeString");
   }
@@ -729,22 +729,22 @@ public class CrossProfileCallbackTest {
             .compile(notesType, annotatedNotesProvider(annotationStrings), installationListener);
 
     assertThat(compilation)
-        .generatedSourceFile("com.google.android.enterprise.notes.ProfileNotesType_Bundler")
+        .generatedSourceFile("com.google.android.enterprise.notes.NotesType_Bundler")
         .contentsAsUtf8String()
         .contains(".writeString");
 
     assertThat(compilation)
-        .generatedSourceFile("com.google.android.enterprise.notes.ProfileNotesType_Bundler")
+        .generatedSourceFile("com.google.android.enterprise.notes.NotesType_Bundler")
         .contentsAsUtf8String()
         .contains(".writeFloat");
 
     assertThat(compilation)
-        .generatedSourceFile("com.google.android.enterprise.notes.ProfileNotesType_Bundler")
+        .generatedSourceFile("com.google.android.enterprise.notes.NotesType_Bundler")
         .contentsAsUtf8String()
         .contains(".writeInt"); // used for Boolean
 
     assertThat(compilation)
-        .generatedSourceFile("com.google.android.enterprise.notes.ProfileNotesType_Bundler")
+        .generatedSourceFile("com.google.android.enterprise.notes.NotesType_Bundler")
         .contentsAsUtf8String()
         .contains(".writeByte");
   }
@@ -771,7 +771,7 @@ public class CrossProfileCallbackTest {
                 installationListenerWithListStringParam(annotationStrings));
 
     assertThat(compilation)
-        .generatedSourceFile("com.google.android.enterprise.notes.ProfileNotesType_Bundler")
+        .generatedSourceFile("com.google.android.enterprise.notes.NotesType_Bundler")
         .contentsAsUtf8String()
         .contains("ParcelableList");
   }

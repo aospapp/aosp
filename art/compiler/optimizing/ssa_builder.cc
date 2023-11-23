@@ -27,7 +27,7 @@
 #include "scoped_thread_state_change-inl.h"
 #include "ssa_phi_elimination.h"
 
-namespace art {
+namespace art HIDDEN {
 
 void SsaBuilder::FixNullConstantType() {
   // The order doesn't matter here.
@@ -538,7 +538,6 @@ GraphAnalysisResult SsaBuilder::BuildSsa() {
   // Compute type of reference type instructions. The pass assumes that
   // NullConstant has been fixed up.
   ReferenceTypePropagation(graph_,
-                           class_loader_,
                            dex_cache_,
                            /* is_first_run= */ true).Run();
 

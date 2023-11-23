@@ -18,11 +18,14 @@ package android.net.ip;
 
 import static android.system.OsConstants.AF_INET6;
 import static android.system.OsConstants.AF_PACKET;
+import static android.system.OsConstants.ENODEV;
 import static android.system.OsConstants.ETH_P_IPV6;
 import static android.system.OsConstants.IPPROTO_RAW;
 import static android.system.OsConstants.SOCK_DGRAM;
 import static android.system.OsConstants.SOCK_NONBLOCK;
 import static android.system.OsConstants.SOCK_RAW;
+
+import static com.android.net.module.util.SocketUtils.closeSocketQuietly;
 
 import android.net.util.SocketUtils;
 import android.os.Handler;
@@ -35,7 +38,6 @@ import com.android.net.module.util.PacketReader;
 import com.android.networkstack.tethering.util.TetheringUtils;
 
 import java.io.FileDescriptor;
-import java.io.IOException;
 import java.net.Inet6Address;
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
@@ -104,15 +106,6 @@ public class NeighborPacketForwarder extends PacketReader {
         }
     }
 
-    // TODO: move NetworkStackUtils.closeSocketQuietly to
-    // frameworks/libs/net/common/device/com/android/net/module/util/[someclass].
-    private void closeSocketQuietly(FileDescriptor fd) {
-        try {
-            SocketUtils.closeSocket(fd);
-        } catch (IOException ignored) {
-        }
-    }
-
     @Override
     protected FileDescriptor createFd() {
         try {
@@ -131,7 +124,13 @@ public class NeighborPacketForwarder extends PacketReader {
                                                         ETH_P_IPV6, mListenIfaceParams.index);
             Os.bind(mFd, bindAddress);
         } catch (ErrnoException | SocketException e) {
-            Log.wtf(mTag, "Failed to create  socket", e);
+            // An ENODEV(No such device) will rise if tethering stopped before this function, this
+            // may happen when enable/disable tethering quickly.
+            if (e instanceof ErrnoException && ((ErrnoException) e).errno == ENODEV) {
+                Log.w(mTag, "Failed to create socket because tethered interface is gone", e);
+            } else {
+                Log.wtf(mTag, "Failed to create socket", e);
+            }
             closeSocketQuietly(mFd);
             return null;
         }

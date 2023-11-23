@@ -55,7 +55,7 @@ function log() {
 
 # Ensure that this script uses the checked-in Bazel binary.
 function bazel() {
-  "${AOSP_ROOT}/tools/bazel" "$@"
+  "${AOSP_ROOT}/build/bazel/bin/bazel" "$@"
 }
 
 # Run the bp2build converter to generate BUILD files into out/soong/bp2build.

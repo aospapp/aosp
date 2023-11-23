@@ -31,10 +31,7 @@ use authfs_aidl_interface::aidl::com::android::virt::fs::AuthFsConfig::{
     OutputDirFdAnnotation::OutputDirFdAnnotation, OutputFdAnnotation::OutputFdAnnotation,
 };
 use authfs_aidl_interface::aidl::com::android::virt::fs::IAuthFs::{BnAuthFs, IAuthFs};
-use authfs_aidl_interface::binder::{
-    self, BinderFeatures, ExceptionCode, Interface, ParcelFileDescriptor, Strong,
-};
-use binder_common::new_binder_exception;
+use binder::{self, BinderFeatures, Interface, ParcelFileDescriptor, Status, Strong};
 
 const AUTHFS_BIN: &str = "/system/bin/authfs";
 const AUTHFS_SETUP_POLL_INTERVAL_MS: Duration = Duration::from_millis(50);
@@ -60,9 +57,9 @@ impl IAuthFs for AuthFs {
         let mut path = PathBuf::from(&self.mountpoint);
         path.push(remote_fd_name.to_string());
         let file = OpenOptions::new().read(true).write(writable).open(&path).map_err(|e| {
-            new_binder_exception(
-                ExceptionCode::SERVICE_SPECIFIC,
-                format!("failed to open {:?} on authfs: {}", &path, e),
+            Status::new_service_specific_error_str(
+                -1,
+                Some(format!("failed to open {:?} on authfs: {}", &path, e)),
             )
         })?;
         Ok(ParcelFileDescriptor::new(file))
@@ -72,7 +69,7 @@ impl IAuthFs for AuthFs {
         if let Some(s) = self.mountpoint.to_str() {
             Ok(s.to_string())
         } else {
-            Err(new_binder_exception(ExceptionCode::SERVICE_SPECIFIC, "Bad string encoding"))
+            Err(Status::new_service_specific_error_str(-1, Some("Bad string encoding")))
         }
     }
 }

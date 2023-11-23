@@ -1,5 +1,6 @@
 CXX ?= g++
 CPPFLAGS += -I../include -I./include -I../rmidevice
+CPPFLAGS += -D_FILE_OFFSET_BITS=64 -D_LARGEFILE_SOURCE -D_LARGEFILE64_SOURCE
 CXXFLAGS += -Wall
 LDFLAGS += -L.
 LIBS =  -lrmidevice -lrt

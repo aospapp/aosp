@@ -27,7 +27,7 @@ TPMC_EXPECTED_2_0 = {
 
 # Expected permissions for NV indexes.
 PERM_EXPECTED_1_2 = {'0x1007': '0x8001', '0x1008': '0x1'}
-PERM_EXPECTED_2_0 = {'0x1007': '0x60054c01', '0x1008': '0x60050001'}
+PERM_EXPECTED_2_0 = {'0x1007': '0x60054c01', '0x1008': '(0x60050001|0x60054001)'}
 
 def missing_firmware_version():
     """Check for empty fwid.

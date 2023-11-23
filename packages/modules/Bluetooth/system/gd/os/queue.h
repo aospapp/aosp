@@ -25,9 +25,7 @@
 #include "common/bind.h"
 #include "common/callback.h"
 #include "os/handler.h"
-#ifdef OS_LINUX_GENERIC
 #include "os/linux_generic/reactive_semaphore.h"
-#endif
 #include "os/log.h"
 
 namespace bluetooth {
@@ -89,11 +87,9 @@ class Queue : public IQueueEnqueue<T>, public IQueueDequeue<T> {
 
   class QueueEndpoint {
    public:
-#ifdef OS_LINUX_GENERIC
     explicit QueueEndpoint(unsigned int initial_value)
         : reactive_semaphore_(initial_value), handler_(nullptr), reactable_(nullptr) {}
     ReactiveSemaphore reactive_semaphore_;
-#endif
     Handler* handler_;
     Reactor::Reactable* reactable_;
   };
@@ -161,9 +157,7 @@ class EnqueueBuffer {
   common::OnceClosure callback_on_empty_;
 };
 
-#ifdef OS_LINUX_GENERIC
 #include "os/linux_generic/queue.tpp"
-#endif
 
 }  // namespace os
 }  // namespace bluetooth

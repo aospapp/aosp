@@ -8,7 +8,6 @@ import time
 
 from autotest_lib.client.common_lib import error, utils
 from autotest_lib.client.common_lib.cros import cr50_utils
-from autotest_lib.server.cros import filesystem_util
 from autotest_lib.server.cros.faft.cr50_test import Cr50Test
 
 
@@ -36,7 +35,7 @@ class firmware_Cr50GetName(Cr50Test):
 
         efi_path = self.get_saved_eraseflashinfo_image_path()
 
-        filesystem_util.make_rootfs_writable(self.host)
+        self.make_rootfs_writable()
         cr50_utils.InstallImage(self.host, efi_path, cr50_utils.CR50_PROD)
         cr50_utils.InstallImage(self.host, efi_path, cr50_utils.CR50_PREPVT)
 

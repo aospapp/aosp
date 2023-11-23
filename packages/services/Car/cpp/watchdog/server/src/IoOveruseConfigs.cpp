@@ -33,23 +33,22 @@ namespace android {
 namespace automotive {
 namespace watchdog {
 
-using ::android::automotive::watchdog::PerStateBytes;
-using ::android::automotive::watchdog::internal::ApplicationCategoryType;
-using ::android::automotive::watchdog::internal::ComponentType;
-using ::android::automotive::watchdog::internal::IoOveruseAlertThreshold;
-using ::android::automotive::watchdog::internal::IoOveruseConfiguration;
-using ::android::automotive::watchdog::internal::PackageInfo;
-using ::android::automotive::watchdog::internal::PackageMetadata;
-using ::android::automotive::watchdog::internal::PerStateIoOveruseThreshold;
-using ::android::automotive::watchdog::internal::ResourceOveruseConfiguration;
-using ::android::automotive::watchdog::internal::ResourceSpecificConfiguration;
-using ::android::automotive::watchdog::internal::UidType;
+using ::aidl::android::automotive::watchdog::PerStateBytes;
+using ::aidl::android::automotive::watchdog::internal::ApplicationCategoryType;
+using ::aidl::android::automotive::watchdog::internal::ComponentType;
+using ::aidl::android::automotive::watchdog::internal::IoOveruseAlertThreshold;
+using ::aidl::android::automotive::watchdog::internal::IoOveruseConfiguration;
+using ::aidl::android::automotive::watchdog::internal::PackageInfo;
+using ::aidl::android::automotive::watchdog::internal::PackageMetadata;
+using ::aidl::android::automotive::watchdog::internal::PerStateIoOveruseThreshold;
+using ::aidl::android::automotive::watchdog::internal::ResourceOveruseConfiguration;
+using ::aidl::android::automotive::watchdog::internal::ResourceSpecificConfiguration;
+using ::aidl::android::automotive::watchdog::internal::UidType;
 using ::android::base::Error;
 using ::android::base::Result;
 using ::android::base::StartsWith;
 using ::android::base::StringAppendF;
 using ::android::base::StringPrintf;
-using ::android::binder::Status;
 
 namespace {
 
@@ -407,7 +406,7 @@ Result<void> IoOveruseConfigs::updateAlertThresholds(
 Result<void> IoOveruseConfigs::update(
         const std::vector<ResourceOveruseConfiguration>& resourceOveruseConfigs) {
     if (const auto result = isValidResourceOveruseConfigs(resourceOveruseConfigs); !result.ok()) {
-        return Error(Status::EX_ILLEGAL_ARGUMENT) << result.error();
+        return Error(EX_ILLEGAL_ARGUMENT) << result.error();
     }
     for (const auto& resourceOveruseConfig : resourceOveruseConfigs) {
         updateFromAidlConfig(resourceOveruseConfig);

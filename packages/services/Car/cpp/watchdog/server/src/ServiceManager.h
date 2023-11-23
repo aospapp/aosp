@@ -25,26 +25,69 @@
 
 #include <android-base/result.h>
 #include <utils/Looper.h>
+#include <utils/RefBase.h>
 #include <utils/StrongPointer.h>
 
 namespace android {
 namespace automotive {
 namespace watchdog {
 
-class ServiceManager final {
+// Manages all the services that are run by the car watchdog daemon.
+class ServiceManager final : virtual public android::RefBase {
 public:
-    static android::base::Result<void> startServices(const android::sp<Looper>& looper);
-    static android::base::Result<void> startBinderMediator();
-    static void terminateServices();
+    ServiceManager() :
+          mWatchdogProcessService(nullptr),
+          mWatchdogPerfService(nullptr),
+          mWatchdogBinderMediator(nullptr),
+          mWatchdogServiceHelper(nullptr),
+          mIoOveruseMonitor(nullptr) {}
+
+    static android::sp<ServiceManager> getInstance() {
+        if (sServiceManager == nullptr) {
+            sServiceManager = android::sp<ServiceManager>::make();
+        }
+        return sServiceManager;
+    }
+
+    static void terminate() {
+        if (sServiceManager == nullptr) {
+            return;
+        }
+        sServiceManager->terminateServices();
+        sServiceManager.clear();
+    }
+
+    // Starts early-init services.
+    android::base::Result<void> startServices(const android::sp<Looper>& mainLooper);
+
+    // Returns the WatchdogProcessService instance.
+    const android::sp<WatchdogProcessServiceInterface>& getWatchdogProcessService() {
+        return mWatchdogProcessService;
+    }
+
+    // Returns the WatchdogServiceHelper instance.
+    const android::sp<WatchdogServiceHelperInterface>& getWatchdogServiceHelper() {
+        return mWatchdogServiceHelper;
+    }
+
+    // Returns the IoOveruseMonitor instance.
+    const android::sp<IoOveruseMonitorInterface>& getIoOveruseMonitor() {
+        return mIoOveruseMonitor;
+    }
 
 private:
-    static android::base::Result<void> startProcessAnrMonitor(const android::sp<Looper>& looper);
-    static android::base::Result<void> startPerfService();
+    inline static android::sp<ServiceManager> sServiceManager = nullptr;
 
-    static android::sp<WatchdogProcessServiceInterface> sWatchdogProcessService;
-    static android::sp<WatchdogPerfServiceInterface> sWatchdogPerfService;
-    static android::sp<WatchdogBinderMediatorInterface> sWatchdogBinderMediator;
-    static android::sp<WatchdogServiceHelperInterface> sWatchdogServiceHelper;
+    void terminateServices();
+    android::base::Result<void> startWatchdogProcessService(const android::sp<Looper>& mainLooper);
+    android::base::Result<void> startWatchdogPerfService(
+            const sp<WatchdogServiceHelperInterface>& watchdogServiceHelper);
+
+    android::sp<WatchdogProcessServiceInterface> mWatchdogProcessService;
+    android::sp<WatchdogPerfServiceInterface> mWatchdogPerfService;
+    std::shared_ptr<WatchdogBinderMediatorInterface> mWatchdogBinderMediator;
+    android::sp<WatchdogServiceHelperInterface> mWatchdogServiceHelper;
+    android::sp<IoOveruseMonitorInterface> mIoOveruseMonitor;
 };
 
 }  // namespace watchdog

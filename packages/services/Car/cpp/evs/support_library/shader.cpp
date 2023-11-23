@@ -16,13 +16,13 @@
 #include "shader.h"
 
 #include <stdio.h>
+
 #include <memory>
 
-
 // Given shader source, load and compile it
-static GLuint loadShader(GLenum type, const char *shaderSrc, const char *name) {
+static GLuint loadShader(GLenum type, const char* shaderSrc, const char* name) {
     // Create the shader object
-    GLuint shader = glCreateShader (type);
+    GLuint shader = glCreateShader(type);
     if (shader == 0) {
         return 0;
     }
@@ -35,12 +35,12 @@ static GLuint loadShader(GLenum type, const char *shaderSrc, const char *name) {
     GLint compiled = 0;
     glGetShaderiv(shader, GL_COMPILE_STATUS, &compiled);
     if (!compiled) {
-        printf("Error compiling %s shader for %s\n", (type==GL_VERTEX_SHADER) ? "vtx":"pxl", name);
+        printf("Error compiling %s shader for %s\n", (type == GL_VERTEX_SHADER) ? "vtx" : "pxl",
+               name);
 
         GLint size = 0;
         glGetShaderiv(shader, GL_INFO_LOG_LENGTH, &size);
-        if (size > 0)
-        {
+        if (size > 0) {
             // Get and report the error message
             std::unique_ptr<char> infoLog(new char[size]);
             glGetShaderInfoLog(shader, size, NULL, infoLog.get());
@@ -53,7 +53,6 @@ static GLuint loadShader(GLenum type, const char *shaderSrc, const char *name) {
 
     return shader;
 }
-
 
 // Create a program object given vertex and pixels shader source
 GLuint buildShaderProgram(const char* vtxSrc, const char* pxlSrc, const char* name) {
@@ -84,13 +83,11 @@ GLuint buildShaderProgram(const char* vtxSrc, const char* pxlSrc, const char* na
     glLinkProgram(program);
     GLint linked = 0;
     glGetProgramiv(program, GL_LINK_STATUS, &linked);
-    if (!linked)
-    {
+    if (!linked) {
         printf("Error linking program.\n");
         GLint size = 0;
         glGetProgramiv(program, GL_INFO_LOG_LENGTH, &size);
-        if (size > 0)
-        {
+        if (size > 0) {
             // Get and report the error message
             std::unique_ptr<char> infoLog(new char[size]);
             glGetProgramInfoLog(program, size, NULL, infoLog.get());
@@ -103,8 +100,7 @@ GLuint buildShaderProgram(const char* vtxSrc, const char* pxlSrc, const char* na
         return 0;
     }
 
-
-#if 0 // Debug output to diagnose shader parameters
+#if 0  // Debug output to diagnose shader parameters
     GLint numShaderParams;
     GLchar paramName[128];
     GLint paramSize;
@@ -130,7 +126,6 @@ GLuint buildShaderProgram(const char* vtxSrc, const char* pxlSrc, const char* na
         printf("  %2d: %s\t (%d) of type %s(%d)\n", i, paramName, paramSize, typeName, paramType);
     }
 #endif
-
 
     return program;
 }

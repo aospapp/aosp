@@ -90,10 +90,10 @@ class RaggedTensorToTensorBaseOp : public OpKernel {
     switch (GetRowPartitionTypeByDimension(dimension - 1)) {
       case RowPartitionType::VALUE_ROWIDS:
         *result = GetMaxWidthValueRowID(row_partition_tensor);
-        return Status::OK();
+        return OkStatus();
       case RowPartitionType::ROW_SPLITS:
         *result = GetMaxWidthRowSplit(row_partition_tensor);
-        return Status::OK();
+        return OkStatus();
       default:
         return errors::InvalidArgument(
             "Cannot handle partition type ",
@@ -176,7 +176,7 @@ class RaggedTensorToTensorBaseOp : public OpKernel {
         TF_RETURN_IF_ERROR(GetMaxWidth(c, i, &(*result)[i]));
       }
     }
-    return Status::OK();
+    return OkStatus();
   }
 
   /**
@@ -236,7 +236,7 @@ class RaggedTensorToTensorBaseOp : public OpKernel {
       return errors::InvalidArgument("Invalid row split size.");
     }
 
-    return Status::OK();
+    return OkStatus();
   }
 
   // Calculate the output index of the first element of a list.
@@ -268,7 +268,7 @@ class RaggedTensorToTensorBaseOp : public OpKernel {
     const INDEX_TYPE index_size = value_rowids.size();
     result->reserve(index_size);
     if (index_size == 0) {
-      return Status::OK();
+      return OkStatus();
     }
 
     INDEX_TYPE current_output_column = 0;
@@ -312,7 +312,7 @@ class RaggedTensorToTensorBaseOp : public OpKernel {
       return errors::InvalidArgument("Invalid row ids.");
     }
 
-    return Status::OK();
+    return OkStatus();
   }
 
   Status CalculateOutputIndex(OpKernelContext* context, int dimension,
@@ -355,13 +355,13 @@ class RaggedTensorToTensorBaseOp : public OpKernel {
     switch (first_partition_type) {
       case RowPartitionType::FIRST_DIM_SIZE:
         *result = first_partition_tensor.scalar<INDEX_TYPE>()();
-        return Status::OK();
+        return OkStatus();
       case RowPartitionType::VALUE_ROWIDS:
         return errors::InvalidArgument(
             "Cannot handle VALUE_ROWIDS in first dimension.");
       case RowPartitionType::ROW_SPLITS:
         *result = first_partition_tensor.shape().dim_size(0) - 1;
-        return Status::OK();
+        return OkStatus();
       default:
         return errors::InvalidArgument(
             "Cannot handle type ",
@@ -437,8 +437,8 @@ void copy_array(VALUE_TYPE* dst, const VALUE_TYPE* src, INDEX_TYPE size) {
 }
 
 template <>
-void copy_array<tstring, int64>(tstring* dst, const tstring* src,
-                                int64_t size) {
+void copy_array<tstring, int64_t>(tstring* dst, const tstring* src,
+                                  int64_t size) {
   slow_copy_array(dst, src, size);
 }
 
@@ -452,8 +452,8 @@ void copy_array<tstring, int32>(tstring* dst, const tstring* src,
 // undefined behavior, destination object type 'Eigen::half'
 // is not TriviallyCopyable
 template <>
-void copy_array<Eigen::half, int64>(Eigen::half* dst, const Eigen::half* src,
-                                    int64_t size) {
+void copy_array<Eigen::half, int64_t>(Eigen::half* dst, const Eigen::half* src,
+                                      int64_t size) {
   slow_copy_array(dst, src, size);
 }
 
@@ -585,8 +585,8 @@ class RaggedTensorToTensorOp : public RaggedTensorToTensorBaseOp<INDEX_TYPE> {
                               .TypeConstraint<index_type>("Tindex"), \
                           RaggedTensorToTensorOp<value_type, index_type>);
 
-#define REGISTER_CPU_KERNEL(value_type)                          \
-  REGISTER_CPU_KERNEL_INDEX_TYPE(value_type, tensorflow::int64); \
+#define REGISTER_CPU_KERNEL(value_type)                \
+  REGISTER_CPU_KERNEL_INDEX_TYPE(value_type, int64_t); \
   REGISTER_CPU_KERNEL_INDEX_TYPE(value_type, tensorflow::int32);
 
 TF_CALL_POD_TYPES(REGISTER_CPU_KERNEL);

@@ -1,4 +1,4 @@
-#!/usr/bin/python2
+#!/usr/bin/python3
 #
 # Copyright (c) 2012 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
@@ -12,10 +12,9 @@ tool will print out the name of each test in that suite, one per line.
 Example:
 $ ./site_utils/suite_enumerator.py -a /usr/local/autotest bvt 2>/dev/null
 login_LoginSuccess
-logging_CrashSender
 login_BadAuthentication
 
-This is intended for use only with Chrome OS test suits that leverage the
+This is intended for use only with ChromeOS test suits that leverage the
 dynamic suite infrastructure in server/cros/dynamic_suite.py.
 """
 

@@ -22,7 +22,6 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <unistd.h>
-#include <fcntl.h>
 #include <errno.h>
 
 #include "test.h"
@@ -66,7 +65,7 @@ static void write_file(int fd)
 	int i;
 
 	for (i = 0; i < blocks_num; ++i)
-		SAFE_WRITE(cleanup, 1, fd, buf, size);
+		SAFE_WRITE(cleanup, SAFE_WRITE_ALL, fd, buf, size);
 }
 
 void test01(void)

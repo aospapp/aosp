@@ -16,10 +16,12 @@
 
 package com.android.server.telecom;
 
+import android.app.BroadcastOptions;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
+import android.os.Bundle;
 import android.os.UserHandle;
 import android.telecom.Log;
 import android.widget.Toast;
@@ -98,6 +100,10 @@ public final class TelecomBroadcastIntentProcessor {
      */
     public static final String ACTION_CANCEL_REDIRECTED_CALL =
             "com.android.server.telecom.CANCEL_REDIRECTED_CALL";
+
+    public static final String ACTION_HANGUP_CALL = "com.android.server.telecom.HANGUP_CALL";
+    public static final String ACTION_STOP_STREAMING =
+            "com.android.server.telecom.ACTION_STOP_STREAMING";
 
     public static final String EXTRA_USERHANDLE = "userhandle";
     public static final String EXTRA_REDIRECTION_OUTGOING_CALL_ID =
@@ -240,6 +246,26 @@ public final class TelecomBroadcastIntentProcessor {
             } finally {
                 Log.endSession();
             }
+        } else if (ACTION_HANGUP_CALL.equals(action)) {
+            Log.startSession("TBIP.aHC", "streamingDialog");
+            try {
+                Call call = mCallsManager.getCall(intent.getData().getSchemeSpecificPart());
+                if (call != null) {
+                    mCallsManager.disconnectCall(call);
+                }
+            } finally {
+                Log.endSession();
+            }
+        } else if (ACTION_STOP_STREAMING.equals(action)) {
+            Log.startSession("TBIP.aSS", "streamingDialog");
+            try {
+                Call call = mCallsManager.getCall(intent.getData().getSchemeSpecificPart());
+                if (call != null) {
+                    mCallsManager.stopCallStreaming(call);
+                }
+            } finally {
+                Log.endSession();
+            }
         }
     }
 
@@ -247,8 +273,14 @@ public final class TelecomBroadcastIntentProcessor {
      * Closes open system dialogs and the notification shade.
      */
     private void closeSystemDialogs(Context context) {
-        Intent intent = new Intent(Intent.ACTION_CLOSE_SYSTEM_DIALOGS);
-        context.sendBroadcastAsUser(intent, UserHandle.ALL);
+        Intent intent = new Intent(Intent.ACTION_CLOSE_SYSTEM_DIALOGS)
+                .addFlags(Intent.FLAG_RECEIVER_FOREGROUND);
+        Bundle options = BroadcastOptions.makeBasic()
+                .setDeliveryGroupPolicy(BroadcastOptions.DELIVERY_GROUP_POLICY_MOST_RECENT)
+                .setDeferralPolicy(BroadcastOptions.DEFERRAL_POLICY_UNTIL_ACTIVE)
+                .toBundle();
+        context.sendBroadcastAsUser(intent, UserHandle.ALL, null /* receiverPermission */,
+                options);
     }
 
     private void sendSmsIntent(Intent intent, UserHandle userHandle) {

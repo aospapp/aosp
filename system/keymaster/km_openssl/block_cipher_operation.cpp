@@ -16,6 +16,8 @@
 
 #include "block_cipher_operation.h"
 
+#include <utility>
+
 #include <stdio.h>
 
 #include <keymaster/UniquePtr.h>
@@ -117,11 +119,12 @@ OperationPtr BlockCipherOperationFactory::CreateOperation(Key&& key,
     switch (purpose_) {
     case KM_PURPOSE_ENCRYPT:
         op.reset(new (std::nothrow) BlockCipherEvpEncryptOperation(  //
-            block_mode, padding, caller_nonce, tag_length, move(key), GetCipherDescription()));
+            block_mode, padding, caller_nonce, tag_length, std::move(key),
+            GetCipherDescription()));
         break;
     case KM_PURPOSE_DECRYPT:
         op.reset(new (std::nothrow) BlockCipherEvpDecryptOperation(
-            block_mode, padding, tag_length, move(key), GetCipherDescription()));
+            block_mode, padding, tag_length, std::move(key), GetCipherDescription()));
         break;
     default:
         *error = KM_ERROR_UNSUPPORTED_PURPOSE;

@@ -20,20 +20,18 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.ServiceConnection;
+import android.externalservice.common.RunningServiceInfo;
+import android.externalservice.common.ServiceMessages;
 import android.os.ConditionVariable;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
 import android.os.Message;
 import android.os.Messenger;
-import android.os.Parcel;
 import android.os.Process;
 import android.os.RemoteException;
 import android.test.AndroidTestCase;
 import android.util.Log;
-
-import android.externalservice.common.RunningServiceInfo;
-import android.externalservice.common.ServiceMessages;
 
 public class ExternalServiceTest extends AndroidTestCase {
     private static final String TAG = "ExternalServiceTest";
@@ -405,46 +403,59 @@ public class ExternalServiceTest extends AndroidTestCase {
         getContext().unbindService(creatorConnection);
     }
 
+    /**
+     * Test when the flag BIND_EXTERNAL_SERVICE(0x80000000) is set in 64 bits long flags,
+     * an IllegalArgumentException is thrown. The reason is that integer 0x80000000 is
+     * automatically converted to long 0xffff_ffff_8000_000, it is not a correct flag any more.
+     * In 64 bits long flags, use BIND_EXTERNAL_SERVICE_LONG(0x4000_0000_0000_0000L) instead.
+     */
+    public void testFailBindExternalServiceLongFlags() {
+        // Start the service and wait for connection.
+        Intent intent = new Intent();
+        intent.setComponent(new ComponentName(sServicePackage, sServicePackage+".ExternalService"));
+
+        mCondition.close();
+
+        long longFlags = Context.BIND_EXTERNAL_SERVICE | Context.BIND_AUTO_CREATE;
+        try {
+            getContext().bindService(intent, mConnection,
+                    Context.BindServiceFlags.of(longFlags)/* 64 bits long flag */);
+            fail("Context.BIND_EXTERNAL_SERVICE can not be used in 64 bits bindService() flags");
+        } catch (IllegalArgumentException e) {
+            // expect an IllegalArgumentException when BIND_EXTERNAL_SERVICE is used in 64 bits
+            // flags.
+        }
+    }
+
+    /**
+     * Test 64 bits long flag BIND_EXTERNAL_SERVICE_LONG(0x4000_0000_0000_0000L), it deprecates
+     * 32 bits flag BIND_EXTERNAL_SERVICE(0x80000000) when 64 bits long flags is used.
+     */
+    public void testBindExternalServiceLongFlags() {
+        // Start the service and wait for connection.
+        Intent intent = new Intent();
+        intent.setComponent(new ComponentName(sServicePackage, sServicePackage+".ExternalService"));
+
+        mCondition.close();
+
+        long longFlags = Context.BIND_EXTERNAL_SERVICE_LONG | Context.BIND_AUTO_CREATE;
+
+        assertTrue(getContext().bindService(intent, mConnection,
+                Context.BindServiceFlags.of(longFlags)/* 64 bits long flag */));
+        assertTrue(mCondition.block(CONDITION_TIMEOUT));
+        assertEquals(getContext().getPackageName(), mConnection.name.getPackageName());
+        assertNotSame(sServicePackage, mConnection.name.getPackageName());
+    }
+
     /** Given a Messenger, this will message the service to retrieve its UID, PID, and package name.
      * On success, returns a RunningServiceInfo. On failure, returns null. */
     private RunningServiceInfo identifyService(Messenger service) {
-        class IdentifyHandler extends Handler {
-            IdentifyHandler() {
-                super(Looper.getMainLooper());
-            }
-
-            RunningServiceInfo mInfo;
-
-            @Override
-            public void handleMessage(Message msg) {
-                Log.d(TAG, "Received message: " + msg);
-                switch (msg.what) {
-                    case ServiceMessages.MSG_IDENTIFY_RESPONSE:
-                        msg.getData().setClassLoader(RunningServiceInfo.class.getClassLoader());
-                        mInfo = msg.getData().getParcelable(ServiceMessages.IDENTIFY_INFO);
-                        mCondition.open();
-                        break;
-                }
-                super.handleMessage(msg);
-            }
-        };
-
-        IdentifyHandler handler = new IdentifyHandler();
-        Messenger local = new Messenger(handler);
-
-        Message msg = Message.obtain(null, ServiceMessages.MSG_IDENTIFY);
-        msg.replyTo = local;
         try {
-            mCondition.close();
-            service.send(msg);
+            return RunningServiceInfo.identifyService(service, TAG, mCondition);
         } catch (RemoteException e) {
             fail("Unexpected remote exception: " + e);
             return null;
         }
-
-        if (!mCondition.block(CONDITION_TIMEOUT))
-            return null;
-        return handler.mInfo;
     }
 
     private class Connection implements ServiceConnection {

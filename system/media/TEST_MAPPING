@@ -7,7 +7,7 @@
       "name": "libmedia_helper_tests"
     }
   ],
-  "hwasan-postsubmit": [
+  "hwasan-presubmit": [
     {
       "name": "systemaudio_tests"
     },

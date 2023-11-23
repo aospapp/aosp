@@ -16,10 +16,23 @@
 #include <gatekeeper/UniquePtr.h>
 #include <gatekeeper/gatekeeper.h>
 
+#ifdef _WIN32
+#include <winsock2.h>
+#define htobe32 htonl
+#define htobe64 htonll_gk
+#else
 #include <endian.h>
+#endif
+
 #include <stddef.h>
 
 #define DAY_IN_MS (1000 * 60 * 60 * 24)
+
+#ifdef _WIN32
+__forceinline uint64_t htonll_gk(uint64_t value) {
+    return (((uint64_t)htonl(value & 0xFFFFFFFFUL)) << 32) | htonl((uint32_t)(value >> 32));
+}
+#endif
 
 namespace gatekeeper {
 

@@ -1,0 +1,14 @@
+#
+# USF SELinux type enforcement macros.
+#
+
+#
+# usf_low_latency_transport(domain)
+#
+# Allows domain use of the USF low latency transport.
+#
+define(`usf_low_latency_transport', `
+  allow $1 hal_graphics_mapper_hwservice:hwservice_manager find;
+  hal_client_domain($1, hal_graphics_allocator)
+')
+

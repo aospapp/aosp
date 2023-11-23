@@ -31,8 +31,20 @@ license {
     ],
 }
 
+rust_defaults {
+    name: "profcollectd_defaults",
+    arch: {
+        riscv64: {
+            // libprofcollectd doesn't build for riscv64
+            enabled: false,
+        },
+    },
+}
+
 rust_binary {
     name: "profcollectctl",
+
+    defaults: ["profcollectd_defaults"],
 
     srcs: ["profcollectctl.rs"],
 
@@ -44,6 +56,8 @@ rust_binary {
 
 rust_binary {
     name: "profcollectd",
+
+    defaults: ["profcollectd_defaults"],
 
     srcs: ["profcollectd.rs"],
 

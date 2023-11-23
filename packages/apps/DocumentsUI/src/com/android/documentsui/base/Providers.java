@@ -45,12 +45,11 @@ public final class Providers {
     public static final String AUTHORITY_BUGREPORT = "com.android.shell.documents";
 
     private static final String DOCSUI_PACKAGE = "com.android.documentsui";
-    private static final Set<String> SYSTEM_AUTHORITIES = new HashSet<String>() {{
-        add(AUTHORITY_STORAGE);
-        add(AUTHORITY_DOWNLOADS);
-        add(AUTHORITY_MEDIA);
-        add(AUTHORITY_MTP);
-    }};
+    private static final Set<String> SYSTEM_AUTHORITIES = Set.of(
+            AUTHORITY_STORAGE,
+            AUTHORITY_DOWNLOADS,
+            AUTHORITY_MEDIA,
+            AUTHORITY_MTP);
 
     public static boolean isArchiveUri(Uri uri) {
         return uri != null && ArchivesProvider.AUTHORITY.equals(uri.getAuthority());

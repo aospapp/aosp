@@ -27,55 +27,88 @@ namespace minikin {
 // This is a helper class to read data from a memory buffer.
 // This class does not copy memory, and may return pointers to parts of the memory buffer.
 // Thus the memory buffer should outlive objects created using this class.
+//
+// Note on alignment:
+// Some CPU archs (e.g. arm32) do not allow misaligned memory access.
+// Therefore, BufferReader and BufferWriter automatically insert paddings
+// to align data records.
+// For the padding to be deterministic, the following conditions must be met:
+// (1) Alignment and size of each data record must be fixed regardless of
+//     CPU arch.
+// (2) Alignment for each data record must be a power of 2 (2^n) and
+//     must be less than or equal to kMaxAlignment.
+// (3) The head address of the buffer must be aligned at kMaxAlignment.
+//
+// The condition (2) and (3) ensures that 'headAddress % align == 0'
+// and the padding is determined only by the current position.
+// I.e. mCurrent % align == (mCurrent - headAddress) % align.
 class BufferReader {
 public:
-    BufferReader(const void* buffer) : BufferReader(buffer, 0) {}
-    BufferReader(const void* buffer, uint32_t pos)
-            : mData(reinterpret_cast<const uint8_t*>(buffer)), mPos(pos) {}
+    static constexpr size_t kMaxAlignment = 8;
 
-    template <typename T>
-    static uint32_t align(uint32_t pos) {
-        // This should be true for all types, unless custom alignment attributes are set.
-        static_assert(sizeof(T) % alignof(T) == 0, "sizeof(T) must be a multiple of alignof(T)");
-        // We align to sizeof(T) instead of alignof(T), because the buffer may be shared between
-        // 32-bit processes and 64-bit processes. alignof(T) may change between the two.
-        // We assume that T is a type whose size is fixed (e.g. uint32_t).
-        return (pos + sizeof(T) - 1) / sizeof(T) * sizeof(T);
+    explicit BufferReader(const void* buffer) : BufferReader(buffer, 0) {}
+    BufferReader(const void* buffer, uint32_t pos)
+            : mCurrent(reinterpret_cast<const uint8_t*>(buffer) + pos) {}
+
+    // align() adds padding if necessary so that the returned pointer is aligned
+    // at 'align' template parameter (i.e. align<T, _align>(p) % _align == 0).
+    //
+    // By default we align to sizeof(T) instead of alignof(T), because the
+    // buffer may be shared between 32-bit processes and 64-bit processes.
+    // The value of alignof(T) may change between the two.
+    //
+    // If T is a large struct or class, you would need to specify 'align'
+    // template parameter manually.
+    template <typename T, size_t align = sizeof(T)>
+    static const uint8_t* align(const uint8_t* p) {
+        static_assert(align <= kMaxAlignment);
+        static_assert(__builtin_popcount(align) == 1, "align must be a power of 2");
+        constexpr size_t mask = align - 1;
+        intptr_t i = reinterpret_cast<intptr_t>(p);
+        intptr_t aligned = (i + mask) & ~mask;
+        return reinterpret_cast<const uint8_t*>(aligned);
     }
 
-    template <typename T>
+    template <typename T, size_t align = sizeof(T)>
     const T& read() {
-        static_assert(std::is_pod<T>::value, "T must be a POD");
-        mPos = BufferReader::align<T>(mPos);
-        const T* data = reinterpret_cast<const T*>(mData + mPos);
-        mPos += sizeof(T);
+        const T* data = map<T, align>(sizeof(T));
         return *data;
     }
 
-    template <typename T>
+    template <typename T, size_t align = sizeof(T)>
+    const T* map(uint32_t size) {
+        static_assert(std::is_pod<T>::value, "T must be a POD");
+        mCurrent = BufferReader::align<T, align>(mCurrent);
+        const T* data = reinterpret_cast<const T*>(mCurrent);
+        mCurrent += size;
+        return data;
+    }
+
+    template <typename T, size_t align = sizeof(T)>
     void skip() {
         static_assert(std::is_pod<T>::value, "T must be a POD");
-        mPos = BufferReader::align<T>(mPos);
-        mPos += sizeof(T);
+        mCurrent = BufferReader::align<T, align>(mCurrent);
+        mCurrent += sizeof(T);
     }
 
     // Return a pointer to an array and its number of elements.
-    template <typename T>
+    template <typename T, size_t align = sizeof(T)>
     std::pair<const T*, uint32_t> readArray() {
         static_assert(std::is_pod<T>::value, "T must be a POD");
+        static_assert(sizeof(T) % align == 0);
         uint32_t size = read<uint32_t>();
-        mPos = BufferReader::align<T>(mPos);
-        const T* data = reinterpret_cast<const T*>(mData + mPos);
-        mPos += size * sizeof(T);
+        mCurrent = BufferReader::align<T, align>(mCurrent);
+        const T* data = reinterpret_cast<const T*>(mCurrent);
+        mCurrent += size * sizeof(T);
         return std::make_pair(data, size);
     }
 
-    template <typename T>
+    template <typename T, size_t align = sizeof(T)>
     void skipArray() {
         static_assert(std::is_pod<T>::value, "T must be a POD");
         uint32_t size = read<uint32_t>();
-        mPos = BufferReader::align<T>(mPos);
-        mPos += size * sizeof(T);
+        mCurrent = BufferReader::align<T, align>(mCurrent);
+        mCurrent += size * sizeof(T);
     }
 
     std::string_view readString() {
@@ -85,20 +118,32 @@ public:
 
     void skipString() { skipArray<char>(); }
 
-    const void* data() const { return mData; }
-    size_t pos() const { return mPos; }
+    const void* current() const { return mCurrent; }
 
 private:
-    const uint8_t* mData;
-    size_t mPos;
+    const uint8_t* mCurrent;
 };
 
 // This is a helper class to write data to a memory buffer.
+//
+// BufferWriter does NOT allocate the memory.
+// The typical usage is to use BufferWriter twice; in the first pass, write
+// data with a fake BufferWriter (BufferWriter(nullptr)) to calculate the buffer
+// size. In the second pass, allocate a memory buffer and use a real
+// BufferWriter to write the data.
+// Pseudo code:
+//     BufferWriter fakeWriter(nullptr);
+//     myData.writeTo(&fakeWriter);
+//     void* buffer = malloc(fakeWriter.size());
+//     BufferWriter realWriter(buffer);
+//     myData.writeTo(&realWriter);
 class BufferWriter {
 public:
     // Create a buffer writer. Passing nullptr creates a fake writer,
     // which can be used to measure the buffer size needed.
-    BufferWriter(void* buffer) : mData(reinterpret_cast<uint8_t*>(buffer)), mPos(0) {}
+    explicit BufferWriter(void* buffer) : BufferWriter(buffer, 0) {}
+    BufferWriter(void* buffer, uint32_t pos)
+            : mData(reinterpret_cast<uint8_t*>(buffer)), mPos(pos) {}
 
     BufferWriter(BufferWriter&&) = default;
     BufferWriter& operator=(BufferWriter&&) = default;
@@ -107,25 +152,35 @@ public:
     // Please always specify T explicitly using <>. std::common_type_t<T> resolves to T, but
     // disables template argument deduction.
     // TODO: use std::type_identity_t when C++20 is available.
-    template <typename T>
+    template <typename T, size_t align = sizeof(T)>
     void write(const std::common_type_t<T>& data) {
-        static_assert(std::is_pod<T>::value, "T must be a POD");
-        mPos = BufferReader::align<T>(mPos);
-        if (mData != nullptr) {
-            memcpy(mData + mPos, &data, sizeof(T));
+        T* buf = reserve<T, align>(sizeof(T));
+        if (buf != nullptr) {
+            memcpy(buf, &data, sizeof(T));
         }
-        mPos += sizeof(T);
+    }
+
+    // Reserve a region and return a pointer to the reserved region.
+    // The reserved region is not initialized.
+    template <typename T, size_t align = sizeof(T)>
+    T* reserve(uint32_t size) {
+        static_assert(std::is_pod<T>::value, "T must be a POD");
+        mPos = BufferWriter::align<T, align>(mPos);
+        uint32_t pos = mPos;
+        mPos += size;
+        return mData == nullptr ? nullptr : reinterpret_cast<T*>(mData + pos);
     }
 
     // Write an array of type T.
     // Please always specify T explicitly using <>. std::common_type_t<T> resolves to T, but
     // disables template argument deduction.
     // TODO: use std::type_identity_t when C++20 is available.
-    template <typename T>
+    template <typename T, size_t align = sizeof(T)>
     void writeArray(const std::common_type_t<T>* data, uint32_t size) {
         static_assert(std::is_pod<T>::value, "T must be a POD");
+        static_assert(sizeof(T) % align == 0);
         write<uint32_t>(size);
-        mPos = BufferReader::align<T>(mPos);
+        mPos = BufferWriter::align<T, align>(mPos);
         if (mData != nullptr) {
             memcpy(mData + mPos, data, size * sizeof(T));
         }
@@ -140,6 +195,11 @@ public:
 private:
     uint8_t* mData;
     size_t mPos;
+
+    template <typename T, size_t align>
+    size_t align(size_t pos) const {
+        return BufferReader::align<T, align>(mData + pos) - mData;
+    }
 
     // Forbid copy and assign.
     BufferWriter(const BufferWriter&) = delete;

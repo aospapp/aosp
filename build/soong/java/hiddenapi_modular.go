@@ -236,9 +236,9 @@ func hiddenAPIComputeMonolithicStubLibModules(config android.Config) map[*Hidden
 		testStubModules = append(testStubModules, "sdk_test_current_android")
 	} else {
 		// Use stub modules built from source
-		publicStubModules = append(publicStubModules, "android_stubs_current")
-		systemStubModules = append(systemStubModules, "android_system_stubs_current")
-		testStubModules = append(testStubModules, "android_test_stubs_current")
+		publicStubModules = append(publicStubModules, android.SdkPublic.JavaLibraryName(config))
+		systemStubModules = append(systemStubModules, android.SdkSystem.JavaLibraryName(config))
+		testStubModules = append(testStubModules, android.SdkTest.JavaLibraryName(config))
 	}
 	// We do not have prebuilts of the core platform api yet
 	corePlatformStubModules = append(corePlatformStubModules, "legacy.core.platform.api.stubs")
@@ -378,32 +378,37 @@ func buildRuleToGenerateHiddenAPIStubFlagsFile(ctx android.BuilderContext, name,
 // with one Java package per line. All members of all classes within that package (but not nested
 // packages) will be updated in a property specific way.
 type HiddenAPIFlagFileProperties struct {
-	// Marks each signature in the referenced files as being unsupported.
-	Unsupported []string `android:"path"`
+	Hidden_api struct {
+		// Marks each signature in the referenced files as being unsupported.
+		Unsupported []string `android:"path"`
 
-	// Marks each signature in the referenced files as being unsupported because it has been removed.
-	// Any conflicts with other flags are ignored.
-	Removed []string `android:"path"`
+		// Marks each signature in the referenced files as being unsupported because it has been
+		// removed. Any conflicts with other flags are ignored.
+		Removed []string `android:"path"`
 
-	// Marks each signature in the referenced files as being supported only for targetSdkVersion <= R
-	// and low priority.
-	Max_target_r_low_priority []string `android:"path"`
+		// Marks each signature in the referenced files as being supported only for
+		// targetSdkVersion <= R and low priority.
+		Max_target_r_low_priority []string `android:"path"`
 
-	// Marks each signature in the referenced files as being supported only for targetSdkVersion <= Q.
-	Max_target_q []string `android:"path"`
+		// Marks each signature in the referenced files as being supported only for
+		// targetSdkVersion <= Q.
+		Max_target_q []string `android:"path"`
 
-	// Marks each signature in the referenced files as being supported only for targetSdkVersion <= P.
-	Max_target_p []string `android:"path"`
+		// Marks each signature in the referenced files as being supported only for
+		// targetSdkVersion <= P.
+		Max_target_p []string `android:"path"`
 
-	// Marks each signature in the referenced files as being supported only for targetSdkVersion <= O
-	// and low priority. Any conflicts with other flags are ignored.
-	Max_target_o_low_priority []string `android:"path"`
+		// Marks each signature in the referenced files as being supported only for
+		// targetSdkVersion <= O
+		// and low priority. Any conflicts with other flags are ignored.
+		Max_target_o_low_priority []string `android:"path"`
 
-	// Marks each signature in the referenced files as being blocked.
-	Blocked []string `android:"path"`
+		// Marks each signature in the referenced files as being blocked.
+		Blocked []string `android:"path"`
 
-	// Marks each signature in every package in the referenced files as being unsupported.
-	Unsupported_packages []string `android:"path"`
+		// Marks each signature in every package in the referenced files as being unsupported.
+		Unsupported_packages []string `android:"path"`
+	}
 }
 
 type hiddenAPIFlagFileCategory struct {
@@ -428,19 +433,30 @@ var hiddenAPIRemovedFlagFileCategory = &hiddenAPIFlagFileCategory{
 	// See HiddenAPIFlagFileProperties.Removed
 	PropertyName: "removed",
 	propertyValueReader: func(properties *HiddenAPIFlagFileProperties) []string {
-		return properties.Removed
+		return properties.Hidden_api.Removed
 	},
 	commandMutator: func(command *android.RuleBuilderCommand, path android.Path) {
 		command.FlagWithInput("--unsupported ", path).Flag("--ignore-conflicts ").FlagWithArg("--tag ", "removed")
 	},
 }
 
-var HiddenAPIFlagFileCategories = []*hiddenAPIFlagFileCategory{
+type hiddenAPIFlagFileCategories []*hiddenAPIFlagFileCategory
+
+func (c hiddenAPIFlagFileCategories) byProperty(name string) *hiddenAPIFlagFileCategory {
+	for _, category := range c {
+		if category.PropertyName == name {
+			return category
+		}
+	}
+	panic(fmt.Errorf("no category exists with property name %q in %v", name, c))
+}
+
+var HiddenAPIFlagFileCategories = hiddenAPIFlagFileCategories{
 	// See HiddenAPIFlagFileProperties.Unsupported
 	{
 		PropertyName: "unsupported",
 		propertyValueReader: func(properties *HiddenAPIFlagFileProperties) []string {
-			return properties.Unsupported
+			return properties.Hidden_api.Unsupported
 		},
 		commandMutator: func(command *android.RuleBuilderCommand, path android.Path) {
 			command.FlagWithInput("--unsupported ", path)
@@ -451,7 +467,7 @@ var HiddenAPIFlagFileCategories = []*hiddenAPIFlagFileCategory{
 	{
 		PropertyName: "max_target_r_low_priority",
 		propertyValueReader: func(properties *HiddenAPIFlagFileProperties) []string {
-			return properties.Max_target_r_low_priority
+			return properties.Hidden_api.Max_target_r_low_priority
 		},
 		commandMutator: func(command *android.RuleBuilderCommand, path android.Path) {
 			command.FlagWithInput("--max-target-r ", path).FlagWithArg("--tag ", "lo-prio")
@@ -461,7 +477,7 @@ var HiddenAPIFlagFileCategories = []*hiddenAPIFlagFileCategory{
 	{
 		PropertyName: "max_target_q",
 		propertyValueReader: func(properties *HiddenAPIFlagFileProperties) []string {
-			return properties.Max_target_q
+			return properties.Hidden_api.Max_target_q
 		},
 		commandMutator: func(command *android.RuleBuilderCommand, path android.Path) {
 			command.FlagWithInput("--max-target-q ", path)
@@ -471,7 +487,7 @@ var HiddenAPIFlagFileCategories = []*hiddenAPIFlagFileCategory{
 	{
 		PropertyName: "max_target_p",
 		propertyValueReader: func(properties *HiddenAPIFlagFileProperties) []string {
-			return properties.Max_target_p
+			return properties.Hidden_api.Max_target_p
 		},
 		commandMutator: func(command *android.RuleBuilderCommand, path android.Path) {
 			command.FlagWithInput("--max-target-p ", path)
@@ -481,7 +497,7 @@ var HiddenAPIFlagFileCategories = []*hiddenAPIFlagFileCategory{
 	{
 		PropertyName: "max_target_o_low_priority",
 		propertyValueReader: func(properties *HiddenAPIFlagFileProperties) []string {
-			return properties.Max_target_o_low_priority
+			return properties.Hidden_api.Max_target_o_low_priority
 		},
 		commandMutator: func(command *android.RuleBuilderCommand, path android.Path) {
 			command.FlagWithInput("--max-target-o ", path).Flag("--ignore-conflicts ").FlagWithArg("--tag ", "lo-prio")
@@ -491,7 +507,7 @@ var HiddenAPIFlagFileCategories = []*hiddenAPIFlagFileCategory{
 	{
 		PropertyName: "blocked",
 		propertyValueReader: func(properties *HiddenAPIFlagFileProperties) []string {
-			return properties.Blocked
+			return properties.Hidden_api.Blocked
 		},
 		commandMutator: func(command *android.RuleBuilderCommand, path android.Path) {
 			command.FlagWithInput("--blocked ", path)
@@ -501,7 +517,7 @@ var HiddenAPIFlagFileCategories = []*hiddenAPIFlagFileCategory{
 	{
 		PropertyName: "unsupported_packages",
 		propertyValueReader: func(properties *HiddenAPIFlagFileProperties) []string {
-			return properties.Unsupported_packages
+			return properties.Hidden_api.Unsupported_packages
 		},
 		commandMutator: func(command *android.RuleBuilderCommand, path android.Path) {
 			command.FlagWithInput("--unsupported ", path).Flag("--packages ")
@@ -512,10 +528,17 @@ var HiddenAPIFlagFileCategories = []*hiddenAPIFlagFileCategory{
 // FlagFilesByCategory maps a hiddenAPIFlagFileCategory to the paths to the files in that category.
 type FlagFilesByCategory map[*hiddenAPIFlagFileCategory]android.Paths
 
-// append appends the supplied flags files to the corresponding category in this map.
+// append the supplied flags files to the corresponding category in this map.
 func (s FlagFilesByCategory) append(other FlagFilesByCategory) {
 	for _, category := range HiddenAPIFlagFileCategories {
 		s[category] = append(s[category], other[category]...)
+	}
+}
+
+// sort the paths for each category in this map.
+func (s FlagFilesByCategory) sort() {
+	for category, value := range s {
+		s[category] = android.SortedUniquePaths(value)
 	}
 }
 
@@ -570,6 +593,23 @@ func (i *HiddenAPIInfo) FlagSubset() SignatureCsvSubset {
 }
 
 var HiddenAPIInfoProvider = blueprint.NewProvider(HiddenAPIInfo{})
+
+// HiddenAPIInfoForSdk contains information provided by the hidden API processing for use
+// by the sdk snapshot.
+//
+// That includes paths resolved from HiddenAPIFlagFileProperties and also generated by hidden API
+// processing.
+type HiddenAPIInfoForSdk struct {
+	// FlagFilesByCategory maps from the flag file category to the paths containing information for
+	// that category.
+	FlagFilesByCategory FlagFilesByCategory
+
+	// The output from the hidden API processing needs to be made available to other modules.
+	HiddenAPIFlagOutput
+}
+
+// Provides hidden API info for the sdk snapshot.
+var HiddenAPIInfoForSdkProvider = blueprint.NewProvider(HiddenAPIInfoForSdk{})
 
 // ModuleStubDexJars contains the stub dex jars provided by a single module.
 //
@@ -657,7 +697,7 @@ func (s StubDexJarsByModule) addStubDexJarsByModule(other StubDexJarsByModule) {
 // The relative width of APIs is determined by their order in hiddenAPIScopes.
 func (s StubDexJarsByModule) StubDexJarsForWidestAPIScope() android.Paths {
 	stubDexJars := android.Paths{}
-	modules := android.SortedStringKeys(s)
+	modules := android.SortedKeys(s)
 	for _, module := range modules {
 		stubDexJarsByScope := s[module]
 
@@ -674,7 +714,7 @@ func (s StubDexJarsByModule) StubDexJarsForWidestAPIScope() android.Paths {
 // the returned list.
 func (s StubDexJarsByModule) StubDexJarsForScope(scope *HiddenAPIScope) android.Paths {
 	stubDexJars := android.Paths{}
-	modules := android.SortedStringKeys(s)
+	modules := android.SortedKeys(s)
 	for _, module := range modules {
 		stubDexJarsByScope := s[module]
 		// Not every module will have the same set of
@@ -686,12 +726,69 @@ func (s StubDexJarsByModule) StubDexJarsForScope(scope *HiddenAPIScope) android.
 	return stubDexJars
 }
 
-// HiddenAPIFlagInput encapsulates information obtained from a module and its dependencies that are
-// needed for hidden API flag generation.
-type HiddenAPIFlagInput struct {
+type HiddenAPIPropertyInfo struct {
 	// FlagFilesByCategory contains the flag files that override the initial flags that are derived
 	// from the stub dex files.
 	FlagFilesByCategory FlagFilesByCategory
+
+	// See HiddenAPIFlagFileProperties.Package_prefixes
+	PackagePrefixes []string
+
+	// See HiddenAPIFlagFileProperties.Single_packages
+	SinglePackages []string
+
+	// See HiddenAPIFlagFileProperties.Split_packages
+	SplitPackages []string
+}
+
+var hiddenAPIPropertyInfoProvider = blueprint.NewProvider(HiddenAPIPropertyInfo{})
+
+// newHiddenAPIPropertyInfo creates a new initialized HiddenAPIPropertyInfo struct.
+func newHiddenAPIPropertyInfo() HiddenAPIPropertyInfo {
+	return HiddenAPIPropertyInfo{
+		FlagFilesByCategory: FlagFilesByCategory{},
+	}
+}
+
+// extractFlagFilesFromProperties extracts the paths to flag files that are specified in the
+// supplied properties and stores them in this struct.
+func (i *HiddenAPIPropertyInfo) extractFlagFilesFromProperties(ctx android.ModuleContext, p *HiddenAPIFlagFileProperties) {
+	for _, category := range HiddenAPIFlagFileCategories {
+		paths := android.PathsForModuleSrc(ctx, category.propertyValueReader(p))
+		i.FlagFilesByCategory[category] = paths
+	}
+}
+
+// extractPackageRulesFromProperties extracts the package rules that are specified in the supplied
+// properties and stores them in this struct.
+func (i *HiddenAPIPropertyInfo) extractPackageRulesFromProperties(p *HiddenAPIPackageProperties) {
+	i.PackagePrefixes = p.Hidden_api.Package_prefixes
+	i.SinglePackages = p.Hidden_api.Single_packages
+	i.SplitPackages = p.Hidden_api.Split_packages
+}
+
+func (i *HiddenAPIPropertyInfo) gatherPropertyInfo(ctx android.ModuleContext, contents []android.Module) {
+	for _, module := range contents {
+		if ctx.OtherModuleHasProvider(module, hiddenAPIPropertyInfoProvider) {
+			info := ctx.OtherModuleProvider(module, hiddenAPIPropertyInfoProvider).(HiddenAPIPropertyInfo)
+			i.FlagFilesByCategory.append(info.FlagFilesByCategory)
+			i.PackagePrefixes = append(i.PackagePrefixes, info.PackagePrefixes...)
+			i.SinglePackages = append(i.SinglePackages, info.SinglePackages...)
+			i.SplitPackages = append(i.SplitPackages, info.SplitPackages...)
+		}
+	}
+
+	// Dedup and sort the information to ensure consistent builds.
+	i.FlagFilesByCategory.sort()
+	i.PackagePrefixes = android.SortedUniqueStrings(i.PackagePrefixes)
+	i.SinglePackages = android.SortedUniqueStrings(i.SinglePackages)
+	i.SplitPackages = android.SortedUniqueStrings(i.SplitPackages)
+}
+
+// HiddenAPIFlagInput encapsulates information obtained from a module and its dependencies that are
+// needed for hidden API flag generation.
+type HiddenAPIFlagInput struct {
+	HiddenAPIPropertyInfo
 
 	// StubDexJarsByScope contains the stub dex jars for different *HiddenAPIScope and which determine
 	// the initial flags for each dex member.
@@ -714,10 +811,10 @@ type HiddenAPIFlagInput struct {
 	RemovedTxtFiles android.Paths
 }
 
-// newHiddenAPIFlagInput creates a new initialize HiddenAPIFlagInput struct.
+// newHiddenAPIFlagInput creates a new initialized HiddenAPIFlagInput struct.
 func newHiddenAPIFlagInput() HiddenAPIFlagInput {
 	input := HiddenAPIFlagInput{
-		FlagFilesByCategory:          FlagFilesByCategory{},
+		HiddenAPIPropertyInfo:        newHiddenAPIPropertyInfo(),
 		StubDexJarsByScope:           StubDexJarsByModule{},
 		DependencyStubDexJarsByScope: StubDexJarsByModule{},
 		AdditionalStubDexJarsByScope: StubDexJarsByModule{},
@@ -773,15 +870,6 @@ func (i *HiddenAPIFlagInput) gatherStubLibInfo(ctx android.ModuleContext, conten
 	i.RemovedTxtFiles = android.SortedUniquePaths(i.RemovedTxtFiles)
 }
 
-// extractFlagFilesFromProperties extracts the paths to flag files that are specified in the
-// supplied properties and stores them in this struct.
-func (i *HiddenAPIFlagInput) extractFlagFilesFromProperties(ctx android.ModuleContext, p *HiddenAPIFlagFileProperties) {
-	for _, category := range HiddenAPIFlagFileCategories {
-		paths := android.PathsForModuleSrc(ctx, category.propertyValueReader(p))
-		i.FlagFilesByCategory[category] = paths
-	}
-}
-
 func (i *HiddenAPIFlagInput) transitiveStubDexJarsByScope() StubDexJarsByModule {
 	transitive := i.DependencyStubDexJarsByScope
 	transitive.addStubDexJarsByModule(i.StubDexJarsByScope)
@@ -829,7 +917,7 @@ func (b bootDexJarByModule) addPath(module android.Module, path android.Path) {
 // bootDexJars returns the boot dex jar paths sorted by their keys.
 func (b bootDexJarByModule) bootDexJars() android.Paths {
 	paths := android.Paths{}
-	for _, k := range android.SortedStringKeys(b) {
+	for _, k := range android.SortedKeys(b) {
 		paths = append(paths, b[k])
 	}
 	return paths
@@ -839,7 +927,7 @@ func (b bootDexJarByModule) bootDexJars() android.Paths {
 // libraries if present.
 func (b bootDexJarByModule) bootDexJarsWithoutCoverage() android.Paths {
 	paths := android.Paths{}
-	for _, k := range android.SortedStringKeys(b) {
+	for _, k := range android.SortedKeys(b) {
 		if k == "jacocoagent" {
 			continue
 		}
@@ -953,8 +1041,11 @@ func (s SignatureCsvSubsets) RelativeToTop() []string {
 // patterns that will select a subset of the monolithic flags.
 func buildRuleSignaturePatternsFile(
 	ctx android.ModuleContext, flagsPath android.Path,
-	splitPackages []string, packagePrefixes []string, singlePackages []string) android.Path {
-	patternsFile := android.PathForModuleOut(ctx, "modular-hiddenapi", "signature-patterns.csv")
+	splitPackages []string, packagePrefixes []string, singlePackages []string,
+	suffix string) android.Path {
+	hiddenApiSubDir := "modular-hiddenapi" + suffix
+
+	patternsFile := android.PathForModuleOut(ctx, hiddenApiSubDir, "signature-patterns.csv")
 	// Create a rule to validate the output from the following rule.
 	rule := android.NewRuleBuilder(pctx, ctx)
 
@@ -971,7 +1062,7 @@ func buildRuleSignaturePatternsFile(
 		FlagForEachArg("--package-prefix ", packagePrefixes).
 		FlagForEachArg("--single-package ", singlePackages).
 		FlagWithOutput("--output ", patternsFile)
-	rule.Build("hiddenAPISignaturePatterns", "hidden API signature patterns")
+	rule.Build("hiddenAPISignaturePatterns"+suffix, "hidden API signature patterns"+suffix)
 
 	return patternsFile
 }
@@ -1045,8 +1136,8 @@ func buildRuleValidateOverlappingCsvFiles(ctx android.BuilderContext, name strin
 	return validFile
 }
 
-// hiddenAPIRulesForBootclasspathFragment will generate all the flags for a fragment of the
-// bootclasspath and then encode the flags into the boot dex files.
+// hiddenAPIFlagRulesForBootclasspathFragment will generate all the flags for a fragment of the
+// bootclasspath.
 //
 // It takes:
 // * Map from android.SdkKind to stub dex jar paths defining the API for that sdk kind.
@@ -1059,31 +1150,27 @@ func buildRuleValidateOverlappingCsvFiles(ctx android.BuilderContext, name strin
 // * metadata.csv
 // * index.csv
 // * all-flags.csv
-// * encoded boot dex files
-func hiddenAPIRulesForBootclasspathFragment(ctx android.ModuleContext, contents []android.Module, input HiddenAPIFlagInput) *HiddenAPIOutput {
-	hiddenApiSubDir := "modular-hiddenapi"
-
-	// Gather information about the boot dex files for the boot libraries provided by this fragment.
-	bootDexInfoByModule := extractBootDexInfoFromModules(ctx, contents)
+func hiddenAPIFlagRulesForBootclasspathFragment(ctx android.ModuleContext, bootDexInfoByModule bootDexInfoByModule, contents []android.Module, input HiddenAPIFlagInput, suffix string) HiddenAPIFlagOutput {
+	hiddenApiSubDir := "modular-hiddenapi" + suffix
 
 	// Generate the stub-flags.csv.
 	stubFlagsCSV := android.PathForModuleOut(ctx, hiddenApiSubDir, "stub-flags.csv")
-	buildRuleToGenerateHiddenAPIStubFlagsFile(ctx, "modularHiddenAPIStubFlagsFile", "modular hiddenapi stub flags", stubFlagsCSV, bootDexInfoByModule.bootDexJars(), input, nil)
+	buildRuleToGenerateHiddenAPIStubFlagsFile(ctx, "modularHiddenAPIStubFlagsFile"+suffix, "modular hiddenapi stub flags", stubFlagsCSV, bootDexInfoByModule.bootDexJars(), input, nil)
 
 	// Extract the classes jars from the contents.
 	classesJars := extractClassesJarsFromModules(contents)
 
 	// Generate the set of flags from the annotations in the source code.
 	annotationFlagsCSV := android.PathForModuleOut(ctx, hiddenApiSubDir, "annotation-flags.csv")
-	buildRuleToGenerateAnnotationFlags(ctx, "modular hiddenapi annotation flags", classesJars, stubFlagsCSV, annotationFlagsCSV)
+	buildRuleToGenerateAnnotationFlags(ctx, "modular hiddenapi annotation flags"+suffix, classesJars, stubFlagsCSV, annotationFlagsCSV)
 
 	// Generate the metadata from the annotations in the source code.
 	metadataCSV := android.PathForModuleOut(ctx, hiddenApiSubDir, "metadata.csv")
-	buildRuleToGenerateMetadata(ctx, "modular hiddenapi metadata", classesJars, stubFlagsCSV, metadataCSV)
+	buildRuleToGenerateMetadata(ctx, "modular hiddenapi metadata"+suffix, classesJars, stubFlagsCSV, metadataCSV)
 
 	// Generate the index file from the CSV files in the classes jars.
 	indexCSV := android.PathForModuleOut(ctx, hiddenApiSubDir, "index.csv")
-	buildRuleToGenerateIndex(ctx, "modular hiddenapi index", classesJars, indexCSV)
+	buildRuleToGenerateIndex(ctx, "modular hiddenapi index"+suffix, classesJars, indexCSV)
 
 	// Removed APIs need to be marked and in order to do that the hiddenAPIInfo needs to specify files
 	// containing dex signatures of all the removed APIs. In the monolithic files that is done by
@@ -1091,59 +1178,60 @@ func hiddenAPIRulesForBootclasspathFragment(ctx android.ModuleContext, contents 
 	// signatures, see the combined-removed-dex module. This does that automatically by using the
 	// *removed.txt files retrieved from the java_sdk_library modules that are specified in the
 	// stub_libs and contents properties of a bootclasspath_fragment.
-	removedDexSignatures := buildRuleToGenerateRemovedDexSignatures(ctx, input.RemovedTxtFiles)
+	removedDexSignatures := buildRuleToGenerateRemovedDexSignatures(ctx, suffix, input.RemovedTxtFiles)
 
 	// Generate the all-flags.csv which are the flags that will, in future, be encoded into the dex
 	// files.
 	allFlagsCSV := android.PathForModuleOut(ctx, hiddenApiSubDir, "all-flags.csv")
-	buildRuleToGenerateHiddenApiFlags(ctx, "modularHiddenApiAllFlags", "modular hiddenapi all flags", allFlagsCSV, stubFlagsCSV, android.Paths{annotationFlagsCSV}, input.FlagFilesByCategory, nil, removedDexSignatures)
-
-	// Encode the flags into the boot dex files.
-	encodedBootDexJarsByModule := map[string]android.Path{}
-	outputDir := android.PathForModuleOut(ctx, "hiddenapi-modular/encoded").OutputPath
-	for _, name := range android.SortedStringKeys(bootDexInfoByModule) {
-		bootDexInfo := bootDexInfoByModule[name]
-		unencodedDex := bootDexInfo.path
-		encodedDex := hiddenAPIEncodeDex(ctx, unencodedDex, allFlagsCSV, bootDexInfo.uncompressDex, bootDexInfo.minSdkVersion, outputDir)
-		encodedBootDexJarsByModule[name] = encodedDex
-	}
+	buildRuleToGenerateHiddenApiFlags(ctx, "modularHiddenApiAllFlags"+suffix, "modular hiddenapi all flags"+suffix, allFlagsCSV, stubFlagsCSV, android.Paths{annotationFlagsCSV}, input.FlagFilesByCategory, nil, removedDexSignatures)
 
 	// Generate the filtered-stub-flags.csv file which contains the filtered stub flags that will be
 	// compared against the monolithic stub flags.
 	filteredStubFlagsCSV := android.PathForModuleOut(ctx, hiddenApiSubDir, "filtered-stub-flags.csv")
-	buildRuleRemoveSignaturesWithImplementationFlags(ctx, "modularHiddenApiFilteredStubFlags",
-		"modular hiddenapi filtered stub flags", stubFlagsCSV, filteredStubFlagsCSV,
+	buildRuleRemoveSignaturesWithImplementationFlags(ctx, "modularHiddenApiFilteredStubFlags"+suffix,
+		"modular hiddenapi filtered stub flags"+suffix, stubFlagsCSV, filteredStubFlagsCSV,
 		HIDDENAPI_STUB_FLAGS_IMPL_FLAGS)
 
 	// Generate the filtered-flags.csv file which contains the filtered flags that will be compared
 	// against the monolithic flags.
 	filteredFlagsCSV := android.PathForModuleOut(ctx, hiddenApiSubDir, "filtered-flags.csv")
-	buildRuleRemoveSignaturesWithImplementationFlags(ctx, "modularHiddenApiFilteredFlags",
-		"modular hiddenapi filtered flags", allFlagsCSV, filteredFlagsCSV,
+	buildRuleRemoveSignaturesWithImplementationFlags(ctx, "modularHiddenApiFilteredFlags"+suffix,
+		"modular hiddenapi filtered flags"+suffix, allFlagsCSV, filteredFlagsCSV,
 		HIDDENAPI_FLAGS_CSV_IMPL_FLAGS)
 
 	// Store the paths in the info for use by other modules and sdk snapshot generation.
-	output := HiddenAPIOutput{
-		HiddenAPIFlagOutput: HiddenAPIFlagOutput{
-			AnnotationFlagsPath:   annotationFlagsCSV,
-			MetadataPath:          metadataCSV,
-			IndexPath:             indexCSV,
-			StubFlagsPath:         stubFlagsCSV,
-			AllFlagsPath:          allFlagsCSV,
-			FilteredStubFlagsPath: filteredStubFlagsCSV,
-			FilteredFlagsPath:     filteredFlagsCSV,
-		},
-		EncodedBootDexFilesByModule: encodedBootDexJarsByModule,
+	return HiddenAPIFlagOutput{
+		AnnotationFlagsPath:   annotationFlagsCSV,
+		MetadataPath:          metadataCSV,
+		IndexPath:             indexCSV,
+		StubFlagsPath:         stubFlagsCSV,
+		AllFlagsPath:          allFlagsCSV,
+		FilteredStubFlagsPath: filteredStubFlagsCSV,
+		FilteredFlagsPath:     filteredFlagsCSV,
 	}
-	return &output
 }
 
-func buildRuleToGenerateRemovedDexSignatures(ctx android.ModuleContext, removedTxtFiles android.Paths) android.OptionalPath {
+// hiddenAPIEncodeRulesForBootclasspathFragment generates rules to encode hidden API flags into the
+// dex jars in bootDexInfoByModule.
+func hiddenAPIEncodeRulesForBootclasspathFragment(ctx android.ModuleContext, bootDexInfoByModule bootDexInfoByModule, allFlagsCSV android.Path) bootDexJarByModule {
+	// Encode the flags into the boot dex files.
+	encodedBootDexJarsByModule := bootDexJarByModule{}
+	outputDir := android.PathForModuleOut(ctx, "hiddenapi-modular/encoded").OutputPath
+	for _, name := range android.SortedKeys(bootDexInfoByModule) {
+		bootDexInfo := bootDexInfoByModule[name]
+		unencodedDex := bootDexInfo.path
+		encodedDex := hiddenAPIEncodeDex(ctx, unencodedDex, allFlagsCSV, bootDexInfo.uncompressDex, bootDexInfo.minSdkVersion, outputDir)
+		encodedBootDexJarsByModule[name] = encodedDex
+	}
+	return encodedBootDexJarsByModule
+}
+
+func buildRuleToGenerateRemovedDexSignatures(ctx android.ModuleContext, suffix string, removedTxtFiles android.Paths) android.OptionalPath {
 	if len(removedTxtFiles) == 0 {
 		return android.OptionalPath{}
 	}
 
-	output := android.PathForModuleOut(ctx, "modular-hiddenapi/removed-dex-signatures.txt")
+	output := android.PathForModuleOut(ctx, "module-hiddenapi"+suffix, "removed-dex-signatures.txt")
 
 	rule := android.NewRuleBuilder(pctx, ctx)
 	rule.Command().
@@ -1151,7 +1239,7 @@ func buildRuleToGenerateRemovedDexSignatures(ctx android.ModuleContext, removedT
 		Flag("--no-banner").
 		Inputs(removedTxtFiles).
 		FlagWithOutput("--dex-api ", output)
-	rule.Build("modular-hiddenapi-removed-dex-signatures", "modular hiddenapi removed dex signatures")
+	rule.Build("modular-hiddenapi-removed-dex-signatures"+suffix, "modular hiddenapi removed dex signatures"+suffix)
 	return android.OptionalPathForPath(output)
 }
 
@@ -1190,7 +1278,7 @@ type bootDexInfo struct {
 	uncompressDex bool
 
 	// The minimum sdk version that the dex jar will be used on.
-	minSdkVersion android.SdkSpec
+	minSdkVersion android.ApiLevel
 }
 
 // bootDexInfoByModule is a map from module name (as returned by module.Name()) to the boot dex
@@ -1200,7 +1288,7 @@ type bootDexInfoByModule map[string]bootDexInfo
 // bootDexJars returns the boot dex jar paths sorted by their keys.
 func (b bootDexInfoByModule) bootDexJars() android.Paths {
 	paths := android.Paths{}
-	for _, m := range android.SortedStringKeys(b) {
+	for _, m := range android.SortedKeys(b) {
 		paths = append(paths, b[m].path)
 	}
 	return paths
@@ -1261,14 +1349,6 @@ func retrieveClassesJarsFromModule(module android.Module) android.Paths {
 func deferReportingMissingBootDexJar(ctx android.ModuleContext, module android.Module) bool {
 	// Any missing dependency should be allowed.
 	if ctx.Config().AllowMissingDependencies() {
-		return true
-	}
-
-	// A bootclasspath module that is part of a versioned sdk never provides a boot dex jar as there
-	// is no equivalently versioned prebuilt APEX file from which it can be obtained. However,
-	// versioned bootclasspath modules are processed by Soong so in order to avoid them causing build
-	// failures missing boot dex jars need to be deferred.
-	if android.IsModuleInVersionedSdk(ctx.Module()) {
 		return true
 	}
 

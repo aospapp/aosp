@@ -25,7 +25,7 @@ $(call inherit-product, $(SRC_TARGET_DIR)/product/virtual_ab_ota.mk)
 endif
 
 # Build generic Audio HAL
-PRODUCT_PACKAGES := audio.primary.db845c
+PRODUCT_PACKAGES += audio.primary.db845c
 
 # BootControl HAL
 PRODUCT_PACKAGES += \

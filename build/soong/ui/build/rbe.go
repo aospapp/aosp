@@ -16,13 +16,12 @@ package build
 
 import (
 	"fmt"
-	"math/rand"
 	"os"
 	"path/filepath"
 	"runtime"
-	"syscall"
-	"time"
+	"strings"
 
+	"android/soong/remoteexec"
 	"android/soong/ui/metrics"
 )
 
@@ -54,34 +53,18 @@ func rbeCommand(ctx Context, config Config, rbeCmd string) string {
 	return cmdPath
 }
 
-func sockAddr(dir string) (string, error) {
-	maxNameLen := len(syscall.RawSockaddrUnix{}.Path)
-	rand.Seed(time.Now().UnixNano())
-	base := fmt.Sprintf("reproxy_%v.sock", rand.Intn(1000))
-
-	name := filepath.Join(dir, base)
-	if len(name) < maxNameLen {
-		return name, nil
-	}
-
-	name = filepath.Join("/tmp", base)
-	if len(name) < maxNameLen {
-		return name, nil
-	}
-
-	return "", fmt.Errorf("cannot generate a proxy socket address shorter than the limit of %v", maxNameLen)
-}
-
 func getRBEVars(ctx Context, config Config) map[string]string {
 	vars := map[string]string{
-		"RBE_log_path":   config.rbeLogPath(),
-		"RBE_log_dir":    config.rbeLogDir(),
-		"RBE_re_proxy":   config.rbeReproxy(),
-		"RBE_exec_root":  config.rbeExecRoot(),
-		"RBE_output_dir": config.rbeStatsOutputDir(),
+		"RBE_log_dir":       config.rbeProxyLogsDir(),
+		"RBE_re_proxy":      config.rbeReproxy(),
+		"RBE_exec_root":     config.rbeExecRoot(),
+		"RBE_output_dir":    config.rbeProxyLogsDir(),
+		"RBE_proxy_log_dir": config.rbeProxyLogsDir(),
+		"RBE_cache_dir":     config.rbeCacheDir(),
+		"RBE_platform":      "container-image=" + remoteexec.DefaultImage,
 	}
 	if config.StartRBE() {
-		name, err := sockAddr(absPath(ctx, config.TempDir()))
+		name, err := config.rbeSockAddr(absPath(ctx, config.TempDir()))
 		if err != nil {
 			ctx.Fatalf("Error retrieving socket address: %v", err)
 			return nil
@@ -100,15 +83,36 @@ func getRBEVars(ctx Context, config Config) map[string]string {
 	return vars
 }
 
+func cleanupRBELogsDir(ctx Context, config Config) {
+	if !config.shouldCleanupRBELogsDir() {
+		return
+	}
+
+	rbeTmpDir := config.rbeProxyLogsDir()
+	if err := os.RemoveAll(rbeTmpDir); err != nil {
+		fmt.Fprintln(ctx.Writer, "\033[33mUnable to remove RBE log directory: ", err, "\033[0m")
+	}
+}
+
 func startRBE(ctx Context, config Config) {
+	if !config.GoogleProdCredsExist() && prodCredsAuthType(config) {
+		ctx.Fatalf("Unable to start RBE reproxy\nFAILED: Missing LOAS credentials.")
+	}
 	ctx.BeginTrace(metrics.RunSetupTool, "rbe_bootstrap")
 	defer ctx.EndTrace()
+
+	ctx.Status.Status("Starting rbe...")
 
 	if u := ulimitOrFatal(ctx, config, "-u"); u < rbeLeastNProcs {
 		ctx.Fatalf("max user processes is insufficient: %d; want >= %d.\n", u, rbeLeastNProcs)
 	}
 	if n := ulimitOrFatal(ctx, config, "-n"); n < rbeLeastNFiles {
 		ctx.Fatalf("max open files is insufficient: %d; want >= %d.\n", n, rbeLeastNFiles)
+	}
+	if _, err := os.Stat(config.rbeProxyLogsDir()); os.IsNotExist(err) {
+		if err := os.MkdirAll(config.rbeProxyLogsDir(), 0744); err != nil {
+			ctx.Fatalf("Unable to create logs dir (%v) for RBE: %v", config.rbeProxyLogsDir, err)
+		}
 	}
 
 	cmd := Command(ctx, config, "startRBE bootstrap", rbeCommand(ctx, config, bootstrapCmd))
@@ -131,6 +135,34 @@ func stopRBE(ctx Context, config Config) {
 	}
 }
 
+func prodCredsAuthType(config Config) bool {
+	authVar, val := config.rbeAuth()
+	if strings.Contains(authVar, "use_google_prod_creds") && val != "" && val != "false" {
+		return true
+	}
+	return false
+}
+
+// Check whether proper auth exists for RBE builds run within a
+// Google dev environment.
+func CheckProdCreds(ctx Context, config Config) {
+	if !config.IsGooglerEnvironment() {
+		return
+	}
+	if !config.StubbyExists() && prodCredsAuthType(config) {
+		fmt.Fprintln(ctx.Writer, "")
+		fmt.Fprintln(ctx.Writer, fmt.Sprintf("\033[33mWARNING: %q binary not found in $PATH, follow go/build-fast-without-stubby instead for authenticating with RBE.\033[0m", "stubby"))
+		fmt.Fprintln(ctx.Writer, "")
+		return
+	}
+	if config.GoogleProdCredsExist() {
+		return
+	}
+	fmt.Fprintln(ctx.Writer, "")
+	fmt.Fprintln(ctx.Writer, "\033[33mWARNING: Missing LOAS credentials, please run `gcert`. This will result in failing builds in the future, see go/rbe-android-default-announcement.\033[0m")
+	fmt.Fprintln(ctx.Writer, "")
+}
+
 // DumpRBEMetrics creates a metrics protobuf file containing RBE related metrics.
 // The protobuf file is created if RBE is enabled and the proxy service has
 // started. The proxy service is shutdown in order to dump the RBE metrics to the
@@ -151,7 +183,9 @@ func DumpRBEMetrics(ctx Context, config Config, filename string) {
 		return
 	}
 
-	outputDir := config.rbeStatsOutputDir()
+	ctx.Status.Status("Dumping rbe metrics...")
+
+	outputDir := config.rbeProxyLogsDir()
 	if outputDir == "" {
 		ctx.Fatal("RBE output dir variable not defined. Aborting metrics dumping.")
 	}

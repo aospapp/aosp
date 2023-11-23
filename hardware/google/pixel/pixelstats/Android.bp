@@ -23,9 +23,15 @@ cc_library {
     proto: {
         type: "lite",
         export_proto_headers: true,
+        include_dirs: [
+            "external/protobuf/src",
+            "frameworks/proto_logging/stats",
+        ],
     },
     srcs: [
         "pixelatoms.proto",
+        ":libstats_atom_options_protos",
+        ":libprotobuf-internal-descriptor-proto",
     ],
 }
 
@@ -34,9 +40,15 @@ java_library {
     vendor: true,
     proto: {
         type: "lite",
+        include_dirs: [
+            "external/protobuf/src",
+            "frameworks/proto_logging/stats",
+        ],
     },
     srcs: [
         "pixelatoms.proto",
+        ":libstats_atom_options_protos",
+        ":libprotobuf-internal-descriptor-proto",
     ],
     sdk_version: "current",
 }
@@ -45,10 +57,31 @@ java_library_host {
     name: "pixelatoms-java_host",
     proto: {
         type: "full",
+        include_dirs: [
+            "external/protobuf/src",
+            "frameworks/proto_logging/stats",
+        ],
     },
     srcs: [
         "pixelatoms.proto",
+        ":libstats_atom_options_protos",
     ],
+}
+
+genrule {
+    name: "pixelatoms_defs.h",
+    tools: ["stats-log-api-gen"],
+    cmd: "$(location stats-log-api-gen) --header $(genDir)/pixelatoms_defs.h --namespace hardware,google,pixel,PixelAtoms --vendor-proto hardware/google/pixel/pixelstats/pixelatoms.proto",
+    out: [
+        "pixelatoms_defs.h",
+    ],
+}
+
+cc_library {
+    name: "libpixelatoms_defs",
+    vendor: true,
+    generated_headers: ["pixelatoms_defs.h"],
+    export_generated_headers: ["pixelatoms_defs.h"],
 }
 
 cc_library {
@@ -58,23 +91,23 @@ cc_library {
 
   tidy_disabled_srcs: [
     "MmMetricsReporter.cpp", // b/215238264
-    "WlcReporter.cpp", // b/215238264
   ],
   srcs: [
     "BatteryCapacityReporter.cpp",
     "BatteryEEPROMReporter.cpp",
     "BatteryHealthReporter.cpp",
+    "BrownoutDetectedReporter.cpp",
     "ChargeStatsReporter.cpp",
     "DropDetect.cpp",
     "MmMetricsReporter.cpp",
     "MitigationStatsReporter.cpp",
-    "OrientationCollector.cpp",
     "PcaChargeStats.cpp",
     "StatsHelper.cpp",
     "SysfsCollector.cpp",
+    "ThermalStatsReporter.cpp",
+    "TempResidencyReporter.cpp",
     "UeventListener.cpp",
     "WirelessChargeStats.cpp",
-    "WlcReporter.cpp",
   ],
   cflags: [
     "-Wall",

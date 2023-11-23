@@ -4,7 +4,7 @@
 
 from autotest_lib.server import utils
 
-AUTHOR = "Chrome OS Team"
+AUTHOR = "ChromeOS Team"
 NAME = "platform_ServoPowerStateController.USBUnplugged"
 PURPOSE = "Verify servo PowerStateController functions."
 CRITERIA = "This test will fail if servo does not work as expected."
@@ -14,6 +14,7 @@ TEST_CATEGORY = "Functional"
 TEST_CLASS = "platform"
 TEST_TYPE = "server"
 DEPENDENCIES = "servo_state:WORKING"
+PY_VERSION = 3
 
 DOC = """
 The test exercises these transitions:

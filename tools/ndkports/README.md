@@ -29,17 +29,13 @@ port is [ports/curl/port.kts](ports/curl/port.kts).
 
 ## Building a Port
 
-ndkports requires an NDK to be used for building to be specified on the command
-line as well as a list of packages to build. For example, to build cURL:
+We recommend using the supplied scripts and Dockerfile for consistent builds.
 
-```bash
-$ ./gradlew run --args='--ndk /path/to/android-ndk-r20 openssl curl'
-Build output...
-$ find  -name '*.aar'
-./out/curl/curl.aar
-./out/openssl/openssl.aar
-```
+To build a release for distribution to a Maven repo, `scripts/build_release.sh`
 
-Note that dependencies currently need to be already built or ordered explicitly.
+To build a snapshot, `scripts/build_snapshot.sh`
 
-To build all ports using Docker, use `scripts/build.sh`.
+You can also pass custom gradle targets: `scripts/build_snapshot.sh curl`
+
+The scripts use the standard `ANDROID_NDK_ROOT` environment variable to
+locate the NDK. For example, `ANDROID_NDK_ROOT=/path/to/ndk scripts/build_release.sh`

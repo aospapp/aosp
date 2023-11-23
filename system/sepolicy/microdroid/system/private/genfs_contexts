@@ -42,7 +42,6 @@ genfscon proc /sys/fs/pipe-max-size u:object_r:proc_pipe_conf:s0
 genfscon proc /sys/fs/protected_hardlinks u:object_r:proc_security:s0
 genfscon proc /sys/fs/protected_symlinks u:object_r:proc_security:s0
 genfscon proc /sys/fs/suid_dumpable u:object_r:proc_security:s0
-genfscon proc /sys/fs/verity/require_signatures u:object_r:proc_fs_verity:s0
 genfscon proc /sys/kernel/core_pattern u:object_r:usermodehelper:s0
 genfscon proc /sys/kernel/core_pipe_limit u:object_r:usermodehelper:s0
 genfscon proc /sys/kernel/domainname u:object_r:proc_hostname:s0
@@ -138,6 +137,7 @@ genfscon sysfs /devices/virtual/misc/hw_random    u:object_r:sysfs_hwrandom:s0
 genfscon sysfs /devices/virtual/net             u:object_r:sysfs_net:s0
 genfscon sysfs /devices/virtual/switch          u:object_r:sysfs_switch:s0
 genfscon sysfs /devices/virtual/wakeup          u:object_r:sysfs_wakeup:s0
+genfscon sysfs /firmware/devicetree/base/avf u:object_r:sysfs_dt_avf:s0
 genfscon sysfs /firmware/devicetree/base/chosen/avf,new-instance u:object_r:sysfs_dt_avf:s0
 genfscon sysfs /firmware/devicetree/base/chosen/avf,strict-boot u:object_r:sysfs_dt_avf:s0
 genfscon sysfs /firmware/devicetree/base/firmware/android u:object_r:sysfs_dt_firmware_android:s0
@@ -357,15 +357,8 @@ genfscon debugfs /kcov								 u:object_r:debugfs_kcov:s0
 
 genfscon securityfs / u:object_r:securityfs:s0
 
-genfscon binder /binder u:object_r:binder_device:s0
-genfscon binder /hwbinder u:object_r:hwbinder_device:s0
-genfscon binder /vndbinder u:object_r:vndbinder_device:s0
-genfscon binder /binder_logs u:object_r:binderfs_logs:s0
-genfscon binder /binder_logs/proc u:object_r:binderfs_logs_proc:s0
-
 genfscon inotifyfs / u:object_r:inotify:s0
 genfscon vfat / u:object_r:vfat:s0
-genfscon binder / u:object_r:binderfs:s0
 genfscon exfat / u:object_r:exfat:s0
 genfscon debugfs / u:object_r:debugfs:s0
 genfscon fuse / u:object_r:fuse:s0

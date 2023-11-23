@@ -133,6 +133,7 @@
     <string name="cdma_call_waiting_in_ims_off" msgid="1099246114368636334">"CDMA அழைப்பு காத்திருப்பு IMS முடக்கத்தில்"</string>
     <string name="updating_title" msgid="6130548922615719689">"அழைப்பு அமைப்பு"</string>
     <string name="call_settings_admin_user_only" msgid="7238947387649986286">"நிர்வாகிப் பயனர் மட்டுமே அழைப்பிற்கான அமைப்புகளை மாற்ற முடியும்."</string>
+    <string name="phone_account_settings_user_restriction" msgid="9142685151087208396">"நிர்வாகி அல்லது பணிக் கணக்கின் பயனரால் மட்டுமே மொபைல் கணக்கு அமைப்புகளை மாற்ற முடியும்."</string>
     <string name="call_settings_with_label" msgid="8460230435361579511">"அமைப்புகள் (<xliff:g id="SUBSCRIPTIONLABEL">%s</xliff:g>)"</string>
     <string name="error_updating_title" msgid="2024290892676808965">"அழைப்பு அமைப்புகளில் பிழை"</string>
     <string name="reading_settings" msgid="1605904432450871183">"அமைப்புகளைப் படிக்கிறது…"</string>
@@ -556,6 +557,7 @@
     <string name="incall_error_supp_service_hold" msgid="8535056414643540997">"அழைப்புகளை ஹோல்டு செய்ய முடியாது."</string>
     <string name="incall_error_wfc_only_no_wireless_network" msgid="5860742792811400109">"அழைக்க, வயர்லெஸ் நெட்வொர்க்குடன் இணைக்கவும்."</string>
     <string name="incall_error_promote_wfc" msgid="9164896813931363415">"அழைக்க, வைஃபை அழைப்பை இயக்கவும்."</string>
+    <string name="incall_error_satellite_enabled" msgid="1936541518147323016">"அழைப்பை மேற்கொள்ள சாட்டிலைட் பயன்முறையை முடக்கவும்."</string>
     <string name="emergency_information_hint" msgid="9208897544917793012">"அவசரத் தகவல்"</string>
     <string name="emergency_information_owner_hint" msgid="6256909888049185316">"உரிமையாளர்"</string>
     <string name="emergency_information_confirm_hint" msgid="5109017615894918914">"தகவலைப் பார்க்க, மீண்டும் தட்டவும்"</string>
@@ -713,6 +715,7 @@
     <string name="clh_callFailed_powerOff_txt" msgid="8279934912560765361">"விமானப் பயன்முறை இயக்கத்தில் உள்ளது"</string>
     <string name="clh_callFailed_simError_txt" msgid="5128538525762326413">"SIM கார்டை அணுக முடியவில்லை"</string>
     <string name="clh_incall_error_out_of_service_txt" msgid="2736010617446749869">"மொபைல் நெட்வொர்க் இல்லை"</string>
+    <string name="clh_callFailed_satelliteEnabled_txt" msgid="1675517238240377396">"சாட்டிலைட் பயன்முறை இயக்கப்பட்டுள்ளது"</string>
     <string name="clh_callFailed_unassigned_number_txt" msgid="141967660286695682">"அழைப்பை நிறைவுசெய்ய முடியவில்லை. பிழைக் குறியீடு 1."</string>
     <string name="clh_callFailed_no_route_to_destination_txt" msgid="4805015149822352308">"அழைப்பை நிறைவுசெய்ய முடியவில்லை. பிழைக் குறியீடு 3."</string>
     <string name="clh_callFailed_channel_unacceptable_txt" msgid="4062754579408613021">"அழைப்பை நிறைவுசெய்ய முடியவில்லை. பிழைக் குறியீடு 6."</string>
@@ -837,6 +840,7 @@
     <string name="dsds_dialog_cancel" msgid="3245958947099586655">"ரத்துசெய்"</string>
     <string name="removable_esim_string" msgid="7931369811671787649">"அகற்றக்கூடிய eSIMமை இயல்பாக அமை"</string>
     <string name="radio_info_radio_power" msgid="8805595022160471587">"மொபைல் ரேடியோ பவர்"</string>
+    <string name="simulate_out_of_service_string" msgid="7787925611727597193">"சாதனம் \'வேலை செய்யவில்லை\' என்பதை சிமுலேட் செய்தல் (பிழைதிருத்தப் பதிப்பில் மட்டும்)"</string>
     <string name="radioInfo_menu_viewADN" msgid="4533179730908559846">"சிம் முகவரிப் புத்தகத்தைக் காட்டு"</string>
     <string name="radioInfo_menu_viewFDN" msgid="1847236480527032061">"நிலையான அழைப்பு எண்களைக் காட்டு"</string>
     <string name="radioInfo_menu_viewSDN" msgid="2613431584522392842">"சேவை அழைப்பு எண்களைக் காட்டு"</string>
@@ -861,6 +865,7 @@
     <string name="radioInfo_data_connected" msgid="7637335645634239508">"இணைக்கப்பட்டுள்ளது"</string>
     <string name="radioInfo_data_suspended" msgid="8695262782642002785">"இடைநீக்கப்பட்டது"</string>
     <string name="radioInfo_unknown" msgid="5401423738500672850">"தெரியாதது"</string>
+    <string name="radioInfo_imei_primary" msgid="5948747378637224400">"முதன்மை"</string>
     <string name="radioInfo_display_packets" msgid="6794302192441084157">"pkts"</string>
     <string name="radioInfo_display_bytes" msgid="7701006329222413797">"பைட்டுகள்"</string>
     <string name="radioInfo_display_dbm" msgid="7491944975710865703">"dBm"</string>
@@ -887,10 +892,12 @@
     <string name="radio_info_ppp_sent_label" msgid="6542208429356199695">"அனுப்பிய தரவு:"</string>
     <string name="radio_info_message_waiting_label" msgid="1886549432566952078">"காத்திருப்பில் உள்ள செய்தி:"</string>
     <string name="radio_info_phone_number_label" msgid="2533852539562512203">"ஃபோன் எண்:"</string>
-    <string name="radio_info_band_mode_label" msgid="23480556225515290">"ரேடியோ பேண்டைத் தேர்ந்தெடுக்கவும்"</string>
     <string name="radio_info_voice_network_type_label" msgid="2395347336419593265">"குரல் நெட்வொர்க் வகை:"</string>
     <string name="radio_info_data_network_type_label" msgid="8886597029237501929">"டேட்டா நெட்வொர்க்கின் வகை:"</string>
     <string name="radio_info_override_network_type_label" msgid="4176280017221092005">"மீறிச் செயல்படும் நெட்வொர்க் வகை:"</string>
+    <string name="radio_info_voice_raw_registration_state_label" msgid="2822988327145825128">"Voice தரவின் அசல் பதிவு நிலை:"</string>
+    <string name="radio_info_data_raw_registration_state_label" msgid="2895895513822604539">"தரவின் அசல் பதிவு நிலை:"</string>
+    <string name="radio_info_wlan_data_raw_registration_state_label" msgid="6396894835757296612">"WLAN தரவின் அசல் பதிவு நிலை:"</string>
     <string name="phone_index_label" msgid="6222406512768964268">"ஃபோன் அட்டவணையைத் தேர்ந்தெடுக்கவும்"</string>
     <string name="radio_info_set_perferred_label" msgid="7408131389363136210">"விரும்பப்படும் நெட்வொர்க் வகையை அமைக்கவும்:"</string>
     <string name="radio_info_ping_hostname_v4" msgid="6951237885381284790">"ஹோஸ்ட்பெயர்(www.google.com) IPv4ஐப் பிங் செய்:"</string>
@@ -919,4 +926,9 @@
     <string name="call_quality_notification_bluetooth_details" msgid="8348950331707346711">"புளூடூத் சிக்னல் வலுவற்றதாக உள்ளது. ஸ்பீக்கர் ஃபோனிற்கு மாற்றவும்."</string>
     <string name="call_quality_notification_name" msgid="3476828289553948830">"அழைப்பின் தரம் தொடர்பான அறிவிப்பு"</string>
     <string name="notification_channel_sip_account" msgid="1261816025156179637">"நிறுத்தப்பட்ட SIP கணக்குகள்"</string>
+    <string name="send_from_work_profile_title" msgid="7044759579507604732">"தனிப்பட்ட ஆப்ஸில் இருந்து மெசேஜ் அனுப்ப முடியாது"</string>
+    <string name="send_from_work_profile_description" msgid="2174402508727161974">"உங்கள் நிறுவனம் பணி ஆப்ஸில் இருந்து மட்டுமே மெசேஜ்களை அனுப்ப உங்களை அனுமதிக்கிறது"</string>
+    <string name="send_from_work_profile_cancel" msgid="177746511030381711">"ரத்துசெய்"</string>
+    <string name="send_from_work_profile_action_str" msgid="6892775562934243337">"பணிக் கணக்கிற்கு மாறு"</string>
+    <string name="install_messages_on_work_profile_action_str" msgid="3773440996395152903">"பணி தொடர்பான மெசேஜ்களுக்கான ஆப்ஸை நிறுவு"</string>
 </resources>

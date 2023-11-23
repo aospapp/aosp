@@ -19,6 +19,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 
 import android.app.DownloadManager;
+import android.content.Context;
 import android.content.IntentFilter;
 import android.net.Uri;
 import android.os.Environment;
@@ -55,7 +56,7 @@ public class DownloadManagerInstallerTest extends DownloadManagerTestBase {
         final DownloadCompleteReceiver receiver = new DownloadCompleteReceiver();
         try {
             IntentFilter intentFilter = new IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE);
-            mContext.registerReceiver(receiver, intentFilter);
+            mContext.registerReceiver(receiver, intentFilter, Context.RECEIVER_EXPORTED);
 
             DownloadManager.Request requestPublic = new DownloadManager.Request(getGoodUrl());
             requestPublic.setDestinationUri(Uri.fromFile(destFile));

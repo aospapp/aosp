@@ -135,7 +135,7 @@
     <string name="notification_multiple" msgid="5121978148152124860">"<xliff:g id="COUNT">%s</xliff:g> oxunmamış siqnallar."</string>
     <string name="notification_multiple_title" msgid="1523638925739947855">"Yeni siqnallar"</string>
     <string name="show_cmas_opt_out_summary" msgid="6926059266585295440">"İlk siqnaldan (Prezident Xəbərdarlığından başqa) sonra imtina dialoqunu göstərin."</string>
-    <string name="show_cmas_opt_out_title" msgid="9182104842820171132">"Dövrədən kənar dialoqu göstər"</string>
+    <string name="show_cmas_opt_out_title" msgid="9182104842820171132">"İmtina dialoquna baxın"</string>
     <string name="cmas_opt_out_dialog_text" msgid="4820577535626084938">"Hazırda simsiz həyəcan siqnalları əldə edirsiniz. Simsiz həyəcan siqnalları əldə etməyə davam etmək istəyirsiniz?"</string>
     <string name="cmas_opt_out_button_yes" msgid="7248930667195432936">"Bəli"</string>
     <string name="cmas_opt_out_button_no" msgid="3110484064328538553">"Xeyr"</string>
@@ -144,9 +144,9 @@
     <string name="action_detail_info" msgid="8486524382178381810">"Detalları göstərin"</string>
   <string-array name="alert_reminder_interval_entries">
     <item msgid="6595211083588795160">"Bir dəfə"</item>
-    <item msgid="9097229303902157183">"Hər 2 dəqiqə"</item>
+    <item msgid="9097229303902157183">"Hər 2 dəqiqədən bir"</item>
     <item msgid="5718214950343391480">"5 dəqiqədən bir"</item>
-    <item msgid="3863339891188103437">"Hər 15 dəqiqə"</item>
+    <item msgid="3863339891188103437">"Hər 15 dəqiqədən bir"</item>
     <item msgid="7388573183644474611">"Heç vaxt"</item>
   </string-array>
     <string name="emergency_alert_settings_title_watches" msgid="4477073412799894883">"Fövqəladə hal xəbərdarlıqları"</string>

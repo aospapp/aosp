@@ -1049,8 +1049,6 @@ SLresult android_audioPlayer_checkSourceSink(CAudioPlayer *pAudioPlayer)
     const SLuint32 sinkLocatorType = *(SLuint32 *)pAudioSnk->pLocator;
     const SLuint32 sourceFormatType = *(SLuint32 *)pAudioSrc->pFormat;
 
-    const SLuint32 *df_representation = NULL; // pointer to representation field, if it exists
-
     switch (sourceLocatorType) {
     //------------------
     //   Buffer Queues
@@ -1060,12 +1058,7 @@ SLresult android_audioPlayer_checkSourceSink(CAudioPlayer *pAudioPlayer)
         // Buffer format
         switch (sourceFormatType) {
         //     currently only PCM buffer queues are supported,
-        case SL_ANDROID_DATAFORMAT_PCM_EX: {
-            const SLAndroidDataFormat_PCM_EX *df_pcm =
-                    (const SLAndroidDataFormat_PCM_EX *) pAudioSrc->pFormat;
-            // checkDataFormat() already checked representation
-            df_representation = &df_pcm->representation;
-            } // SL_ANDROID_DATAFORMAT_PCM_EX - fall through to next test.
+        case SL_ANDROID_DATAFORMAT_PCM_EX:
             FALLTHROUGH_INTENDED;
         case SL_DATAFORMAT_PCM: {
             // checkDataFormat() already did generic checks, now do the Android-specific checks
@@ -1616,19 +1609,23 @@ SLresult android_audioPlayer_realize(CAudioPlayer *pAudioPlayer, SLboolean async
         checkAndSetPerformanceModePre(pAudioPlayer);
 
         audio_output_flags_t policy;
+        audio_flags_mask_t attrFlags = AUDIO_FLAG_NONE;
         switch (pAudioPlayer->mPerformanceMode) {
         case ANDROID_PERFORMANCE_MODE_POWER_SAVING:
             policy = AUDIO_OUTPUT_FLAG_DEEP_BUFFER;
+            attrFlags = static_cast<audio_flags_mask_t>(attrFlags | AUDIO_FLAG_DEEP_BUFFER);
             break;
         case ANDROID_PERFORMANCE_MODE_NONE:
             policy = AUDIO_OUTPUT_FLAG_NONE;
             break;
         case ANDROID_PERFORMANCE_MODE_LATENCY_EFFECTS:
             policy = AUDIO_OUTPUT_FLAG_FAST;
+            attrFlags = static_cast<audio_flags_mask_t>(attrFlags | AUDIO_FLAG_LOW_LATENCY);
             break;
         case ANDROID_PERFORMANCE_MODE_LATENCY:
         default:
             policy = (audio_output_flags_t)(AUDIO_OUTPUT_FLAG_FAST | AUDIO_OUTPUT_FLAG_RAW);
+            attrFlags = static_cast<audio_flags_mask_t>(attrFlags | AUDIO_FLAG_LOW_LATENCY);
             break;
         }
 
@@ -1640,9 +1637,13 @@ SLresult android_audioPlayer_realize(CAudioPlayer *pAudioPlayer, SLboolean async
         } else {
             notificationFrames = 0;
         }
+        audio_attributes_t attributes = AUDIO_ATTRIBUTES_INITIALIZER;
+        attributes.usage = usageForStreamType(pAudioPlayer->mStreamType);
+        attributes.flags = attrFlags;
+
         const auto callbackHandle = android::sp<android::AudioTrackCallback>::make(pAudioPlayer);
         const auto pat = android::sp<android::AudioTrack>::make(
-                pAudioPlayer->mStreamType,                           // streamType
+                AUDIO_STREAM_DEFAULT,                                // streamType
                 sampleRate,                                          // sampleRate
                 sles_to_android_sampleFormat(df_pcm),                // format
                 channelMask,                                         // channel mask
@@ -1650,7 +1651,12 @@ SLresult android_audioPlayer_realize(CAudioPlayer *pAudioPlayer, SLboolean async
                 policy,                                              // flags
                 callbackHandle,                                      // callback
                 notificationFrames,                                  // see comment above
-                pAudioPlayer->mSessionId);
+                pAudioPlayer->mSessionId,
+                android::AudioTrack::TRANSFER_DEFAULT,               // transferType
+                nullptr,                                             // offloadInfo
+                AttributionSourceState(),                            // attributionSource
+                &attributes                                          // pAttributes
+                );
 
         // Set it here so it can be logged by the destructor if the open failed.
         pat->setCallerName(ANDROID_OPENSLES_CALLER_NAME);

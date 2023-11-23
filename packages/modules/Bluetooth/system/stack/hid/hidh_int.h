@@ -63,13 +63,13 @@ typedef struct host_ctb {
   uint8_t trace_level;
 } tHID_HOST_CTB;
 
-extern tHID_STATUS hidh_conn_snd_data(uint8_t dhandle, uint8_t trans_type,
-                                      uint8_t param, uint16_t data,
-                                      uint8_t rpt_id, BT_HDR* buf);
-extern tHID_STATUS hidh_conn_reg(void);
-extern void hidh_conn_dereg(void);
-extern tHID_STATUS hidh_conn_disconnect(uint8_t dhandle);
-extern tHID_STATUS hidh_conn_initiate(uint8_t dhandle);
+tHID_STATUS hidh_conn_snd_data(uint8_t dhandle, uint8_t trans_type,
+                               uint8_t param, uint16_t data, uint8_t rpt_id,
+                               BT_HDR* buf);
+tHID_STATUS hidh_conn_reg(void);
+void hidh_conn_dereg(void);
+tHID_STATUS hidh_conn_disconnect(uint8_t dhandle);
+tHID_STATUS hidh_conn_initiate(uint8_t dhandle);
 
 /******************************************************************************
  * Main Control Block

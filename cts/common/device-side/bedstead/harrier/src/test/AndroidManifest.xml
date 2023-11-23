@@ -23,8 +23,7 @@
     <application android:label="Harrier Tests">
         <uses-library android:name="android.test.runner" />
     </application>
-    <!-- TODO(b/194670711): Drop overrideLibrary when we bump version to 28 -->
-    <uses-sdk android:minSdkVersion="27" android:targetSdkVersion="27" tools:overrideLibrary="com.android.bedstead.remotedpc, com.android.bedstead.testapp.library, com.android.bedstead.testapp.testapps" />
+    <uses-sdk android:minSdkVersion="29" android:targetSdkVersion="29" />
     <instrumentation android:name="androidx.test.runner.AndroidJUnitRunner"
                      android:targetPackage="com.android.bedstead.harrier.test"
                      android:label="Harrier Tests" />

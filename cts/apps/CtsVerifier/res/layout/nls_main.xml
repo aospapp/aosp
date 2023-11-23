@@ -20,6 +20,15 @@
     android:orientation="vertical"
     style="@style/RootLayoutPadding">
 
+    <TextView
+        android:id="@+id/empty_text"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:gravity="center"
+        android:text="@string/no_test_items"
+        android:visibility="gone" />
+
     <ScrollView
         android:id="@+id/nls_test_scroller"
         android:layout_width="match_parent"

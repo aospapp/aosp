@@ -49,7 +49,6 @@
 #include "update_engine/common/test_utils.h"
 #include "update_engine/common/testing_constants.h"
 #include "update_engine/common/utils.h"
-#include "update_engine/payload_consumer/fake_file_descriptor.h"
 #include "update_engine/payload_consumer/mock_partition_writer.h"
 #include "update_engine/payload_consumer/payload_constants.h"
 #include "update_engine/payload_consumer/payload_metadata.h"
@@ -339,7 +338,7 @@ class DeltaPerformerTest : public ::testing::Test {
 
     payload_.metadata_size = expected_metadata_size;
     payload_.size = actual_metadata_size + 1;
-    ErrorCode error_code;
+    ErrorCode error_code{};
     // When filling in size in manifest, exclude the size of the 24-byte header.
     uint64_t size_in_manifest = htobe64(actual_metadata_size - 24);
     performer_.Write(&size_in_manifest, 8, &error_code);
@@ -374,8 +373,8 @@ class DeltaPerformerTest : public ::testing::Test {
 
     install_plan_.hash_checks_mandatory = hash_checks_mandatory;
 
-    MetadataParseResult expected_result, actual_result;
-    ErrorCode expected_error, actual_error;
+    MetadataParseResult expected_result{}, actual_result{};
+    ErrorCode expected_error{}, actual_error{};
 
     // Fill up the metadata signature in install plan according to the test.
     switch (metadata_signature_test) {
@@ -886,7 +885,7 @@ TEST_F(DeltaPerformerTest, BrilloMetadataSizeNOKTest) {
                                PayloadMetadata::kDeltaManifestSizeSize));
   uint32_t metadata_signature_size_be = htobe32(metadata_signature_size);
 
-  ErrorCode error;
+  ErrorCode error{};
   EXPECT_FALSE(
       performer_.Write(&metadata_signature_size_be,
                        PayloadMetadata::kDeltaMetadataSignatureSizeSize + 1,
@@ -916,7 +915,7 @@ TEST_F(DeltaPerformerTest, BrilloMetadataSignatureSizeNOKTest) {
                                PayloadMetadata::kDeltaManifestSizeSize));
 
   uint32_t metadata_signature_size_be = htobe32(metadata_signature_size);
-  ErrorCode error;
+  ErrorCode error{};
   EXPECT_FALSE(
       performer_.Write(&metadata_signature_size_be,
                        PayloadMetadata::kDeltaMetadataSignatureSizeSize + 1,
@@ -930,7 +929,7 @@ TEST_F(DeltaPerformerTest, BrilloParsePayloadMetadataTest) {
       {}, {}, true, kBrilloMajorPayloadVersion, kSourceMinorPayloadVersion);
   install_plan_.hash_checks_mandatory = true;
   payload_.size = payload_data.size();
-  ErrorCode error;
+  ErrorCode error{};
   EXPECT_EQ(MetadataParseResult::kSuccess,
             performer_.ParsePayloadMetadata(payload_data, &error));
   EXPECT_EQ(ErrorCode::kSuccess, error);
@@ -1072,14 +1071,14 @@ TEST_F(DeltaPerformerTest, UsePublicKeyFromResponse) {
 TEST(DISABLED_ConfVersionTest, ConfVersionsMatch) {
   // Test that the versions in update_engine.conf that is installed to the
   // image match the maximum supported delta versions in the update engine.
-  uint32_t minor_version;
+  uint32_t minor_version{};
   brillo::KeyValueStore store;
   EXPECT_TRUE(store.Load(GetBuildArtifactsPath().Append("update_engine.conf")));
   EXPECT_TRUE(utils::GetMinorVersion(store, &minor_version));
   EXPECT_EQ(kMaxSupportedMinorPayloadVersion, minor_version);
 
   string major_version_str;
-  uint64_t major_version;
+  uint64_t major_version{};
   EXPECT_TRUE(store.GetString("PAYLOAD_MAJOR_VERSION", &major_version_str));
   EXPECT_TRUE(base::StringToUint64(major_version_str, &major_version));
   EXPECT_EQ(kMaxSupportedMajorPayloadVersion, major_version);

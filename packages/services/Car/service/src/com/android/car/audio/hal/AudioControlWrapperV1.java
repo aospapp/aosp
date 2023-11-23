@@ -133,6 +133,18 @@ public final class AudioControlWrapperV1 implements AudioControlWrapper {
         throw new UnsupportedOperationException("HAL muting is unsupported for IAudioControl@1.0");
     }
 
+    @Override
+    public void setModuleChangeCallback(HalAudioModuleChangeCallback moduleChangeCallback) {
+        throw new UnsupportedOperationException("Module change callback is unsupported for"
+                + " IAudioControl@1.0");
+    }
+
+    @Override
+    public void clearModuleChangeCallback() {
+        throw new UnsupportedOperationException("Module change callback is unsupported for"
+                + " IAudioControl@1.0");
+    }
+
     /**
      * Gets the bus associated with CarAudioContext.
      *

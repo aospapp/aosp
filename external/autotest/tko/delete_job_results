@@ -1,4 +1,7 @@
 #!/usr/bin/python2
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
 import os, sys, shutil
 thisdir = os.path.dirname(os.path.abspath(sys.argv[0]))
 sys.path.insert(0, os.path.abspath(os.path.join(thisdir, '../tko')))
@@ -7,7 +10,7 @@ import db
 usage = "usage: delete_job_results <job tag>"
 
 if len(sys.argv) < 2:
-    print usage
+    print(usage)
     sys.exit(2)
 tag = sys.argv[1]
 resultsdir = os.path.abspath(os.path.join(thisdir, '../results', tag))

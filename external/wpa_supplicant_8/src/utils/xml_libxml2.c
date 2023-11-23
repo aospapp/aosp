@@ -452,7 +452,6 @@ struct xml_node_ctx * xml_node_init_ctx(void *upper_ctx,
 
 void xml_node_deinit_ctx(struct xml_node_ctx *ctx)
 {
-	xmlSchemaCleanupTypes();
 	xmlCleanupParser();
 	xmlMemoryDump();
 	os_free(ctx);

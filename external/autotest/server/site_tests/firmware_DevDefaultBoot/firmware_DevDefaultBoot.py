@@ -10,7 +10,7 @@ from autotest_lib.server.cros.faft.firmware_test import FirmwareTest
 
 class firmware_DevDefaultBoot(FirmwareTest):
     """
-    This test requires a USB disk plugged in, containing a Chrome OS test image.
+    This test requires a USB disk plugged in, containing a ChromeOS test image.
     On runtime, this test first switches DUT to developer mode, and modifies
     the dev_default_boot crossystem value.
     After waiting at the dev warning, or pressing enter in the detachable UI

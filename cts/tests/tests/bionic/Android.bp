@@ -45,12 +45,6 @@ cc_test {
         "libz",
         "libutils",
         "libgtest",
-        "libLLVMObject",
-        "libLLVMBitReader",
-        "libLLVMMC",
-        "libLLVMMCParser",
-        "libLLVMCore",
-        "libLLVMSupport",
     ],
 
     // Use the bootstrap version of bionic because some tests call private APIs

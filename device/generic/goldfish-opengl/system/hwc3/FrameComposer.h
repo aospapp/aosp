@@ -26,6 +26,7 @@
 
 #include "Common.h"
 #include "DisplayChanges.h"
+#include "DrmClient.h"
 
 namespace aidl::android::hardware::graphics::composer3::impl {
 
@@ -68,6 +69,10 @@ class FrameComposer {
           outLayerFences) = 0;
 
   virtual HWC3::Error onActiveConfigChange(Display* display) = 0;
+
+  virtual const DrmClient* getDrmPresenter() const {
+    return nullptr;
+  }
 };
 
 }  // namespace aidl::android::hardware::graphics::composer3::impl

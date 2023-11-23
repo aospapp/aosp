@@ -56,9 +56,9 @@ public class OldCollectionsTest extends TestCase {
     public void test_binarySearchLjava_util_ListLjava_lang_ObjectLjava_util_Comparator() {
         // Regression for HARMONY-94
         LinkedList<Integer> lst = new LinkedList<Integer>();
-        lst.add(new Integer(30));
+        lst.add(Integer.valueOf(30));
         Collections.sort(lst, null);
-        int index = Collections.binarySearch(lst, new Integer(2), null);
+        int index = Collections.binarySearch(lst, Integer.valueOf(2), null);
         assertEquals(-1, index);
 
         LinkedList<String> lls = new LinkedList<String>();
@@ -70,7 +70,7 @@ public class OldCollectionsTest extends TestCase {
         LinkedList<String> ll = lls;
 
         try {
-            Collections.binarySearch(ll, new Integer(10), null);
+            Collections.binarySearch(ll, Integer.valueOf(10), null);
             fail("ClassCastException expected");
         } catch (ClassCastException e) {
             //expected
@@ -88,7 +88,7 @@ public class OldCollectionsTest extends TestCase {
         assertEquals(-1, Collections.binarySearch(localList, new Object()));
         localList.add(new Object());
         try {
-            Collections.binarySearch(localList, new Integer(1));
+            Collections.binarySearch(localList, Integer.valueOf(1));
             fail("Should throw ClassCastException");
         } catch (ClassCastException e) {
             // expected
@@ -103,7 +103,7 @@ public class OldCollectionsTest extends TestCase {
         LinkedList ll = lls;
 
         try {
-            Collections.binarySearch(ll, new Integer(10));
+            Collections.binarySearch(ll, Integer.valueOf(10));
             fail("ClassCastException expected");
         } catch (ClassCastException e) {
             //expected
@@ -291,14 +291,14 @@ public class OldCollectionsTest extends TestCase {
         assertEquals("Assert 4: matched on null when there are none", 0,
                 Collections.frequency(strings, null));
 
-        List<Object> objects = Arrays.asList(new Object[] { new Integer(1), null, null,
-                new Long(1) });
+        List<Object> objects = Arrays.asList(new Object[] { Integer.valueOf(1), null, null,
+                Long.valueOf(1) });
 
         assertEquals("Assert 5: did not find one Integer(1)", 1, Collections
-                .frequency(objects, new Integer(1)));
+                .frequency(objects, Integer.valueOf(1)));
 
         assertEquals("Assert 6: did not find one Long(1)", 1, Collections
-                .frequency(objects, new Long(1)));
+                .frequency(objects, Long.valueOf(1)));
 
         assertEquals("Assert 7: did not find two null references", 2,
                 Collections.frequency(objects, null));
@@ -463,15 +463,15 @@ public class OldCollectionsTest extends TestCase {
         List<Object> l = new ArrayList<Object>();
         assertFalse(Collections.addAll(l, new Object[] {}));
         assertTrue(l.isEmpty());
-        assertTrue(Collections.addAll(l, new Object[] { new Integer(1),
-                new Integer(2), new Integer(3) }));
+        assertTrue(Collections.addAll(l, new Object[] { Integer.valueOf(1),
+                Integer.valueOf(2), Integer.valueOf(3) }));
         assertFalse(l.isEmpty());
-        assertTrue(l.equals(Arrays.asList(new Object[] { new Integer(1),
-                new Integer(2), new Integer(3) })));
+        assertTrue(l.equals(Arrays.asList(new Object[] { Integer.valueOf(1),
+                Integer.valueOf(2), Integer.valueOf(3) })));
 
         try {
-            Collections.addAll(null,new Object[] { new Integer(1),
-                    new Integer(2), new Integer(3) });
+            Collections.addAll(null,new Object[] { Integer.valueOf(1),
+                    Integer.valueOf(2), Integer.valueOf(3) });
             fail("NullPointerException expected");
         } catch (NullPointerException e) {
             //fail
@@ -479,8 +479,8 @@ public class OldCollectionsTest extends TestCase {
 
         Collection c = new Mock_Collection();
         try {
-            Collections.addAll(c, new Object[] { new Integer(1),
-                    new Integer(2), new Integer(3) });
+            Collections.addAll(c, new Object[] { Integer.valueOf(1),
+                    Integer.valueOf(2), Integer.valueOf(3) });
             fail("UnsupportedOperationException expected");
         } catch (UnsupportedOperationException e) {
             //expected
@@ -510,11 +510,11 @@ public class OldCollectionsTest extends TestCase {
     public void test_Disjoint() {
         Object[] arr1 = new Object[10];
         for (int i = 0; i < arr1.length; i++) {
-            arr1[i] = new Integer(i);
+            arr1[i] = Integer.valueOf(i);
         }
         Object[] arr2 = new Object[20];
         for (int i = 0; i < arr2.length; i++) {
-            arr2[i] = new Integer(100 + i);
+            arr2[i] = Integer.valueOf(100 + i);
         }
         Collection<Object> c1 = new ArrayList<Object>();
         Collection<Object> c2 = new ArrayList<Object>();
@@ -748,10 +748,10 @@ public class OldCollectionsTest extends TestCase {
 
         Collection c = Collections.checkedCollection(al, Integer.class);
 
-        c.add(new Integer(1));
+        c.add(Integer.valueOf(1));
 
         try {
-            c.add(new Double(3.14));
+            c.add(Double.valueOf(3.14));
             fail("ClassCastException expected");
         } catch (ClassCastException e) {
             //expected
@@ -763,10 +763,10 @@ public class OldCollectionsTest extends TestCase {
 
         List l = Collections.checkedList(al, Integer.class);
 
-        l.add(new Integer(1));
+        l.add(Integer.valueOf(1));
 
         try {
-            l.add(new Double(3.14));
+            l.add(Double.valueOf(3.14));
             fail("ClassCastException expected");
         } catch (ClassCastException e) {
             //expected
@@ -789,7 +789,7 @@ public class OldCollectionsTest extends TestCase {
         }
 
         try {
-            m.put(3, new Double(3.14));
+            m.put(3, Double.valueOf(3.14));
             fail("ClassCastException expected");
         } catch (ClassCastException e) {
             //expected
@@ -801,10 +801,10 @@ public class OldCollectionsTest extends TestCase {
 
         Set s = Collections.checkedSet(hs, Integer.class);
 
-        s.add(new Integer(1));
+        s.add(Integer.valueOf(1));
 
         try {
-            s.add(new Double(3.14));
+            s.add(Double.valueOf(3.14));
             fail("ClassCastException expected");
         } catch (ClassCastException e) {
             //expected
@@ -827,7 +827,7 @@ public class OldCollectionsTest extends TestCase {
         }
 
         try {
-            sm.put(3, new Double(3.14));
+            sm.put(3, Double.valueOf(3.14));
             fail("ClassCastException expected");
         } catch (ClassCastException e) {
             //expected
@@ -839,10 +839,10 @@ public class OldCollectionsTest extends TestCase {
 
         SortedSet ss = Collections.checkedSortedSet(ts, Integer.class);
 
-        ss.add(new Integer(1));
+        ss.add(Integer.valueOf(1));
 
         try {
-            ss.add(new Double(3.14));
+            ss.add(Double.valueOf(3.14));
             fail("ClassCastException expected");
         } catch (ClassCastException e) {
             //expected

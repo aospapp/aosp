@@ -16,14 +16,14 @@
   -->
 
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="android.ambientcontext.cts">
+    package="android.ambientcontext.cts" android:targetSandboxVersion="2">
 
     <application>
         <uses-library android:name="android.test.runner" />
         <service
             android:exported="true"
             android:name=".CtsAmbientContextDetectionService"
-            android:permission="android.permission.BIND_AMBIENT_SIGNAL_SERVICE">
+            android:permission="android.permission.BIND_AMBIENT_CONTEXT_DETECTION_SERVICE">
             <intent-filter>
                 <action android:name="android.service.ambientcontext.AmbientContextDetectionService"/>
             </intent-filter>

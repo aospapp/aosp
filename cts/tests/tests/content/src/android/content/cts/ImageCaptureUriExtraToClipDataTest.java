@@ -53,7 +53,7 @@ public class ImageCaptureUriExtraToClipDataTest extends AndroidTestCase {
             };
         IntentFilter filter = new IntentFilter();
         filter.addAction(ImageCaptureActivity.ACTION_FILE_READY);
-        getContext().registerReceiver(mReceiver, filter);
+        getContext().registerReceiver(mReceiver, filter, Context.RECEIVER_EXPORTED);
 
         mTestFile = new File(getContext().getFilesDir() + File.separator + FILE_NAME);
     }

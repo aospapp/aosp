@@ -1,11 +1,5 @@
+/* SPDX-License-Identifier: LGPL-2.1-only */
 /*
- * lib/route/qdisc/netem.c		Network Emulator Qdisc
- *
- *	This library is free software; you can redistribute it and/or
- *	modify it under the terms of the GNU Lesser General Public
- *	License as published by the Free Software Foundation version 2.1
- *	of the License.
- *
  * Copyright (c) 2003-2011 Thomas Graf <tgraf@suug.ch>
  */
 
@@ -25,6 +19,8 @@
 #include <netlink-private/route/tc-api.h>
 #include <netlink/route/qdisc.h>
 #include <netlink/route/qdisc/netem.h>
+
+#include "netlink-private/utils.h"
 
 /** @cond SKIP */
 #define SCH_NETEM_ATTR_LATENCY		0x0001
@@ -165,39 +161,39 @@ static void netem_dump_details(struct rtnl_tc *tc, void *data,
 				nl_dump(p, " jitter %s", buf);
 
 				if (netem->qnm_mask & SCH_NETEM_ATTR_DELAY_CORR && netem->qnm_corr.nmc_delay > 0)
-					nl_dump(p, " %d%", netem->qnm_corr.nmc_delay);
+					nl_dump(p, " %d", netem->qnm_corr.nmc_delay);
 			}
 		}
 
 		if (netem->qnm_mask & SCH_NETEM_ATTR_LOSS && netem->qnm_loss > 0) {
-			nl_dump(p, " loss %d%", netem->qnm_loss);
+			nl_dump(p, " loss %d", netem->qnm_loss);
 
 			if (netem->qnm_mask & SCH_NETEM_ATTR_LOSS_CORR && netem->qnm_corr.nmc_loss > 0)
-				nl_dump(p, " %d%", netem->qnm_corr.nmc_loss);
+				nl_dump(p, " %d", netem->qnm_corr.nmc_loss);
 		}
 
 		if (netem->qnm_mask & SCH_NETEM_ATTR_DUPLICATE && netem->qnm_duplicate > 0) {
-			nl_dump(p, " duplicate %d%", netem->qnm_duplicate);
+			nl_dump(p, " duplicate %d", netem->qnm_duplicate);
 
 			if (netem->qnm_mask & SCH_NETEM_ATTR_DUP_CORR && netem->qnm_corr.nmc_duplicate > 0)
-				nl_dump(p, " %d%", netem->qnm_corr.nmc_duplicate);
+				nl_dump(p, " %d", netem->qnm_corr.nmc_duplicate);
 		}
 
 		if (netem->qnm_mask & SCH_NETEM_ATTR_RO_PROB && netem->qnm_ro.nmro_probability > 0) {
-			nl_dump(p, " reorder %d%", netem->qnm_ro.nmro_probability);
+			nl_dump(p, " reorder %d", netem->qnm_ro.nmro_probability);
 
 			if (netem->qnm_mask & SCH_NETEM_ATTR_RO_CORR && netem->qnm_ro.nmro_correlation > 0)
-				nl_dump(p, " %d%", netem->qnm_ro.nmro_correlation);
+				nl_dump(p, " %d", netem->qnm_ro.nmro_correlation);
 
 			if (netem->qnm_mask & SCH_NETEM_ATTR_GAP && netem->qnm_gap > 0)
 				nl_dump(p, " gap %d", netem->qnm_gap);
 		}
 
 		if (netem->qnm_mask & SCH_NETEM_ATTR_CORRUPT_PROB && netem->qnm_crpt.nmcr_probability > 0) {
-			nl_dump(p, " reorder %d%", netem->qnm_crpt.nmcr_probability);
+			nl_dump(p, " reorder %d", netem->qnm_crpt.nmcr_probability);
 
 			if (netem->qnm_mask & SCH_NETEM_ATTR_CORRUPT_CORR && netem->qnm_crpt.nmcr_correlation > 0)
-				nl_dump(p, " %d%", netem->qnm_crpt.nmcr_correlation);
+				nl_dump(p, " %d", netem->qnm_crpt.nmcr_correlation);
 		}
 	}
 }
@@ -911,10 +907,10 @@ int rtnl_netem_set_delay_distribution(struct rtnl_qdisc *qdisc, const char *dist
 	int n = 0;
 	size_t i;
 	size_t len = 2048;
-	char *line;
+	_nl_auto_free char *line = NULL;
 	char name[NAME_MAX];
 	char dist_suffix[] = ".dist";
-	int16_t *data;
+	_nl_auto_free int16_t *data = NULL;
 	char *test_suffix;
 
 	/* Check several locations for the dist file */
@@ -940,9 +936,12 @@ int rtnl_netem_set_delay_distribution(struct rtnl_qdisc *qdisc, const char *dist
 	if (f == NULL)
 		return -nl_syserr2nlerr(errno);
 
-	data = (int16_t *) calloc (MAXDIST, sizeof(int16_t));
-
-	line = (char *) calloc (sizeof(char), len + 1);
+	data = (int16_t *) calloc(MAXDIST, sizeof(int16_t));
+	line = (char *) calloc(sizeof(char), len + 1);
+	if (!data || !line) {
+	    fclose(f);
+	    return -NLE_NOMEM;
+	}
 
 	while (getline(&line, &len, f) != -1) {
 		char *p, *endp;
@@ -955,7 +954,6 @@ int rtnl_netem_set_delay_distribution(struct rtnl_qdisc *qdisc, const char *dist
 			if (endp == p) break;
 
 			if (n >= MAXDIST) {
-				free(line);
 				fclose(f);
 				return -NLE_INVAL;
 			}
@@ -963,11 +961,8 @@ int rtnl_netem_set_delay_distribution(struct rtnl_qdisc *qdisc, const char *dist
 		}
 	}
 
-	free(line);
 	fclose(f);
-
 	i = rtnl_netem_set_delay_distribution_data(qdisc, data, n);
-	free(data);
 	return i;
 }
 

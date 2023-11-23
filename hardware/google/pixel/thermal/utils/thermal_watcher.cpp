@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2018 The Android Open Source Project
+ * Copyright (C) 2022 The Android Open Source Project
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -34,12 +34,12 @@
 #include <chrono>
 #include <fstream>
 
-#include "thermal-helper.h"
+#include "../thermal-helper.h"
 
+namespace aidl {
 namespace android {
 namespace hardware {
 namespace thermal {
-namespace V2_0 {
 namespace implementation {
 
 namespace {
@@ -353,7 +353,7 @@ void ThermalWatcher::registerFilesToWatch(const std::set<std::string> &sensors_t
 
     fcntl(uevent_fd_, F_SETFL, O_NONBLOCK);
 
-    looper_->addFd(uevent_fd_.get(), 0, Looper::EVENT_INPUT, nullptr, nullptr);
+    looper_->addFd(uevent_fd_.get(), 0, ::android::Looper::EVENT_INPUT, nullptr, nullptr);
     sleep_ms_ = std::chrono::milliseconds(0);
     last_update_time_ = boot_clock::now();
 }
@@ -394,15 +394,15 @@ void ThermalWatcher::registerFilesToWatchNl(const std::set<std::string> &sensors
     */
 
     fcntl(thermal_genl_fd_, F_SETFL, O_NONBLOCK);
-    looper_->addFd(thermal_genl_fd_.get(), 0, Looper::EVENT_INPUT, nullptr, nullptr);
+    looper_->addFd(thermal_genl_fd_.get(), 0, ::android::Looper::EVENT_INPUT, nullptr, nullptr);
     sleep_ms_ = std::chrono::milliseconds(0);
     last_update_time_ = boot_clock::now();
 }
 
 bool ThermalWatcher::startWatchingDeviceFiles() {
     if (cb_) {
-        auto ret = this->run("FileWatcherThread", PRIORITY_HIGHEST);
-        if (ret != NO_ERROR) {
+        auto ret = this->run("FileWatcherThread", ::android::PRIORITY_HIGHEST);
+        if (ret != ::android::NO_ERROR) {
             LOG(ERROR) << "ThermalWatcherThread start fail";
             return false;
         } else {
@@ -440,7 +440,7 @@ void ThermalWatcher::parseUevent(std::set<std::string> *sensors_set) {
             std::string uevent = cp;
             auto findSubSystemThermal = uevent.find("SUBSYSTEM=thermal");
             if (!thermal_event) {
-                if (!uevent.find("SUBSYSTEM=")) {
+                if (::android::base::StartsWith(uevent, "SUBSYSTEM=")) {
                     if (findSubSystemThermal != std::string::npos) {
                         thermal_event = true;
                     } else {
@@ -452,8 +452,7 @@ void ThermalWatcher::parseUevent(std::set<std::string> *sensors_set) {
                 if (start_pos != std::string::npos) {
                     start_pos += 5;
                     std::string name = uevent.substr(start_pos);
-                    if (std::find(monitored_sensors_.begin(), monitored_sensors_.end(), name) !=
-                        monitored_sensors_.end()) {
+                    if (monitored_sensors_.find(name) != monitored_sensors_.end()) {
                         sensors_set->insert(name);
                     }
                     break;
@@ -487,8 +486,7 @@ void ThermalWatcher::parseGenlink(std::set<std::string> *sensors_set) {
 
         std::string name;
         if (getThermalZoneTypeById(tz_id, &name) &&
-            std::find(monitored_sensors_.begin(), monitored_sensors_.end(), name) !=
-                    monitored_sensors_.end()) {
+            monitored_sensors_.find(name) != monitored_sensors_.end()) {
             sensors_set->insert(name);
         }
     }
@@ -529,7 +527,7 @@ bool ThermalWatcher::threadLoop() {
 }
 
 }  // namespace implementation
-}  // namespace V2_0
 }  // namespace thermal
 }  // namespace hardware
 }  // namespace android
+}  // namespace aidl

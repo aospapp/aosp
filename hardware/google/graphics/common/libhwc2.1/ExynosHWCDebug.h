@@ -17,6 +17,8 @@
 #define HWC_DEBUG_H
 
 #include <utils/String8.h>
+#include <utils/Trace.h>
+
 #include "ExynosHWC.h"
 #include "ExynosHWCHelper.h"
 
@@ -43,6 +45,8 @@ enum {
     eDebugColorManagement         =   0x00080000,
     eDebugAttrSetting             =   0x00100000,
     eDebugDisplayConfig           =   0x00400000,
+    eDebugTDM                     =   0x00800000,
+    eDebugLoadBalancing           =   0x01000000,
 };
 
 class ExynosDisplay;
@@ -110,6 +114,13 @@ int32_t saveFenceTrace(ExynosDisplay *display);
         saveErrorLog(saveString, this); \
     }
 
+#define DISPLAY_DRM_LOGI(msg, ...) \
+    ALOGI("[%s] " msg, mExynosDisplay->mDisplayName.string(), ##__VA_ARGS__)
+#define DISPLAY_DRM_LOGW(msg, ...) \
+    ALOGW("[%s] " msg, mExynosDisplay->mDisplayName.string(), ##__VA_ARGS__)
+#define DISPLAY_DRM_LOGE(msg, ...) \
+    ALOGE("[%s] " msg, mExynosDisplay->mDisplayName.string(), ##__VA_ARGS__)
+
 #define MPP_LOGV(msg, ...) ALOGV("[%s][%d] " msg, mName.string(), mLogicalIndex, ##__VA_ARGS__)
 #define MPP_LOGI(msg, ...) ALOGI("[%s][%d] " msg, mName.string(), mLogicalIndex, ##__VA_ARGS__)
 #define MPP_LOGW(msg, ...) ALOGW("[%s][%d] " msg, mName.string(), mLogicalIndex, ##__VA_ARGS__)
@@ -127,6 +138,40 @@ int32_t saveFenceTrace(ExynosDisplay *display);
         String8 saveString; \
         saveString.appendFormat(msg, ##__VA_ARGS__); \
         saveErrorLog(saveString, display); \
+    }
+
+class ScopedTraceEnder {
+public:
+    ~ScopedTraceEnder() { ATRACE_END(); }
+};
+
+#define ATRACE_FORMAT(fmt, ...)                     \
+    if (CC_UNLIKELY(ATRACE_ENABLED())) {            \
+        String8 traceName;                          \
+        traceName.appendFormat(fmt, ##__VA_ARGS__); \
+        ATRACE_BEGIN(traceName.string());           \
+    }                                               \
+    ScopedTraceEnder traceEnder
+
+#define DISPLAY_ATRACE_NAME(name) ATRACE_FORMAT("%s for %s", name, mDisplayTraceName.string())
+#define DISPLAY_ATRACE_CALL() DISPLAY_ATRACE_NAME(__func__)
+#define DISPLAY_ATRACE_INT(name, value)                                                     \
+    if (CC_UNLIKELY(ATRACE_ENABLED())) {                                                    \
+        ATRACE_INT(String8::format("%s for %s", name, mDisplayTraceName.string()).string(), \
+                   value);                                                                  \
+    }
+#define DISPLAY_ATRACE_INT64(name, value)                                                     \
+    if (CC_UNLIKELY(ATRACE_ENABLED())) {                                                      \
+        ATRACE_INT64(String8::format("%s for %s", name, mDisplayTraceName.string()).string(), \
+                     value);                                                                  \
+    }
+
+#define DISPLAY_LOGD_AND_ATRACE_NAME(debugFlag, fmt, ...)                    \
+    if (hwcCheckDebugMessages(debugFlag) || CC_UNLIKELY(ATRACE_ENABLED())) { \
+        String8 log;                                                         \
+        log.appendFormat((fmt), ##__VA_ARGS__);                              \
+        DISPLAY_LOGD(debugFlag, "%s", log.string());                         \
+        if (CC_UNLIKELY(ATRACE_ENABLED())) ATRACE_NAME(log.string());        \
     }
 
 #endif

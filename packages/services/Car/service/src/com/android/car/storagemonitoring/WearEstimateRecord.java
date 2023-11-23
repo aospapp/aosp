@@ -98,8 +98,7 @@ public class WearEstimateRecord {
             if (!wer.mOldWearEstimate.equals(mOldWearEstimate)) return false;
             if (!wer.mNewWearEstimate.equals(mNewWearEstimate)) return false;
             if (wer.mTotalCarServiceUptime != mTotalCarServiceUptime) return false;
-            if (!wer.mUnixTimestamp.equals(mUnixTimestamp)) return false;
-            return true;
+            return wer.mUnixTimestamp.equals(mUnixTimestamp);
         }
         return false;
     }

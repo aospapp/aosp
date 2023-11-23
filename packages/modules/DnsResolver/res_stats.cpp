@@ -33,7 +33,7 @@ int res_stats_calculate_rtt(const timespec* t1, const timespec* t0) {
 
 // Create a sample for calculating server reachability statistics.
 void res_stats_set_sample(res_sample* sample, time_t now, int rcode, int rtt) {
-    LOG(INFO) << __func__ << ": rcode = " << rcode << ", sec = " << rtt;
+    LOG(DEBUG) << __func__ << ": rcode = " << rcode << ", sec = " << rtt;
     sample->at = now;
     sample->rcode = rcode;
     sample->rtt = rtt;
@@ -119,19 +119,19 @@ static bool res_stats_usable_server(const res_params* params, res_stats* stats) 
                                     &rtt_avg, &last_sample_time);
     if (successes >= 0 && errors >= 0 && timeouts >= 0) {
         int total = successes + errors + timeouts + internal_errors;
-        LOG(INFO) << __func__ << ": NS stats: S " << successes << " + E " << errors << " + T "
-                  << timeouts << " + I " << internal_errors << " = " << total
-                  << ", rtt = " << rtt_avg << ", min_samples = " << unsigned(params->min_samples);
+        LOG(DEBUG) << __func__ << ": NS stats: S " << successes << " + E " << errors << " + T "
+                   << timeouts << " + I " << internal_errors << " = " << total
+                   << ", rtt = " << rtt_avg << ", min_samples = " << unsigned(params->min_samples);
         if (total >= params->min_samples) {
             int success_rate = successes * 100 / total;
-            LOG(INFO) << __func__ << ": success rate " << success_rate;
+            LOG(DEBUG) << __func__ << ": success rate " << success_rate;
             if (success_rate < params->success_threshold) {
                 time_t now = time(NULL);
                 if (now - last_sample_time > params->sample_validity) {
                     // Note: It might be worth considering to expire old servers after their expiry
                     // date has been reached, however the code for returning the ring buffer to its
                     // previous non-circular state would induce additional complexity.
-                    LOG(INFO) << __func__ << ": samples stale, retrying server";
+                    LOG(DEBUG) << __func__ << ": samples stale, retrying server";
                     _res_stats_clear_samples(stats);
                 } else {
                     LOG(INFO) << __func__ << ": too many resolution errors, ignoring server";

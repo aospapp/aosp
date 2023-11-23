@@ -16,10 +16,10 @@
 package com.google.android.enterprise.connectedapps.internal;
 
 import android.content.Context;
-import android.os.Parcel;
+import android.os.Bundle;
 import com.google.android.enterprise.connectedapps.ICrossProfileCallback;
 
 /** Interface used internally by the SDK */
 public interface MethodRunner {
-  Parcel call(Context context, Parcel params, ICrossProfileCallback callback);
+  Bundle call(Context context, Bundle params, ICrossProfileCallback callback);
 }

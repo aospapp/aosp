@@ -57,10 +57,43 @@ cc_test {
     require_root: true,
 }
 
+java_library_host {
+    name: "DsuTestBase",
+    srcs: [
+        "DsuTestBase.java",
+    ],
+    libs: [
+        "tradefed",
+    ],
+    visibility: [
+        "//visibility:private",
+    ],
+}
+
 java_test_host {
     name: "DSUEndtoEndTest",
     srcs: ["DSUEndtoEndTest.java"],
+    static_libs: [
+        "DsuTestBase",
+    ],
     libs: ["tradefed"],
     test_config: "dsu-test.xml",
     test_suites: ["general-tests"],
+}
+
+java_test_host {
+    name: "DsuGsiIntegrationTest",
+    srcs: [
+        "DsuGsiIntegrationTest.java",
+    ],
+    static_libs: [
+        "DsuTestBase",
+    ],
+    libs: [
+        "tradefed",
+    ],
+    test_config: "dsu_gsi_integration_test.xml",
+    test_suites: [
+        "general-tests",
+    ],
 }

@@ -1,11 +1,5 @@
 # Bug component: 1344
-# include media developers and framework video team
-include platform/frameworks/av:/media/OWNERS
-dichenzhang@google.com
-essick@google.com
-gokrishnan@google.com
-lajos@google.com
-wonsik@google.com
-
+include platform/frameworks/av:/media/janitors/codec_OWNERS
+include platform/frameworks/av:/media/janitors/avic_OWNERS
 # go/android-fwk-media-solutions for info on areas of ownership.
 include platform/frameworks/av:/media/janitors/media_solutions_OWNERS

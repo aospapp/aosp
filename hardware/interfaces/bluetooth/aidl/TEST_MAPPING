@@ -1,0 +1,24 @@
+{
+  "presubmit" : [
+    {
+      "name" : "VtsHalBluetoothTargetTest",
+      "options": [
+        {
+          // TODO(b/275847929)
+          "exclude-filter": "VtsHalBluetoothTargetTest.PerInstance/BluetoothAidlTest#Vsr_Bluetooth5Requirements/0_android_hardware_bluetooth_IBluetoothHci_default"
+        }
+      ]
+    }
+  ],
+  "hwasan-presubmit" : [
+    {
+      "name" : "VtsHalBluetoothTargetTest",
+      "options": [
+        {
+          // TODO(b/275847929)
+          "exclude-filter": "VtsHalBluetoothTargetTest.PerInstance/BluetoothAidlTest#Vsr_Bluetooth5Requirements/0_android_hardware_bluetooth_IBluetoothHci_default"
+        }
+      ]
+    }
+  ]
+}

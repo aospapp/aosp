@@ -310,6 +310,66 @@ bool GenerateCsrResponse::NonErrorDeserialize(const uint8_t** buf_ptr, const uin
            deserialize_blob(&protected_data_blob, buf_ptr, end);
 }
 
+size_t GenerateCsrV2Request::SerializedSize() const {
+    size_t size = sizeof(uint32_t); /* num_keys */
+    for (size_t i = 0; i < num_keys; i++) {
+        size += blob_size(keys_to_sign_array[i]);
+    }
+    size += blob_size(challenge);
+    return size;
+}
+
+uint8_t* GenerateCsrV2Request::Serialize(uint8_t* buf, const uint8_t* end) const {
+    buf = append_uint32_to_buf(buf, end, num_keys);
+    for (size_t i = 0; i < num_keys; i++) {
+        buf = serialize_blob(keys_to_sign_array[i], buf, end);
+    }
+    return serialize_blob(challenge, buf, end);
+}
+
+bool GenerateCsrV2Request::Deserialize(const uint8_t** buf_ptr, const uint8_t* end) {
+    if (!copy_from_buf(buf_ptr, end, &num_keys, sizeof(uint32_t))) return false;
+
+    keys_to_sign_array = new (std::nothrow) KeymasterBlob[num_keys];
+    if (!keys_to_sign_array) return false;
+    for (size_t i = 0; i < num_keys; i++) {
+        if (!deserialize_blob(&keys_to_sign_array[i], buf_ptr, end)) return false;
+    }
+    return deserialize_blob(&challenge, buf_ptr, end);
+}
+
+bool GenerateCsrV2Request::InitKeysToSign(uint32_t count) {
+    num_keys = count;
+    keys_to_sign_array = new (std::nothrow) KeymasterBlob[count];
+    if (!keys_to_sign_array) {
+        return false;
+    }
+    return true;
+}
+
+void GenerateCsrV2Request::SetKeyToSign(uint32_t index, const void* data, size_t length) {
+    if (index >= num_keys) {
+        return;
+    }
+    set_blob(&keys_to_sign_array[index], data, length);
+}
+
+void GenerateCsrV2Request::SetChallenge(const void* data, size_t length) {
+    set_blob(&challenge, data, length);
+}
+
+size_t GenerateCsrV2Response::NonErrorSerializedSize() const {
+    return blob_size(csr);
+}
+
+uint8_t* GenerateCsrV2Response::NonErrorSerialize(uint8_t* buf, const uint8_t* end) const {
+    return serialize_blob(csr, buf, end);
+}
+
+bool GenerateCsrV2Response::NonErrorDeserialize(const uint8_t** buf_ptr, const uint8_t* end) {
+    return deserialize_blob(&csr, buf_ptr, end);
+}
+
 GetKeyCharacteristicsRequest::~GetKeyCharacteristicsRequest() {
     delete[] key_blob.key_material;
 }

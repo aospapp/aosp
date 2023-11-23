@@ -15,15 +15,18 @@
  * limitations under the License.
  */
 
+#include <base/logging.h>
 #include <sys/ioctl.h>
 #include <sys/socket.h>
 #include <sys/types.h>
+#include <unistd.h>
 
 #include <cstdint>
 #include <cstring>
 
 #include "bta/include/bta_jv_api.h"
 #include "btif/include/btif_metrics_logging.h"
+#include "btif/include/btif_sock.h"
 #include "btif/include/btif_sock_thread.h"
 #include "btif/include/btif_sock_util.h"
 #include "btif/include/btif_uid.h"
@@ -36,8 +39,6 @@
 #include "stack/include/bt_hdr.h"
 #include "stack/include/bt_types.h"
 #include "types/raw_address.h"
-
-#include <base/logging.h>
 
 struct packet {
   struct packet *next, *prev;
@@ -206,6 +207,10 @@ static void btsock_l2cap_free_l(l2cap_socket* sock) {
   if (!t) /* prever double-frees */
     return;
 
+  btif_sock_connection_logger(
+      SOCKET_CONNECTION_STATE_DISCONNECTED,
+      sock->server ? SOCKET_ROLE_LISTEN : SOCKET_ROLE_CONNECTION, sock->addr);
+
   // Whenever a socket is freed, the connection must be dropped
   log_socket_connection_state(
       sock->addr, sock->id, sock->is_le_coc ? BTSOCK_L2CAP_LE : BTSOCK_L2CAP,
@@ -264,6 +269,7 @@ static l2cap_socket* btsock_l2cap_alloc_l(const char* name,
   unsigned security = 0;
   int fds[2];
   l2cap_socket* sock = (l2cap_socket*)osi_calloc(sizeof(*sock));
+  int sock_type = SOCK_SEQPACKET;
 
   if (flags & BTSOCK_FLAG_ENCRYPT)
     security |= is_server ? BTM_SEC_IN_ENCRYPT : BTM_SEC_OUT_ENCRYPT;
@@ -274,7 +280,12 @@ static l2cap_socket* btsock_l2cap_alloc_l(const char* name,
   if (flags & BTSOCK_FLAG_AUTH_16_DIGIT)
     security |= BTM_SEC_IN_MIN_16_DIGIT_PIN;
 
-  if (socketpair(AF_LOCAL, SOCK_SEQPACKET, 0, fds)) {
+    // For Floss, set socket as SOCK_STREAM
+    // TODO(b:271828292): Set SOCK_STREAM for everyone after verification tests
+#if TARGET_FLOSS
+  sock_type = SOCK_STREAM;
+#endif
+  if (socketpair(AF_LOCAL, sock_type, 0, fds)) {
     LOG_ERROR("socketpair failed:%s", strerror(errno));
     goto fail_sockpair;
   }
@@ -348,6 +359,18 @@ static inline bool send_app_psm_or_chan_l(l2cap_socket* sock) {
                        sizeof(sock->channel)) == sizeof(sock->channel);
 }
 
+static bool send_app_err_code(l2cap_socket* sock, tBTA_JV_L2CAP_REASON code) {
+  LOG_INFO("Sending l2cap failure reason socket_id:%u reason code:%d", sock->id,
+           code);
+  int err_channel = 0;
+  if (sock_send_all(sock->our_fd, (const uint8_t*)&err_channel,
+                    sizeof(err_channel)) != sizeof(err_channel)) {
+    return false;
+  }
+  return sock_send_all(sock->our_fd, (const uint8_t*)&code, sizeof(code)) ==
+         sizeof(code);
+}
+
 static bool send_app_connect_signal(int fd, const RawAddress* addr, int channel,
                                     int status, int send_fd, uint16_t rx_mtu,
                                     uint16_t tx_mtu) {
@@ -388,6 +411,10 @@ static void on_srv_l2cap_listen_started(tBTA_JV_L2CAP_START* p_start,
   }
 
   sock->handle = p_start->handle;
+
+  btif_sock_connection_logger(
+      SOCKET_CONNECTION_STATE_LISTENING,
+      sock->server ? SOCKET_ROLE_LISTEN : SOCKET_ROLE_CONNECTION, sock->addr);
 
   log_socket_connection_state(
       sock->addr, sock->id, sock->is_le_coc ? BTSOCK_L2CAP_LE : BTSOCK_L2CAP,
@@ -452,6 +479,11 @@ static void on_srv_l2cap_psm_connect_l(tBTA_JV_L2CAP_OPEN* p_open,
   accept_rs->id = sock->id;
   sock->id = new_listen_id;
 
+  btif_sock_connection_logger(
+      SOCKET_CONNECTION_STATE_CONNECTED,
+      accept_rs->server ? SOCKET_ROLE_LISTEN : SOCKET_ROLE_CONNECTION,
+      accept_rs->addr);
+
   log_socket_connection_state(
       accept_rs->addr, accept_rs->id,
       accept_rs->is_le_coc ? BTSOCK_L2CAP_LE : BTSOCK_L2CAP,
@@ -491,6 +523,10 @@ static void on_cl_l2cap_psm_connect_l(tBTA_JV_L2CAP_OPEN* p_open,
               sock->id);
     return;
   }
+
+  btif_sock_connection_logger(
+      SOCKET_CONNECTION_STATE_CONNECTED,
+      sock->server ? SOCKET_ROLE_LISTEN : SOCKET_ROLE_CONNECTION, sock->addr);
 
   log_socket_connection_state(
       sock->addr, sock->id, sock->is_le_coc ? BTSOCK_L2CAP_LE : BTSOCK_L2CAP,
@@ -544,6 +580,10 @@ static void on_l2cap_close(tBTA_JV_L2CAP_CLOSE* p_close, uint32_t id) {
     return;
   }
 
+  btif_sock_connection_logger(
+      SOCKET_CONNECTION_STATE_DISCONNECTING,
+      sock->server ? SOCKET_ROLE_LISTEN : SOCKET_ROLE_CONNECTION, sock->addr);
+
   log_socket_connection_state(
       sock->addr, sock->id, sock->is_le_coc ? BTSOCK_L2CAP_LE : BTSOCK_L2CAP,
       android::bluetooth::SOCKET_CONNECTION_STATE_DISCONNECTING, 0, 0,
@@ -551,6 +591,10 @@ static void on_l2cap_close(tBTA_JV_L2CAP_CLOSE* p_close, uint32_t id) {
       sock->server ? android::bluetooth::SOCKET_ROLE_LISTEN
                    : android::bluetooth::SOCKET_ROLE_CONNECTION);
 
+  if (!send_app_err_code(sock, p_close->reason)) {
+    LOG_ERROR("Unable to send l2cap socket to application socket_id:%u",
+              sock->id);
+  }
   // TODO: This does not seem to be called...
   // I'm not sure if this will be called for non-server sockets?
   if (sock->server) {

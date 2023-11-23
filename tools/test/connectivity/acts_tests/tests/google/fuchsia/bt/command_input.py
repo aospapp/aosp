@@ -112,11 +112,11 @@ class CommandInput(cmd.Cmd):
     def _find_unique_id_over_le(self):
         scan_filter = {"name_substring": self.target_device_name}
         self.unique_mac_addr_id = None
-        self.pri_dut.gattc_lib.bleStartBleScan(scan_filter)
+        self.pri_dut.sl4f.gattc_lib.bleStartBleScan(scan_filter)
         tries = 10
         for i in range(tries):
             time.sleep(self.bt_scan_poll_timer)
-            scan_res = self.pri_dut.gattc_lib.bleGetDiscoveredDevices(
+            scan_res = self.pri_dut.sl4f.gattc_lib.bleGetDiscoveredDevices(
             )['result']
             for device in scan_res:
                 name, did, connectable = device["name"], device["id"], device[
@@ -129,18 +129,18 @@ class CommandInput(cmd.Cmd):
                     break
             if self.unique_mac_addr_id:
                 break
-        self.pri_dut.gattc_lib.bleStopBleScan()
+        self.pri_dut.sl4f.gattc_lib.bleStopBleScan()
 
     def _find_unique_id_over_bt_control(self):
         self.unique_mac_addr_id = None
         self.bt_control_devices = []
-        self.pri_dut.bts_lib.requestDiscovery(True)
+        self.pri_dut.sl4f.bts_lib.requestDiscovery(True)
         tries = 10
         for i in range(tries):
             if self.unique_mac_addr_id:
                 break
             time.sleep(self.bt_scan_poll_timer)
-            device_list = self.pri_dut.bts_lib.getKnownRemoteDevices(
+            device_list = self.pri_dut.sl4f.bts_lib.getKnownRemoteDevices(
             )['result']
             for id_dict in device_list:
                 device = device_list[id_dict]
@@ -159,7 +159,7 @@ class CommandInput(cmd.Cmd):
                             "Successfully found device: name, id, address: {}, {}, {}"
                             .format(name, did, address))
                         break
-        self.pri_dut.bts_lib.requestDiscovery(False)
+        self.pri_dut.sl4f.bts_lib.requestDiscovery(False)
 
     def do_tool_take_bt_snoop_log(self, custom_name):
         """
@@ -438,7 +438,7 @@ class CommandInput(cmd.Cmd):
         else:
             scan_response = adv_data
 
-        result = self.pri_dut.ble_lib.bleStartBleAdvertising(
+        result = self.pri_dut.sl4f.ble_lib.bleStartBleAdvertising(
             adv_data, scan_response, self.ble_adv_interval, connectable)
         self.log.info("Result of starting advertisement: {}".format(result))
         self.ble_adv_data_manufacturer_data = None
@@ -481,7 +481,7 @@ class CommandInput(cmd.Cmd):
         """
         cmd = "Stop a connectable LE advertisement"
         try:
-            self.pri_dut.ble_lib.bleStopBleAdvertising()
+            self.pri_dut.sl4f.ble_lib.bleStopBleAdvertising()
         except Exception as err:
             self.log.error(FAILURE.format(cmd, err))
 
@@ -508,7 +508,7 @@ class CommandInput(cmd.Cmd):
         cmd = "Connect to a LE peripheral by input ID."
         try:
 
-            connection_status = self.pri_dut.gattc_lib.bleConnectToPeripheral(
+            connection_status = self.pri_dut.sl4f.gattc_lib.bleConnectToPeripheral(
                 line)
             self.log.info("Connection status: {}".format(
                 pprint.pformat(connection_status)))
@@ -537,7 +537,7 @@ class CommandInput(cmd.Cmd):
                 except Exception as err:
                     self.log.info("Failed to scan or find device.")
                     return
-            connection_status = self.pri_dut.gattc_lib.bleConnectToPeripheral(
+            connection_status = self.pri_dut.sl4f.gattc_lib.bleConnectToPeripheral(
                 self.unique_mac_addr_id)
             self.log.info("Connection status: {}".format(
                 pprint.pformat(connection_status)))
@@ -563,12 +563,12 @@ class CommandInput(cmd.Cmd):
                     return
             for i in range(int(line)):
                 self.log.info("Running iteration {}".format(i + 1))
-                connection_status = self.pri_dut.gattc_lib.bleConnectToPeripheral(
+                connection_status = self.pri_dut.sl4f.gattc_lib.bleConnectToPeripheral(
                     self.unique_mac_addr_id)
                 self.log.info("Connection status: {}".format(
                     pprint.pformat(connection_status)))
                 time.sleep(4)
-                disc_status = self.pri_dut.gattc_lib.bleDisconnectPeripheral(
+                disc_status = self.pri_dut.sl4f.gattc_lib.bleDisconnectPeripheral(
                     self.unique_mac_addr_id)
                 self.log.info("Disconnect status: {}".format(disc_status))
                 time.sleep(3)
@@ -585,7 +585,7 @@ class CommandInput(cmd.Cmd):
         """
         cmd = "Disconenct from LE peripheral."
         try:
-            disconnect_status = self.pri_dut.gattc_lib.bleDisconnectPeripheral(
+            disconnect_status = self.pri_dut.sl4f.gattc_lib.bleDisconnectPeripheral(
                 self.unique_mac_addr_id)
             self.log.info("Disconnect status: {}".format(disconnect_status))
         except Exception as err:
@@ -606,16 +606,17 @@ class CommandInput(cmd.Cmd):
         cmd = "List services from LE peripheral."
         try:
 
-            services = self.pri_dut.gattc_lib.listServices(
+            services = self.pri_dut.sl4f.gattc_lib.listServices(
                 self.unique_mac_addr_id)
             self.log.info("Discovered Services: \n{}".format(
                 pprint.pformat(services)))
             discover_characteristics = self.str_to_bool(discover_chars)
             if discover_chars:
                 for service in services.get('result'):
-                    self.pri_dut.gattc_lib.connectToService(
+                    self.pri_dut.sl4f.gattc_lib.connectToService(
                         self.unique_mac_addr_id, service.get('id'))
-                    chars = self.pri_dut.gattc_lib.discoverCharacteristics()
+                    chars = self.pri_dut.sl4f.gattc_lib.discoverCharacteristics(
+                    )
                     self.log.info("Discovered chars:\n{}".format(
                         pprint.pformat(chars)))
 
@@ -634,8 +635,8 @@ class CommandInput(cmd.Cmd):
         """
         cmd = "GATT client connect to GATT server service."
         try:
-            self.pri_dut.gattc_lib.connectToService(self.unique_mac_addr_id,
-                                                    int(line))
+            self.pri_dut.sl4f.gattc_lib.connectToService(
+                self.unique_mac_addr_id, int(line))
         except Exception as err:
             self.log.error(FAILURE.format(cmd, err))
 
@@ -649,7 +650,7 @@ class CommandInput(cmd.Cmd):
         """
         cmd = "Discover and list characteristics from a GATT server."
         try:
-            chars = self.pri_dut.gattc_lib.discoverCharacteristics()
+            chars = self.pri_dut.sl4f.gattc_lib.discoverCharacteristics()
             self.log.info("Discovered chars:\n{}".format(
                 pprint.pformat(chars)))
         except Exception as err:
@@ -666,14 +667,14 @@ class CommandInput(cmd.Cmd):
         """
         cmd = "Read all characteristics from the GATT service."
         try:
-            services = self.pri_dut.gattc_lib.listServices(
+            services = self.pri_dut.sl4f.gattc_lib.listServices(
                 self.unique_mac_addr_id)
             for service in services['result']:
                 service_id = service['id']
                 service_uuid = service['uuid_type']
-                self.pri_dut.gattc_lib.connectToService(
+                self.pri_dut.sl4f.gattc_lib.connectToService(
                     self.unique_mac_addr_id, service_id)
-                chars = self.pri_dut.gattc_lib.discoverCharacteristics()
+                chars = self.pri_dut.sl4f.gattc_lib.discoverCharacteristics()
                 print("Reading chars in service uuid: {}".format(service_uuid))
 
                 for char in chars['result']:
@@ -682,7 +683,7 @@ class CommandInput(cmd.Cmd):
                     # quick char filter for apple-4 test... remove later
                     print("found uuid {}".format(char_uuid))
                     try:
-                        self.pri_dut.gattc_lib.enableNotifyCharacteristic(
+                        self.pri_dut.sl4f.gattc_lib.enableNotifyCharacteristic(
                             char_id)
                     except Exception as err:
                         print("error enabling notification")
@@ -700,14 +701,14 @@ class CommandInput(cmd.Cmd):
         """
         cmd = "Read all characteristics from the GATT service."
         try:
-            services = self.pri_dut.gattc_lib.listServices(
+            services = self.pri_dut.sl4f.gattc_lib.listServices(
                 self.unique_mac_addr_id)
             for service in services['result']:
                 service_id = service['id']
                 service_uuid = service['uuid_type']
-                self.pri_dut.gattc_lib.connectToService(
+                self.pri_dut.sl4f.gattc_lib.connectToService(
                     self.unique_mac_addr_id, service_id)
-                chars = self.pri_dut.gattc_lib.discoverCharacteristics()
+                chars = self.pri_dut.sl4f.gattc_lib.discoverCharacteristics()
                 print("Reading chars in service uuid: {}".format(service_uuid))
 
                 for char in chars['result']:
@@ -715,7 +716,7 @@ class CommandInput(cmd.Cmd):
                     char_uuid = char['uuid_type']
                     try:
                         read_val =  \
-                            self.pri_dut.gattc_lib.readCharacteristicById(
+                            self.pri_dut.sl4f.gattc_lib.readCharacteristicById(
                                 char_id)
                         print("  Characteristic uuid / Value: {} / {}".format(
                             char_uuid, read_val['result']))
@@ -725,7 +726,6 @@ class CommandInput(cmd.Cmd):
                         print("    str val: {}".format(str_value))
                     except Exception as err:
                         print(err)
-                        pass
         except Exception as err:
             self.log.error(FAILURE.format(cmd, err))
 
@@ -740,14 +740,14 @@ class CommandInput(cmd.Cmd):
         """
         cmd = "Read all descriptors from the GATT service."
         try:
-            services = self.pri_dut.gattc_lib.listServices(
+            services = self.pri_dut.sl4f.gattc_lib.listServices(
                 self.unique_mac_addr_id)
             for service in services['result']:
                 service_id = service['id']
                 service_uuid = service['uuid_type']
-                self.pri_dut.gattc_lib.connectToService(
+                self.pri_dut.sl4f.gattc_lib.connectToService(
                     self.unique_mac_addr_id, service_id)
-                chars = self.pri_dut.gattc_lib.discoverCharacteristics()
+                chars = self.pri_dut.sl4f.gattc_lib.discoverCharacteristics()
                 print("Reading descs in service uuid: {}".format(service_uuid))
 
                 for char in chars['result']:
@@ -759,7 +759,7 @@ class CommandInput(cmd.Cmd):
                         desc_id = desc["id"]
                         desc_uuid = desc["uuid_type"]
                     try:
-                        read_val = self.pri_dut.gattc_lib.readDescriptorById(
+                        read_val = self.pri_dut.sl4f.gattc_lib.readDescriptorById(
                             desc_id)
                         print("    Descriptor uuid / Value: {} / {}".format(
                             desc_uuid, read_val['result']))
@@ -792,14 +792,14 @@ class CommandInput(cmd.Cmd):
             write_value = []
             for i in range(int(size)):
                 write_value.append(i % 256)
-            services = self.pri_dut.gattc_lib.listServices(
+            services = self.pri_dut.sl4f.gattc_lib.listServices(
                 self.unique_mac_addr_id)
             for service in services['result']:
                 service_id = service['id']
                 service_uuid = service['uuid_type']
-                self.pri_dut.gattc_lib.connectToService(
+                self.pri_dut.sl4f.gattc_lib.connectToService(
                     self.unique_mac_addr_id, service_id)
-                chars = self.pri_dut.gattc_lib.discoverCharacteristics()
+                chars = self.pri_dut.sl4f.gattc_lib.discoverCharacteristics()
                 print("Writing descs in service uuid: {}".format(service_uuid))
 
                 for char in chars['result']:
@@ -811,7 +811,7 @@ class CommandInput(cmd.Cmd):
                         desc_id = desc["id"]
                         desc_uuid = desc["uuid_type"]
                     try:
-                        write_val = self.pri_dut.gattc_lib.writeDescriptorById(
+                        write_val = self.pri_dut.sl4f.gattc_lib.writeDescriptorById(
                             desc_id, offset, write_value)
                         print("    Descriptor uuid / Result: {} / {}".format(
                             desc_uuid, write_val['result']))
@@ -840,14 +840,14 @@ class CommandInput(cmd.Cmd):
                 return
             offset = int(args[0])
             max_bytes = int(args[1])
-            services = self.pri_dut.ble_lib.bleListServices(
+            services = self.pri_dut.sl4f.ble_lib.bleListServices(
                 self.unique_mac_addr_id)
             for service in services['result']:
                 service_id = service['id']
                 service_uuid = service['uuid_type']
-                self.pri_dut.gattc_lib.connectToService(
+                self.pri_dut.sl4f.gattc_lib.connectToService(
                     self.unique_mac_addr_id, service_id)
-                chars = self.pri_dut.gattc_lib.discoverCharacteristics()
+                chars = self.pri_dut.sl4f.gattc_lib.discoverCharacteristics()
                 print("Reading descs in service uuid: {}".format(service_uuid))
 
                 for char in chars['result']:
@@ -859,7 +859,7 @@ class CommandInput(cmd.Cmd):
                         desc_id = desc["id"]
                         desc_uuid = desc["uuid_type"]
                     try:
-                        read_val = self.pri_dut.gattc_lib.readLongDescriptorById(
+                        read_val = self.pri_dut.sl4f.gattc_lib.readLongDescriptorById(
                             desc_id, offset, max_bytes)
                         print("    Descriptor uuid / Result: {} / {}".format(
                             desc_uuid, read_val['result']))
@@ -888,21 +888,21 @@ class CommandInput(cmd.Cmd):
                 return
             offset = int(args[0])
             max_bytes = int(args[1])
-            services = self.pri_dut.ble_lib.bleListServices(
+            services = self.pri_dut.sl4f.ble_lib.bleListServices(
                 self.unique_mac_addr_id)
             for service in services['result']:
                 service_id = service['id']
                 service_uuid = service['uuid_type']
-                self.pri_dut.gattc_lib.connectToService(
+                self.pri_dut.sl4f.gattc_lib.connectToService(
                     self.unique_mac_addr_id, service_id)
-                chars = self.pri_dut.gattc_lib.discoverCharacteristics()
+                chars = self.pri_dut.sl4f.gattc_lib.discoverCharacteristics()
                 print("Reading chars in service uuid: {}".format(service_uuid))
 
                 for char in chars['result']:
                     char_id = char['id']
                     char_uuid = char['uuid_type']
                     try:
-                        read_val = self.pri_dut.gattc_lib.readLongCharacteristicById(
+                        read_val = self.pri_dut.sl4f.gattc_lib.readLongCharacteristicById(
                             char_id, offset, max_bytes)
                         print("    Char uuid / Result: {} / {}".format(
                             char_uuid, read_val['result']))
@@ -936,27 +936,26 @@ class CommandInput(cmd.Cmd):
             write_value = []
             for i in range(size):
                 write_value.append(i % 256)
-            services = self.pri_dut.gattc_lib.listServices(
+            services = self.pri_dut.sl4f.gattc_lib.listServices(
                 self.unique_mac_addr_id)
             for service in services['result']:
                 service_id = service['id']
                 service_uuid = service['uuid_type']
-                self.pri_dut.gattc_lib.connectToService(
+                self.pri_dut.sl4f.gattc_lib.connectToService(
                     self.unique_mac_addr_id, service_id)
-                chars = self.pri_dut.gattc_lib.discoverCharacteristics()
+                chars = self.pri_dut.sl4f.gattc_lib.discoverCharacteristics()
                 print("Writing chars in service uuid: {}".format(service_uuid))
 
                 for char in chars['result']:
                     char_id = char['id']
                     char_uuid = char['uuid_type']
                     try:
-                        write_result = self.pri_dut.gattc_lib.writeCharById(
+                        write_result = self.pri_dut.sl4f.gattc_lib.writeCharById(
                             char_id, offset, write_value)
                         print("  Characteristic uuid write result: {} / {}".
                               format(char_uuid, write_result['result']))
                     except Exception as err:
                         print("error writing char {}".format(err))
-                        pass
         except Exception as err:
             self.log.error(FAILURE.format(cmd, err))
 
@@ -982,14 +981,14 @@ class CommandInput(cmd.Cmd):
             write_value = []
             for i in range(size):
                 write_value.append(i % 256)
-            services = self.pri_dut.gattc_lib.listServices(
+            services = self.pri_dut.sl4f.gattc_lib.listServices(
                 self.unique_mac_addr_id)
             for service in services['result']:
                 service_id = service['id']
                 service_uuid = service['uuid_type']
-                self.pri_dut.gattc_lib.connectToService(
+                self.pri_dut.sl4f.gattc_lib.connectToService(
                     self.unique_mac_addr_id, service_id)
-                chars = self.pri_dut.gattc_lib.discoverCharacteristics()
+                chars = self.pri_dut.sl4f.gattc_lib.discoverCharacteristics()
                 print("Reading chars in service uuid: {}".format(service_uuid))
 
                 for char in chars['result']:
@@ -997,7 +996,7 @@ class CommandInput(cmd.Cmd):
                     char_uuid = char['uuid_type']
                     try:
                         write_result = \
-                            self.pri_dut.gattc_lib.writeCharByIdWithoutResponse(
+                            self.pri_dut.sl4f.gattc_lib.writeCharByIdWithoutResponse(
                                 char_id, write_value)
                         print("  Characteristic uuid write result: {} / {}".
                               format(char_uuid, write_result['result']))
@@ -1325,7 +1324,7 @@ class CommandInput(cmd.Cmd):
             scan_filter = {"name_substring": ""}
             if line:
                 scan_filter = {"name_substring": line}
-            self.pri_dut.gattc_lib.bleStartBleScan(scan_filter)
+            self.pri_dut.sl4f.gattc_lib.bleStartBleScan(scan_filter)
         except Exception as err:
             self.log.error(FAILURE.format(cmd, err))
 
@@ -1338,7 +1337,7 @@ class CommandInput(cmd.Cmd):
         """
         cmd = "Stops a BLE scan and returns discovered devices."
         try:
-            scan_results = self.pri_dut.gattc_lib.bleStopBleScan()
+            scan_results = self.pri_dut.sl4f.gattc_lib.bleStopBleScan()
             self._update_scan_results(scan_results)
             self.log.info(pprint.pformat(scan_results))
         except Exception as err:
@@ -1353,7 +1352,8 @@ class CommandInput(cmd.Cmd):
         """
         cmd = "Get discovered LE devices of an active scan."
         try:
-            scan_results = self.pri_dut.gattc_lib.bleGetDiscoveredDevices()
+            scan_results = self.pri_dut.sl4f.gattc_lib.bleGetDiscoveredDevices(
+            )
             self._update_scan_results(scan_results)
             self.log.info(pprint.pformat(scan_results))
         except Exception as err:
@@ -1372,7 +1372,7 @@ class CommandInput(cmd.Cmd):
         """
         cmd = "Close active GATT server."
         try:
-            result = self.pri_dut.gatts_lib.closeServer()
+            result = self.pri_dut.sl4f.gatts_lib.closeServer()
             self.log.info(result)
         except Exception as err:
             self.log.error(FAILURE.format(cmd, err))
@@ -1401,7 +1401,7 @@ class CommandInput(cmd.Cmd):
         """
         cmd = "Setup GATT Server Database Based of pre-defined dictionaries"
         try:
-            scan_results = self.pri_dut.gatts_lib.publishServer(
+            scan_results = self.pri_dut.sl4f.gatts_lib.publishServer(
                 gatt_test_database.GATT_SERVER_DB_MAPPING.get(line))
             self.log.info(scan_results)
         except Exception as err:
@@ -1542,7 +1542,7 @@ class CommandInput(cmd.Cmd):
             if len(options) > 1:
                 input_capabilities = options[0]
                 output_capabilities = options[1]
-            result = self.pri_dut.bts_lib.acceptPairing(
+            result = self.pri_dut.sl4f.bts_lib.acceptPairing(
                 input_capabilities, output_capabilities)
             self.log.info(result)
         except Exception as err:
@@ -1563,7 +1563,8 @@ class CommandInput(cmd.Cmd):
         try:
             self.log.info("Forgetting device id: {}".format(
                 self.unique_mac_addr_id))
-            result = self.pri_dut.bts_lib.forgetDevice(self.unique_mac_addr_id)
+            result = self.pri_dut.sl4f.bts_lib.forgetDevice(
+                self.unique_mac_addr_id)
             self.log.info(result)
         except Exception as err:
             self.log.error(FAILURE.format(cmd, err))
@@ -1618,7 +1619,7 @@ class CommandInput(cmd.Cmd):
         """
         cmd = "Change whether the Bluetooth Controller is in active."
         try:
-            result = self.pri_dut.bts_lib.requestDiscovery(
+            result = self.pri_dut.sl4f.bts_lib.requestDiscovery(
                 self.str_to_bool(discover))
             self.log.info(result)
         except Exception as err:
@@ -1635,7 +1636,7 @@ class CommandInput(cmd.Cmd):
         cmd = "Get a list of known devices."
         self.bt_control_devices = []
         try:
-            device_list = self.pri_dut.bts_lib.getKnownRemoteDevices(
+            device_list = self.pri_dut.sl4f.bts_lib.getKnownRemoteDevices(
             )['result']
             for id_dict in device_list:
                 device = device_list[id_dict]
@@ -1655,14 +1656,15 @@ class CommandInput(cmd.Cmd):
         """
         cmd = "Forget all known devices."
         try:
-            device_list = self.pri_dut.bts_lib.getKnownRemoteDevices(
+            device_list = self.pri_dut.sl4f.bts_lib.getKnownRemoteDevices(
             )['result']
             for device in device_list:
                 d = device_list[device]
                 if d['bonded'] or d['connected']:
                     self.log.info("Unbonding deivce: {}".format(d))
                     self.log.info(
-                        self.pri_dut.bts_lib.forgetDevice(d['id'])['result'])
+                        self.pri_dut.sl4f.bts_lib.forgetDevice(
+                            d['id'])['result'])
         except Exception as err:
             self.log.error(FAILURE.format(cmd, err))
 
@@ -1680,7 +1682,7 @@ class CommandInput(cmd.Cmd):
         """
         cmd = "Connect to device under test."
         try:
-            result = self.pri_dut.bts_lib.connectDevice(
+            result = self.pri_dut.sl4f.bts_lib.connectDevice(
                 self.unique_mac_addr_id)
             self.log.info(result)
         except Exception as err:
@@ -1708,7 +1710,7 @@ class CommandInput(cmd.Cmd):
         """
         cmd = "Connect to device id based on pre-defined inputs."
         try:
-            result = self.pri_dut.bts_lib.connectDevice(device_id)
+            result = self.pri_dut.sl4f.bts_lib.connectDevice(device_id)
             self.log.info(result)
         except Exception as err:
             self.log.error(FAILURE.format(cmd, err))
@@ -1738,7 +1740,8 @@ class CommandInput(cmd.Cmd):
             for device in self.bt_control_devices:
                 if device_name is device['name']:
 
-                    result = self.pri_dut.bts_lib.connectDevice(device['id'])
+                    result = self.pri_dut.sl4f.bts_lib.connectDevice(
+                        device['id'])
                     self.log.info(result)
         except Exception as err:
             self.log.error(FAILURE.format(cmd, err))
@@ -1757,7 +1760,7 @@ class CommandInput(cmd.Cmd):
         """
         cmd = "Disconnect to device under test."
         try:
-            result = self.pri_dut.bts_lib.disconnectDevice(
+            result = self.pri_dut.sl4f.bts_lib.disconnectDevice(
                 self.unique_mac_addr_id)
             self.log.info(result)
         except Exception as err:
@@ -1804,7 +1807,7 @@ class CommandInput(cmd.Cmd):
         """
         cmd = "Input pairing pin to the Fuchsia device."
         try:
-            result = self.pri_dut.bts_lib.inputPairingPin(line)['result']
+            result = self.pri_dut.sl4f.bts_lib.inputPairingPin(line)['result']
             self.log.info(result)
         except Exception as err:
             self.log.error(FAILURE.format(cmd, err))
@@ -1820,7 +1823,7 @@ class CommandInput(cmd.Cmd):
         """
         cmd = "Get the pairing pin from the Fuchsia device."
         try:
-            result = self.pri_dut.bts_lib.getPairingPin()['result']
+            result = self.pri_dut.sl4f.bts_lib.getPairingPin()['result']
             self.log.info(result)
         except Exception as err:
             self.log.error(FAILURE.format(cmd, err))
@@ -1852,31 +1855,31 @@ class CommandInput(cmd.Cmd):
         ]
 
         try:
-            self.pri_dut.sdp_lib.addSearch(
+            self.pri_dut.sl4f.sdp_lib.addSearch(
                 attributes, int(sig_uuid_constants['AudioSource'], 16))
-            self.pri_dut.sdp_lib.addSearch(
+            self.pri_dut.sl4f.sdp_lib.addSearch(
                 attributes, int(sig_uuid_constants['A/V_RemoteControl'], 16))
-            self.pri_dut.sdp_lib.addSearch(attributes,
-                                           int(sig_uuid_constants['PANU'], 16))
-            self.pri_dut.sdp_lib.addSearch(
+            self.pri_dut.sl4f.sdp_lib.addSearch(
+                attributes, int(sig_uuid_constants['PANU'], 16))
+            self.pri_dut.sl4f.sdp_lib.addSearch(
                 attributes, int(sig_uuid_constants['SerialPort'], 16))
-            self.pri_dut.sdp_lib.addSearch(
+            self.pri_dut.sl4f.sdp_lib.addSearch(
                 attributes, int(sig_uuid_constants['DialupNetworking'], 16))
-            self.pri_dut.sdp_lib.addSearch(
+            self.pri_dut.sl4f.sdp_lib.addSearch(
                 attributes, int(sig_uuid_constants['OBEXObjectPush'], 16))
-            self.pri_dut.sdp_lib.addSearch(
+            self.pri_dut.sl4f.sdp_lib.addSearch(
                 attributes, int(sig_uuid_constants['OBEXFileTransfer'], 16))
-            self.pri_dut.sdp_lib.addSearch(
+            self.pri_dut.sl4f.sdp_lib.addSearch(
                 attributes, int(sig_uuid_constants['Headset'], 16))
-            self.pri_dut.sdp_lib.addSearch(
+            self.pri_dut.sl4f.sdp_lib.addSearch(
                 attributes, int(sig_uuid_constants['HandsfreeAudioGateway'],
                                 16))
-            self.pri_dut.sdp_lib.addSearch(
+            self.pri_dut.sl4f.sdp_lib.addSearch(
                 attributes, int(sig_uuid_constants['Handsfree'], 16))
-            self.pri_dut.sdp_lib.addSearch(
+            self.pri_dut.sl4f.sdp_lib.addSearch(
                 attributes, int(sig_uuid_constants['SIM_Access'], 16))
             for i in range(int(num_of_records)):
-                result = self.pri_dut.sdp_lib.addService(
+                result = self.pri_dut.sl4f.sdp_lib.addService(
                     sdp_pts_record_list[i])
                 self.log.info(result)
         except Exception as err:
@@ -1892,7 +1895,7 @@ class CommandInput(cmd.Cmd):
         """
         cmd = "Cleanup SDP objects."
         try:
-            result = self.pri_dut.sdp_lib.cleanUp()
+            result = self.pri_dut.sl4f.sdp_lib.cleanUp()
             self.log.info(result)
         except Exception as err:
             self.log.error(FAILURE.format(cmd, err))
@@ -1907,7 +1910,7 @@ class CommandInput(cmd.Cmd):
         """
         cmd = "Initialize profile proxy objects for adding SDP records"
         try:
-            result = self.pri_dut.sdp_lib.init()
+            result = self.pri_dut.sl4f.sdp_lib.init()
             self.log.info(result)
         except Exception as err:
             self.log.error(FAILURE.format(cmd, err))
@@ -1953,9 +1956,8 @@ class CommandInput(cmd.Cmd):
         cmd = "Connect l2cap"
         try:
             info = line.split()
-            result = self.pri_dut.sdp_lib.connectL2cap(self.unique_mac_addr_id,
-                                                       int(info[0], 16),
-                                                       info[1])
+            result = self.pri_dut.sl4f.sdp_lib.connectL2cap(
+                self.unique_mac_addr_id, int(info[0], 16), info[1])
             self.log.info(result)
         except Exception as err:
             self.log.error(FAILURE.format(cmd, err))
@@ -1982,7 +1984,7 @@ class CommandInput(cmd.Cmd):
         try:
             if not initiator_delay:
                 initiator_delay = None
-            result = self.pri_dut.avdtp_lib.init(initiator_delay)
+            result = self.pri_dut.sl4f.avdtp_lib.init(initiator_delay)
             self.log.info(result)
         except Exception as err:
             self.log.error(FAILURE.format(cmd, err))
@@ -1997,8 +1999,7 @@ class CommandInput(cmd.Cmd):
         """
         cmd = "Kill A2DP service"
         try:
-            result = self.pri_dut.control_daemon("bt-a2dp.cmx", "stop")
-            self.log.info(result)
+            self.pri_dut.start_v1_component("bt-a2dp")
         except Exception as err:
             self.log.error(FAILURE.format(cmd, err))
 
@@ -2012,7 +2013,7 @@ class CommandInput(cmd.Cmd):
         """
         cmd = "AVDTP get connected peers"
         try:
-            result = self.pri_dut.avdtp_lib.getConnectedPeers()
+            result = self.pri_dut.sl4f.avdtp_lib.getConnectedPeers()
             self.log.info(result)
         except Exception as err:
             self.log.error(FAILURE.format(cmd, err))
@@ -2030,7 +2031,7 @@ class CommandInput(cmd.Cmd):
         """
         cmd = "Send AVDTP set configuration to connected peer"
         try:
-            result = self.pri_dut.avdtp_lib.setConfiguration(int(peer_id))
+            result = self.pri_dut.sl4f.avdtp_lib.setConfiguration(int(peer_id))
             self.log.info(result)
         except Exception as err:
             self.log.error(FAILURE.format(cmd, err))
@@ -2048,7 +2049,7 @@ class CommandInput(cmd.Cmd):
         """
         cmd = "Send AVDTP get configuration to connected peer"
         try:
-            result = self.pri_dut.avdtp_lib.getConfiguration(int(peer_id))
+            result = self.pri_dut.sl4f.avdtp_lib.getConfiguration(int(peer_id))
             self.log.info(result)
         except Exception as err:
             self.log.error(FAILURE.format(cmd, err))
@@ -2066,7 +2067,7 @@ class CommandInput(cmd.Cmd):
         """
         cmd = "Send AVDTP get capabilities to connected peer"
         try:
-            result = self.pri_dut.avdtp_lib.getCapabilities(int(peer_id))
+            result = self.pri_dut.sl4f.avdtp_lib.getCapabilities(int(peer_id))
             self.log.info(result)
         except Exception as err:
             self.log.error(FAILURE.format(cmd, err))
@@ -2084,7 +2085,8 @@ class CommandInput(cmd.Cmd):
         """
         cmd = "Send AVDTP get all capabilities to connected peer"
         try:
-            result = self.pri_dut.avdtp_lib.getAllCapabilities(int(peer_id))
+            result = self.pri_dut.sl4f.avdtp_lib.getAllCapabilities(
+                int(peer_id))
             self.log.info(result)
         except Exception as err:
             self.log.error(FAILURE.format(cmd, err))
@@ -2102,7 +2104,8 @@ class CommandInput(cmd.Cmd):
         """
         cmd = "Send AVDTP reconfigure stream to connected peer"
         try:
-            result = self.pri_dut.avdtp_lib.reconfigureStream(int(peer_id))
+            result = self.pri_dut.sl4f.avdtp_lib.reconfigureStream(
+                int(peer_id))
             self.log.info(result)
         except Exception as err:
             self.log.error(FAILURE.format(cmd, err))
@@ -2120,7 +2123,7 @@ class CommandInput(cmd.Cmd):
         """
         cmd = "Send AVDTP suspend stream to connected peer"
         try:
-            result = self.pri_dut.avdtp_lib.suspendStream(int(peer_id))
+            result = self.pri_dut.sl4f.avdtp_lib.suspendStream(int(peer_id))
             self.log.info(result)
         except Exception as err:
             self.log.error(FAILURE.format(cmd, err))
@@ -2138,7 +2141,8 @@ class CommandInput(cmd.Cmd):
         """
         cmd = "Send AVDTP suspend reconfigure to connected peer"
         try:
-            result = self.pri_dut.avdtp_lib.suspendAndReconfigure(int(peer_id))
+            result = self.pri_dut.sl4f.avdtp_lib.suspendAndReconfigure(
+                int(peer_id))
             self.log.info(result)
         except Exception as err:
             self.log.error(FAILURE.format(cmd, err))
@@ -2156,7 +2160,7 @@ class CommandInput(cmd.Cmd):
         """
         cmd = "Send AVDTP release stream to connected peer"
         try:
-            result = self.pri_dut.avdtp_lib.releaseStream(int(peer_id))
+            result = self.pri_dut.sl4f.avdtp_lib.releaseStream(int(peer_id))
             self.log.info(result)
         except Exception as err:
             self.log.error(FAILURE.format(cmd, err))
@@ -2174,7 +2178,7 @@ class CommandInput(cmd.Cmd):
         """
         cmd = "Send AVDTP establish stream to connected peer"
         try:
-            result = self.pri_dut.avdtp_lib.establishStream(int(peer_id))
+            result = self.pri_dut.sl4f.avdtp_lib.establishStream(int(peer_id))
             self.log.info(result)
         except Exception as err:
             self.log.error(FAILURE.format(cmd, err))
@@ -2192,7 +2196,7 @@ class CommandInput(cmd.Cmd):
         """
         cmd = "Send AVDTP start stream to connected peer"
         try:
-            result = self.pri_dut.avdtp_lib.startStream(int(peer_id))
+            result = self.pri_dut.sl4f.avdtp_lib.startStream(int(peer_id))
             self.log.info(result)
         except Exception as err:
             self.log.error(FAILURE.format(cmd, err))
@@ -2210,7 +2214,7 @@ class CommandInput(cmd.Cmd):
         """
         cmd = "Send AVDTP abort stream to connected peer"
         try:
-            result = self.pri_dut.avdtp_lib.abortStream(int(peer_id))
+            result = self.pri_dut.sl4f.avdtp_lib.abortStream(int(peer_id))
             self.log.info(result)
         except Exception as err:
             self.log.error(FAILURE.format(cmd, err))
@@ -2225,7 +2229,7 @@ class CommandInput(cmd.Cmd):
         """
         cmd = "Remove AVDTP service"
         try:
-            result = self.pri_dut.avdtp_lib.removeService()
+            result = self.pri_dut.sl4f.avdtp_lib.removeService()
             self.log.info(result)
         except Exception as err:
             self.log.error(FAILURE.format(cmd, err))
@@ -2243,7 +2247,7 @@ class CommandInput(cmd.Cmd):
         """
         cmd = "Start audio capture"
         try:
-            result = self.pri_dut.audio_lib.startOutputSave()
+            result = self.pri_dut.sl4f.audio_lib.startOutputSave()
             self.log.info(result)
         except Exception as err:
             self.log.error(FAILURE.format(cmd, err))
@@ -2258,7 +2262,7 @@ class CommandInput(cmd.Cmd):
         """
         cmd = "Stop audio capture"
         try:
-            result = self.pri_dut.audio_lib.stopOutputSave()
+            result = self.pri_dut.sl4f.audio_lib.stopOutputSave()
             self.log.info(result)
         except Exception as err:
             self.log.error(FAILURE.format(cmd, err))
@@ -2274,7 +2278,7 @@ class CommandInput(cmd.Cmd):
         cmd = "Get audio capture"
         try:
             save_path = "{}/{}".format(self.pri_dut.log_path, "audio.raw")
-            result = self.pri_dut.audio_lib.getOutputAudio(save_path)
+            result = self.pri_dut.sl4f.audio_lib.getOutputAudio(save_path)
         except Exception as err:
             self.log.error(FAILURE.format(cmd, err))
 
@@ -2297,19 +2301,19 @@ class CommandInput(cmd.Cmd):
         cmd = "5 min audio capture test"
         input("Press Enter once Source device is streaming audio file")
         try:
-            result = self.pri_dut.audio_lib.startOutputSave()
+            result = self.pri_dut.sl4f.audio_lib.startOutputSave()
             self.log.info(result)
             for i in range(5):
                 print("Minutes left: {}".format(10 - i))
                 time.sleep(60)
-            result = self.pri_dut.audio_lib.stopOutputSave()
+            result = self.pri_dut.sl4f.audio_lib.stopOutputSave()
             log_time = int(time.time())
             save_path = "{}/{}".format(self.pri_dut.log_path,
                                        "{}_audio.raw".format(log_time))
             analysis_path = "{}/{}".format(
                 self.pri_dut.log_path,
                 "{}_audio_analysis.txt".format(log_time))
-            result = self.pri_dut.audio_lib.getOutputAudio(save_path)
+            result = self.pri_dut.sl4f.audio_lib.getOutputAudio(save_path)
 
             channels = 1
             try:
@@ -2343,7 +2347,7 @@ class CommandInput(cmd.Cmd):
         """
         cmd = "Initialize HFP proxy"
         try:
-            result = self.pri_dut.hfp_lib.init()
+            result = self.pri_dut.sl4f.hfp_lib.init()
             self.log.info(result)
         except Exception as err:
             self.log.error(FAILURE.format(cmd, err))
@@ -2358,7 +2362,7 @@ class CommandInput(cmd.Cmd):
         """
         cmd = "Remove HFP service"
         try:
-            result = self.pri_dut.hfp_lib.removeService()
+            result = self.pri_dut.sl4f.hfp_lib.removeService()
             self.log.info(result)
         except Exception as err:
             self.log.error(FAILURE.format(cmd, err))
@@ -2375,7 +2379,7 @@ class CommandInput(cmd.Cmd):
         """
         cmd = "Lists connected peers"
         try:
-            result = self.pri_dut.hfp_lib.listPeers()
+            result = self.pri_dut.sl4f.hfp_lib.listPeers()
             self.log.info(pprint.pformat(result))
         except Exception as err:
             self.log.error(FAILURE.format(cmd, err))
@@ -2394,7 +2398,7 @@ class CommandInput(cmd.Cmd):
         cmd = "Set the active peer"
         try:
             peer_id = int(line.strip())
-            result = self.pri_dut.hfp_lib.setActivePeer(peer_id)
+            result = self.pri_dut.sl4f.hfp_lib.setActivePeer(peer_id)
             self.log.info(result)
         except Exception as err:
             self.log.error(FAILURE.format(cmd, err))
@@ -2411,7 +2415,7 @@ class CommandInput(cmd.Cmd):
         """
         cmd = "Lists all calls"
         try:
-            result = self.pri_dut.hfp_lib.listCalls()
+            result = self.pri_dut.sl4f.hfp_lib.listCalls()
             self.log.info(pprint.pformat(result))
         except Exception as err:
             self.log.error(FAILURE.format(cmd, err))
@@ -2444,7 +2448,8 @@ class CommandInput(cmd.Cmd):
                     "Exactly three command line arguments required: <remote> <state> <direction>"
                 )
             remote, state, direction = info[0], info[1], info[2]
-            result = self.pri_dut.hfp_lib.newCall(remote, state, direction)
+            result = self.pri_dut.sl4f.hfp_lib.newCall(remote, state,
+                                                       direction)
             self.log.info(result)
         except Exception as err:
             self.log.error(FAILURE.format(cmd, err))
@@ -2464,7 +2469,7 @@ class CommandInput(cmd.Cmd):
         cmd = "Simulates an incoming call"
         try:
             remote = line.strip()
-            result = self.pri_dut.hfp_lib.initiateIncomingCall(remote)
+            result = self.pri_dut.sl4f.hfp_lib.initiateIncomingCall(remote)
             self.log.info(result)
         except Exception as err:
             self.log.error(FAILURE.format(cmd, err))
@@ -2485,7 +2490,8 @@ class CommandInput(cmd.Cmd):
         cmd = "Simulates an incoming call"
         try:
             remote = line.strip()
-            result = self.pri_dut.hfp_lib.initiateIncomingWaitingCall(remote)
+            result = self.pri_dut.sl4f.hfp_lib.initiateIncomingWaitingCall(
+                remote)
             self.log.info(result)
         except Exception as err:
             self.log.error(FAILURE.format(cmd, err))
@@ -2504,7 +2510,7 @@ class CommandInput(cmd.Cmd):
         cmd = "Simulates an outgoing call"
         try:
             remote = line.strip()
-            result = self.pri_dut.hfp_lib.initiateOutgoingCall(remote)
+            result = self.pri_dut.sl4f.hfp_lib.initiateOutgoingCall(remote)
             self.log.info(result)
         except Exception as err:
             self.log.error(FAILURE.format(cmd, err))
@@ -2523,7 +2529,7 @@ class CommandInput(cmd.Cmd):
         cmd = "Set the specified call to active"
         try:
             call_id = int(line.strip())
-            result = self.pri_dut.hfp_lib.setCallActive(call_id)
+            result = self.pri_dut.sl4f.hfp_lib.setCallActive(call_id)
             self.log.info(result)
         except Exception as err:
             self.log.error(FAILURE.format(cmd, err))
@@ -2542,7 +2548,7 @@ class CommandInput(cmd.Cmd):
         cmd = "Set the specified call to held"
         try:
             call_id = int(line.strip())
-            result = self.pri_dut.hfp_lib.setCallHeld(call_id)
+            result = self.pri_dut.sl4f.hfp_lib.setCallHeld(call_id)
             self.log.info(result)
         except Exception as err:
             self.log.error(FAILURE.format(cmd, err))
@@ -2561,7 +2567,7 @@ class CommandInput(cmd.Cmd):
         cmd = "Set the specified call to terminated"
         try:
             call_id = int(line.strip())
-            result = self.pri_dut.hfp_lib.setCallTerminated(call_id)
+            result = self.pri_dut.sl4f.hfp_lib.setCallTerminated(call_id)
             self.log.info(result)
         except Exception as err:
             self.log.error(FAILURE.format(cmd, err))
@@ -2580,7 +2586,7 @@ class CommandInput(cmd.Cmd):
         cmd = "Set the specified call to TransferredToAg"
         try:
             call_id = int(line.strip())
-            result = self.pri_dut.hfp_lib.setCallTransferredToAg(call_id)
+            result = self.pri_dut.sl4f.hfp_lib.setCallTransferredToAg(call_id)
             self.log.info(result)
         except Exception as err:
             self.log.error(FAILURE.format(cmd, err))
@@ -2599,7 +2605,7 @@ class CommandInput(cmd.Cmd):
         cmd = "Set the active peer's speaker gain"
         try:
             value = int(line.strip())
-            result = self.pri_dut.hfp_lib.setSpeakerGain(value)
+            result = self.pri_dut.sl4f.hfp_lib.setSpeakerGain(value)
             self.log.info(result)
         except Exception as err:
             self.log.error(FAILURE.format(cmd, err))
@@ -2618,7 +2624,7 @@ class CommandInput(cmd.Cmd):
         cmd = "Set the active peer's microphone gain"
         try:
             value = int(line.strip())
-            result = self.pri_dut.hfp_lib.setMicrophoneGain(value)
+            result = self.pri_dut.sl4f.hfp_lib.setMicrophoneGain(value)
             self.log.info(result)
         except Exception as err:
             self.log.error(FAILURE.format(cmd, err))
@@ -2639,7 +2645,7 @@ class CommandInput(cmd.Cmd):
         cmd = "Sets the simulated network service status reported by the call manager"
         try:
             value = line.strip() == "true"
-            result = self.pri_dut.hfp_lib.setServiceAvailable(value)
+            result = self.pri_dut.sl4f.hfp_lib.setServiceAvailable(value)
             self.log.info(result)
         except Exception as err:
             self.log.error(FAILURE.format(cmd, err))
@@ -2660,7 +2666,7 @@ class CommandInput(cmd.Cmd):
         cmd = "Sets the simulated roaming status reported by the call manager"
         try:
             value = line.strip() == "true"
-            result = self.pri_dut.hfp_lib.setRoaming(value)
+            result = self.pri_dut.sl4f.hfp_lib.setRoaming(value)
             self.log.info(result)
         except Exception as err:
             self.log.error(FAILURE.format(cmd, err))
@@ -2682,7 +2688,7 @@ class CommandInput(cmd.Cmd):
         cmd = "Sets the simulated signal strength reported by the call manager"
         try:
             value = int(line.strip())
-            result = self.pri_dut.hfp_lib.setSignalStrength(value)
+            result = self.pri_dut.sl4f.hfp_lib.setSignalStrength(value)
             self.log.info(result)
         except Exception as err:
             self.log.error(FAILURE.format(cmd, err))
@@ -2702,7 +2708,7 @@ class CommandInput(cmd.Cmd):
         cmd = "Sets the subscriber number reported by the call manager"
         try:
             value = line.strip()
-            result = self.pri_dut.hfp_lib.setSubscriberNumber(value)
+            result = self.pri_dut.sl4f.hfp_lib.setSubscriberNumber(value)
             self.log.info(result)
         except Exception as err:
             self.log.error(FAILURE.format(cmd, err))
@@ -2722,7 +2728,7 @@ class CommandInput(cmd.Cmd):
         cmd = "Sets the operator value reported by the call manager"
         try:
             value = line.strip()
-            result = self.pri_dut.hfp_lib.setOperator(value)
+            result = self.pri_dut.sl4f.hfp_lib.setOperator(value)
             self.log.info(result)
         except Exception as err:
             self.log.error(FAILURE.format(cmd, err))
@@ -2743,7 +2749,7 @@ class CommandInput(cmd.Cmd):
         cmd = "Sets the noise reduction/echo cancelation support reported by the call manager"
         try:
             value = line.strip() == "true"
-            result = self.pri_dut.hfp_lib.setNrecSupport(value)
+            result = self.pri_dut.sl4f.hfp_lib.setNrecSupport(value)
             self.log.info(result)
         except Exception as err:
             self.log.error(FAILURE.format(cmd, err))
@@ -2764,7 +2770,7 @@ class CommandInput(cmd.Cmd):
         cmd = "Set the battery level reported by the call manager"
         try:
             value = int(line.strip())
-            result = self.pri_dut.hfp_lib.setBatteryLevel(value)
+            result = self.pri_dut.sl4f.hfp_lib.setBatteryLevel(value)
             self.log.info(result)
         except Exception as err:
             self.log.error(FAILURE.format(cmd, err))
@@ -2784,7 +2790,7 @@ class CommandInput(cmd.Cmd):
         cmd = "Sets the last dialed number in the call manager."
         try:
             number = line.strip()
-            result = self.pri_dut.hfp_lib.setLastDialed(number)
+            result = self.pri_dut.sl4f.hfp_lib.setLastDialed(number)
             self.log.info(result)
         except Exception as err:
             self.log.error(FAILURE.format(cmd, err))
@@ -2799,7 +2805,7 @@ class CommandInput(cmd.Cmd):
         """
         cmd = "Clears the last dialed number in the call manager."
         try:
-            result = self.pri_dut.hfp_lib.clearLastDialed()
+            result = self.pri_dut.sl4f.hfp_lib.clearLastDialed()
             self.log.info(result)
         except Exception as err:
             self.log.error(FAILURE.format(cmd, err))
@@ -2825,7 +2831,8 @@ class CommandInput(cmd.Cmd):
                     "Exactly two command line arguments required: <location> <number>"
                 )
             location, number = info[0], info[1]
-            result = self.pri_dut.hfp_lib.setMemoryLocation(location, number)
+            result = self.pri_dut.sl4f.hfp_lib.setMemoryLocation(
+                location, number)
             self.log.info(result)
         except Exception as err:
             self.log.error(FAILURE.format(cmd, err))
@@ -2845,7 +2852,7 @@ class CommandInput(cmd.Cmd):
         cmd = "Sets a memory location to point to a remote number."
         try:
             location = line.strip()
-            result = self.pri_dut.hfp_lib.clearMemoryLocation(location)
+            result = self.pri_dut.sl4f.hfp_lib.clearMemoryLocation(location)
             self.log.info(result)
         except Exception as err:
             self.log.error(FAILURE.format(cmd, err))
@@ -2870,7 +2877,7 @@ class CommandInput(cmd.Cmd):
                     "Exactly two command line arguments required: <number> <status>"
                 )
             number, status = info[0], int(info[1])
-            result = self.pri_dut.hfp_lib.setDialResult(number, status)
+            result = self.pri_dut.sl4f.hfp_lib.setDialResult(number, status)
             self.log.info(pprint.pformat(result))
         except Exception as err:
             self.log.error(FAILURE.format(cmd, err))
@@ -2885,7 +2892,7 @@ class CommandInput(cmd.Cmd):
         """
         cmd = "Get the call manager's state"
         try:
-            result = self.pri_dut.hfp_lib.getState()
+            result = self.pri_dut.sl4f.hfp_lib.getState()
             self.log.info(pprint.pformat(result))
         except Exception as err:
             self.log.error(FAILURE.format(cmd, err))
@@ -2906,7 +2913,8 @@ class CommandInput(cmd.Cmd):
         cmd = "Set the Service Level Connection (SLC) behavior"
         try:
             autoconnect = line.strip().lower() == "true"
-            result = self.pri_dut.hfp_lib.setConnectionBehavior(autoconnect)
+            result = self.pri_dut.sl4f.hfp_lib.setConnectionBehavior(
+                autoconnect)
             self.log.info(result)
         except Exception as err:
             self.log.error(FAILURE.format(cmd, err))
@@ -2924,7 +2932,7 @@ class CommandInput(cmd.Cmd):
         """
         cmd = "Initialize RFCOMM proxy"
         try:
-            result = self.pri_dut.rfcomm_lib.init()
+            result = self.pri_dut.sl4f.rfcomm_lib.init()
             self.log.info(result)
         except Exception as err:
             self.log.error(FAILURE.format(cmd, err))
@@ -2939,7 +2947,7 @@ class CommandInput(cmd.Cmd):
         """
         cmd = "Remove RFCOMM service"
         try:
-            result = self.pri_dut.rfcomm_lib.removeService()
+            result = self.pri_dut.sl4f.rfcomm_lib.removeService()
             self.log.info(result)
         except Exception as err:
             self.log.error(FAILURE.format(cmd, err))
@@ -2955,7 +2963,7 @@ class CommandInput(cmd.Cmd):
         """
         cmd = "Disconnect the RFCOMM Session"
         try:
-            result = self.pri_dut.rfcomm_lib.disconnectSession(
+            result = self.pri_dut.sl4f.rfcomm_lib.disconnectSession(
                 self.unique_mac_addr_id)
             self.log.info(result)
         except Exception as err:
@@ -2973,7 +2981,7 @@ class CommandInput(cmd.Cmd):
         cmd = "Make an outgoing RFCOMM connection"
         try:
             server_channel_number = int(line.strip())
-            result = self.pri_dut.rfcomm_lib.connectRfcommChannel(
+            result = self.pri_dut.sl4f.rfcomm_lib.connectRfcommChannel(
                 self.unique_mac_addr_id, server_channel_number)
             self.log.info(result)
         except Exception as err:
@@ -2991,7 +2999,7 @@ class CommandInput(cmd.Cmd):
         cmd = "Close the RFCOMM channel"
         try:
             server_channel_number = int(line.strip())
-            result = self.pri_dut.rfcomm_lib.disconnectRfcommChannel(
+            result = self.pri_dut.sl4f.rfcomm_lib.disconnectRfcommChannel(
                 self.unique_mac_addr_id, server_channel_number)
             self.log.info(result)
         except Exception as err:
@@ -3009,7 +3017,7 @@ class CommandInput(cmd.Cmd):
         cmd = "Send a remote line status update for the RFCOMM channel"
         try:
             server_channel_number = int(line.strip())
-            result = self.pri_dut.rfcomm_lib.sendRemoteLineStatus(
+            result = self.pri_dut.sl4f.rfcomm_lib.sendRemoteLineStatus(
                 self.unique_mac_addr_id, server_channel_number)
             self.log.info(result)
         except Exception as err:
@@ -3033,7 +3041,7 @@ class CommandInput(cmd.Cmd):
                 )
             server_channel_number = int(info[0])
             data = info[1]
-            result = self.pri_dut.rfcomm_lib.writeRfcomm(
+            result = self.pri_dut.sl4f.rfcomm_lib.writeRfcomm(
                 self.unique_mac_addr_id, server_channel_number, data)
             self.log.info(result)
         except Exception as err:

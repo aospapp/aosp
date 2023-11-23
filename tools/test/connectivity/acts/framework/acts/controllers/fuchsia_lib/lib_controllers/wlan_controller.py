@@ -72,7 +72,7 @@ class WlanController:
         """
 
         # Retrieve WLAN interface IDs
-        response = self.device.wlan_lib.wlanGetIfaceIdList()
+        response = self.device.sl4f.wlan_lib.wlanGetIfaceIdList()
         if response.get('error'):
             raise WlanControllerError('Failed to get WLAN iface ids: %s' %
                                       response['error'])
@@ -84,7 +84,7 @@ class WlanController:
         # Use IDs to get WLAN interface info and mac addresses
         wlan_ifaces_by_mac = {}
         for id in wlan_iface_ids:
-            response = self.device.wlan_lib.wlanQueryInterface(id)
+            response = self.device.sl4f.wlan_lib.wlanQueryInterface(id)
             if response.get('error'):
                 raise WlanControllerError(
                     'Failed to query wlan iface id %s: %s' %
@@ -139,7 +139,7 @@ class WlanController:
             ConnectionError - failure to query PHYs
         """
         self.log.info('Setting DUT country code to %s' % country_code)
-        country_code_response = self.device.regulatory_region_lib.setRegion(
+        country_code_response = self.device.sl4f.regulatory_region_lib.setRegion(
             country_code)
         if country_code_response.get('error'):
             raise EnvironmentError(
@@ -148,7 +148,7 @@ class WlanController:
 
         self.log.info('Verifying DUT country code was correctly set to %s.' %
                       country_code)
-        phy_ids_response = self.device.wlan_lib.wlanPhyIdList()
+        phy_ids_response = self.device.sl4f.wlan_lib.wlanPhyIdList()
         if phy_ids_response.get('error'):
             raise ConnectionError('Failed to get phy ids from DUT. Error: %s' %
                                   (country_code, phy_ids_response['error']))
@@ -156,7 +156,8 @@ class WlanController:
         end_time = time.time() + TIME_TO_WAIT_FOR_COUNTRY_CODE
         while time.time() < end_time:
             for id in phy_ids_response['result']:
-                get_country_response = self.device.wlan_lib.wlanGetCountry(id)
+                get_country_response = self.device.sl4f.wlan_lib.wlanGetCountry(
+                    id)
                 if get_country_response.get('error'):
                     raise ConnectionError(
                         'Failed to query PHY ID (%s) for country. Error: %s' %

@@ -53,8 +53,7 @@ public class ProcessorMultipleProfilesTest {
                 annotatedNotesProvider(annotationPrinter),
                 annotatedNotesCrossProfileType(annotationPrinter));
 
-    assertThat(compilation)
-        .generatedSourceFile(NOTES_PACKAGE + ".ProfileNotesType_MultipleProfiles");
+    assertThat(compilation).generatedSourceFile(NOTES_PACKAGE + ".NotesType_MultipleProfiles");
   }
 
   @Test
@@ -67,11 +66,9 @@ public class ProcessorMultipleProfilesTest {
                 annotatedNotesCrossProfileType(annotationPrinter));
 
     assertThat(compilation)
-        .generatedSourceFile(NOTES_PACKAGE + ".ProfileNotesType_MultipleProfiles")
+        .generatedSourceFile(NOTES_PACKAGE + ".NotesType_MultipleProfiles")
         .contentsAsUtf8String()
-        .contains(
-            "class ProfileNotesType_MultipleProfiles implements"
-                + " ProfileNotesType_MultipleSender");
+        .contains("class NotesType_MultipleProfiles implements NotesType_MultipleSender");
   }
 
   @Test
@@ -84,13 +81,13 @@ public class ProcessorMultipleProfilesTest {
                 annotatedNotesCrossProfileType(annotationPrinter));
 
     assertThat(compilation)
-        .generatedSourceFile(NOTES_PACKAGE + ".ProfileNotesType_MultipleProfiles")
+        .generatedSourceFile(NOTES_PACKAGE + ".NotesType_MultipleProfiles")
         .contentsAsUtf8String()
-        .contains("public ProfileNotesType_MultipleProfiles(");
+        .contains("public NotesType_MultipleProfiles(");
 
     assertThat(compilation)
-        .generatedSourceFile(NOTES_PACKAGE + ".ProfileNotesType_MultipleProfiles")
+        .generatedSourceFile(NOTES_PACKAGE + ".NotesType_MultipleProfiles")
         .contentsAsUtf8String()
-        .contains("Map<Profile, ProfileNotesType_SingleSenderCanThrow>" + " senders) {");
+        .contains("Map<Profile, NotesType_SingleSenderCanThrow> senders) {");
   }
 }

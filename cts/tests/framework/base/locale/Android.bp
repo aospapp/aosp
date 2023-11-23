@@ -43,6 +43,7 @@ android_test {
     srcs: [
         "InstallerApp/**/*.java",
         "TestApp/**/*.java",
+        "ImeApp/**/*.java",
         "src/**/*.java",
     ],
 
@@ -50,6 +51,7 @@ android_test {
     data: [
         ":CtsLocaleTestApp",
         ":CtsLocaleInstallerApp",
+        ":CtsLocaleImeApp",
     ],
     per_testcase_directory: true,
 }

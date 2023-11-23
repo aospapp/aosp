@@ -26,6 +26,7 @@
         <option name="push" value="NeneTestApp1.apk->/data/local/tmp/NeneTestApp1.apk" />
     </target_preparer>
     <test class="com.android.tradefed.testtype.AndroidJUnitTest" >
+        <option name="exclude-annotation" value="com.android.interactive.annotations.Interactive" />
         <option name="exclude-annotation" value="com.android.bedstead.harrier.annotations.RequireRunOnWorkProfile" />
         <option name="exclude-annotation" value="com.android.bedstead.harrier.annotations.RequireRunOnSecondaryUser" />
         <option name="package" value="com.android.bedstead.nene.test" />

@@ -188,7 +188,8 @@ public final class NetworkAgentConfig implements Parcelable {
      * Set to true if the PRIVATE_DNS_BROKEN notification has shown for this network.
      * Reset this bit when private DNS mode is changed from strict mode to opportunistic/off mode.
      *
-     * This is not parceled, because it would not make sense.
+     * This is not parceled, because it would not make sense. It's also ignored by the
+     * equals() and hashcode() methods.
      *
      * @hide
      */
@@ -252,7 +253,7 @@ public final class NetworkAgentConfig implements Parcelable {
 
     /**
      * Whether network validation should be performed for this VPN network.
-     * {@see #isVpnValidationRequired}
+     * @see #isVpnValidationRequired
      * @hide
      */
     private boolean mVpnRequiresValidation = false;
@@ -503,8 +504,10 @@ public final class NetworkAgentConfig implements Parcelable {
                 && provisioningNotificationDisabled == that.provisioningNotificationDisabled
                 && skip464xlat == that.skip464xlat
                 && legacyType == that.legacyType
+                && legacySubType == that.legacySubType
                 && Objects.equals(subscriberId, that.subscriberId)
                 && Objects.equals(legacyTypeName, that.legacyTypeName)
+                && Objects.equals(legacySubTypeName, that.legacySubTypeName)
                 && Objects.equals(mLegacyExtraInfo, that.mLegacyExtraInfo)
                 && excludeLocalRouteVpn == that.excludeLocalRouteVpn
                 && mVpnRequiresValidation == that.mVpnRequiresValidation;
@@ -514,8 +517,8 @@ public final class NetworkAgentConfig implements Parcelable {
     public int hashCode() {
         return Objects.hash(allowBypass, explicitlySelected, acceptUnvalidated,
                 acceptPartialConnectivity, provisioningNotificationDisabled, subscriberId,
-                skip464xlat, legacyType, legacyTypeName, mLegacyExtraInfo, excludeLocalRouteVpn,
-                mVpnRequiresValidation);
+                skip464xlat, legacyType, legacySubType, legacyTypeName, legacySubTypeName,
+                mLegacyExtraInfo, excludeLocalRouteVpn, mVpnRequiresValidation);
     }
 
     @Override
@@ -529,8 +532,10 @@ public final class NetworkAgentConfig implements Parcelable {
                 + ", subscriberId = '" + subscriberId + '\''
                 + ", skip464xlat = " + skip464xlat
                 + ", legacyType = " + legacyType
+                + ", legacySubType = " + legacySubType
                 + ", hasShownBroken = " + hasShownBroken
                 + ", legacyTypeName = '" + legacyTypeName + '\''
+                + ", legacySubTypeName = '" + legacySubTypeName + '\''
                 + ", legacyExtraInfo = '" + mLegacyExtraInfo + '\''
                 + ", excludeLocalRouteVpn = '" + excludeLocalRouteVpn + '\''
                 + ", vpnRequiresValidation = '" + mVpnRequiresValidation + '\''

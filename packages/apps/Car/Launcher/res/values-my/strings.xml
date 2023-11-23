@@ -18,8 +18,17 @@
 <resources xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="app_title" msgid="1995858460392177468">"ကား၏ ဖွင့်စနစ်"</string>
+    <string name="reset_appgrid_title" msgid="814562055108028366">"အက်ပ်ဇယားကို A-Z အစီအစဉ်သို့ ပြင်ဆင်သတ်မှတ်ရန်"</string>
+    <string name="reset_appgrid_dialogue_message" msgid="8275758912490987735">"ဤလုပ်ဆောင်ချက်သည် စိတ်ကြိုက်စီစဉ်မှုအားလုံးကို ဖယ်ရှားမည်။ ရှေ့ဆက်လိုပါသလား။"</string>
     <string name="app_launcher_title_all_apps" msgid="3215107396036838217">"အက်ပ်အားလုံး"</string>
     <string name="app_launcher_title_media_only" msgid="4400886555907422816">"မီဒီယာ အက်ပ်များ"</string>
+    <string name="app_launcher_stop_app_action" msgid="1081680842410279692">"အက်ပ်ကို ရပ်ဆိုင်းရန်"</string>
+    <string name="app_launcher_app_info_action" msgid="6388181061002827660">"အက်ပ်အချက်အလက်"</string>
+    <string name="app_launcher_stop_app_success_toast_text" msgid="2117271772351005349">"<xliff:g id="APP_NAME">%1$s</xliff:g> ရပ်ဆိုင်းသွားပြီ။"</string>
+    <string name="app_launcher_stop_app_dialog_title" msgid="8276889322638001144">"အက်ပ်ကို ရပ်ဆိုင်းမလား။"</string>
+    <string name="app_launcher_stop_app_dialog_text" msgid="3264059639436254372">"အက်ပ်ကို မဖြစ်မနေ ရပ်ခိုင်းလျှင် အမှားအယွင်းဖြစ်နိုင်သည်။"</string>
+    <string name="app_launcher_stop_app_cant_stop_text" msgid="4766841417948746773">"အက်ပ်ကို ရပ်၍မရပါ။"</string>
+    <string name="default_media_song_title" msgid="2970305231647817808"></string>
     <string name="driving_toast_text" msgid="149483091947120092">"ကားမောင်းနေစဉ် <xliff:g id="APP_NAME">%1$s</xliff:g> ကို သုံး၍မရပါ။"</string>
     <string name="tap_for_more_info_text" msgid="2043549383814415585">"နောက်ထပ် အချက်အလက်များအတွက် ကတ်ကိုတို့ပါ"</string>
     <string name="tap_to_launch_text" msgid="6910695705119260847">"ဖွင့်ရန် ကတ်ကိုတို့ပါ"</string>
@@ -34,4 +43,8 @@
     <string name="fake_weather_footer_text" msgid="4570172025869749926">"Mountain View • မြင့်- --° နိမ့်- --°"</string>
     <string name="hide_debug_apps" msgid="6128313544379622475">"အမှားရှာပြင်သည့်အက်ပ်များ ဖျောက်ထားရန်"</string>
     <string name="show_debug_apps" msgid="4521073121286325786">"အမှားရှာပြင်သည့်အက်ပ်များ ပြရန်"</string>
+    <string name="times_separator" msgid="6180368193321715816">"/"</string>
+    <string name="recents_empty_state_text" msgid="6703106170272215731">"မကြာသေးမီက သုံးထားသည်များ မရှိပါ"</string>
+    <string name="recents_clear_all_text" msgid="2088678071417053923">"အားလုံးရှင်းရန်"</string>
+    <string name="failure_opening_recent_task_message" msgid="9097595793150874357">"အက်ပ် မရနိုင်ပါ"</string>
 </resources>

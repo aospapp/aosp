@@ -20,11 +20,11 @@ class AudioTest(test.test):
     collection of server side audio tests. It is assumed to be run with a
     Chameleon audio boards. It is recommended to use this base class for server
     side Chameleon audio tests to take advantage of the initialize, setup and
-    sanity check.
+    confidence check.
     """
 
     def initialize(self, host):
-        """Initialize audio test needed components and do some sanity checks"""
+        """Initialize audio test needed components and do some checks"""
         if host.chameleon is None:
             raise error.TestError("host.chameleon is None."
                                   "Please check the chameleon of this DUT.")

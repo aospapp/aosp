@@ -2,10 +2,19 @@
 {
   "imports": [
     {
+      "path": "external/rust/crates/async-stream"
+    },
+    {
       "path": "external/rust/crates/bitflags"
     },
     {
+      "path": "external/rust/crates/crossbeam-epoch"
+    },
+    {
       "path": "external/rust/crates/crossbeam-utils"
+    },
+    {
+      "path": "external/rust/crates/slab"
     }
   ]
 }

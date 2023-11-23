@@ -61,6 +61,19 @@ void AddStandardSystemLinks(const Context& ctx, Section* section) {
   });
 }
 
+void AddLlndkLibraries(const Context& ctx, Namespace* ns,
+                       VndkUserPartition vndk_user) {
+  // Add link to system to keep the original sequence of linked namespaces
+  ns->GetLink(ctx.GetSystemNamespaceName());
+
+  // LLNDK libs will be resolved according to the runtime configuration.
+  if (vndk_user == VndkUserPartition::Product) {
+    ns->AddRequires(base::Split(Var("LLNDK_LIBRARIES_PRODUCT", ""), ":"));
+  } else {
+    ns->AddRequires(base::Split(Var("LLNDK_LIBRARIES_VENDOR", ""), ":"));
+  }
+}
+
 }  // namespace contents
 }  // namespace linkerconfig
 }  // namespace android

@@ -31,6 +31,24 @@ import android.util.SparseArray;
  */
 public abstract class NotificationHelperBase {
 
+    public static final String CAR_WATCHDOG_ACTION_DISMISS_RESOURCE_OVERUSE_NOTIFICATION =
+            "com.android.car.watchdog.ACTION_DISMISS_RESOURCE_OVERUSE_NOTIFICATION";
+
+    public static final String CAR_WATCHDOG_ACTION_LAUNCH_APP_SETTINGS =
+            "com.android.car.watchdog.ACTION_LAUNCH_APP_SETTINGS";
+
+    // TODO(b/244474850): Delete the intent in W release. After TM-QPR2, it is not used anymore by
+    //  the notification helper.
+    /**
+     * @deprecated - Prefer dismissing resource over notifications using the
+     * {@code ACTION_DISMISS_RESOURCE_OVERUSE_NOTIFICATION} intent action.
+     */
+    @Deprecated
+    public static final String CAR_WATCHDOG_ACTION_RESOURCE_OVERUSE_DISABLE_APP =
+            "com.android.car.watchdog.ACTION_RESOURCE_OVERUSE_DISABLE_APP";
+
+    public static final String INTENT_EXTRA_NOTIFICATION_ID = "notification_id";
+
     /*
      * NOTE: IDs in the range {@code [RESOURCE_OVERUSE_NOTIFICATION_BASE_ID,
      * RESOURCE_OVERUSE_NOTIFICATION_BASE_ID + RESOURCE_OVERUSE_NOTIFICATION_MAX_OFFSET)} are

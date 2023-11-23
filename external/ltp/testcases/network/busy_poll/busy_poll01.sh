@@ -4,8 +4,6 @@
 #
 # Author: Alexey Kodanev <alexey.kodanev@oracle.com>
 
-. busy_poll_lib.sh
-
 cleanup()
 {
 	[ -n "$busy_read_old" ] && \
@@ -21,22 +19,19 @@ cleanup()
 set_busy_poll()
 {
 	local value=${1:-"0"}
-	ROD_SILENT sysctl -q -w net.core.busy_read=$value
-	ROD_SILENT sysctl -q -w net.core.busy_poll=$value
-
-	tst_rhost_run -s -c "sysctl -q -w net.core.busy_read=$value"
-	tst_rhost_run -s -c "sysctl -q -w net.core.busy_poll=$value"
+	tst_set_sysctl net.core.busy_read $value safe
+	tst_set_sysctl net.core.busy_poll $value safe
 }
 
 setup()
 {
 	busy_poll_check_config
 
-	busy_read_old="$(cat /proc/sys/net/core/busy_read)"
-	busy_poll_old="$(cat /proc/sys/net/core/busy_poll)"
+	busy_read_old="$(sysctl -n net.core.busy_read)"
+	busy_poll_old="$(sysctl -n net.core.busy_poll)"
 
-	rbusy_read_old=$(tst_rhost_run -c 'cat /proc/sys/net/core/busy_read')
-	rbusy_poll_old=$(tst_rhost_run -c 'cat /proc/sys/net/core/busy_poll')
+	rbusy_read_old=$(tst_rhost_run -c 'sysctl -ne net.core.busy_read')
+	rbusy_poll_old=$(tst_rhost_run -c 'sysctl -ne net.core.busy_poll')
 }
 
 test()
@@ -50,4 +45,5 @@ test()
 	tst_netload_compare $(cat res_0) $(cat res_50) 1
 }
 
+. busy_poll_lib.sh
 tst_run

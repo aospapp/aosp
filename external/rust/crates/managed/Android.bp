@@ -30,6 +30,12 @@ rust_library {
         "default",
         "std",
     ],
+    apex_available: [
+        "//apex_available:platform",
+        "//apex_available:anyapex",
+    ],
+    product_available: true,
+    vendor_available: true,
 }
 
 rust_test {
@@ -48,9 +54,5 @@ rust_test {
     features: [
         "default",
         "std",
-    ],
-    flags: [
-        "-C debug-assertions=on",
-        "-C opt-level=1",
     ],
 }

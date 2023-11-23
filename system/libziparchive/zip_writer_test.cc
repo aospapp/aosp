@@ -45,6 +45,55 @@ struct zipwriter : public ::testing::Test {
   }
 };
 
+TEST_F(zipwriter, WriteEmptyUncompressedZipWithOneFile) {
+  ZipWriter writer(file_);
+
+  const char* expected = "";
+
+  ASSERT_EQ(0, writer.StartEntry("file.txt", 0));
+  ASSERT_EQ(0, writer.FinishEntry());
+  ASSERT_EQ(0, writer.Finish());
+
+  ASSERT_GE(0, lseek(fd_, 0, SEEK_SET));
+
+  ZipArchiveHandle handle;
+  ASSERT_EQ(0, OpenArchiveFd(fd_, "temp", &handle, false));
+
+  ZipEntry data;
+  ASSERT_EQ(0, FindEntry(handle, "file.txt", &data));
+  EXPECT_EQ(kCompressStored, data.method);
+  EXPECT_EQ(0u, data.has_data_descriptor);
+  EXPECT_EQ(strlen(expected), data.compressed_length);
+  ASSERT_EQ(strlen(expected), data.uncompressed_length);
+  ASSERT_TRUE(AssertFileEntryContentsEq(expected, handle, &data));
+
+  CloseArchive(handle);
+}
+
+TEST_F(zipwriter, WriteEmptyCompressedZipWithOneFile) {
+  ZipWriter writer(file_);
+
+  const char* expected = "";
+
+  ASSERT_EQ(0, writer.StartEntry("file.txt", ZipWriter::kCompress));
+  ASSERT_EQ(0, writer.FinishEntry());
+  ASSERT_EQ(0, writer.Finish());
+
+  ASSERT_GE(0, lseek(fd_, 0, SEEK_SET));
+
+  ZipArchiveHandle handle;
+  ASSERT_EQ(0, OpenArchiveFd(fd_, "temp", &handle, false));
+
+  ZipEntry data;
+  ASSERT_EQ(0, FindEntry(handle, "file.txt", &data));
+  EXPECT_EQ(kCompressDeflated, data.method);
+  EXPECT_EQ(0u, data.has_data_descriptor);
+  ASSERT_EQ(strlen(expected), data.uncompressed_length);
+  ASSERT_TRUE(AssertFileEntryContentsEq(expected, handle, &data));
+
+  CloseArchive(handle);
+}
+
 TEST_F(zipwriter, WriteUncompressedZipWithOneFile) {
   ZipWriter writer(file_);
 

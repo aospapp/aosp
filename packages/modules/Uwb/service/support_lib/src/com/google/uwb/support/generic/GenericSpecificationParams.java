@@ -16,11 +16,12 @@
 
 package com.google.uwb.support.generic;
 
-import android.annotation.NonNull;
 import android.os.PersistableBundle;
 import android.uwb.UwbManager;
 
-import com.google.uwb.support.base.RequiredParam;
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+
 import com.google.uwb.support.ccc.CccParams;
 import com.google.uwb.support.ccc.CccSpecificationParams;
 import com.google.uwb.support.fira.FiraParams;
@@ -59,10 +60,12 @@ public class GenericSpecificationParams extends GenericParams {
         return BUNDLE_VERSION_CURRENT;
     }
 
+    @Nullable
     public FiraSpecificationParams getFiraSpecificationParams() {
         return mFiraSpecificationParams;
     }
 
+    @Nullable
     public CccSpecificationParams getCccSpecificationParams() {
         return mCccSpecificationParams;
     }
@@ -79,8 +82,10 @@ public class GenericSpecificationParams extends GenericParams {
         PersistableBundle bundle = super.toBundle();
         bundle.putPersistableBundle(KEY_FIRA_SPECIFICATION_PARAMS,
                 mFiraSpecificationParams.toBundle());
-        bundle.putPersistableBundle(KEY_CCC_SPECIFICATION_PARAMS,
-                mCccSpecificationParams.toBundle());
+        if (mCccSpecificationParams != null) {
+            bundle.putPersistableBundle(KEY_CCC_SPECIFICATION_PARAMS,
+                    mCccSpecificationParams.toBundle());
+        }
         bundle.putBoolean(KEY_POWER_STATS_QUERY_SUPPORT, mHasPowerStatsSupport);
         return bundle;
     }
@@ -97,22 +102,23 @@ public class GenericSpecificationParams extends GenericParams {
 
     private static GenericSpecificationParams parseVersion1(PersistableBundle bundle) {
         GenericSpecificationParams.Builder builder = new GenericSpecificationParams.Builder();
-        return builder.setFiraSpecificationParams(
-                        FiraSpecificationParams.fromBundle(
-                                bundle.getPersistableBundle(KEY_FIRA_SPECIFICATION_PARAMS)))
-                .setCccSpecificationParams(
-                        CccSpecificationParams.fromBundle(
-                                bundle.getPersistableBundle(KEY_CCC_SPECIFICATION_PARAMS)))
-                .hasPowerStatsSupport(bundle.getBoolean(KEY_FIRA_SPECIFICATION_PARAMS))
-                .build();
+        builder = builder.setFiraSpecificationParams(
+                FiraSpecificationParams.fromBundle(
+                        bundle.getPersistableBundle(KEY_FIRA_SPECIFICATION_PARAMS)))
+                .hasPowerStatsSupport(bundle.getBoolean(KEY_POWER_STATS_QUERY_SUPPORT));
+        PersistableBundle cccBundle = bundle.getPersistableBundle(KEY_CCC_SPECIFICATION_PARAMS);
+        if (cccBundle != null) {
+            builder = builder.setCccSpecificationParams(
+                    CccSpecificationParams.fromBundle(
+                            cccBundle));
+        }
+        return builder.build();
     }
 
     /** Builder */
     public static class Builder {
-        private RequiredParam<FiraSpecificationParams> mFiraSpecificationParams =
-                new RequiredParam<>();
-        private RequiredParam<CccSpecificationParams> mCccSpecificationParams =
-                new RequiredParam<>();
+        private FiraSpecificationParams mFiraSpecificationParams = null;
+        private CccSpecificationParams mCccSpecificationParams = null;
         private boolean mHasPowerStatsSupport = false;
 
         /**
@@ -120,7 +126,7 @@ public class GenericSpecificationParams extends GenericParams {
          */
         public Builder setFiraSpecificationParams(
                 @NonNull FiraSpecificationParams firaSpecificationParams) {
-            mFiraSpecificationParams.set(Objects.requireNonNull(firaSpecificationParams));
+            mFiraSpecificationParams = Objects.requireNonNull(firaSpecificationParams);
             return this;
         }
 
@@ -129,7 +135,7 @@ public class GenericSpecificationParams extends GenericParams {
          */
         public Builder setCccSpecificationParams(
                 @NonNull CccSpecificationParams cccSpecificationParams) {
-            mCccSpecificationParams.set(Objects.requireNonNull(cccSpecificationParams));
+            mCccSpecificationParams = Objects.requireNonNull(cccSpecificationParams);
             return this;
         }
 
@@ -146,8 +152,8 @@ public class GenericSpecificationParams extends GenericParams {
          */
         public GenericSpecificationParams build() {
             return new GenericSpecificationParams(
-                    mFiraSpecificationParams.get(),
-                    mCccSpecificationParams.get(),
+                    mFiraSpecificationParams,
+                    mCccSpecificationParams,
                     mHasPowerStatsSupport);
         }
     }

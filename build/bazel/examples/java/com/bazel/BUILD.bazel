@@ -1,11 +1,49 @@
+# Copyright (C) 2023 The Android Open Source Project
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+load("//build/bazel/rules/java:rules.bzl", "java_binary", "java_import", "java_library")
+load("//build/bazel/rules/kotlin:rules.bzl", "kt_jvm_library")
+
+package(default_applicable_licenses = ["//build/soong/licenses:Android-Apache-2.0"])
+
 java_binary(
-  name = "hello_java",
-  srcs = ["example/HelloWorld.java"],
-  main_class = "com.bazel.example.HelloWorld",
-  deps = [":hello_java_lib"],
+    name = "hello_java",
+    srcs = ["example/HelloWorld.java"],
+    main_class = "com.bazel.example.HelloWorld",
+    target_compatible_with = select({
+        "//build/bazel/platforms/os:android": ["@platforms//:incompatible"],
+        "//conditions:default": [],
+    }),
+    deps = [
+        ":hello_java_lib",
+        ":some_kotlin_lib",
+    ],
 )
 
 java_library(
-  name = "hello_java_lib",
-  srcs = ["example_lib/HelloLib.java"],
+    name = "hello_java_lib",
+    srcs = ["example_lib/HelloLib.java"],
+    sdk_version = "current",
+)
+
+java_import(
+    name = "hello_java_import",
+    jars = ["hello_java_import.jar"],
+)
+
+kt_jvm_library(
+    name = "some_kotlin_lib",
+    srcs = ["example_lib/SomeKotlin.kt"],
+    sdk_version = "current",
 )

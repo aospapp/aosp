@@ -4,7 +4,7 @@
  *
  * See http://pubs.opengroup.org/onlinepubs/9699919799/utilities/file.html
 
-USE_FILE(NEWTOY(file, "<1bhLs[!hL]", TOYFLAG_USR|TOYFLAG_BIN))
+USE_FILE(NEWTOY(file, "<1b(brief)hLs[!hL]", TOYFLAG_USR|TOYFLAG_BIN))
 
 config FILE
   bool "file"
@@ -177,10 +177,10 @@ static void do_elf_file(int fd)
           goto bad;
         }
 
-        if (n_namesz==4 && !memcmp(note+12, "GNU", 4) && n_type==3) {
+        if (n_namesz==4 && !smemcmp(note+12, "GNU", 4) && n_type==3) {
           printf(", BuildID=");
           for (j = 0; j<n_descsz; j++) printf("%02x", note[16+j]);
-        } else if (n_namesz==8 && !memcmp(note+12, "Android", 8)) {
+        } else if (n_namesz==8 && !smemcmp(note+12, "Android", 8)) {
           if (n_type==1 /*.android.note.ident*/ && n_descsz >= 4) {
             printf(", for Android %d", (int)elf_int(note+20, 4));
             // NDK r14 and later also include NDK version info. OS binaries
@@ -206,6 +206,7 @@ static void do_regular_file(int fd, char *name)
 {
   char *s = toybuf;
   unsigned len, magic;
+  int ii;
 
   // zero through elf shnum, just in case
   memset(s, 0, 80);
@@ -215,6 +216,8 @@ static void do_regular_file(int fd, char *name)
   // 45 bytes: https://www.muppetlabs.com/~breadbox/software/tiny/teensy.html
   else if (len>=45 && strstart(&s, "\177ELF")) do_elf_file(fd);
   else if (strstart(&s, "!<arch>\n")) xputs("ar archive");
+  else if (*s=='%' && 2==sscanf(s, "%%PDF%d.%u", &ii, &magic))
+    xprintf("PDF document, version %d.%u\n", -ii, magic);
   else if (len>28 && strstart(&s, "\x89PNG\x0d\x0a\x1a\x0a")) {
     // PNG is big-endian: https://www.w3.org/TR/PNG/#7Integers-and-byte-order
     int chunk_length = peek_be(s, 4);
@@ -241,7 +244,7 @@ static void do_regular_file(int fd, char *name)
       s-3, (int)peek_le(s, 2), (int)peek_le(s+2, 2));
 
   // TODO: parsing JPEG for width/height is harder than GIF or PNG.
-  else if (len>32 && !memcmp(s, "\xff\xd8", 2)) xputs("JPEG image data");
+  else if (len>32 && !smemcmp(s, "\xff\xd8", 2)) xputs("JPEG image data");
 
   else if (len>8 && strstart(&s, "\xca\xfe\xba\xbe")) {
     unsigned count = peek_be(s, 4), i, arch;
@@ -255,9 +258,9 @@ static void do_regular_file(int fd, char *name)
         count, count == 1 ? "" : "s");
       for (i = 0, s += 4; i < count; i++, s += 20) {
         arch = peek_be(s, 4);
-	if (arch == 0x00000007) name = "i386";
+        if (arch == 0x00000007) name = "i386";
         else if (arch == 0x01000007) name = "x86_64";
-	else if (arch == 0x0000000c) name = "arm";
+        else if (arch == 0x0000000c) name = "arm";
         else if (arch == 0x0100000c) name = "arm64";
         else name = "unknown";
         xprintf(" [%s]", name);
@@ -304,7 +307,7 @@ static void do_regular_file(int fd, char *name)
   else if (len>31 && peek_be(s, 7) == 0xfd377a585a0000UL)
     xputs("xz compressed data");
   else if (len>10 && strstart(&s, "\x1f\x8b")) xputs("gzip compressed data");
-  else if (len>32 && !memcmp(s+1, "\xfa\xed\xfe", 3)) {
+  else if (len>32 && !smemcmp(s+1, "\xfa\xed\xfe", 3)) {
     int bit = (*s==0xce) ? 32 : 64;
     char *what = 0;
 
@@ -322,26 +325,26 @@ static void do_regular_file(int fd, char *name)
     else what = NULL;
     if (what) xprintf("%s\n", what);
     else xprintf("(bad type %d)\n", s[9]);
-  } else if (len>36 && !memcmp(s, "OggS\x00\x02", 6)) {
+  } else if (len>36 && !smemcmp(s, "OggS\x00\x02", 6)) {
     xprintf("Ogg data");
     // https://wiki.xiph.org/MIMETypesCodecs
-    if (!memcmp(s+28, "CELT    ", 8)) xprintf(", celt audio");
-    else if (!memcmp(s+28, "CMML    ", 8)) xprintf(", cmml text");
-    else if (!memcmp(s+28, "BBCD\0", 5)) xprintf(", dirac video");
-    else if (!memcmp(s+28, "\177FLAC", 5)) xprintf(", flac audio");
-    else if (!memcmp(s+28, "\x8bJNG\r\n\x1a\n", 8)) xprintf(", jng video");
-    else if (!memcmp(s+28, "\x80kate\0\0\0", 8)) xprintf(", kate text");
-    else if (!memcmp(s+28, "OggMIDI\0", 8)) xprintf(", midi text");
-    else if (!memcmp(s+28, "\x8aMNG\r\n\x1a\n", 8)) xprintf(", mng video");
-    else if (!memcmp(s+28, "OpusHead", 8)) xprintf(", opus audio");
-    else if (!memcmp(s+28, "PCM     ", 8)) xprintf(", pcm audio");
-    else if (!memcmp(s+28, "\x89PNG\r\n\x1a\n", 8)) xprintf(", png video");
-    else if (!memcmp(s+28, "Speex   ", 8)) xprintf(", speex audio");
-    else if (!memcmp(s+28, "\x80theora", 7)) xprintf(", theora video");
-    else if (!memcmp(s+28, "\x01vorbis", 7)) xprintf(", vorbis audio");
-    else if (!memcmp(s+28, "YUV4MPEG", 8)) xprintf(", yuv4mpeg video");
+    if (!smemcmp(s+28, "CELT    ", 8)) xprintf(", celt audio");
+    else if (!smemcmp(s+28, "CMML    ", 8)) xprintf(", cmml text");
+    else if (!smemcmp(s+28, "BBCD", 5)) xprintf(", dirac video");
+    else if (!smemcmp(s+28, "\177FLAC", 5)) xprintf(", flac audio");
+    else if (!smemcmp(s+28, "\x8bJNG\r\n\x1a\n", 8)) xprintf(", jng video");
+    else if (!smemcmp(s+28, "\x80kate\0\0", 8)) xprintf(", kate text");
+    else if (!smemcmp(s+28, "OggMIDI", 8)) xprintf(", midi text");
+    else if (!smemcmp(s+28, "\x8aMNG\r\n\x1a\n", 8)) xprintf(", mng video");
+    else if (!smemcmp(s+28, "OpusHead", 8)) xprintf(", opus audio");
+    else if (!smemcmp(s+28, "PCM     ", 8)) xprintf(", pcm audio");
+    else if (!smemcmp(s+28, "\x89PNG\r\n\x1a\n", 8)) xprintf(", png video");
+    else if (!smemcmp(s+28, "Speex   ", 8)) xprintf(", speex audio");
+    else if (!smemcmp(s+28, "\x80theora", 7)) xprintf(", theora video");
+    else if (!smemcmp(s+28, "\x01vorbis", 7)) xprintf(", vorbis audio");
+    else if (!smemcmp(s+28, "YUV4MPEG", 8)) xprintf(", yuv4mpeg video");
     xputc('\n');
-  } else if (len>32 && !memcmp(s, "RIF", 3) && !memcmp(s+8, "WAVEfmt ", 8)) {
+  } else if (len>32 && !smemcmp(s, "RIF", 3) && !smemcmp(s+8, "WAVEfmt ", 8)) {
     // https://en.wikipedia.org/wiki/WAV
     int le = (s[3] == 'F');
     int format = le ? peek_le(s+20, 2) : peek_be(s+20, 2);
@@ -369,7 +372,7 @@ static void do_regular_file(int fd, char *name)
     else xprintf("unknown format %d", format);
     xputc('\n');
   } else if (len>12 && peek_be(s, 4)==0x10000) xputs("TrueType font");
-  else if (len>12 && !memcmp(s, "ttcf\x00", 5)) {
+  else if (len>12 && !smemcmp(s, "ttcf", 5)) {
     xprintf("TrueType font collection, version %d, %d fonts\n",
             (int)peek_be(s+4, 2), (int)peek_be(s+8, 4));
 
@@ -379,8 +382,29 @@ static void do_regular_file(int fd, char *name)
   else if (strstart(&s,"-----BEGIN CERTIFICATE-----")) xputs("PEM certificate");
 
   // https://msdn.microsoft.com/en-us/library/windows/desktop/ms680547(v=vs.85).aspx
-  else if (len>0x70 && !memcmp(s, "MZ", 2) &&
-      (magic=peek_le(s+0x3c,4))<len-4 && !memcmp(s+magic, "\x50\x45\0", 4)) {
+  else if (len>0x70 && !smemcmp(s, "MZ", 2) &&
+      (magic=peek_le(s+0x3c,4))<len-4 && !smemcmp(s+magic, "\x50\x45\0", 4)) {
+
+    // Linux kernel images look like PE files.
+    // https://www.kernel.org/doc/Documentation/arm64/booting.txt
+    // I've only ever seen LE, 4KiB pages, so ignore flags for now.
+    if (!smemcmp(s+0x38, "ARMd", 4)) return xputs("Linux arm64 kernel image");
+    else if (!smemcmp(s+0x202, "HdrS", 4)) {
+      // https://www.kernel.org/doc/Documentation/x86/boot.txt
+      unsigned ver_off = peek_le(s+0x20e, 2);
+
+      xprintf("Linux x86-64 kernel image");
+      if ((0x200 + ver_off) < len) {
+        s += 0x200 + ver_off;
+      } else {
+        if (lseek(fd, ver_off - len + 0x200, SEEK_CUR)<0 ||
+            (len = readall(fd, s, sizeof(toybuf)))<0)
+          return perror_msg("%s", name);
+      }
+      xprintf(", version %s\n", s);
+      return;
+    }
+
     xprintf("MS PE32%s executable %s", (peek_le(s+magic+24, 2)==0x20b)?"+":"",
         (peek_le(s+magic+22, 2)&0x2000)?"(DLL) ":"");
     if (peek_le(s+magic+20, 2)>70) {
@@ -394,7 +418,7 @@ static void do_regular_file(int fd, char *name)
     xprintf("x86%s\n", (peek_le(s+magic+4, 2)==0x14c) ? "" : "-64");
 
     // https://en.wikipedia.org/wiki/BMP_file_format
-  } else if (len>0x32 && !memcmp(s, "BM", 2) && !peek_be(s+6, 4)) {
+  } else if (len>0x32 && !smemcmp(s, "BM", 2) && !peek_be(s+6, 4)) {
     xprintf("BMP image, %d x %d, %d bpp\n", (int)peek_le(s+18, 4),
             (int)peek_le(s+22,4), (int)peek_le(s+28, 2));
 
@@ -408,7 +432,7 @@ static void do_regular_file(int fd, char *name)
         (int)peek_le(s+12, 4), (int)peek_le(s+20, 4));
 
     // https://android.googlesource.com/platform/system/tools/mkbootimg/+/refs/heads/master/include/bootimg/bootimg.h
-  } else if (len>1632 && !memcmp(s, "ANDROID!", 8)) {
+  } else if (len>1632 && !smemcmp(s, "ANDROID!", 8)) {
     xprintf("Android boot image v%d\n", (int)peek_le(s+40, 4));
 
     // https://source.android.com/devices/architecture/dto/partitions
@@ -417,7 +441,7 @@ static void do_regular_file(int fd, char *name)
             (int)peek_be(s+16, 4));
 
     // frameworks/base/core/java/com/android/internal/util/BinaryXmlSerializer.java
-  } else if (len>4 && !memcmp(s, "ABX", 3)) {
+  } else if (len>4 && !smemcmp(s, "ABX", 3)) {
     xprintf("Android Binary XML v%d\n", s[3]);
 
     // Text files, including shell scripts.

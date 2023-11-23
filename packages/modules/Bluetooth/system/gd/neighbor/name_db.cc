@@ -22,8 +22,9 @@
 #include <utility>
 
 #include "common/bind.h"
+#include "hci/hci_packets.h"
+#include "hci/remote_name_request.h"
 #include "module.h"
-#include "neighbor/name.h"
 #include "os/handler.h"
 #include "os/log.h"
 
@@ -38,7 +39,8 @@ struct PendingRemoteNameRead {
 }  // namespace
 
 struct NameDbModule::impl {
-  void ReadRemoteNameRequest(hci::Address address, ReadRemoteNameDbCallback callback, os::Handler* handler);
+  void ReadRemoteNameRequest(
+      hci::Address address, ReadRemoteNameDbCallback callback, os::Handler* handler);
 
   bool IsNameCached(hci::Address address) const;
   RemoteName ReadCachedRemoteName(hci::Address address) const;
@@ -52,15 +54,16 @@ struct NameDbModule::impl {
   std::unordered_map<hci::Address, std::list<PendingRemoteNameRead>> address_to_pending_read_map_;
   std::unordered_map<hci::Address, RemoteName> address_to_name_map_;
 
-  void OnRemoteNameResponse(hci::ErrorCode status, hci::Address address, RemoteName name);
+  void OnRemoteNameResponse(hci::Address address, hci::ErrorCode status, RemoteName name);
 
-  neighbor::NameModule* name_module_;
+  hci::RemoteNameRequestModule* name_module_;
 
   const NameDbModule& module_;
   os::Handler* handler_;
 };
 
-const ModuleFactory neighbor::NameDbModule::Factory = ModuleFactory([]() { return new neighbor::NameDbModule(); });
+const ModuleFactory neighbor::NameDbModule::Factory =
+    ModuleFactory([]() { return new neighbor::NameDbModule(); });
 
 neighbor::NameDbModule::impl::impl(const neighbor::NameDbModule& module) : module_(module) {}
 
@@ -80,16 +83,23 @@ void neighbor::NameDbModule::impl::ReadRemoteNameRequest(
   hci::PageScanRepetitionMode page_scan_repetition_mode = hci::PageScanRepetitionMode::R1;
   uint16_t clock_offset = 0;
   hci::ClockOffsetValid clock_offset_valid = hci::ClockOffsetValid::INVALID;
-  name_module_->ReadRemoteNameRequest(
+  name_module_->StartRemoteNameRequest(
       address,
-      page_scan_repetition_mode,
-      clock_offset,
-      clock_offset_valid,
-      common::BindOnce(&NameDbModule::impl::OnRemoteNameResponse, common::Unretained(this)),
-      handler_);
+      hci::RemoteNameRequestBuilder::Create(
+          address, page_scan_repetition_mode, clock_offset, clock_offset_valid),
+      handler_->BindOnce(
+          [](neighbor::NameDbModule::impl* self, hci::Address address, hci::ErrorCode status) {
+            self->OnRemoteNameResponse(address, status, {});
+          },
+          common::Unretained(this),
+          address),
+      handler_->BindOnce(
+          [&](uint64_t features) { LOG_WARN("UNIMPLEMENTED: ignoring host supported features"); }),
+      handler_->BindOnceOn(this, &NameDbModule::impl::OnRemoteNameResponse, address));
 }
 
-void neighbor::NameDbModule::impl::OnRemoteNameResponse(hci::ErrorCode status, hci::Address address, RemoteName name) {
+void neighbor::NameDbModule::impl::OnRemoteNameResponse(
+    hci::Address address, hci::ErrorCode status, RemoteName name) {
   ASSERT(address_to_pending_read_map_.find(address) != address_to_pending_read_map_.end());
   if (status == hci::ErrorCode::SUCCESS) {
     address_to_name_map_[address] = name;
@@ -138,7 +148,7 @@ RemoteName neighbor::NameDbModule::ReadCachedRemoteName(hci::Address address) co
 }
 
 void neighbor::NameDbModule::impl::Start() {
-  name_module_ = module_.GetDependency<neighbor::NameModule>();
+  name_module_ = module_.GetDependency<hci::RemoteNameRequestModule>();
   handler_ = module_.GetHandler();
 }
 
@@ -148,7 +158,7 @@ void neighbor::NameDbModule::impl::Stop() {}
  * Module methods here
  */
 void neighbor::NameDbModule::ListDependencies(ModuleList* list) const {
-  list->add<neighbor::NameModule>();
+  list->add<hci::RemoteNameRequestModule>();
 }
 
 void neighbor::NameDbModule::Start() {

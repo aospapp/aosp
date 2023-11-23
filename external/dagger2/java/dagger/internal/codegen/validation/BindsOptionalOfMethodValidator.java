@@ -16,7 +16,6 @@
 
 package dagger.internal.codegen.validation;
 
-import static com.google.auto.common.MoreTypes.asTypeElement;
 import static dagger.internal.codegen.base.Keys.isValidImplicitProvisionKey;
 import static dagger.internal.codegen.binding.InjectionAnnotations.injectedConstructors;
 import static dagger.internal.codegen.validation.BindingElementValidator.AllowsMultibindings.NO_MULTIBINDINGS;
@@ -24,64 +23,55 @@ import static dagger.internal.codegen.validation.BindingElementValidator.AllowsS
 import static dagger.internal.codegen.validation.BindingMethodValidator.Abstractness.MUST_BE_ABSTRACT;
 import static dagger.internal.codegen.validation.BindingMethodValidator.ExceptionSuperclass.NO_EXCEPTIONS;
 
+import androidx.room.compiler.processing.XMethodElement;
+import androidx.room.compiler.processing.XType;
 import com.google.common.collect.ImmutableSet;
-import dagger.BindsOptionalOf;
-import dagger.Module;
 import dagger.internal.codegen.binding.InjectionAnnotations;
-import dagger.internal.codegen.kotlin.KotlinMetadataUtil;
-import dagger.internal.codegen.langmodel.DaggerElements;
+import dagger.internal.codegen.javapoet.TypeNames;
 import dagger.internal.codegen.langmodel.DaggerTypes;
-import dagger.producers.ProducerModule;
 import javax.inject.Inject;
-import javax.lang.model.element.ExecutableElement;
-import javax.lang.model.type.TypeMirror;
 
-/** A validator for {@link BindsOptionalOf} methods. */
+/** A validator for {@link dagger.BindsOptionalOf} methods. */
 final class BindsOptionalOfMethodValidator extends BindingMethodValidator {
-
-  private final DaggerTypes types;
   private final InjectionAnnotations injectionAnnotations;
 
   @Inject
   BindsOptionalOfMethodValidator(
-      DaggerElements elements,
       DaggerTypes types,
-      KotlinMetadataUtil kotlinMetadataUtil,
       DependencyRequestValidator dependencyRequestValidator,
       InjectionAnnotations injectionAnnotations) {
     super(
-        elements,
         types,
-        kotlinMetadataUtil,
-        BindsOptionalOf.class,
-        ImmutableSet.of(Module.class, ProducerModule.class),
+        TypeNames.BINDS_OPTIONAL_OF,
+        ImmutableSet.of(TypeNames.MODULE, TypeNames.PRODUCER_MODULE),
         dependencyRequestValidator,
         MUST_BE_ABSTRACT,
         NO_EXCEPTIONS,
         NO_MULTIBINDINGS,
         NO_SCOPING,
         injectionAnnotations);
-    this.types = types;
     this.injectionAnnotations = injectionAnnotations;
   }
 
-
   @Override
-  protected ElementValidator elementValidator(ExecutableElement element) {
-    return new Validator(element);
+  protected ElementValidator elementValidator(XMethodElement method) {
+    return new Validator(method);
   }
 
   private class Validator extends MethodValidator {
-    Validator(ExecutableElement element) {
-      super(element);
+    private final XMethodElement method;
+
+    Validator(XMethodElement method) {
+      super(method);
+      this.method = method;
     }
 
     @Override
-    protected void checkKeyType(TypeMirror keyType) {
+    protected void checkKeyType(XType keyType) {
       super.checkKeyType(keyType);
       if (isValidImplicitProvisionKey(
-              injectionAnnotations.getQualifiers(element).stream().findFirst(), keyType, types)
-          && !injectedConstructors(asTypeElement(keyType)).isEmpty()) {
+              injectionAnnotations.getQualifiers(method).stream().findFirst(), keyType)
+          && !injectedConstructors(keyType.getTypeElement()).isEmpty()) {
         report.addError(
             "@BindsOptionalOf methods cannot return unqualified types that have an @Inject-"
                 + "annotated constructor because those are always present");
@@ -90,7 +80,7 @@ final class BindsOptionalOfMethodValidator extends BindingMethodValidator {
 
     @Override
     protected void checkParameters() {
-      if (!element.getParameters().isEmpty()) {
+      if (!method.getParameters().isEmpty()) {
         report.addError("@BindsOptionalOf methods cannot have parameters");
       }
     }

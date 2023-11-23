@@ -96,16 +96,11 @@ public class SmartSuggestionsHelper {
           oldSession.destroy();
         }
       };
-  private final TextClassificationContext textClassificationContext;
 
   public SmartSuggestionsHelper(Context context, SmartSuggestionsConfig config) {
     this.context = context;
     textClassificationManager = this.context.getSystemService(TextClassificationManager.class);
     this.config = config;
-    this.textClassificationContext =
-        new TextClassificationContext.Builder(
-                context.getPackageName(), TextClassifier.WIDGET_TYPE_NOTIFICATION)
-            .build();
   }
 
   /**
@@ -170,7 +165,10 @@ public class SmartSuggestionsHelper {
           } else {
             SmartSuggestionsLogSession session =
                 new SmartSuggestionsLogSession(
-                    resultId, repliesScore, textClassifier, textClassificationContext);
+                    resultId,
+                    repliesScore,
+                    textClassifier,
+                    getTextClassificationContext(statusBarNotification));
             session.onSuggestionsGenerated(conversationActions);
 
             // Store the session if we expect more logging from it, destroy it otherwise.
@@ -302,7 +300,11 @@ public class SmartSuggestionsHelper {
             .setTypeConfig(typeConfigBuilder.build())
             .build();
 
-    TextClassifier textClassifier = createTextClassificationSession();
+    TextClassifier textClassifier =
+        textClassificationManager.createTextClassificationSession(
+            getTextClassificationContext(statusBarNotification));
+    onTextClassificationSessionCreated();
+
     return new SuggestConversationActionsResult(
         Optional.of(textClassifier), textClassifier.suggestConversationActions(request));
   }
@@ -477,8 +479,13 @@ public class SmartSuggestionsHelper {
   }
 
   @VisibleForTesting
-  TextClassifier createTextClassificationSession() {
-    return textClassificationManager.createTextClassificationSession(textClassificationContext);
+  void onTextClassificationSessionCreated() {}
+
+  private static TextClassificationContext getTextClassificationContext(
+      StatusBarNotification statusBarNotification) {
+    return new TextClassificationContext.Builder(
+            statusBarNotification.getPackageName(), TextClassifier.WIDGET_TYPE_NOTIFICATION)
+        .build();
   }
 
   private static boolean arePersonsEqual(Person left, Person right) {

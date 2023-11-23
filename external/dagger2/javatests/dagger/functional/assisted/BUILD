@@ -26,20 +26,20 @@ GenJavaTests(
     javacopts = DOCLINT_HTML_AND_SYNTAX,
     lib_javacopts = SOURCE_7_TARGET_7,
     test_only_deps = [
-        "//java/dagger/internal/guava:base",
-        "//java/dagger/internal/guava:collect",
-        "//java/dagger/internal/guava:concurrent",
-        "@google_bazel_common//third_party/java/guava:testlib",
-        "@google_bazel_common//third_party/java/truth",
-        "@google_bazel_common//third_party/java/junit",
+        "//third_party/java/guava/base",
+        "//third_party/java/guava/collect",
+        "//third_party/java/guava/util/concurrent",
+        "//third_party/java/guava:testlib",
+        "//third_party/java/truth",
+        "//third_party/java/junit",
         "//javatests/dagger/functional/assisted/subpackage",
     ],
     # NOTE: This should not depend on Guava or jsr305 to ensure that Dagger can be
     # used without Guava and jsr305 deps.
     deps = [
         "//:dagger_with_compiler",
-        "@google_bazel_common//third_party/java/auto:factory",
-        "@google_bazel_common//third_party/java/auto:value",
-        "@google_bazel_common//third_party/java/jsr330_inject",
+        "//third_party/java/auto:factory",
+        "//third_party/java/auto:value",
+        "//third_party/java/jsr330_inject",
     ],
 )

@@ -17,7 +17,6 @@
 Test suite for GATT over BR/EDR.
 """
 
-import time
 from queue import Empty
 
 from acts.test_decorators import test_tracker_info
@@ -399,8 +398,8 @@ class GattOverBrEdrTest(BluetoothBaseTest):
                 self.log.error(err)
                 return False
             self.log.info("Disconnecting from peripheral device.")
-            test_result = self._orchestrate_gatt_disconnection(bluetooth_gatt,
-                                                               gatt_callback)
+            test_result = self._orchestrate_gatt_disconnection(
+                bluetooth_gatt, gatt_callback)
             if not test_result:
                 self.log.info("Failed to disconnect from peripheral device.")
                 return False
@@ -492,9 +491,9 @@ class GattOverBrEdrTest(BluetoothBaseTest):
                         self.cen_ad.droid.gattClientWriteDescriptor(
                             bluetooth_gatt, discovered_services_index, i,
                             characteristic, descriptor)
-                        event = self.per_ad.ed.pop_event(gatt_cb_strings[
-                            'desc_write_req'].format(gatt_server_callback),
-                                                         self.default_timeout)
+                        event = self.per_ad.ed.pop_event(
+                            gatt_cb_strings['desc_write_req'].format(
+                                gatt_server_callback), self.default_timeout)
                         self.log.info(
                             "onDescriptorWriteRequest event found: {}".format(
                                 event))
@@ -502,15 +501,15 @@ class GattOverBrEdrTest(BluetoothBaseTest):
                         found_value = event['data']['value']
                         if found_value != test_value:
                             self.log.info("Values didn't match. Found: {}, "
-                                          "Expected: {}".format(found_value,
-                                                                test_value))
+                                          "Expected: {}".format(
+                                              found_value, test_value))
                             return False
                         self.per_ad.droid.gattServerSendResponse(
                             gatt_server, bt_device_id, request_id, status,
                             offset, test_value_return)
                         self.log.info(
                             "onDescriptorWrite event found: {}".format(
-                                self.cen_ad.ed.pop_event(gatt_cb_strings[
-                                    'desc_write'].format(
+                                self.cen_ad.ed.pop_event(
+                                    gatt_cb_strings['desc_write'].format(
                                         gatt_callback), self.default_timeout)))
         return True

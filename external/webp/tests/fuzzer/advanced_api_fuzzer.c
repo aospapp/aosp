@@ -14,8 +14,12 @@
 //
 ////////////////////////////////////////////////////////////////////////////////
 
+#include <stdint.h>
+#include <string.h>
+
 #include "./fuzz_utils.h"
-#include "webp/decode.h"
+#include "src/utils/rescaler_utils.h"
+#include "src/webp/decode.h"
 
 int LLVMFuzzerTestOneInput(const uint8_t* const data, size_t size) {
   WebPDecoderConfig config;
@@ -59,39 +63,74 @@ int LLVMFuzzerTestOneInput(const uint8_t* const data, size_t size) {
   config.output.colorspace = (WEBP_CSP_MODE)(value % MODE_LAST);
 #endif  // WEBP_REDUCE_CSP
 
-  if (size % 3) {
-    // Decodes incrementally in chunks of increasing size.
-    WebPIDecoder* idec = WebPIDecode(NULL, 0, &config);
-    if (!idec) return 0;
-    VP8StatusCode status;
-    if (size & 8) {
-      size_t available_size = value + 1;
-      while (1) {
-        if (available_size > size) available_size = size;
-        status = WebPIUpdate(idec, data, available_size);
-        if (status != VP8_STATUS_SUSPENDED || available_size == size) break;
-        available_size *= 2;
-      }
-    } else {
-      // WebPIAppend expects new data and its size with each call.
-      // Implemented here by simply advancing the pointer into data.
-      const uint8_t* new_data = data;
-      size_t new_size = value + 1;
-      while (1) {
-        if (new_data + new_size > data + size) {
-          new_size = data + size - new_data;
+  for (int i = 0; i < 2; ++i) {
+    if (i == 1) {
+      // Use the bitstream data to generate extreme ranges for the options. An
+      // alternative approach would be to use a custom corpus containing webp
+      // files prepended with sizeof(config.options) zeroes to allow the fuzzer
+      // to modify these independently.
+      const int data_offset = 50;
+      if (data_offset + sizeof(config.options) >= size) break;
+      memcpy(&config.options, data + data_offset, sizeof(config.options));
+
+      // Skip easily avoidable out-of-memory fuzzing errors.
+      if (config.options.use_scaling) {
+        int scaled_width = config.options.scaled_width;
+        int scaled_height = config.options.scaled_height;
+        if (WebPRescalerGetScaledDimensions(config.input.width,
+                                            config.input.height, &scaled_width,
+                                            &scaled_height)) {
+          size_t fuzz_px_limit = kFuzzPxLimit;
+          if (scaled_width != config.input.width ||
+              scaled_height != config.input.height) {
+            // Using the WebPRescalerImport internally can significantly slow
+            // down the execution. Avoid timeouts due to that.
+            fuzz_px_limit /= 2;
+          }
+          // A big output canvas can lead to out-of-memory and timeout issues,
+          // but a big internal working buffer can too.
+          if ((uint64_t)scaled_width * scaled_height > fuzz_px_limit ||
+              (uint64_t)config.input.width * config.input.height >
+                  fuzz_px_limit) {
+            break;
+          }
         }
-        status = WebPIAppend(idec, new_data, new_size);
-        if (status != VP8_STATUS_SUSPENDED || new_size == 0) break;
-        new_data += new_size;
-        new_size *= 2;
       }
     }
-    WebPIDelete(idec);
-  } else {
-    WebPDecode(data, size, &config);
-  }
+    if (size % 3) {
+      // Decodes incrementally in chunks of increasing size.
+      WebPIDecoder* idec = WebPIDecode(NULL, 0, &config);
+      if (!idec) return 0;
+      VP8StatusCode status;
+      if (size & 8) {
+        size_t available_size = value + 1;
+        while (1) {
+          if (available_size > size) available_size = size;
+          status = WebPIUpdate(idec, data, available_size);
+          if (status != VP8_STATUS_SUSPENDED || available_size == size) break;
+          available_size *= 2;
+        }
+      } else {
+        // WebPIAppend expects new data and its size with each call.
+        // Implemented here by simply advancing the pointer into data.
+        const uint8_t* new_data = data;
+        size_t new_size = value + 1;
+        while (1) {
+          if (new_data + new_size > data + size) {
+            new_size = data + size - new_data;
+          }
+          status = WebPIAppend(idec, new_data, new_size);
+          if (status != VP8_STATUS_SUSPENDED || new_size == 0) break;
+          new_data += new_size;
+          new_size *= 2;
+        }
+      }
+      WebPIDelete(idec);
+    } else {
+      WebPDecode(data, size, &config);
+    }
 
-  WebPFreeDecBuffer(&config.output);
+    WebPFreeDecBuffer(&config.output);
+  }
   return 0;
 }

@@ -18,6 +18,7 @@ package android.filesystem.cts;
 
 import android.util.Log;
 import android.mediapc.cts.common.Utils;
+import android.mediapc.cts.common.PerformanceClassEvaluator;
 
 import static androidx.test.InstrumentationRegistry.getContext;
 import static androidx.test.InstrumentationRegistry.getInstrumentation;
@@ -35,7 +36,9 @@ import com.android.compatibility.common.util.Stat;
 import static org.junit.Assert.assertTrue;
 
 import org.junit.After;
+import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.TestName;
 import org.junit.runner.RunWith;
 
 import java.io.File;
@@ -51,19 +54,9 @@ public class SequentialRWTest {
     private static final String DIR_SEQ_RD = "SEQ_RD";
     private static final String REPORT_LOG_NAME = "CtsFileSystemTestCases";
     private static final int BUFFER_SIZE = 10 * 1024 * 1024;
-    private static final double MIN_READ_MBPS;
-    private static final double MIN_WRITE_MBPS;
 
-    static {
-        if (Utils.isRPerfClass()) {
-            MIN_READ_MBPS = 200;
-            MIN_WRITE_MBPS = 100;
-        } else {
-            // Performance class Build.VERSION_CODES.S and beyond
-            MIN_READ_MBPS = 250;
-            MIN_WRITE_MBPS = 125;
-        }
-    }
+    @Rule
+    public final TestName mTestName = new TestName();
 
     @After
     public void tearDown() throws Exception {
@@ -72,7 +65,7 @@ public class SequentialRWTest {
         FileUtil.removeFileOrDir(getContext(), DIR_SEQ_RD);
     }
 
-    @CddTest(requirement="8.2")
+    @CddTest(requirements = {"8.2/H-1-1"})
     @Test
     public void testSingleSequentialWrite() throws Exception {
         final long fileSize = FileUtil.getFileSizeExceedingMemory(getContext(), BUFFER_SIZE);
@@ -105,10 +98,13 @@ public class SequentialRWTest {
         Log.v(TAG, "sequential write " + stat.mAverage + " MBPS");
         report.submit(getInstrumentation());
 
-        if (Utils.isPerfClass()) {
-            assertTrue("measured " + stat.mAverage + " is less than target (" + MIN_WRITE_MBPS +
-                       " MBPS)", stat.mAverage >= MIN_WRITE_MBPS);
-        }
+        PerformanceClassEvaluator pce = new PerformanceClassEvaluator(this.mTestName);
+        PerformanceClassEvaluator.FileSystemRequirement r8_2__H_1_1 = pce.addR8_2__H_1_1();
+        PerformanceClassEvaluator.FileSystemRequirement r8_2__H_2_1 = pce.addR8_2__H_2_1();
+        r8_2__H_1_1.setFilesystemIoRate(stat.mAverage);
+        r8_2__H_2_1.setFilesystemIoRate(stat.mAverage);
+
+        pce.submitAndCheck();
     }
 
     @Test
@@ -124,7 +120,7 @@ public class SequentialRWTest {
                 NUMBER_REPETITION, REPORT_LOG_NAME, streamName);
     }
 
-    @CddTest(requirement="8.2")
+    @CddTest(requirements = {"8.2/H-1-3"})
     @Test
     public void testSingleSequentialRead() throws Exception {
         final long fileSize = FileUtil.getFileSizeExceedingMemory(getContext(), BUFFER_SIZE);
@@ -167,9 +163,12 @@ public class SequentialRWTest {
         Log.v(TAG, "sequential read " + stat.mAverage + " MBPS");
         report.submit(getInstrumentation());
 
-        if (Utils.isPerfClass()) {
-            assertTrue("measured " + stat.mAverage + " is less than target (" + MIN_READ_MBPS +
-                       " MBPS)", stat.mAverage >= MIN_READ_MBPS);
-        }
+        PerformanceClassEvaluator pce = new PerformanceClassEvaluator(this.mTestName);
+        PerformanceClassEvaluator.FileSystemRequirement r8_2__H_1_3 = pce.addR8_2__H_1_3();
+        PerformanceClassEvaluator.FileSystemRequirement r8_2__H_2_3 = pce.addR8_2__H_2_3();
+        r8_2__H_1_3.setFilesystemIoRate(stat.mAverage);
+        r8_2__H_2_3.setFilesystemIoRate(stat.mAverage);
+
+        pce.submitAndCheck();
     }
 }

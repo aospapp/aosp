@@ -38,34 +38,3 @@ The partition is a protobuf message prefixed with the size of the message.
 Each payload partition presents APEX or APK passed from the host.
 
 The size of a payload partition must be a multiple of 4096 bytes.
-
-# `mk_payload`
-
-`mk_payload` is a small utility to create a payload disk image. It is used by ARCVM.
-
-```
-$ cat payload_config.json
-{
-  "apexes": [
-    {
-      "name": "com.my.hello",
-      "path": "hello.apex",
-    }
-  ],
-  "apk": {
-    "name": "com.my.world",
-    "path": "/path/to/world.apk",
-    "idsigPath": "/path/to/world.apk.idsig",
-  }
-}
-$ m mk_payload
-$ mk_payload payload_config.json payload.img
-$ ls
-payload.img
-payload-footer.img
-payload-header.img
-payload-metadata.img
-payload-filler-0.img
-payload-filler-1.img
-...
-```

@@ -8,23 +8,9 @@
     },
     {
       "name": "NetworkStackIntegrationTests"
-    }
-  ],
-  "auto-postsubmit": [
-    // Test tag for automotive targets. These are only running in postsubmit so as to harden the
-    // automotive targets to avoid introducing additional test flake and build time. The plan for
-    // presubmit testing for auto is to augment the existing tests to cover auto use cases as well.
-    // Additionally, this tag is used in targeted test suites to limit resource usage on the test
-    // infra during the hardening phase.
-    // TODO: this tag to be removed once the above is no longer an issue.
-    {
-      "name": "NetworkStackTests"
     },
     {
-      "name": "NetworkStackNextTests"
-    },
-    {
-      "name": "NetworkStackIntegrationTests"
+      "name": "NetworkStackRootTests"
     }
   ],
   "mainline-presubmit": [
@@ -33,11 +19,17 @@
     // so in theory the infra would not need to reinstall/reboot devices to run both.
     {
       "name": "NetworkStackTests[CaptivePortalLoginGoogle.apk+NetworkStackGoogle.apk+com.google.android.resolv.apex+com.google.android.tethering.apex]"
-    }
-  ],
-  "mainline-postsubmit": [
+    },
+    // This is used to verify NetworkStackRootTests with all latest modules listed below on
+    // preivous OS platforms.
     {
-      "name": "NetworkStackIntegrationTests[CaptivePortalLoginGoogle.apk+NetworkStackGoogle.apk+com.google.android.resolv.apex+com.google.android.tethering.apex]"
+      "name": "NetworkStackRootTests[CaptivePortalLoginGoogle.apk+NetworkStackGoogle.apk+com.google.android.resolv.apex+com.google.android.tethering.apex]"
+    },
+    // This is used to verify NetworkStackRootTests with latest CaptivePortalLoginGoogle.apk
+    // but with other modules on different version(e.g. an older tethering module to verify
+    // backwards compatibility of APIs).
+    {
+      "name": "NetworkStackRootTests[CaptivePortalLoginGoogle.apk+NetworkStackGoogle.apk]"
     }
   ],
   "imports": [

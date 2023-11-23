@@ -10,7 +10,8 @@
 
 #if !defined(OPENSSL_NO_ASM)
 #if defined(__arm__)
-#include <GFp/arm_arch.h>
+#include "ring_core_generated/prefix_symbols_asm.h"
+#include <ring-core/arm_arch.h>
 
 @ Silence ARMv8 deprecated IT instruction warnings. This file is used by both
 @ ARMv7 and ARMv8 processors and does not use ARMv8 instructions.
@@ -26,18 +27,18 @@
 
 #if __ARM_MAX_ARCH__>=7
 
-.hidden	GFp_armcap_P
+.hidden	OPENSSL_armcap_P
 .align	5
 .LOPENSSL_armcap:
-.word	GFp_armcap_P-.Lbn_mul_mont
+.word	OPENSSL_armcap_P-.Lbn_mul_mont
 #endif
 
-.globl	GFp_bn_mul_mont
-.hidden	GFp_bn_mul_mont
-.type	GFp_bn_mul_mont,%function
+.globl	bn_mul_mont
+.hidden	bn_mul_mont
+.type	bn_mul_mont,%function
 
 .align	5
-GFp_bn_mul_mont:
+bn_mul_mont:
 .Lbn_mul_mont:
 	ldr	ip,[sp,#4]		@ load num
 	stmdb	sp!,{r0,r2}		@ sp points at argument block
@@ -208,7 +209,7 @@ GFp_bn_mul_mont:
 	moveq	pc,lr			@ be binary compatible with V4, yet
 .word	0xe12fff1e			@ interoperable with Thumb ISA:-)
 #endif
-.size	GFp_bn_mul_mont,.-GFp_bn_mul_mont
+.size	bn_mul_mont,.-bn_mul_mont
 #if __ARM_MAX_ARCH__>=7
 .arch	armv7-a
 .fpu	neon

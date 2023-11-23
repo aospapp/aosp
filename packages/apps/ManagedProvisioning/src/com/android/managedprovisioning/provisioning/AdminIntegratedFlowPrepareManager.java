@@ -36,6 +36,10 @@ import com.android.managedprovisioning.common.SettingsFacade;
 import com.android.managedprovisioning.common.Utils;
 import com.android.managedprovisioning.model.ProvisioningParams;
 
+import com.google.android.setupcompat.logging.ScreenKey;
+import com.google.android.setupcompat.logging.SetupMetric;
+import com.google.android.setupcompat.logging.SetupMetricsLogger;
+
 import java.util.Objects;
 
 /**
@@ -54,6 +58,10 @@ class AdminIntegratedFlowPrepareManager implements ProvisioningControllerCallbac
     private final TimeLogger mTimeLogger;
     private final Utils mUtils;
     private final SettingsFacade mSettingsFacade;
+    private final ScreenKey mScreenKey;
+    private static String setupMetricScreenName = "AdminIntegratedProvisioningScreen";
+    private static String setupMetricProvisioningStartedName = "AdminIntegratedProvisioningStarted";
+    private static String setupMetricProvisioningEndedName = "AdminIntegratedProvisioningEnded";
 
     @GuardedBy("this")
     private AbstractProvisioningController mController;
@@ -91,6 +99,7 @@ class AdminIntegratedFlowPrepareManager implements ProvisioningControllerCallbac
         mTimeLogger = requireNonNull(timeLogger);
         mUtils = requireNonNull(utils);
         mSettingsFacade = requireNonNull(settingsFacade);
+        mScreenKey = ScreenKey.of(setupMetricScreenName, context);
     }
 
     @Override
@@ -99,7 +108,11 @@ class AdminIntegratedFlowPrepareManager implements ProvisioningControllerCallbac
             if (mController == null) {
                 mController = getController(params);
                 mHelper.startNewProvisioningLocked(mController);
+
+                SetupMetricsLogger.logMetrics(mContext, mScreenKey,
+                        SetupMetric.ofWaitingStart(setupMetricProvisioningStartedName));
                 mTimeLogger.start();
+
                 mProvisioningAnalyticsTracker.logProvisioningPrepareStarted();
             } else {
                 ProvisionLogger.loge("Trying to start admin integrated flow preparing, "
@@ -140,6 +153,8 @@ class AdminIntegratedFlowPrepareManager implements ProvisioningControllerCallbac
             mProvisioningAnalyticsTracker.logProvisioningPrepareCompleted();
             clearControllerLocked();
             ProvisionLogger.logi("AdminIntegratedFlowPrepareManager pre-finalization completed");
+            SetupMetricsLogger.logMetrics(mContext, mScreenKey,
+                    SetupMetric.ofWaitingEnd(setupMetricProvisioningEndedName));
         }
     }
 

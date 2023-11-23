@@ -44,7 +44,7 @@ class UsageStoreTest : public testing::Test {
 };
 
 UsageReport CreateUsageReport(std::string name_space, std::string uri,
-                              int64 timestamp_ms,
+                              int64_t timestamp_ms,
                               UsageReport::UsageType usage_type) {
   UsageReport usage_report;
   usage_report.set_document_namespace(name_space);
@@ -450,7 +450,7 @@ TEST_F(UsageStoreTest, Reset) {
 TEST_F(UsageStoreTest, TimestampInSecondsShouldNotOverflow) {
   // Create a report with the max value of timestamps.
   UsageReport usage_report = CreateUsageReport(
-      "namespace", "uri", /*timestamp_ms=*/std::numeric_limits<int64>::max(),
+      "namespace", "uri", /*timestamp_ms=*/std::numeric_limits<int64_t>::max(),
       UsageReport::USAGE_TYPE1);
 
   ICING_ASSERT_OK_AND_ASSIGN(std::unique_ptr<UsageStore> usage_store,

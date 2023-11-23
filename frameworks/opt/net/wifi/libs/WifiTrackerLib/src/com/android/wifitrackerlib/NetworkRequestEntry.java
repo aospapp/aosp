@@ -45,17 +45,17 @@ public class NetworkRequestEntry extends StandardWifiEntry {
     }
 
     @Override
-    public boolean isMetered() {
+    public synchronized boolean isMetered() {
         return false;
     }
 
     @Override
-    public boolean isSaved() {
+    public synchronized boolean isSaved() {
         return false;
     }
 
     @Override
-    public boolean isSuggestion() {
+    public synchronized boolean isSuggestion() {
         return false;
     }
 
@@ -65,17 +65,17 @@ public class NetworkRequestEntry extends StandardWifiEntry {
     }
 
     @Override
-    public WifiConfiguration getWifiConfiguration() {
+    public synchronized WifiConfiguration getWifiConfiguration() {
         return null;
     }
 
     @Override
-    public boolean canConnect() {
+    public synchronized boolean canConnect() {
         return false;
     }
 
     @Override
-    public void connect(@Nullable ConnectCallback callback) {
+    public synchronized void connect(@Nullable ConnectCallback callback) {
         return;
     }
 
@@ -85,23 +85,23 @@ public class NetworkRequestEntry extends StandardWifiEntry {
     }
 
     @Override
-    public void forget(@Nullable ForgetCallback callback) {
+    public synchronized void forget(@Nullable ForgetCallback callback) {
         return;
     }
 
     @Override
-    public boolean canShare() {
+    public synchronized boolean canShare() {
         return false;
     }
 
     @Override
-    public boolean canEasyConnect() {
+    public synchronized boolean canEasyConnect() {
         return false;
     }
 
     @Override
     @MeteredChoice
-    public int getMeteredChoice() {
+    public synchronized int getMeteredChoice() {
         return METERED_CHOICE_AUTO;
     }
 
@@ -111,7 +111,7 @@ public class NetworkRequestEntry extends StandardWifiEntry {
     }
 
     @Override
-    public void setMeteredChoice(int meteredChoice) {
+    public synchronized void setMeteredChoice(int meteredChoice) {
         return;
     }
 
@@ -122,17 +122,17 @@ public class NetworkRequestEntry extends StandardWifiEntry {
 
     @Override
     @Privacy
-    public int getPrivacy() {
+    public synchronized int getPrivacy() {
         return PRIVACY_RANDOMIZED_MAC;
     }
 
     @Override
-    public void setPrivacy(int privacy) {
+    public synchronized void setPrivacy(int privacy) {
         return;
     }
 
     @Override
-    public boolean isAutoJoinEnabled() {
+    public synchronized boolean isAutoJoinEnabled() {
         return true;
     }
 
@@ -142,7 +142,7 @@ public class NetworkRequestEntry extends StandardWifiEntry {
     }
 
     @Override
-    public void setAutoJoinEnabled(boolean enabled) {
+    public synchronized void setAutoJoinEnabled(boolean enabled) {
         return;
     }
 }

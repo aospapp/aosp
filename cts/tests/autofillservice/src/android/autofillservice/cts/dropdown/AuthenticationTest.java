@@ -43,9 +43,10 @@ import android.content.IntentSender;
 import android.os.Bundle;
 import android.platform.test.annotations.AppModeFull;
 import android.platform.test.annotations.Presubmit;
-import android.support.test.uiautomator.UiObject2;
 import android.view.View;
 import android.view.autofill.AutofillValue;
+
+import androidx.test.uiautomator.UiObject2;
 
 import org.junit.Test;
 

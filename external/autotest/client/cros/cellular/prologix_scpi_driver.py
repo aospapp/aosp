@@ -1,10 +1,11 @@
-#!/usr/bin/python2
+# Lint as: python2, python3
 # Copyright (c) 2013 The Chromium OS Authors. All rights reserved.
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
-import cellular_system_error
-import cellular_logging
+from autotest_lib.client.cros.cellular import cellular_system_error
+from autotest_lib.client.cros.cellular import cellular_logging
+
 import os
 import select
 import socket
@@ -50,7 +51,7 @@ class PrologixScpiDriver:
 
         self.connection_key = "%s:%s" % (hostname, port)
         self.connection_data = {self.connection_key: traceback.format_stack()}
-        if self.connection_key in self.all_open_connections.keys():
+        if self.connection_key in list(self.all_open_connections.keys()):
             raise cellular_system_error.BadState(
               'IP network connection to '
               'prologix is already in use. : %s ' % self.all_open_connections)

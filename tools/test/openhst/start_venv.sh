@@ -13,7 +13,7 @@
 # limitations under the License.
 
 #!/bin/bash
-python -m pip install wheel
-python -m pip install requests
-python -m pip install --upgrade requests
-python -m pip install -r requirements.txt
+python -m pip install --require-hashes wheel
+python -m pip install --require-hashes requests
+python -m pip install --require-hashes --upgrade requests
+python -m pip install --require-hashes -r requirements.txt

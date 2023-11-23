@@ -25,7 +25,10 @@
 
 namespace art {
 
-NO_RETURN static void artDeoptimizeImpl(Thread* self, DeoptimizationKind kind, bool single_frame)
+NO_RETURN static void artDeoptimizeImpl(Thread* self,
+                                        DeoptimizationKind kind,
+                                        bool single_frame,
+                                        bool skip_method_exit_callbacks)
     REQUIRES_SHARED(Locks::mutator_lock_) {
   Runtime::Current()->IncrementDeoptimizationCount(kind);
   if (VLOG_IS_ON(deopt)) {
@@ -43,13 +46,12 @@ NO_RETURN static void artDeoptimizeImpl(Thread* self, DeoptimizationKind kind, b
   if (single_frame) {
     exception_handler.DeoptimizeSingleFrame(kind);
   } else {
-    exception_handler.DeoptimizeStack();
+    exception_handler.DeoptimizeStack(skip_method_exit_callbacks);
   }
-  uintptr_t return_pc = exception_handler.UpdateInstrumentationStack();
   if (exception_handler.IsFullFragmentDone()) {
     exception_handler.DoLongJump(true);
   } else {
-    exception_handler.DeoptimizePartialFragmentFixup(return_pc);
+    exception_handler.DeoptimizePartialFragmentFixup();
     // We cannot smash the caller-saves, as we need the ArtMethod in a parameter register that would
     // be caller-saved. This has the downside that we cannot track incorrect register usage down the
     // line.
@@ -57,9 +59,10 @@ NO_RETURN static void artDeoptimizeImpl(Thread* self, DeoptimizationKind kind, b
   }
 }
 
-extern "C" NO_RETURN void artDeoptimize(Thread* self) REQUIRES_SHARED(Locks::mutator_lock_) {
+extern "C" NO_RETURN void artDeoptimize(Thread* self, bool skip_method_exit_callbacks)
+    REQUIRES_SHARED(Locks::mutator_lock_) {
   ScopedQuickEntrypointChecks sqec(self);
-  artDeoptimizeImpl(self, DeoptimizationKind::kFullFrame, false);
+  artDeoptimizeImpl(self, DeoptimizationKind::kFullFrame, false, skip_method_exit_callbacks);
 }
 
 // This is called directly from compiled code by an HDeoptimize.
@@ -74,7 +77,9 @@ extern "C" NO_RETURN void artDeoptimizeFromCompiledCode(DeoptimizationKind kind,
                                   self->GetException(),
                                   /* from_code= */ true,
                                   DeoptimizationMethodType::kDefault);
-  artDeoptimizeImpl(self, kind, true);
+  // Deopting from compiled code, so method exit haven't run yet. Don't skip method exit callbacks
+  // if required.
+  artDeoptimizeImpl(self, kind, true, /* skip_method_exit_callbacks= */ false);
 }
 
 }  // namespace art

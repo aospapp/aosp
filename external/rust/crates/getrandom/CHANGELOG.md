@@ -4,6 +4,56 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.8] - 2022-10-20
+### Changed
+- The [Web Cryptography API] will now be preferred on `wasm32-unknown-unknown`
+  when using the `"js"` feature, even on Node.js [#284] [#295]
+
+### Added
+- Added benchmarks to track buffer initialization cost [#272]
+
+### Fixed
+- Use `$crate` in `register_custom_getrandom!` [#270]
+
+### Documentation
+- Add information about enabling `"js"` feature [#280]
+- Fix link to `wasm-bindgen` [#278]
+- Document the varied implementations for underlying randomness sources [#276]
+
+[Web Cryptography API]: https://developer.mozilla.org/en-US/docs/Web/API/Web_Crypto_API
+[#284]: https://github.com/rust-random/getrandom/pull/284
+[#295]: https://github.com/rust-random/getrandom/pull/295
+[#272]: https://github.com/rust-random/getrandom/pull/272
+[#270]: https://github.com/rust-random/getrandom/pull/270
+[#280]: https://github.com/rust-random/getrandom/pull/280
+[#278]: https://github.com/rust-random/getrandom/pull/278
+[#276]: https://github.com/rust-random/getrandom/pull/276
+
+## [0.2.7] - 2022-06-14
+### Changed
+- Update `wasi` dependency to `0.11` [#253]
+
+### Fixed
+- Use `AtomicPtr` instead of `AtomicUsize` for Strict Provenance compatibility. [#263]
+
+### Documentation
+- Add comments explaining use of fallback mechanisms [#257] [#260]
+
+[#263]: https://github.com/rust-random/getrandom/pull/263
+[#260]: https://github.com/rust-random/getrandom/pull/260
+[#253]: https://github.com/rust-random/getrandom/pull/253
+[#257]: https://github.com/rust-random/getrandom/pull/257
+
+## [0.2.6] - 2022-03-28
+### Added
+- Nintendo 3DS (`armv6k-nintendo-3ds`) support [#248]
+
+### Changed
+- Retry `open` when interrupted [#252]
+
+[#248]: https://github.com/rust-random/getrandom/pull/248
+[#252]: https://github.com/rust-random/getrandom/pull/252
+
 ## [0.2.5] - 2022-02-22
 ### Added
 - ESP-IDF targets (`*‑espidf`) support [#245]
@@ -281,6 +331,9 @@ Publish initial implementation.
 ## [0.0.0] - 2019-01-19
 Publish an empty template library.
 
+[0.2.8]: https://github.com/rust-random/getrandom/compare/v0.2.7...v0.2.8
+[0.2.7]: https://github.com/rust-random/getrandom/compare/v0.2.6...v0.2.7
+[0.2.6]: https://github.com/rust-random/getrandom/compare/v0.2.5...v0.2.6
 [0.2.5]: https://github.com/rust-random/getrandom/compare/v0.2.4...v0.2.5
 [0.2.4]: https://github.com/rust-random/getrandom/compare/v0.2.3...v0.2.4
 [0.2.3]: https://github.com/rust-random/getrandom/compare/v0.2.2...v0.2.3

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-# Copyright 2018 The Chromium OS Authors. All rights reserved.
+# Copyright 2018 The ChromiumOS Authors
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 
@@ -90,69 +90,68 @@ diff -Nuar llvm-pre7.0_pre335547_p20180529.ebuild newly-created-file.ebuild
         # some users may find it useful
 """
 
-from __future__ import print_function
 
 import os
 import sys
 
 
 def process_line(line, text):
-  # Process the line and append to the text we want to generate.
-  # Check if line has any patterns that we want to handle.
-  newline = line.strip()
-  if newline.startswith('#'):
-    # Do not process comment lines.
-    text.append(line)
-  elif line.startswith('SLOT='):
-    # Change SLOT to "${PV%%_p[[:digit:]]*}"
-    SLOT_STRING = 'SLOT="${PV%%_p[[:digit:]]*}"\n'
-    text.append(SLOT_STRING)
-  elif line.startswith('IUSE') and 'multitarget' in line:
-    # Enable multitarget USE flag.
-    newline = line.replace('multitarget', '+multitarget')
-    text.append(newline)
-  elif line.startswith('pkg_setup()'):
-    # Setup PREFIX.
-    text.append(line)
-    text.append('\texport PREFIX="/usr/${PN}/${SLOT}"\n')
-  elif line.startswith('multilib_src_install_all()'):
-    text.append(line)
-    # Do not install any common files.
-    text.append('\treturn\n')
-  elif 'epatch ' in line:
-    # Convert any $PN or ${PN} in epatch files to llvm.
-    newline = line.replace('$PN', 'llvm')
-    newline = newline.replace('${PN}', 'llvm')
-    text.append(newline)
-  elif 'multilib-minimal_src_install' in line:
-    # Disable MULTILIB_CHOST_TOOLS and MULTILIB_WRAPPED_HEADERS
-    text.append('\tMULTILIB_CHOST_TOOLS=()\n')
-    text.append('\tMULTILIB_WRAPPED_HEADERS=()\n')
-    text.append(line)
-  elif 'cmake-utils_src_install' in line:
-    text.append(line)
-    # Do not install any wrappers.
-    text.append('\treturn\n')
-  else:
-    text.append(line)
+    # Process the line and append to the text we want to generate.
+    # Check if line has any patterns that we want to handle.
+    newline = line.strip()
+    if newline.startswith("#"):
+        # Do not process comment lines.
+        text.append(line)
+    elif line.startswith("SLOT="):
+        # Change SLOT to "${PV%%_p[[:digit:]]*}"
+        SLOT_STRING = 'SLOT="${PV%%_p[[:digit:]]*}"\n'
+        text.append(SLOT_STRING)
+    elif line.startswith("IUSE") and "multitarget" in line:
+        # Enable multitarget USE flag.
+        newline = line.replace("multitarget", "+multitarget")
+        text.append(newline)
+    elif line.startswith("pkg_setup()"):
+        # Setup PREFIX.
+        text.append(line)
+        text.append('\texport PREFIX="/usr/${PN}/${SLOT}"\n')
+    elif line.startswith("multilib_src_install_all()"):
+        text.append(line)
+        # Do not install any common files.
+        text.append("\treturn\n")
+    elif "epatch " in line:
+        # Convert any $PN or ${PN} in epatch files to llvm.
+        newline = line.replace("$PN", "llvm")
+        newline = newline.replace("${PN}", "llvm")
+        text.append(newline)
+    elif "multilib-minimal_src_install" in line:
+        # Disable MULTILIB_CHOST_TOOLS and MULTILIB_WRAPPED_HEADERS
+        text.append("\tMULTILIB_CHOST_TOOLS=()\n")
+        text.append("\tMULTILIB_WRAPPED_HEADERS=()\n")
+        text.append(line)
+    elif "cmake-utils_src_install" in line:
+        text.append(line)
+        # Do not install any wrappers.
+        text.append("\treturn\n")
+    else:
+        text.append(line)
 
 
 def main():
-  if len(sys.argv) != 3:
-    filename = os.path.basename(__file__)
-    print('Usage: ', filename, ' <input.ebuild> <output.ebuild>')
-    return 1
+    if len(sys.argv) != 3:
+        filename = os.path.basename(__file__)
+        print("Usage: ", filename, " <input.ebuild> <output.ebuild>")
+        return 1
 
-  text = []
-  with open(sys.argv[1], 'r') as infile:
-    for line in infile:
-      process_line(line, text)
+    text = []
+    with open(sys.argv[1], "r") as infile:
+        for line in infile:
+            process_line(line, text)
 
-  with open(sys.argv[2], 'w') as outfile:
-    outfile.write(''.join(text))
+    with open(sys.argv[2], "w") as outfile:
+        outfile.write("".join(text))
 
-  return 0
+    return 0
 
 
-if __name__ == '__main__':
-  sys.exit(main())
+if __name__ == "__main__":
+    sys.exit(main())

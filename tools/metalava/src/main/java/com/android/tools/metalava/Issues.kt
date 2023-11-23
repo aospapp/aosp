@@ -127,8 +127,9 @@ object Issues {
     val COMPILE_TIME_CONSTANT = Issue(Severity.ERROR, Category.API_LINT)
     val SINGULAR_CALLBACK = Issue(Severity.ERROR, Category.API_LINT, "callback-class-singular")
     val CALLBACK_NAME = Issue(Severity.WARNING, Category.API_LINT, "observer-should-be-callback")
+    // Obsolete per https://s.android.com/api-guidelines.
     val CALLBACK_INTERFACE =
-        Issue(Severity.ERROR, Category.API_LINT, "callback-abstract-instead-of-interface")
+        Issue(Severity.HIDDEN, Category.API_LINT, "callback-abstract-instead-of-interface")
     val CALLBACK_METHOD_NAME = Issue(Severity.ERROR, Category.API_LINT, "callback-method-naming")
     val LISTENER_INTERFACE = Issue(Severity.ERROR, Category.API_LINT, "callbacks-listener")
     val SINGLE_METHOD_INTERFACE = Issue(Severity.ERROR, Category.API_LINT, "callbacks-listener")

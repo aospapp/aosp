@@ -345,6 +345,29 @@ public class ImageWriterTest extends Camera2AndroidTestCase {
     }
 
     @Test
+    public void testWriterBuilderWithBLOB() throws Exception {
+        SurfaceTexture texture = new SurfaceTexture(false);
+        texture.setDefaultBufferSize(BUFFER_WIDTH, BUFFER_HEIGHT);
+        Surface surface = new Surface(texture);
+
+        long usage = HardwareBuffer.USAGE_GPU_SAMPLED_IMAGE | HardwareBuffer.USAGE_GPU_COLOR_OUTPUT;
+        try (
+            ImageWriter writer = new ImageWriter
+                .Builder(surface)
+                .setHardwareBufferFormat(HardwareBuffer.BLOB)
+                .setDataSpace(DataSpace.DATASPACE_JFIF)
+                .setUsage(usage)
+                .build();
+        ) {
+            assertEquals(BUFFER_WIDTH, writer.getWidth());
+            assertEquals(BUFFER_HEIGHT, writer.getHeight());
+            assertEquals(DataSpace.DATASPACE_JFIF, writer.getDataSpace());
+            assertEquals(HardwareBuffer.BLOB, writer.getHardwareBufferFormat());
+            assertEquals(ImageFormat.JPEG, writer.getFormat());
+        }
+    }
+
+    @Test
     public void testGetFence() throws Exception {
         try (
             ImageReader reader = new ImageReader

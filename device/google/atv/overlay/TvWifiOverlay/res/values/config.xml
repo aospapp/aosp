@@ -20,4 +20,22 @@
          believe it's rare to have multiple Wifi networks configured whose
          quality changes over time. -->
     <bool name="config_wifi_framework_enable_associated_network_selection">false</bool>
+
+    <!-- Enable the Software PNO feature. If Hardware PNO is not enabled, the device is in
+    standby and Wifi is disconnected, periodic scans are performed according to the
+    following schedule:
+    1) config_wifiSwPnoMobilityStateTimerIterations iterations with initial interval provided by
+    the mobility status (see config_wifiMovingPnoScanIntervalMillis and
+    config_wifiStationaryPnoScanIntervalMillis for the default values respectively for moving and
+    stationary devices). At each iteration the interval is increased proportionally to the elapsed
+    iterations. The device is awakened even if currently in doze/idle mode.
+    2) config_wifiSwPnoFastTimerIterations iterations with initial interval provided by
+    config_wifiSwPnoFastTimerMs. The device is awakened even if currently in doze/idle mode.
+    3) config_wifiSwPnoSlowTimerIterations iterations with initial provided by
+    config_wifiSwPnoSlowTimerMs and a window of config_wifiSwPnoSlowTimerMargin.
+    Inside such time window, the device is not awakened to perform the scan. If a wakeup happens for
+    other reasons, the scan might be performed as well in order to avoid subsequent awakening.
+    If no spontaneous awakening happens at the end of the time window, the device is awakened to
+    perform the scan.-->
+    <bool translatable="false" name="config_wifiSwPnoEnabled">true</bool>
 </resources>

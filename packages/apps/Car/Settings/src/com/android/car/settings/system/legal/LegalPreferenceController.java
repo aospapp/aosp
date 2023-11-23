@@ -50,7 +50,7 @@ public abstract class LegalPreferenceController extends PreferenceController<Pre
     }
 
     @Override
-    public int getAvailabilityStatus() {
+    public int getDefaultAvailabilityStatus() {
         mResolveInfo = findMatchingSpecificActivity();
         return mResolveInfo != null ? AVAILABLE : UNSUPPORTED_ON_DEVICE;
     }

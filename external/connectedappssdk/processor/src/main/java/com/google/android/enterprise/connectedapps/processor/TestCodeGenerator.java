@@ -17,11 +17,11 @@ package com.google.android.enterprise.connectedapps.processor;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 
+import com.google.android.enterprise.connectedapps.processor.containers.ConnectorInfo;
 import com.google.android.enterprise.connectedapps.processor.containers.CrossProfileConfigurationInfo;
 import com.google.android.enterprise.connectedapps.processor.containers.CrossProfileTestInfo;
 import com.google.android.enterprise.connectedapps.processor.containers.CrossProfileTypeInfo;
 import com.google.android.enterprise.connectedapps.processor.containers.GeneratorContext;
-import com.google.android.enterprise.connectedapps.processor.containers.ProfileConnectorInfo;
 import com.google.android.enterprise.connectedapps.processor.containers.ProviderClassInfo;
 import java.util.HashSet;
 import java.util.Set;
@@ -37,8 +37,10 @@ import java.util.Set;
 final class TestCodeGenerator {
   private boolean generated = false;
   private final GeneratorContext generatorContext;
-  private final Set<CrossProfileTypeInfo> fakedTypes = new HashSet<>();
-  private final Set<ProfileConnectorInfo> fakedConnectors = new HashSet<>();
+  private final Set<ConnectorInfo> fakedConnectors = new HashSet<>();
+  private final Set<CrossProfileTypeInfo> allFakedTypes = new HashSet<>();
+  private final Set<CrossProfileTypeInfo> crossProfileFakedTypes = new HashSet<>();
+  private final Set<CrossProfileTypeInfo> crossUserFakedTypes = new HashSet<>();
 
   TestCodeGenerator(GeneratorContext generatorContext) {
     this.generatorContext = checkNotNull(generatorContext);
@@ -55,13 +57,28 @@ final class TestCodeGenerator {
   }
 
   private void generateFakes() {
-    for (ProfileConnectorInfo connector : fakedConnectors) {
-      new FakeProfileConnectorGenerator(generatorContext, connector).generate();
+    for (ConnectorInfo connectorInfo : fakedConnectors) {
+      if (connectorInfo.hasCrossProfileConnector()) {
+        new FakeProfileConnectorGenerator(generatorContext, connectorInfo.profileConnector().get())
+            .generate();
+      }
+
+      if (connectorInfo.hasCrossUserConnector()) {
+        new FakeUserConnectorGenerator(generatorContext, connectorInfo.userConnector().get())
+            .generate();
+      }
     }
 
-    for (CrossProfileTypeInfo type : fakedTypes) {
-      new FakeCrossProfileTypeGenerator(generatorContext, type).generate();
+    for (CrossProfileTypeInfo type : allFakedTypes) {
       new FakeOtherGenerator(generatorContext, type).generate();
+    }
+
+    for (CrossProfileTypeInfo type : crossProfileFakedTypes) {
+      new FakeCrossProfileTypeGenerator(generatorContext, type).generate();
+    }
+
+    for (CrossProfileTypeInfo type : crossUserFakedTypes) {
+      new FakeCrossUserTypeGenerator(generatorContext, type).generate();
     }
   }
 
@@ -78,20 +95,28 @@ final class TestCodeGenerator {
   }
 
   private void collectTestTypes(CrossProfileConfigurationInfo configuration) {
-    for (ProviderClassInfo provider : configuration.providers()) {
-      collectTestTypes(provider);
+    if (configuration.connectorInfo().hasCrossProfileConnector()) {
+      for (ProviderClassInfo provider : configuration.providers()) {
+        collectTestTypes(crossProfileFakedTypes, provider);
+      }
+    }
+    if (configuration.connectorInfo().hasCrossUserConnector()) {
+      for (ProviderClassInfo provider : configuration.providers()) {
+        collectTestTypes(crossUserFakedTypes, provider);
+      }
     }
 
-    fakedConnectors.add(configuration.profileConnector());
+    fakedConnectors.add(configuration.connectorInfo());
   }
 
-  private void collectTestTypes(ProviderClassInfo provider) {
+  private void collectTestTypes(Set<CrossProfileTypeInfo> targetSet, ProviderClassInfo provider) {
     for (CrossProfileTypeInfo type : provider.allCrossProfileTypes()) {
-      collectTestTypes(type);
+      collectTestTypes(targetSet, type);
     }
   }
 
-  private void collectTestTypes(CrossProfileTypeInfo type) {
-    fakedTypes.add(type);
+  private void collectTestTypes(Set<CrossProfileTypeInfo> targetSet, CrossProfileTypeInfo type) {
+    allFakedTypes.add(type);
+    targetSet.add(type);
   }
 }

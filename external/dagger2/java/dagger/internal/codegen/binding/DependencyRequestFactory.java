@@ -16,40 +16,51 @@
 
 package dagger.internal.codegen.binding;
 
-import static com.google.auto.common.MoreTypes.isTypeOf;
+import static androidx.room.compiler.processing.compat.XConverters.toJavac;
+import static androidx.room.compiler.processing.compat.XConverters.toXProcessing;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static dagger.internal.codegen.base.RequestKinds.extractKeyType;
-import static dagger.internal.codegen.base.RequestKinds.frameworkClass;
+import static dagger.internal.codegen.base.RequestKinds.frameworkClassName;
 import static dagger.internal.codegen.base.RequestKinds.getRequestKind;
+import static dagger.internal.codegen.binding.AssistedInjectionAnnotations.isAssistedParameter;
 import static dagger.internal.codegen.binding.ConfigurationAnnotations.getNullableType;
+import static dagger.internal.codegen.extension.DaggerStreams.toImmutableList;
 import static dagger.internal.codegen.langmodel.DaggerTypes.unwrapType;
-import static dagger.model.RequestKind.FUTURE;
-import static dagger.model.RequestKind.INSTANCE;
-import static dagger.model.RequestKind.MEMBERS_INJECTION;
-import static dagger.model.RequestKind.PRODUCER;
-import static dagger.model.RequestKind.PROVIDER;
+import static dagger.internal.codegen.xprocessing.XTypes.isTypeOf;
+import static dagger.spi.model.RequestKind.FUTURE;
+import static dagger.spi.model.RequestKind.INSTANCE;
+import static dagger.spi.model.RequestKind.MEMBERS_INJECTION;
+import static dagger.spi.model.RequestKind.PRODUCER;
+import static dagger.spi.model.RequestKind.PROVIDER;
 
+import androidx.room.compiler.processing.XAnnotation;
+import androidx.room.compiler.processing.XElement;
+import androidx.room.compiler.processing.XMethodElement;
+import androidx.room.compiler.processing.XMethodType;
+import androidx.room.compiler.processing.XProcessingEnv;
+import androidx.room.compiler.processing.XType;
+import androidx.room.compiler.processing.XVariableElement;
+import androidx.room.compiler.processing.compat.XConverters;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.util.concurrent.ListenableFuture;
 import dagger.Lazy;
 import dagger.internal.codegen.base.MapType;
 import dagger.internal.codegen.base.OptionalType;
-import dagger.model.DependencyRequest;
-import dagger.model.Key;
-import dagger.model.RequestKind;
+import dagger.internal.codegen.javapoet.TypeNames;
+import dagger.spi.model.DaggerElement;
+import dagger.spi.model.DependencyRequest;
+import dagger.spi.model.Key;
+import dagger.spi.model.RequestKind;
 import java.util.List;
 import java.util.Optional;
 import javax.inject.Inject;
 import javax.inject.Provider;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.Element;
-import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.VariableElement;
 import javax.lang.model.type.DeclaredType;
-import javax.lang.model.type.ExecutableType;
 import javax.lang.model.type.TypeMirror;
 
 /**
@@ -59,13 +70,25 @@ import javax.lang.model.type.TypeMirror;
  * may mean that the type will be generated in a later round of processing.
  */
 public final class DependencyRequestFactory {
+  private final XProcessingEnv processingEnv;
   private final KeyFactory keyFactory;
   private final InjectionAnnotations injectionAnnotations;
 
   @Inject
-  DependencyRequestFactory(KeyFactory keyFactory, InjectionAnnotations injectionAnnotations) {
+  DependencyRequestFactory(
+      XProcessingEnv processingEnv,
+      KeyFactory keyFactory,
+      InjectionAnnotations injectionAnnotations) {
+    this.processingEnv = processingEnv;
     this.keyFactory = keyFactory;
     this.injectionAnnotations = injectionAnnotations;
+  }
+
+  ImmutableSet<DependencyRequest> forRequiredResolvedXVariables(
+      List<? extends XVariableElement> variables, List<XType> resolvedTypes) {
+    return forRequiredResolvedVariables(
+        variables.stream().map(XConverters::toJavac).collect(toImmutableList()),
+        resolvedTypes.stream().map(XConverters::toJavac).collect(toImmutableList()));
   }
 
   ImmutableSet<DependencyRequest> forRequiredResolvedVariables(
@@ -114,7 +137,7 @@ public final class DependencyRequestFactory {
       case MAP:
         MapType mapType = MapType.from(multibindingKey);
         for (RequestKind kind : WRAPPING_MAP_VALUE_FRAMEWORK_TYPES) {
-          if (mapType.valuesAreTypeOf(frameworkClass(kind))) {
+          if (mapType.valuesAreTypeOf(frameworkClassName(kind))) {
             return kind;
           }
         }
@@ -130,44 +153,49 @@ public final class DependencyRequestFactory {
   }
 
   DependencyRequest forRequiredResolvedVariable(
+      XVariableElement variableElement, XType resolvedType) {
+    return forRequiredResolvedVariable(toJavac(variableElement), toJavac(resolvedType));
+  }
+
+  DependencyRequest forRequiredResolvedVariable(
       VariableElement variableElement, TypeMirror resolvedType) {
     checkNotNull(variableElement);
     checkNotNull(resolvedType);
     // Ban @Assisted parameters, they are not considered dependency requests.
-    checkArgument(!AssistedInjectionAnnotations.isAssistedParameter(variableElement));
+    checkArgument(!isAssistedParameter(toXProcessing(variableElement, processingEnv)));
     Optional<AnnotationMirror> qualifier = injectionAnnotations.getQualifier(variableElement);
     return newDependencyRequest(variableElement, resolvedType, qualifier);
   }
 
   public DependencyRequest forComponentProvisionMethod(
-      ExecutableElement provisionMethod, ExecutableType provisionMethodType) {
+      XMethodElement provisionMethod, XMethodType provisionMethodType) {
     checkNotNull(provisionMethod);
     checkNotNull(provisionMethodType);
     checkArgument(
         provisionMethod.getParameters().isEmpty(),
         "Component provision methods must be empty: %s",
         provisionMethod);
-    Optional<AnnotationMirror> qualifier = injectionAnnotations.getQualifier(provisionMethod);
+    Optional<XAnnotation> qualifier = injectionAnnotations.getQualifier(provisionMethod);
     return newDependencyRequest(provisionMethod, provisionMethodType.getReturnType(), qualifier);
   }
 
   public DependencyRequest forComponentProductionMethod(
-      ExecutableElement productionMethod, ExecutableType productionMethodType) {
+      XMethodElement productionMethod, XMethodType productionMethodType) {
     checkNotNull(productionMethod);
     checkNotNull(productionMethodType);
     checkArgument(
         productionMethod.getParameters().isEmpty(),
         "Component production methods must be empty: %s",
         productionMethod);
-    TypeMirror type = productionMethodType.getReturnType();
-    Optional<AnnotationMirror> qualifier = injectionAnnotations.getQualifier(productionMethod);
+    XType type = productionMethodType.getReturnType();
+    Optional<XAnnotation> qualifier = injectionAnnotations.getQualifier(productionMethod);
     // Only a component production method can be a request for a ListenableFuture, so we
     // special-case it here.
-    if (isTypeOf(ListenableFuture.class, type)) {
+    if (isTypeOf(type, TypeNames.LISTENABLE_FUTURE)) {
       return DependencyRequest.builder()
           .kind(FUTURE)
           .key(keyFactory.forQualifiedType(qualifier, unwrapType(type)))
-          .requestElement(productionMethod)
+          .requestElement(DaggerElement.from(productionMethod))
           .build();
     } else {
       return newDependencyRequest(productionMethod, type, qualifier);
@@ -175,17 +203,16 @@ public final class DependencyRequestFactory {
   }
 
   DependencyRequest forComponentMembersInjectionMethod(
-      ExecutableElement membersInjectionMethod, ExecutableType membersInjectionMethodType) {
+      XMethodElement membersInjectionMethod, XMethodType membersInjectionMethodType) {
     checkNotNull(membersInjectionMethod);
     checkNotNull(membersInjectionMethodType);
-    Optional<AnnotationMirror> qualifier =
-        injectionAnnotations.getQualifier(membersInjectionMethod);
+    Optional<XAnnotation> qualifier = injectionAnnotations.getQualifier(membersInjectionMethod);
     checkArgument(!qualifier.isPresent());
-    TypeMirror membersInjectedType = getOnlyElement(membersInjectionMethodType.getParameterTypes());
+    XType membersInjectedType = getOnlyElement(membersInjectionMethodType.getParameterTypes());
     return DependencyRequest.builder()
         .kind(MEMBERS_INJECTION)
         .key(keyFactory.forMembersInjectedType(membersInjectedType))
-        .requestElement(membersInjectionMethod)
+        .requestElement(DaggerElement.from(membersInjectionMethod))
         .build();
   }
 
@@ -219,12 +246,18 @@ public final class DependencyRequestFactory {
   }
 
   private DependencyRequest newDependencyRequest(
+      XElement requestElement, XType type, Optional<XAnnotation> qualifier) {
+    return newDependencyRequest(
+        toJavac(requestElement), toJavac(type), qualifier.map(XConverters::toJavac));
+  }
+
+  private DependencyRequest newDependencyRequest(
       Element requestElement, TypeMirror type, Optional<AnnotationMirror> qualifier) {
     RequestKind requestKind = getRequestKind(type);
     return DependencyRequest.builder()
         .kind(requestKind)
         .key(keyFactory.forQualifiedType(qualifier, extractKeyType(type)))
-        .requestElement(requestElement)
+        .requestElement(DaggerElement.from(toXProcessing(requestElement, processingEnv)))
         .isNullable(allowsNull(requestKind, getNullableType(requestElement)))
         .build();
   }

@@ -31,8 +31,8 @@
     <string name="set_live_wallpaper" msgid="764007409845174475">"वालपेपरलाई  मिलाउनुहोस्"</string>
     <string name="wallpaper_title_and_author" msgid="7606029050779779421">"<xliff:g id="TITLE">%1$s</xliff:g> बाट <xliff:g id="AUTHOR">%2$s</xliff:g>"</string>
     <string name="live_wallpaper_loading" msgid="7218845906181560315">"लाइभ वालपेपर लोड हुँदै ..."</string>
-    <string name="which_wallpaper_option_home_screen" msgid="3323619298489943624">"गृह स्क्रिन"</string>
-    <string name="which_wallpaper_option_home_screen_and_lock_screen" msgid="1650093303691767601">"गृह स्क्रिन र लक स्क्रिन"</string>
+    <string name="which_wallpaper_option_home_screen" msgid="3323619298489943624">"होम स्क्रिन"</string>
+    <string name="which_wallpaper_option_home_screen_and_lock_screen" msgid="1650093303691767601">"होम स्क्रिन र लक स्क्रिन"</string>
     <string name="explore_further" msgid="489032063223099244">"अन्वेषण गर्नु…"</string>
     <string name="tab_info" msgid="5501369870701932475">"जानकारी"</string>
     <string name="tab_customize" msgid="9007237541087328909">"आफू अनुकूल पार्नुहोस्"</string>

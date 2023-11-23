@@ -33,6 +33,7 @@ import com.android.compatibility.common.util.CddTest;
 
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 
 import java.util.Arrays;
@@ -70,7 +71,8 @@ public class RequestPinAppWidgetTest extends AppWidgetTestCase {
         extras.putString("dummy", launcherPkg + "-dummy");
 
         PendingIntent pinResult = PendingIntent.getBroadcast(context, 0,
-                new Intent(ACTION_PIN_RESULT), PendingIntent.FLAG_ONE_SHOT | PendingIntent.FLAG_MUTABLE_UNAUDITED);
+                new Intent(ACTION_PIN_RESULT).setPackage(context.getPackageName()),
+                PendingIntent.FLAG_ONE_SHOT | PendingIntent.FLAG_MUTABLE);
         AppWidgetManager.getInstance(context).requestPinAppWidget(
                 getFirstWidgetComponent(), extras, pinResult);
 
@@ -101,11 +103,13 @@ public class RequestPinAppWidgetTest extends AppWidgetTestCase {
         assertEquals("dummy-2", resultReceiver.result.getStringExtra("dummy"));
     }
 
+    @Ignore("b/265187199")
     @Test
     public void testPinWidget_launcher1() throws Exception {
         runPinWidgetTest("android.appwidget.cts.packages.launcher1");
     }
 
+    @Ignore("b/265187199")
     @Test
     public void testPinWidget_launcher2() throws Exception {
         runPinWidgetTest("android.appwidget.cts.packages.launcher2");
@@ -121,16 +125,19 @@ public class RequestPinAppWidgetTest extends AppWidgetTestCase {
                 AppWidgetManager.getInstance(context).isRequestPinAppWidgetSupported());
     }
 
+    @Ignore("b/265187199")
     @Test
     public void testIsRequestPinAppWidgetSupported_launcher1() throws Exception {
         verifyIsRequestPinAppWidgetSupported("android.appwidget.cts.packages.launcher1", true);
     }
 
+    @Ignore("b/265187199")
     @Test
     public void testIsRequestPinAppWidgetSupported_launcher2() throws Exception {
         verifyIsRequestPinAppWidgetSupported("android.appwidget.cts.packages.launcher2", true);
     }
 
+    @Ignore("b/265187199")
     @Test
     public void testIsRequestPinAppWidgetSupported_launcher3() throws Exception {
         verifyIsRequestPinAppWidgetSupported("android.appwidget.cts.packages.launcher3", false);

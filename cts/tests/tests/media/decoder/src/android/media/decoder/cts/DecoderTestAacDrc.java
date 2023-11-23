@@ -24,15 +24,14 @@ import static org.junit.Assert.fail;
 import android.app.Instrumentation;
 import android.content.res.AssetFileDescriptor;
 import android.content.res.Resources;
-import android.media.decoder.cts.DecoderTest.AudioParameter;
-import android.media.decoder.cts.R;
 import android.media.MediaCodec;
 import android.media.MediaExtractor;
 import android.media.MediaFormat;
+import android.media.decoder.cts.DecoderTest.AudioParameter;
 import android.os.Build;
+import android.os.Bundle;
 import android.platform.test.annotations.AppModeFull;
 import android.util.Log;
-import android.os.Bundle;
 
 import androidx.test.InstrumentationRegistry;
 

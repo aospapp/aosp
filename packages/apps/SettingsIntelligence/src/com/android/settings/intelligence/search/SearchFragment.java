@@ -23,6 +23,7 @@ import android.app.Activity;
 import android.content.Context;
 import android.os.Bundle;
 import androidx.annotation.VisibleForTesting;
+import androidx.cardview.widget.CardView;
 import androidx.loader.content.Loader;
 import androidx.loader.app.LoaderManager;
 import androidx.recyclerview.widget.LinearLayoutManager;
@@ -148,6 +149,9 @@ public class SearchFragment extends Fragment implements SearchView.OnQueryTextLi
         mResultsRecyclerView.addOnScrollListener(mScrollListener);
 
         mNoResultsView = view.findViewById(R.id.no_results_layout);
+
+        final CardView cardView = view.findViewById(R.id.search_bar);
+        cardView.setBackgroundResource(R.drawable.search_bar_selected_background);
 
         final Toolbar toolbar = view.findViewById(R.id.search_toolbar);
         activity.setActionBar(toolbar);
@@ -289,6 +293,7 @@ public class SearchFragment extends Fragment implements SearchView.OnQueryTextLi
     }
 
     public void onSearchResultClicked(SearchViewHolder resultViewHolder, SearchResult result) {
+        hideKeyboard();
         logSearchResultClicked(resultViewHolder, result);
         mSearchFeatureProvider.searchResultClicked(getContext(), mQuery, result);
         mSavedQueryController.saveQuery(mQuery);

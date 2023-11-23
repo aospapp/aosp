@@ -38,6 +38,7 @@
 #include "indirect_reference_table-inl.h"
 #include "java_vm_ext.h"
 #include "jni_internal.h"
+#include "local_reference_table-inl.h"
 #include "mirror/class-inl.h"
 #include "mirror/field.h"
 #include "mirror/method.h"
@@ -56,13 +57,18 @@ namespace art {
 // declared as a friend by JniVmExt and JniEnvExt.
 inline IndirectReferenceTable* GetIndirectReferenceTable(ScopedObjectAccess& soa,
                                                          IndirectRefKind kind) {
-  DCHECK_NE(kind, kJniTransitionOrInvalid);
-  JNIEnvExt* env = soa.Env();
-  IndirectReferenceTable* irt =
-      (kind == kLocal) ? &env->locals_
-                       : ((kind == kGlobal) ? &env->vm_->globals_ : &env->vm_->weak_globals_);
+  DCHECK_NE(kind, kJniTransition);
+  DCHECK_NE(kind, kLocal);
+  JavaVMExt* vm = soa.Env()->GetVm();
+  IndirectReferenceTable* irt = (kind == kGlobal) ? &vm->globals_ : &vm->weak_globals_;
   DCHECK_EQ(irt->GetKind(), kind);
   return irt;
+}
+
+// This helper cannot be in the anonymous namespace because it needs to be
+// declared as a friend by JniEnvExt.
+inline jni::LocalReferenceTable* GetLocalReferenceTable(ScopedObjectAccess& soa) {
+  return &soa.Env()->locals_;
 }
 
 namespace {
@@ -723,7 +729,7 @@ class ScopedCheck {
     IndirectRefKind found_kind;
     if (expected_kind == kLocal) {
       found_kind = IndirectReferenceTable::GetIndirectRefKind(obj);
-      if (found_kind == kJniTransitionOrInvalid &&
+      if (found_kind == kJniTransition &&
           obj != nullptr &&
           self->IsJniTransitionReference(obj)) {
         found_kind = kLocal;
@@ -866,12 +872,18 @@ class ScopedCheck {
     bool expect_null = false;
     bool okay = true;
     std::string error_msg;
-    if (ref_kind == kJniTransitionOrInvalid) {
+    if (ref_kind == kJniTransition) {
       if (!soa.Self()->IsJniTransitionReference(java_object)) {
         okay = false;
         error_msg = "use of invalid jobject";
       } else {
         obj = soa.Decode<mirror::Object>(java_object);
+      }
+    } else if (ref_kind == kLocal) {
+      jni::LocalReferenceTable* lrt = GetLocalReferenceTable(soa);
+      okay = lrt->IsValidReference(java_object, &error_msg);
+      if (okay) {
+        obj = lrt->Get(ref);
       }
     } else {
       IndirectReferenceTable* irt = GetIndirectReferenceTable(soa, ref_kind);
@@ -881,10 +893,7 @@ class ScopedCheck {
         // Note: The `IsValidReference()` checks for null but we do not prevent races,
         // so the null check below can still fail. Even if it succeeds, another thread
         // could delete the global or weak global before it's used by JNI.
-        if (ref_kind == kLocal) {
-          // Local references do not need a read barrier.
-          obj = irt->Get<kWithoutReadBarrier>(ref);
-        } else if (ref_kind == kGlobal) {
+        if (ref_kind == kGlobal) {
           obj = soa.Env()->GetVm()->DecodeGlobal(ref);
         } else {
           obj = soa.Env()->GetVm()->DecodeWeakGlobal(soa.Self(), ref);
@@ -2340,6 +2349,7 @@ class CheckJNI {
     CallMethodV(__FUNCTION__, env, obj, c, mid, vargs, Primitive::kPrimVoid, kDirect);
   }
 
+  NO_STACK_PROTECTOR
   static void CallStaticVoidMethodV(JNIEnv* env, jclass c, jmethodID mid, va_list vargs) {
     CallMethodV(__FUNCTION__, env, nullptr, c, mid, vargs, Primitive::kPrimVoid, kStatic);
   }
@@ -3304,6 +3314,7 @@ class CheckJNI {
     return result;
   }
 
+  NO_STACK_PROTECTOR
   static JniValueType CallMethodV(const char* function_name, JNIEnv* env, jobject obj, jclass c,
                                   jmethodID mid, va_list vargs, Primitive::Type type,
                                   InvokeType invoke) {

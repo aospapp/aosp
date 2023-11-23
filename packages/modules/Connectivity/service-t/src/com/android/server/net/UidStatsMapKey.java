@@ -24,10 +24,10 @@ import com.android.net.module.util.Struct.Type;
  * Key for uid stats map.
  */
 public class UidStatsMapKey extends Struct {
-    @Field(order = 0, type = Type.U32)
-    public final long uid;
+    @Field(order = 0, type = Type.S32)
+    public final int uid;
 
-    public UidStatsMapKey(final long uid) {
+    public UidStatsMapKey(final int uid) {
         this.uid = uid;
     }
 }

@@ -78,6 +78,7 @@ class ClientInterfaceImpl {
   bool SignalPoll(std::vector<int32_t>* out_signal_poll_results);
   const std::array<uint8_t, ETH_ALEN>& GetMacAddress();
   const std::string& GetInterfaceName() const { return interface_name_; }
+  void UpdateBandInfo();
   const BandInfo& GetBandInfo() const;
   const android::sp<ScannerImpl> GetScanner() { return scanner_; };
   virtual bool IsAssociated() const;

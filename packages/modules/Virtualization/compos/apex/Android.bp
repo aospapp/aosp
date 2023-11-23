@@ -35,7 +35,7 @@ apex {
 
     // TODO(b/206618706): make it updatable
     updatable: false,
-    future_updatable: true,
+    future_updatable: false,
     platform_apis: true,
 
     system_ext_specific: true,

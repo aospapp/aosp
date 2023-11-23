@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2012, 2018, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2012, 2019, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -132,6 +132,7 @@ public final class OffsetTime
     /**
      * Serialization version.
      */
+    @java.io.Serial
     private static final long serialVersionUID = 7264499704384272492L;
 
     /**
@@ -1170,9 +1171,9 @@ public final class OffsetTime
     @Override
     public long until(Temporal endExclusive, TemporalUnit unit) {
         OffsetTime end = OffsetTime.from(endExclusive);
-        if (unit instanceof ChronoUnit) {
+        if (unit instanceof ChronoUnit chronoUnit) {
             long nanosUntil = end.toEpochNano() - toEpochNano();  // no overflow
-            switch ((ChronoUnit) unit) {
+            switch (chronoUnit) {
                 case NANOS: return nanosUntil;
                 case MICROS: return nanosUntil / 1000;
                 case MILLIS: return nanosUntil / 1000_000;
@@ -1352,11 +1353,9 @@ public final class OffsetTime
         if (this == obj) {
             return true;
         }
-        if (obj instanceof OffsetTime) {
-            OffsetTime other = (OffsetTime) obj;
-            return time.equals(other.time) && offset.equals(other.offset);
-        }
-        return false;
+        return (obj instanceof OffsetTime other)
+                && time.equals(other.time)
+                && offset.equals(other.offset);
     }
 
     /**
@@ -1394,16 +1393,17 @@ public final class OffsetTime
     //-----------------------------------------------------------------------
     /**
      * Writes the object using a
-     * <a href="../../serialized-form.html#java.time.Ser">dedicated serialized form</a>.
+     * <a href="{@docRoot}/serialized-form.html#java.time.Ser">dedicated serialized form</a>.
      * @serialData
      * <pre>
      *  out.writeByte(9);  // identifies an OffsetTime
-     *  // the <a href="../../serialized-form.html#java.time.LocalTime">time</a> excluding the one byte header
-     *  // the <a href="../../serialized-form.html#java.time.ZoneOffset">offset</a> excluding the one byte header
+     *  // the <a href="{@docRoot}/serialized-form.html#java.time.LocalTime">time</a> excluding the one byte header
+     *  // the <a href="{@docRoot}/serialized-form.html#java.time.ZoneOffset">offset</a> excluding the one byte header
      * </pre>
      *
      * @return the instance of {@code Ser}, not null
      */
+    @java.io.Serial
     private Object writeReplace() {
         return new Ser(Ser.OFFSET_TIME_TYPE, this);
     }
@@ -1414,6 +1414,7 @@ public final class OffsetTime
      * @param s the stream to read
      * @throws InvalidObjectException always
      */
+    @java.io.Serial
     private void readObject(ObjectInputStream s) throws InvalidObjectException {
         throw new InvalidObjectException("Deserialization via serialization delegate");
     }
